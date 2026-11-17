@@ -11,7 +11,7 @@ const host = () => (process.env.MAILGUN_REGION === "us" ? "api.mailgun.net" : "a
 const headerName = (v: string) => v.replace(/["\r\n<>]/g, "").trim();
 
 export async function platformSettings() {
-  return (await db.platformSettings.findUnique({ where: { id: 1 } })) ?? { id: 1, brandName: "Gelato System", baseDomain: null, supportEmail: null, lastBackupCheckAt: null, lastRestoreDrillAt: null, bunnyZone: null, bunnyRegion: null, bunnyCdnUrl: null };
+  return (await db.platformSettings.findUnique({ where: { id: 1 } })) ?? { id: 1, brandName: "Gelato System", baseDomain: null, supportEmail: null, lastBackupCheckAt: null, lastRestoreDrillAt: null, bunnyZone: null, bunnyRegion: null, bunnyCdnUrl: null, legalVersion: null, termsUrl: null, privacyUrl: null };
 }
 
 /** Διεύθυνση της εφαρμογής για έναν πελάτη: ο υποτομέας του αν υπάρχει, αλλιώς η γενική (APP_URL). */

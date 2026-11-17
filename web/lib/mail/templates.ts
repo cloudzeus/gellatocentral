@@ -122,6 +122,22 @@ export const templates = {
       paragraphs: [`Αυτό το μήνυμα στάλθηκε στο ${d.to} από τις ρυθμίσεις της πλατφόρμας. Αν το διαβάζεις, το Mailgun είναι σωστά ρυθμισμένο.`],
       tone: "success",
     }),
+  /** Αποτέλεσμα αιτήματος διαγραφής προσωπικών δεδομένων. */
+  gdpr: (b: Brand, d: { name: string; outcome: "completed" | "rejected"; note?: string }) =>
+    d.outcome === "completed"
+      ? mail(b, "Τα δεδομένα σου διαγράφηκαν", {
+          preheader: "Το αίτημα διαγραφής ολοκληρώθηκε",
+          title: "Τα δεδομένα σου διαγράφηκαν",
+          paragraphs: [`Γεια σου ${d.name},`, "Το αίτημά σου ολοκληρώθηκε: ο λογαριασμός σου και τα προσωπικά σου στοιχεία διαγράφηκαν. Αυτό είναι το τελευταίο μήνυμα που λαμβάνεις από εμάς."],
+          note: "Κρατάμε μόνο όσα επιβάλλει ο νόμος (π.χ. φορολογικά παραστατικά), χωρίς προσωπικά σου στοιχεία.",
+          tone: "success",
+        })
+      : mail(b, "Το αίτημα διαγραφής δεν έγινε δεκτό", {
+          preheader: "Απάντηση στο αίτημα διαγραφής των δεδομένων σου",
+          title: "Το αίτημα διαγραφής δεν έγινε δεκτό",
+          paragraphs: [`Γεια σου ${d.name},`, "Εξετάσαμε το αίτημά σου για διαγραφή των προσωπικών σου δεδομένων και δεν μπορούμε να το ικανοποιήσουμε.", ...(d.note ? [`Ο λόγος: ${d.note}`] : [])],
+          note: "Αν διαφωνείς, μπορείς να απευθυνθείς στην Αρχή Προστασίας Δεδομένων Προσωπικού Χαρακτήρα (dpa.gr).",
+        }),
 };
 
 export const TEMPLATE_LABEL: Record<keyof typeof templates, string> = {
@@ -133,6 +149,7 @@ export const TEMPLATE_LABEL: Record<keyof typeof templates, string> = {
   trialEnding: "Λήξη δοκιμής σε λίγες ημέρες",
   subscriptionExpired: "Η συνδρομή έληξε",
   test: "Δοκιμαστικό",
+  gdpr: "Αποτέλεσμα αιτήματος διαγραφής",
 };
 
 /** Δείγματα για την προεπισκόπηση στις ρυθμίσεις. */
@@ -148,5 +165,6 @@ export function samples(b: Brand): Record<keyof typeof templates, Mail> {
     trialEnding: templates.trialEnding(b, { orgName: "Gelateria Aurora", endsAt: new Date("2026-11-30"), daysLeft: 3, monthlyCents: 16300 }),
     subscriptionExpired: templates.subscriptionExpired(b, { orgName: "Gelateria Aurora", endedAt: new Date("2026-11-30") }),
     test: templates.test(b, { to: "you@example.com" }),
+    gdpr: templates.gdpr(b, { name: "Μαρία", outcome: "completed" }),
   };
 }

@@ -3,6 +3,8 @@ import { Suspense } from "react";
 import { BottomNav, NavLinks, Sidebar, UserFooter } from "@/components/nav-links";
 import { getUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { needsLegalConsent } from "@/lib/gdpr";
+import { redirect } from "next/navigation";
 import { ALL_PERMISSIONS, permissionFor, PLATFORM_ROLES, platformCan } from "@/lib/permissions";
 import { ALL_ITEMS } from "@/lib/nav";
 import { logout } from "../login/actions";
@@ -17,10 +19,12 @@ const SUPER_ONLY = ["/platform/settings", "/platform/infrastructure", "/platform
 async function navFor() {
   const user = await getUser();
   if (!user) return null;
+  // νέα έκδοση όρων (ή πρώτη είσοδος): πρώτα αποδοχή, μετά η εφαρμογή
+  if (await needsLegalConsent(user.id)) redirect("/consent");
   const m = user.memberships[0];
   const permissions: string[] = m ? (m.role.locked ? ALL_PERMISSIONS : m.role.permissions) : [];
   const allowed = ALL_ITEMS.map((i) => i.to).filter((to) =>
-    SUPER_ONLY.includes(to) ? platformCan(user.platformRole, "settings.manage") : to.startsWith("/platform") ? !!user.platformRole : permissions.includes(permissionFor(to)),
+    SUPER_ONLY.includes(to) ? platformCan(user.platformRole, "settings.manage") : to === "/platform/gdpr" ? platformCan(user.platformRole, "gdpr.manage") : to.startsWith("/platform") ? !!user.platformRole : permissions.includes(permissionFor(to)),
   );
   // εκκρεμότητες δίπλα στο στοιχείο του μενού που τις λύνει
   const unsent = m && allowed.includes("/receipts") ? await db.fiscalDocument.count({ where: { sale: { orgId: m.orgId, status: "COMPLETED" }, status: { not: "SIGNED" } } }) : 0;

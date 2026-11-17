@@ -10,7 +10,7 @@ import { filterParam, listParams } from "@/lib/paging";
 import { PLATFORM_PERMISSIONS, PLATFORM_ROLES } from "@/lib/permissions";
 import { checkoutConfigured } from "@/lib/viva/checkout";
 import { REGIONS, storageConfig } from "@/lib/storage/bunny";
-import { addStaff, removeStaff, savePlatformSettings, saveStorageSettings, sendTestMail, setStaffRole, testStorage } from "../actions";
+import { addStaff, removeStaff, savePlatformSettings, saveLegalSettings, saveStorageSettings, sendTestMail, setStaffRole, testStorage } from "../actions";
 import { Submit } from "@/components/submit";
 
 const TEST: Record<string, { ok: boolean; text: string }> = {
@@ -115,6 +115,29 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
               <div key={l} className="min-w-0"><dt className="text-xs font-medium text-muted-foreground">{l}</dt><dd className="truncate font-semibold">{v || <span className="font-normal text-muted-foreground">Δεν έχει οριστεί</span>}</dd></div>
             ))}
             <div><dt className="text-xs font-medium text-muted-foreground">Κωδικός ζώνης (BUNNY_STORAGE_KEY)</dt><dd><Badge tone={storage.hasKey ? "success" : "warning"}>{storage.hasKey ? "Ορισμένος στον server" : "Λείπει από το .env"}</Badge></dd></div>
+          </dl>
+        </Card>
+
+        <Card id="legal" className="scroll-mt-28">
+          <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
+            {settings.legalVersion && settings.termsUrl && settings.privacyUrl ? <CircleCheck className="size-6 shrink-0 text-success" /> : <CircleAlert className="size-6 shrink-0 text-gold" />}
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg">Νομικά κείμενα και αποδοχή όρων {q.saved === "legal" ? <span role="status" className="ml-2 text-sm font-semibold text-success">Αποθηκεύτηκε</span> : null}</h2>
+              <p className="text-sm text-muted-foreground">{settings.legalVersion && settings.termsUrl && settings.privacyUrl ? `Κάθε χρήστης αποδέχεται την έκδοση ${settings.legalVersion} πριν μπει στην εφαρμογή. Αν αλλάξεις έκδοση, θα τη ζητήσει ξανά από όλους.` : "Όσο λείπει κάποιο από τα τρία, η εφαρμογή δεν ζητά αποδοχή όρων από κανέναν."}</p>
+            </div>
+            <Modal label="Αλλαγή" title="Νομικά κείμενα" description="Τα κείμενα τα γράφει ο νομικός σου και αναρτώνται στον ιστότοπό σου. Εδώ μπαίνουν μόνο οι διευθύνσεις τους">
+              <form key={[settings.legalVersion, settings.termsUrl, settings.privacyUrl].join()} action={saveLegalSettings} className="grid gap-4 [&>button]:justify-self-end">
+                <Field label="Έκδοση" name="legalVersion" maxLength={20} defaultValue={settings.legalVersion ?? ""} placeholder="2026-11" hint="Άλλαξέ την μόνο όταν αλλάζει το περιεχόμενο: όλοι οι χρήστες θα κληθούν να αποδεχτούν ξανά" />
+                <Field label="Όροι χρήσης (διεύθυνση)" name="termsUrl" type="url" maxLength={300} defaultValue={settings.termsUrl ?? ""} placeholder="https://gelatosystem.app/terms" />
+                <Field label="Πολιτική απορρήτου (διεύθυνση)" name="privacyUrl" type="url" maxLength={300} defaultValue={settings.privacyUrl ?? ""} placeholder="https://gelatosystem.app/privacy" />
+                <Submit className={btn("default")}>Αποθήκευση</Submit>
+              </form>
+            </Modal>
+          </div>
+          <dl className="grid gap-x-6 gap-y-3 p-5 sm:grid-cols-3">
+            {[["Έκδοση", settings.legalVersion], ["Όροι χρήσης", settings.termsUrl], ["Πολιτική απορρήτου", settings.privacyUrl]].map(([l, v]) => (
+              <div key={l} className="min-w-0"><dt className="text-xs font-medium text-muted-foreground">{l}</dt><dd className="truncate font-semibold">{v ?? <span className="font-normal text-muted-foreground">Δεν έχει οριστεί</span>}</dd></div>
+            ))}
           </dl>
         </Card>
 

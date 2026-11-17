@@ -143,6 +143,10 @@ model PlatformSettings {
   bunnyZone   String? // όνομα storage zone
   bunnyRegion String? // κενό = Falkenstein· αλλιώς uk, ny, la, sg, se, br, jh, syd
   bunnyCdnUrl String? // pull zone, π.χ. https://gelato.b-cdn.net
+  // Νομικά κείμενα που αποδέχεται κάθε χρήστης. Και τα τρία μαζί ενεργοποιούν την υποχρεωτική αποδοχή· νέα έκδοση = νέα αποδοχή.
+  legalVersion String? // π.χ. "2026-11"
+  termsUrl     String?
+  privacyUrl   String?
 }
 
 model Session {
@@ -427,4 +431,70 @@ model StoredFile {
   org          Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId, category, refType, refId])
+}
+
+// ---- GDPR: συναινέσεις, αιτήματα διαγραφής και ημερολόγιο. Ένα σύστημα για δύο επίπεδα:
+// orgId = null → υποκείμενα της πλατφόρμας (προσωπικό, λογαριασμοί χωρίς επιχείρηση)· orgId = πελάτης → δικά του υποκείμενα
+// (το προσωπικό του και οι πελάτες του). Το υποκείμενο ορίζεται με (subjectType, subjectId), όπως τα αρχεία με (refType, refId),
+// ώστε κάθε νέα ενότητα (π.χ. πελάτες χονδρικής) να μπαίνει χωρίς αλλαγή στη βάση. Βλ. lib/gdpr.
+
+// Κάθε γραμμή είναι ένα γεγονός (δόθηκε ή ανακλήθηκε)· δεν αλλάζει ποτέ. Η τρέχουσα κατάσταση είναι η πιο πρόσφατη ανά σκοπό.
+model Consent {
+  id          String   @id @default(cuid())
+  orgId       String?
+  subjectType String // "user", "customer", …
+  subjectId   String
+  purpose     String // κλειδί του PURPOSES (lib/gdpr/rules.ts)
+  version     String
+  granted     Boolean
+  source      String // από πού ήρθε: activation, self, admin
+  ip          String?
+  userAgent   String?
+  at          DateTime @default(now())
+
+  @@index([orgId, subjectType, subjectId, purpose, at])
+}
+
+enum ErasureStatus {
+  PENDING
+  REJECTED
+  COMPLETED
+}
+
+// Αίτημα διαγραφής (δικαίωμα στη λήθη). Μετά την ολοκλήρωση το όνομα σβήνεται· μένει μόνο αποτύπωμα, ως απόδειξη ότι έγινε.
+model ErasureRequest {
+  id            String        @id @default(cuid())
+  orgId         String?
+  subjectType   String
+  subjectId     String? // κενό για υποκείμενο που δεν έχει εγγραφή στην εφαρμογή (δεδομένα εκτός συστήματος)
+  subjectLabel  String? // όνομα · email όσο το αίτημα είναι ανοιχτό
+  subjectHash   String // sha256 του email (ή του ονόματος): αναγνωρίζει επανάληψη αιτήματος χωρίς να κρατά το ίδιο το στοιχείο
+  reason        String?
+  requestedById String?
+  status        ErasureStatus @default(PENDING)
+  requestedAt   DateTime      @default(now())
+  dueAt         DateTime // ένας μήνας από το αίτημα (άρθρο 12 παρ. 3 ΓΚΠΔ)
+  decidedById   String?
+  decidedAt     DateTime?
+  decisionNote  String?
+  summary       Json? // τι σβήστηκε, σε αριθμούς
+
+  @@index([orgId, status, dueAt])
+}
+
+// Ημερολόγιο: ποιος έκανε τι, πότε, για ποιο υποκείμενο. Μόνο προσθήκες.
+model GdprEvent {
+  id           String   @id @default(cuid())
+  at           DateTime @default(now())
+  orgId        String?
+  type         String // κλειδί του EVENTS (lib/gdpr/rules.ts)
+  actorId      String?
+  actorLabel   String
+  subjectType  String?
+  subjectId    String?
+  subjectLabel String?
+  detail       Json?
+
+  @@index([orgId, at])
+  @@index([subjectType, subjectId])
 }

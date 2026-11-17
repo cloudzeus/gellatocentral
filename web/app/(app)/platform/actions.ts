@@ -352,6 +352,14 @@ export async function saveStorageSettings(form: FormData) {
   redirect("/platform/settings?saved=storage#storage");
 }
 
+export async function saveLegalSettings(form: FormData) {
+  await requirePlatform("settings.manage");
+  const link = (label: string) => optional(300).refine((v) => !v || /^https:\/\/\S+$/.test(v), `${label}: γράψε ολόκληρη διεύθυνση που αρχίζει με https://`);
+  const d = read(z.object({ legalVersion: optional(20), termsUrl: link("Όροι χρήσης"), privacyUrl: link("Πολιτική απορρήτου") }), form, "/platform/settings");
+  await db.platformSettings.upsert({ where: { id: 1 }, update: d, create: { id: 1, ...d } });
+  redirect("/platform/settings?saved=legal#legal");
+}
+
 export async function testStorage() {
   await requirePlatform("settings.manage");
   const r = await ping();

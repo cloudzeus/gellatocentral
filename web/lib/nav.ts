@@ -63,6 +63,7 @@ export const NAV: { title: string; icon: LucideIcon; items: NavItem[] }[] = [
     title: "Πλατφόρμα", icon: Building2,
     items: [
       { to: "/platform", label: "Συνδρομητές", icon: Building2, ready: true },
+      { to: "/platform/gdpr", label: "GDPR & συναινέσεις", icon: ShieldCheck, ready: true },
       { to: "/platform/settings", label: "Ρυθμίσεις & email", icon: Settings, ready: true },
     ],
   },
@@ -80,6 +81,7 @@ export const NAV: { title: string; icon: LucideIcon; items: NavItem[] }[] = [
       { to: "/billing", label: "Συνδρομή", icon: CreditCard, ready: true },
       { to: "/company", label: "Στοιχεία επιχείρησης", icon: Store },
       { to: "/users", label: "Χρήστες & ρόλοι", icon: Users, ready: true },
+      { to: "/gdpr", label: "GDPR & συναινέσεις", icon: ShieldCheck, ready: true },
     ],
   },
 ];
