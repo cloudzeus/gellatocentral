@@ -57,12 +57,12 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
           </form>
         </Modal>
       }>
-      {q.error && !q.viva ? <p role="alert" className="mb-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">Δεν δημιουργήθηκε: {String(q.error)}</p> : null}
+      {q.error && !q.viva ? <p role="alert" className="mb-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν δημιουργήθηκε: {String(q.error)}</p> : null}
       <div className="grid gap-4 md:grid-cols-3">
         {tiles.map((t) => (
           <Card key={t.label} className="p-5">
-            <p className="text-sm font-semibold text-muted-foreground">{t.label}</p>
-            <p className="mt-2 text-3xl font-extrabold tabular-nums">{t.value}</p>
+            <p className="text-sm font-medium text-muted-foreground">{t.label}</p>
+            <p className="mt-2 text-3xl font-semibold tabular-nums">{t.value}</p>
             <p className="mt-1 text-sm text-muted-foreground">{t.hint}</p>
           </Card>
         ))}
@@ -77,8 +77,8 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
               ? `Τα κλειδιά έχουν οριστεί · περιβάλλον ${vivaEnv()}. Με αυτά γίνονται οι πληρωμές και η τιμολόγηση όλων των επιχειρήσεων.`
               : "Δεν έχουν οριστεί κλειδιά. Γράψε VIVA_ISV_CLIENT_ID και VIVA_ISV_CLIENT_SECRET στο αρχείο .env του server και ξεκίνα τον ξανά. Μέχρι τότε όλα τα ταμεία είναι σε δοκιμαστική λειτουργία."}
           </p>
-          {q.viva === "ok" ? <p className="mt-1 text-sm font-bold text-success">Η Viva δέχτηκε τα κλειδιά.</p> : null}
-          {q.viva === "fail" ? <p className="mt-1 text-sm font-bold text-destructive">Η δοκιμή απέτυχε: {String(q.error ?? "")}</p> : null}
+          {q.viva === "ok" ? <p className="mt-1 text-sm font-semibold text-success">Η Viva δέχτηκε τα κλειδιά</p> : null}
+          {q.viva === "fail" ? <p className="mt-1 text-sm font-semibold text-destructive">Η δοκιμή απέτυχε: {String(q.error ?? "")}</p> : null}
         </div>
         <form action={checkViva}><button className={btn("outline")}>Δοκιμή σύνδεσης</button></form>
       </Card>
@@ -100,7 +100,7 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
           rows={rows.map(({ o, stores, devices, cents, missing }) => ({
             id: o.id,
             cells: {
-              org: <><Link href={`/platform/${o.id}`} className="font-bold underline-offset-2 hover:underline">{o.name}</Link><span className="block text-xs text-muted-foreground">ΑΦΜ {o.vatNumber}{o.slug ? ` · ${o.slug}` : ""}</span></>,
+              org: <><Link href={`/platform/${o.id}`} className="font-semibold underline-offset-2 hover:underline">{o.name}</Link><span className="block text-xs text-muted-foreground">ΑΦΜ {o.vatNumber}{o.slug ? ` · ${o.slug}` : ""}</span></>,
               status: o.subscription ? <Badge tone={STATUS[o.subscription.status].tone}>{STATUS[o.subscription.status].text}</Badge> : "—",
               until: o.subscription?.currentPeriodEnd.toLocaleDateString("el-GR") ?? "—",
               stores,

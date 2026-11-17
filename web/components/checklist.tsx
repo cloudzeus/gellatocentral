@@ -8,10 +8,10 @@ export function Checklist({ items }: { items: readonly { label: string; detail?:
         <li key={i.label} className="flex items-start gap-3 px-5 py-3">
           {i.done ? <CircleCheck className="mt-0.5 size-5 shrink-0 text-success" /> : <CircleDashed className="mt-0.5 size-5 shrink-0 text-gold" />}
           <div className="min-w-0 flex-1">
-            <p className="font-bold">{i.label}</p>
+            <p className="font-semibold">{i.label}</p>
             {i.detail ? <p className="text-sm text-muted-foreground">{i.detail}</p> : null}
           </div>
-          <span className={`shrink-0 text-xs font-bold ${i.done ? "text-success" : "text-gold"}`}>{i.done ? "Υπάρχει" : "Στο σχέδιο"}</span>
+          <span className={`shrink-0 text-xs font-semibold ${i.done ? "text-success-ink" : "text-gold-ink"}`}>{i.done ? "Υπάρχει" : "Στο σχέδιο"}</span>
         </li>
       ))}
     </ul>

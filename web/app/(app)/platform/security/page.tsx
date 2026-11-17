@@ -29,12 +29,12 @@ export default async function SecurityPage() {
 
   return (
     <Page section="Υποδομή & ασφάλεια" title="Ασφάλεια" description="Τι προστατεύει την πλατφόρμα σήμερα και τι είναι στο σχέδιο">
-      <div className="mx-auto max-w-5xl space-y-4">
+      <div className="max-w-7xl space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tiles.map((t) => (
             <Card key={t.label} className="p-5">
-              <p className="text-sm font-semibold text-muted-foreground">{t.label}</p>
-              <p className={`mt-2 text-3xl font-extrabold tabular-nums ${t.bad ? "text-destructive" : ""}`}>{t.value}</p>
+              <p className="text-sm font-medium text-muted-foreground">{t.label}</p>
+              <p className={`mt-2 text-3xl font-semibold tabular-nums ${t.bad ? "text-destructive" : ""}`}>{t.value}</p>
               <p className="mt-1 text-sm text-muted-foreground">{t.hint}</p>
             </Card>
           ))}
@@ -43,7 +43,7 @@ export default async function SecurityPage() {
         <Card className="p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg">Μέτρα ασφάλειας</h2>
-            <p className="text-sm font-bold tabular-nums text-muted-foreground">{done} από {SECURITY_CONTROLS.length} υπάρχουν</p>
+            <p className="text-sm font-semibold tabular-nums text-muted-foreground">{done} από {SECURITY_CONTROLS.length} υπάρχουν</p>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuemin={0} aria-valuemax={SECURITY_CONTROLS.length} aria-valuenow={done}>
             <div className="h-full rounded-full bg-success" style={{ width: `${(done / SECURITY_CONTROLS.length) * 100}%` }} />

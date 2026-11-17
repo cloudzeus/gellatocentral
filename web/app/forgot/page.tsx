@@ -19,7 +19,7 @@ export default async function ForgotPage({ searchParams }: PageProps<"/forgot">)
           <button className={btn("default", "lg", "w-full")}>Αποστολή συνδέσμου</button>
         </form>
       )}
-      <Link href="/login" className="flex min-h-11 items-center justify-center text-sm font-semibold text-primary underline-offset-2 hover:underline">Πίσω στη σύνδεση</Link>
+      <Link href="/login" className="flex min-h-11 items-center justify-center text-sm font-medium text-primary underline-offset-2 hover:underline">Πίσω στη σύνδεση</Link>
     </AuthCard>
   );
 }

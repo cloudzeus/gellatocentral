@@ -18,7 +18,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         <Field label="Κωδικός" name="password" type="password" autoComplete="current-password" required />
         <button className={btn("default", "lg", "w-full")}>Σύνδεση</button>
       </form>
-      <Link href="/forgot" className="flex min-h-11 items-center justify-center text-sm font-semibold text-primary underline-offset-2 hover:underline">Ξέχασα τον κωδικό</Link>
+      <Link href="/forgot" className="flex min-h-11 items-center justify-center text-sm font-medium text-primary underline-offset-2 hover:underline">Ξέχασα τον κωδικό</Link>
     </AuthCard>
   );
 }

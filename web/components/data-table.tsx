@@ -49,7 +49,7 @@ function RowMenu({ label, children }: { label: string; children: ReactNode }) {
       <button ref={button} type="button" aria-label={label} aria-haspopup="menu" aria-expanded={!!at} onClick={toggle} className={btn("ghost", "sm")}><MoreVertical /></button>
       {at ? (
         // κλείνει ΜΕΤΑ το πάτημα: αν έκλεινε αμέσως, η φόρμα του στοιχείου θα έφευγε από τη σελίδα πριν υποβληθεί
-        <div ref={panel} role="menu" onClick={() => setTimeout(() => setAt(null))} style={{ top: at.top, right: at.right }} className="fixed z-50 min-w-52 rounded-xl border border-border/70 bg-card p-1 text-left shadow-[var(--shadow-pop)]">
+        <div ref={panel} role="menu" onClick={() => setTimeout(() => setAt(null))} style={{ top: at.top, right: at.right }} className="fixed z-50 min-w-52 rounded-lg border border-border/70 bg-card p-1 text-left shadow-[var(--shadow-pop)]">
           {children}
         </div>
       ) : null}
@@ -112,9 +112,9 @@ export function DataTable({ id, columns, rows, empty, listing }: { id: string; c
         <div ref={pickerRef} className="relative max-md:hidden">
           <button type="button" aria-haspopup="true" aria-expanded={picker} onClick={() => setPicker(!picker)} className={btn("outline", "sm")}><Columns3 /> Στήλες</button>
           {picker ? (
-            <div className="absolute right-0 z-30 mt-1 min-w-56 rounded-xl border border-border/70 bg-card p-1 shadow-[var(--shadow-pop)]">
+            <div className="absolute right-0 z-30 mt-1 min-w-56 rounded-lg border border-border/70 bg-card p-1 shadow-[var(--shadow-pop)]">
               {columns.map((c) => (
-                <label key={c.key} className={cn("flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-semibold", c.required ? "text-muted-foreground" : "cursor-pointer hover:bg-secondary")}>
+                <label key={c.key} className={cn("flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium", c.required ? "text-muted-foreground" : "cursor-pointer hover:bg-secondary")}>
                   <input type="checkbox" className="size-4 accent-[var(--primary)]" checked={c.required || !prefs.hidden.includes(c.key)} disabled={c.required} onChange={() => toggleColumn(c.key)} />
                   {c.label}
                 </label>
@@ -130,7 +130,7 @@ export function DataTable({ id, columns, rows, empty, listing }: { id: string; c
           <thead>
             <tr className="text-left text-xs text-muted-foreground">
               {visible.map((c) => (
-                <th key={c.key} data-key={c.key} scope="col" className={cn("relative px-5 py-3 font-bold select-none", c.numeric && "text-right")}>
+                <th key={c.key} data-key={c.key} scope="col" className={cn("relative px-5 py-3 font-semibold select-none", c.numeric && "text-right")}>
                   <span className="block truncate">{c.label}</span>
                   <span
                     role="separator" aria-orientation="vertical" aria-label={`Πλάτος στήλης ${c.label}`} tabIndex={0}
@@ -147,7 +147,7 @@ export function DataTable({ id, columns, rows, empty, listing }: { id: string; c
             {rows.map((r) => (
               <tr key={r.id} className="border-t border-border/70">
                 {visible.map((c, i) => (
-                  <td key={c.key} {...(i === 0 ? { "data-primary": true } : { "data-label": c.label })} className={cn("px-5 py-3 md:truncate", c.numeric && "text-right font-semibold tabular-nums")}>
+                  <td key={c.key} {...(i === 0 ? { "data-primary": true } : { "data-label": c.label })} className={cn("px-5 py-3 md:truncate", c.numeric && "text-right font-medium tabular-nums")}>
                     {r.cells[c.key]}
                   </td>
                 ))}

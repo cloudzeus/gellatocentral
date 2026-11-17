@@ -32,7 +32,7 @@ async function Menus() {
       <Sidebar {...nav} />
       {/* Κινητό/tablet: το ίδιο μενού μέσα σε <details> */}
       <details className="group fixed left-3 top-3 z-40 lg:hidden print:hidden">
-        <summary aria-label="Μενού" className="grid size-11 cursor-pointer list-none place-items-center rounded-xl border border-border bg-card shadow-xs [&::-webkit-details-marker]:hidden">
+        <summary aria-label="Μενού" className="grid size-11 cursor-pointer list-none place-items-center rounded-lg border border-border bg-card shadow-xs [&::-webkit-details-marker]:hidden">
           <Menu className="size-4" />
         </summary>
         <div className="sidebar-surface fixed inset-y-0 left-0 z-40 flex w-72 flex-col overflow-y-auto pt-14 shadow-[var(--shadow-pop)]">

@@ -8,7 +8,7 @@ import { listParams } from "@/lib/paging";
 import { ALL_PERMISSIONS, canGrant, PERMISSIONS } from "@/lib/permissions";
 import { deleteRole, inviteUser, removeMember, saveRole, sendResetLink, updateMember } from "./actions";
 
-const SAVED: Record<string, string> = { invited: "Η πρόσκληση στάλθηκε με email.", member: "Ο χρήστης ενημερώθηκε.", removed: "Η πρόσβαση αφαιρέθηκε.", reset: "Στάλθηκε email για ορισμό κωδικού.", role: "Οι ρόλοι ενημερώθηκαν." };
+const SAVED: Record<string, string> = { invited: "Η πρόσκληση στάλθηκε με email", member: "Ο χρήστης ενημερώθηκε", removed: "Η πρόσβαση αφαιρέθηκε", reset: "Στάλθηκε email για ορισμό κωδικού", role: "Οι ρόλοι ενημερώθηκαν" };
 const form = "grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end";
 const GROUPS = [...new Set(PERMISSIONS.map((p) => p.group))];
 
@@ -17,14 +17,14 @@ function PermissionBoxes({ selected, mine }: { selected: string[]; mine: string[
   return (
     <div className="space-y-3 sm:col-span-2">
       {GROUPS.map((g) => (
-        <fieldset key={g} className="rounded-xl border border-border/70 p-3">
-          <legend className="px-1 text-xs font-bold text-muted-foreground">{g}</legend>
+        <fieldset key={g} className="rounded-lg border border-border/70 p-3">
+          <legend className="px-1 text-xs font-semibold text-muted-foreground">{g}</legend>
           {PERMISSIONS.filter((p) => p.group === g).map((p) => {
             const allowed = mine.includes(p.key);
             return (
               <label key={p.key} className={`flex min-h-10 items-start gap-3 rounded-lg px-2 py-1.5 ${allowed ? "cursor-pointer hover:bg-secondary" : "opacity-50"}`}>
                 <input type="checkbox" name="permissions" value={p.key} defaultChecked={selected.includes(p.key)} disabled={!allowed} className="mt-0.5 size-4 accent-[var(--primary)]" />
-                <span><span className="font-bold">{p.label}</span><span className="block text-xs text-muted-foreground">{p.hint}{allowed ? "" : " · δεν το έχεις εσύ"}</span></span>
+                <span><span className="font-semibold">{p.label}</span><span className="block text-xs text-muted-foreground">{p.hint}{allowed ? "" : " · δεν το έχεις εσύ"}</span></span>
               </label>
             );
           })}
@@ -65,16 +65,16 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
         </Modal>
       }
     >
-      <div className="mx-auto max-w-5xl space-y-4">
-        {q.error ? <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">Δεν έγινε: {String(q.error)}</p> : null}
-        {typeof q.saved === "string" && SAVED[q.saved] ? <p role="status" className="rounded-xl bg-success/10 px-4 py-3 text-sm font-semibold text-success">{SAVED[q.saved]}</p> : null}
+      <div className="max-w-7xl space-y-4">
+        {q.error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν έγινε: {String(q.error)}</p> : null}
+        {typeof q.saved === "string" && SAVED[q.saved] ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success">{SAVED[q.saved]}</p> : null}
 
         <Card>
           <div className="border-b border-border/70 px-5 py-4"><h2 className="text-lg">Χρήστες</h2></div>
           <DataTable
             id="users"
             listing={{ ...list, total, placeholder: "Όνομα ή email" }}
-            empty="Κανένας χρήστης ακόμα."
+            empty="Κανένας χρήστης ακόμα"
             columns={[
               { key: "user", label: "Χρήστης", required: true },
               { key: "role", label: "Ρόλος" },
@@ -85,7 +85,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
             rows={members.map((m) => ({
               id: m.id,
               cells: {
-                user: <><span className="font-bold">{m.user.name}{m.id === me.id ? " (εσύ)" : ""}</span><span className="block text-xs text-muted-foreground">{m.user.email}</span></>,
+                user: <><span className="font-semibold">{m.user.name}{m.id === me.id ? " (εσύ)" : ""}</span><span className="block text-xs text-muted-foreground">{m.user.email}</span></>,
                 role: <Badge tone={m.role.locked ? "success" : "neutral"}>{m.role.name}</Badge>,
                 store: m.store?.name ?? "Όλα",
                 status: m.user.passwordHash ? <Badge tone="success">Ενεργός</Badge> : <Badge tone="warning">Εκκρεμεί η πρόσκληση</Badge>,
@@ -129,7 +129,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
             {roles.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold">{r.name} <span className="font-normal text-muted-foreground">· {r._count.members} {r._count.members === 1 ? "χρήστης" : "χρήστες"}</span></p>
+                  <p className="font-semibold">{r.name} <span className="font-normal text-muted-foreground">· {r._count.members} {r._count.members === 1 ? "χρήστης" : "χρήστες"}</span></p>
                   <p className="mt-1 flex flex-wrap gap-1">
                     {r.locked ? <Badge tone="success">Όλα τα δικαιώματα</Badge> : perms(r).length ? PERMISSIONS.filter((p) => r.permissions.includes(p.key)).map((p) => <Badge key={p.key}>{p.label}</Badge>) : <Badge tone="warning">Κανένα δικαίωμα</Badge>}
                   </p>

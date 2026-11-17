@@ -26,9 +26,9 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
   const open = sub?.charges.filter((x) => !x.paidAt) ?? [];
   return (
     <Page section="Ρυθμίσεις" title="Συνδρομή" description="Πληρώνεις ανά κατάστημα και ανά ενεργή συσκευή τιμολόγησης. Τίποτα άλλο.">
-      <div className="mx-auto max-w-5xl space-y-4">
-        {q.error ? <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">{String(q.error)}</p> : null}
-        {q.paid ? <p role="status" className="rounded-xl bg-success/10 px-4 py-3 text-sm font-semibold text-success">Η πληρωμή ολοκληρώθηκε. Ευχαριστούμε.</p> : null}
+      <div className="max-w-7xl space-y-4">
+        {q.error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{String(q.error)}</p> : null}
+        {q.paid ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success">Η πληρωμή ολοκληρώθηκε. Ευχαριστούμε.</p> : null}
 
         {open.map((x) => (
           <Card key={x.id} className="flex flex-wrap items-center gap-4 border-gold/60 p-5">
@@ -42,18 +42,18 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
 
         <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
           <Card className="p-6">
-            <p className="text-sm font-semibold text-muted-foreground">Μηνιαία χρέωση με τη σημερινή χρήση</p>
-            <p className="mt-1 text-3xl font-extrabold tabular-nums">{euro(c.totalCents)}</p>
+            <p className="text-sm font-medium text-muted-foreground">Μηνιαία χρέωση με τη σημερινή χρήση</p>
+            <p className="mt-1 text-3xl font-semibold tabular-nums">{euro(c.totalCents)}</p>
             <p className="text-sm text-muted-foreground">προ ΦΠΑ · {euro(withVat(c.totalCents))} με ΦΠΑ</p>
             {sub ? <p className="mt-3 text-sm">Ισχύει μέχρι <b>{day(sub.currentPeriodEnd)}</b></p> : null}
-            <p className="mt-3 text-sm text-muted-foreground">Θες να πληρώνεις λιγότερα; Απενεργοποίησε όποια συσκευή δεν χρησιμοποιείς στις <Link href="/devices" className="font-bold underline">Συσκευές</Link>.</p>
+            <p className="mt-3 text-sm text-muted-foreground">Θες να πληρώνεις λιγότερα; Απενεργοποίησε όποια συσκευή δεν χρησιμοποιείς στις <Link href="/devices" className="font-semibold underline">Συσκευές</Link>.</p>
           </Card>
           <Card className="space-y-5 p-6">
             <h2 className="text-lg">Από τι αποτελείται</h2>
             {rows.map((r) => (
               <div key={r.label} className="space-y-1.5">
                 <div className="flex items-baseline justify-between gap-3 text-sm">
-                  <span className="font-bold">{r.label}</span>
+                  <span className="font-semibold">{r.label}</span>
                   <span className="tabular-nums text-muted-foreground">{r.count} × {euro(r.unit)} = <b className="text-foreground">{euro(r.cents)}</b></span>
                 </div>
                 <div className="h-3 overflow-hidden rounded-full bg-secondary">
@@ -76,7 +76,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
                 </li>
               ))}
             </ul>
-          ) : <p className="px-5 py-6 text-sm text-muted-foreground">Καμία χρέωση ακόμα.</p>}
+          ) : <p className="px-5 py-6 text-sm text-muted-foreground">Καμία χρέωση ακόμα</p>}
         </Card>
       </div>
     </Page>

@@ -16,8 +16,8 @@ export default async function ContinuityPage({ searchParams }: PageProps<"/platf
 
   return (
     <Page section="Υποδομή & ασφάλεια" title="Συνέχεια λειτουργίας" description="Τι γίνεται όταν κάτι χαλάσει, και πότε επιβεβαιώθηκε τελευταία φορά ότι το σχέδιο δουλεύει">
-      <div className="mx-auto max-w-5xl space-y-4">
-        {saved ? <p role="status" className="rounded-xl bg-success/10 px-4 py-3 text-sm font-semibold text-success">Καταγράφηκε.</p> : null}
+      <div className="max-w-7xl space-y-4">
+        {saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success">Καταγράφηκε</p> : null}
 
         <div className="grid gap-4 md:grid-cols-2">
           {checks.map((c) => {
@@ -30,7 +30,7 @@ export default async function ContinuityPage({ searchParams }: PageProps<"/platf
                   <Badge tone={late ? "danger" : "success"}>{days === null ? "Δεν έχει γίνει ποτέ" : days === 0 ? "Σήμερα" : `Πριν από ${days} ${days === 1 ? "ημέρα" : "ημέρες"}`}</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">{c.how}</p>
-                <p className={`text-sm font-bold ${late ? "text-destructive" : "text-muted-foreground"}`}>{late ? `Χρειάζεται τώρα: πρέπει να γίνεται κάθε ${c.every} ημέρες.` : `Επόμενος σε ${c.every - days!} ημέρες.`}</p>
+                <p className={`text-sm font-semibold ${late ? "text-destructive" : "text-muted-foreground"}`}>{late ? `Χρειάζεται τώρα: πρέπει να γίνεται κάθε ${c.every} ημέρες.` : `Επόμενος σε ${c.every - days!} ημέρες.`}</p>
                 <form action={recordContinuityCheck.bind(null, c.key)} className="mt-auto"><button className={btn(late ? "default" : "outline")}>{c.action}</button></form>
               </Card>
             );
@@ -46,7 +46,7 @@ export default async function ContinuityPage({ searchParams }: PageProps<"/platf
           <ul className="divide-y divide-border/70 md:hidden">
             {DR_SCENARIOS.map((d) => (
               <li key={d.event} className="space-y-1 px-5 py-3">
-                <p className="font-bold">{d.event}</p>
+                <p className="font-semibold">{d.event}</p>
                 <p className="text-sm text-muted-foreground">{d.response}</p>
                 <p className="text-sm"><b>Χάνονται:</b> {d.rpo} · <b>Επαναφορά:</b> {d.rto}</p>
               </li>

@@ -63,6 +63,8 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-gold: var(--gold);
   --color-gold-strong: var(--gold-strong);
+  --color-gold-ink: var(--gold-ink);
+  --color-success-ink: var(--success-ink);
   --color-navy-soft: var(--navy-soft);
   --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
@@ -91,7 +93,7 @@
   --fs-20: 1.25rem;
   --fs-24: clamp(1.17rem, 1.0409rem + 0.5739vw, 1.5rem);
   --fs-30: clamp(1.4625rem, 1.3011rem + 0.7174vw, 1.875rem);
-  --radius: 0.875rem;
+  --radius: 0.5rem;
   --background: oklch(0.962 0.008 85);
   --foreground: oklch(0.32 0 0);
   --card: oklch(1 0 0);
@@ -114,6 +116,9 @@
   --warning-foreground: oklch(0.18 0.04 264);
   --gold: oklch(0.635 0.072 84);
   --gold-strong: oklch(0.72 0.08 85);
+  /* Χρυσό για κείμενο πάνω σε ανοιχτό φόντο (αντίθεση 4.5:1) */
+  --gold-ink: oklch(0.46 0.07 84);
+  --success-ink: oklch(0.42 0.1 155);
   --navy-soft: oklch(0.32 0.055 264);
   --border: oklch(0.245 0.055 264 / 12%);
   --input: oklch(0.245 0.055 264 / 18%);
@@ -131,8 +136,9 @@
   --sidebar-accent-foreground: oklch(0.98 0.005 85);
   --sidebar-border: oklch(1 0 0 / 12%);
   --sidebar-ring: oklch(0.635 0.072 84);
-  --shadow-card: 0 1px 2px oklch(0.245 0.055 264 / 8%), 0 12px 32px -14px oklch(0.245 0.055 264 / 18%);
-  --shadow-pop: 0 1px 2px oklch(0.245 0.055 264 / 10%), 0 24px 56px -20px oklch(0.245 0.055 264 / 26%);
+  /* Ουδέτερες, μικρές σκιές: το βάθος το δίνει το περίγραμμα */
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 5%);
+  --shadow-pop: 0 1px 2px oklch(0 0 0 / 8%), 0 12px 32px -12px oklch(0 0 0 / 22%);
   --gradient-surface: linear-gradient(
     180deg,
     color-mix(in oklab, var(--card) 92%, var(--background)) 0%,
@@ -167,6 +173,8 @@
   --warning-foreground: oklch(0.19 0.04 262);
   --gold: oklch(0.647 0.08 82.9);
   --gold-strong: oklch(0.72 0.08 83);
+  --gold-ink: oklch(0.8 0.09 84);
+  --success-ink: oklch(0.78 0.12 155);
   --navy-soft: oklch(0.305 0.07 262.1);
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 16%);
@@ -221,8 +229,7 @@
   h3,
   h4 {
     font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: 0.01em;
+    font-weight: 600;
   }
 
   ::selection {
@@ -266,19 +273,10 @@
 
 @utility app-canvas {
   background-color: var(--color-background);
-  background-image:
-    radial-gradient(60rem 40rem at 100% -10%, color-mix(in oklab, var(--gold) 12%, transparent), transparent 70%),
-    radial-gradient(50rem 35rem at -10% 0%, color-mix(in oklab, var(--primary) 10%, transparent), transparent 65%);
-  background-attachment: fixed;
 }
 
 @utility sidebar-surface {
-  background-image: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--sidebar) 92%, oklch(1 0 0 / 6%)) 0%,
-    var(--sidebar) 45%,
-    color-mix(in oklab, var(--sidebar) 88%, var(--gold) 6%) 100%
-  );
+  background-color: var(--sidebar);
 }
 
 @utility glass-panel {
@@ -384,9 +382,7 @@
     flex-shrink: 0;
     text-align: left;
     font-size: var(--fs-10);
-    font-weight: 700;
-    letter-spacing: 0.025em;
-    text-transform: uppercase;
+    font-weight: 600;
     color: var(--color-muted-foreground);
   }
   table.table-cards > tbody > tr > td[data-primary] {

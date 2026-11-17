@@ -19,7 +19,7 @@ export function Modal({ label, title, description, variant = "outline", size = "
         // Τα υποχρεωτικά πεδία τα ελέγχει ο browser πριν φτάσει εδώ, οπότε μια ελλιπής φόρμα μένει ανοιχτή.
         onSubmit={close}
         onClick={(e) => e.target === ref.current && close()} // πάτημα έξω από το παράθυρο
-        className="m-auto max-h-[calc(100dvh-2rem)] w-[min(40rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-border/70 bg-card p-0 text-card-foreground shadow-[var(--shadow-pop)] backdrop:bg-primary/55 backdrop:backdrop-blur-sm"
+        className="m-auto max-h-[calc(100dvh-2rem)] w-[min(40rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border/70 bg-card p-0 text-card-foreground shadow-[var(--shadow-pop)] backdrop:bg-primary/55 backdrop:backdrop-blur-sm"
       >
         <div className="sticky top-0 z-10 flex items-start gap-3 border-b border-border/70 bg-card px-5 py-4">
           <div className="min-w-0 flex-1">

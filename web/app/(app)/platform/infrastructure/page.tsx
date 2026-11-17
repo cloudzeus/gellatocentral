@@ -43,13 +43,13 @@ export default async function InfrastructurePage() {
 
   return (
     <Page section="Υποδομή & ασφάλεια" title="Υποδομή" description="Η κατάσταση του συστήματος τώρα και πώς μεγαλώνει χωρίς να ξαναχτιστεί">
-      <div className="mx-auto max-w-5xl space-y-4">
+      <div className="max-w-7xl space-y-4">
         <div className="grid gap-4 md:grid-cols-3">
           {tiles.map((t) => (
             <Card key={t.label} className="p-5">
-              <p className="text-sm font-semibold text-muted-foreground">{t.label}</p>
-              <p className="mt-2 text-3xl font-extrabold tabular-nums">{t.value}</p>
-              <p className={`mt-1 text-sm ${t.ok ? "text-muted-foreground" : "font-bold text-destructive"}`}>{t.hint}</p>
+              <p className="text-sm font-medium text-muted-foreground">{t.label}</p>
+              <p className="mt-2 text-3xl font-semibold tabular-nums">{t.value}</p>
+              <p className={`mt-1 text-sm ${t.ok ? "text-muted-foreground" : "font-semibold text-destructive"}`}>{t.hint}</p>
             </Card>
           ))}
         </div>
@@ -57,7 +57,7 @@ export default async function InfrastructurePage() {
         <Card>
           <div className="border-b border-border/70 px-5 py-4"><h2 className="text-lg">Συνδέσεις αυτού του server</h2><p className="text-sm text-muted-foreground">Ορίζονται στο .env. Ό,τι λείπει δεν σταματά την εφαρμογή, απλώς η αντίστοιχη λειτουργία μένει ανενεργή.</p></div>
           <ul className="divide-y divide-border/70">
-            {config.map((c) => <li key={c.label} className="flex items-center gap-3 px-5 py-3"><span className="min-w-0 flex-1 font-semibold">{c.label}</span><Badge tone={c.done ? "success" : "warning"}>{c.done ? "Ενεργό" : "Δεν έχει οριστεί"}</Badge></li>)}
+            {config.map((c) => <li key={c.label} className="flex items-center gap-3 px-5 py-3"><span className="min-w-0 flex-1 font-medium">{c.label}</span><Badge tone={c.done ? "success" : "warning"}>{c.done ? "Ενεργό" : "Δεν έχει οριστεί"}</Badge></li>)}
           </ul>
         </Card>
 
@@ -67,9 +67,9 @@ export default async function InfrastructurePage() {
           <ol className="divide-y divide-border/70">
             {SCALING_STAGES.map((s) => (
               <li key={s.stage} className="grid gap-x-6 gap-y-1 px-5 py-3 md:grid-cols-[11rem_1fr_10rem]">
-                <p className="font-bold">{s.stage}</p>
+                <p className="font-semibold">{s.stage}</p>
                 <div><p>{s.what}</p><p className="text-sm text-muted-foreground">Πότε: {s.when}</p></div>
-                <p className="text-sm font-semibold text-muted-foreground md:text-right">{s.add === "—" ? "" : `+ ${s.add}`}</p>
+                <p className="text-sm font-medium text-muted-foreground md:text-right">{s.add === "—" ? "" : `+ ${s.add}`}</p>
               </li>
             ))}
           </ol>

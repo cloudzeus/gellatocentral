@@ -4,9 +4,9 @@ import type { ComponentProps, ReactNode } from "react";
 export const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
 const BTN =
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold tracking-tight cursor-pointer transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0";
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium cursor-pointer transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0";
 const VARIANT = {
-  default: "bg-primary text-primary-foreground shadow-[0_8px_20px_-12px_oklch(0.235_0.056_262.3/70%)] hover:bg-primary/90",
+  default: "bg-primary text-primary-foreground hover:bg-primary/90",
   gold: "bg-gold text-accent-foreground hover:bg-gold-strong",
   success: "bg-success text-success-foreground hover:bg-success/90",
   destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
@@ -23,17 +23,17 @@ export const btn = (variant: keyof typeof VARIANT = "default", size: keyof typeo
   cn(BTN, VARIANT[variant], SIZE[size], extra);
 
 export function Card({ className, ...p }: ComponentProps<"div">) {
-  return <div className={cn("min-w-0 rounded-2xl border border-border/70 bg-card text-card-foreground shadow-[var(--shadow-card)]", className)} {...p} />;
+  return <div className={cn("min-w-0 rounded-xl border border-border bg-card text-card-foreground shadow-[var(--shadow-card)]", className)} {...p} />;
 }
 
 const TONE = {
   neutral: "bg-secondary text-secondary-foreground",
-  success: "bg-success/15 text-success",
-  warning: "bg-gold/20 text-accent-foreground",
+  success: "bg-success/12 text-success-ink",
+  warning: "bg-gold/18 text-gold-ink",
   danger: "bg-destructive/15 text-destructive",
 };
 export function Badge({ tone = "neutral", children }: { tone?: keyof typeof TONE; children: ReactNode }) {
-  return <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold", TONE[tone])}>{children}</span>;
+  return <span className={cn("inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold", TONE[tone])}>{children}</span>;
 }
 
 /** Κεφαλίδα σελίδας + περιεχόμενο, όπως το AppLayout του Gelato System. */
@@ -57,7 +57,7 @@ const FIELD = "h-8.5 w-full rounded-lg border border-input bg-card px-2.5 text-s
 /** Πεδίο φόρμας με ορατή ετικέτα και προαιρετική βοήθεια από κάτω. */
 export function Field({ label, hint, ...p }: { label: string; hint?: string } & ComponentProps<"input">) {
   return (
-    <label className="block min-w-0 space-y-1 text-sm font-semibold">
+    <label className="block min-w-0 space-y-1 text-sm font-medium">
       {label}{p.required ? <span className="text-destructive"> *</span> : null}
       <input className={FIELD} {...p} />
       {hint ? <span className="block text-xs font-normal text-muted-foreground">{hint}</span> : null}
@@ -66,7 +66,7 @@ export function Field({ label, hint, ...p }: { label: string; hint?: string } & 
 }
 export function Select({ label, options, ...p }: { label: string; options: [value: string, text: string][] } & ComponentProps<"select">) {
   return (
-    <label className="block min-w-0 space-y-1 text-sm font-semibold">
+    <label className="block min-w-0 space-y-1 text-sm font-medium">
       {label}
       <select className={FIELD} {...p}>{options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
     </label>
@@ -74,4 +74,4 @@ export function Select({ label, options, ...p }: { label: string; options: [valu
 }
 
 /** Στοιχείο μενού γραμμής πίνακα (σύνδεσμος ή κουμπί φόρμας). */
-export const menuItem = "flex min-h-10 w-full cursor-pointer items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold hover:bg-secondary [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
+export const menuItem = "flex min-h-10 w-full cursor-pointer items-center gap-2 rounded-lg px-3 text-left text-sm font-medium hover:bg-secondary [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";

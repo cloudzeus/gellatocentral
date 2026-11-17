@@ -18,34 +18,34 @@ export default async function DevicesPage() {
       actions={
         <Modal label={<><Plus /> Νέα συσκευή</>} variant="gold" title="Νέα συσκευή" description={`Μόνο τα ταμεία χρεώνονται: ${euro(PRICE_PER_DEVICE)} τον μήνα το καθένα`}>
           <form action={addDevice} data-by-kind className="grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end">
-            <label className="block space-y-1 text-sm font-semibold">Όνομα<input name="name" required minLength={2} maxLength={40} placeholder="π.χ. Ταμείο 2" className={field} /></label>
-            <label className="block space-y-1 text-sm font-semibold">Κατάστημα
+            <label className="block space-y-1 text-sm font-medium">Όνομα<input name="name" required minLength={2} maxLength={40} placeholder="π.χ. Ταμείο 2" className={field} /></label>
+            <label className="block space-y-1 text-sm font-medium">Κατάστημα
               <select name="storeId" className={field}>{stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
             </label>
-            <label className="block space-y-1 text-sm font-semibold">Είδος
+            <label className="block space-y-1 text-sm font-medium">Είδος
               <select name="kind" className={field}>{KIND_OPTIONS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
             </label>
-            <label data-for={FOR.invoicing} className="space-y-1 text-sm font-semibold">Σειρά αποδείξεων<input name="series" pattern="[A-Za-z0-9]{1,6}" placeholder="π.χ. A2" className={field} /></label>
-            <label data-for={FOR.invoicing} className="space-y-1 text-sm font-semibold">Τερματικό Viva (προαιρετικό)<input name="vivaTerminalId" maxLength={20} placeholder="π.χ. 16000010" className={field} /></label>
-            <label data-for={FOR.storage} className="space-y-1 text-sm font-semibold">Κάτω όριο θερμοκρασίας (°C)<input name="tempMin" inputMode="decimal" placeholder="π.χ. -25" className={field} /></label>
-            <label data-for={FOR.storage} className="space-y-1 text-sm font-semibold">Πάνω όριο θερμοκρασίας (°C)<input name="tempMax" inputMode="decimal" placeholder="π.χ. -15" className={field} /></label>
+            <label data-for={FOR.invoicing} className="space-y-1 text-sm font-medium">Σειρά αποδείξεων<input name="series" pattern="[A-Za-z0-9]{1,6}" placeholder="π.χ. A2" className={field} /></label>
+            <label data-for={FOR.invoicing} className="space-y-1 text-sm font-medium">Τερματικό Viva (προαιρετικό)<input name="vivaTerminalId" maxLength={20} placeholder="π.χ. 16000010" className={field} /></label>
+            <label data-for={FOR.storage} className="space-y-1 text-sm font-medium">Κάτω όριο θερμοκρασίας (°C)<input name="tempMin" inputMode="decimal" placeholder="π.χ. -25" className={field} /></label>
+            <label data-for={FOR.storage} className="space-y-1 text-sm font-medium">Πάνω όριο θερμοκρασίας (°C)<input name="tempMax" inputMode="decimal" placeholder="π.χ. -15" className={field} /></label>
             <button className={btn("default")}>Προσθήκη συσκευής</button>
           </form>
         </Modal>
       }>
-        <div className="mx-auto max-w-4xl space-y-4">
+        <div className="max-w-7xl space-y-4">
           {stores.map((s) => (
             <Card key={s.id}>
               <h2 className="border-b border-border/70 px-5 py-4 text-lg">{s.name}</h2>
               <ul className="divide-y divide-border/70">
-                {s.devices.length === 0 ? <li className="px-5 py-6 text-muted-foreground">Κανένα ταμείο ακόμα σε αυτό το κατάστημα.</li> : null}
+                {s.devices.length === 0 ? <li className="px-5 py-6 text-muted-foreground">Κανένα ταμείο ακόμα σε αυτό το κατάστημα</li> : null}
                 {s.devices.map((d) => {
                   const kind = DEVICE_KIND[d.kind];
                   const status = kind.measures ? readingStatus(d, d.readings[0]) : null;
                   return (
                     <li key={d.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                       <div className="min-w-0 flex-1">
-                        <p className="font-bold">{d.name}</p>
+                        <p className="font-semibold">{d.name}</p>
                         <p className="text-xs text-muted-foreground">{[kind.label, kind.invoices && `σειρά ${d.series} · επόμενη #${d.nextAa}`, kind.invoices && (d.vivaTerminalId ? `τερματικό ${d.vivaTerminalId}` : "χωρίς τερματικό Viva"), kind.storage && (d.tempMin !== null || d.tempMax !== null) && `όρια ${d.tempMin ?? "…"} έως ${d.tempMax ?? "…"} °C`].filter(Boolean).join(" · ")}</p>
                       </div>
                       {status ? <Badge tone={status.tone}>{status.text}</Badge> : null}

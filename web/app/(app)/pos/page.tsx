@@ -29,7 +29,7 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
     <Page section="Ταμείο & τιμολόγηση" title="Ταμείο" description={`${device.name} · σειρά ${device.series} · επόμενη απόδειξη #${device.nextAa}`}>
       {pending ? <meta httpEquiv="refresh" content="3" /> : null}
       {!live ? (
-        <p className="mb-4 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm font-semibold">
+        <p className="mb-4 rounded-lg border border-gold/40 bg-gold/10 px-4 py-3 text-sm font-medium">
           Δοκιμαστική λειτουργία: οι αποδείξεις αποθηκεύονται αλλά ΔΕΝ διαβιβάζονται στην ΑΑΔΕ. Δεν έχουν οριστεί κλειδιά Viva.
         </p>
       ) : null}
@@ -41,13 +41,13 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
               <Link key={c.id} href={`/pos?cat=${c.id}`} className={btn(c.id === active?.id ? "default" : "outline")}>{c.name}</Link>
             ))}
           </div>
-          {categories.length === 0 ? <p className="rounded-2xl border border-dashed border-border px-5 py-10 text-center text-muted-foreground">Δεν υπάρχουν προϊόντα ακόμα. Ο κατάλογος προϊόντων έρχεται στην επόμενη φάση.</p> : null}
+          {categories.length === 0 ? <p className="rounded-xl border border-dashed border-border px-5 py-10 text-center text-muted-foreground">Δεν υπάρχουν προϊόντα ακόμα. Ο κατάλογος προϊόντων έρχεται στην επόμενη φάση.</p> : null}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {active?.products.map((p) => (
               <form key={p.id} action={addLine.bind(null, p.id)}>
-                <button disabled={Boolean(pending)} className="flex min-h-24 w-full cursor-pointer flex-col justify-between rounded-2xl border border-border/70 bg-card p-4 text-left shadow-[var(--shadow-card)] transition-all duration-200 hover:border-gold hover:bg-secondary active:scale-[0.98] disabled:opacity-50">
-                  <span className="text-base font-bold leading-snug">{p.name}</span>
-                  <span className="text-lg font-extrabold text-primary tabular-nums">{euro(p.priceCents)}</span>
+                <button disabled={Boolean(pending)} className="flex min-h-24 w-full cursor-pointer flex-col justify-between rounded-xl border border-border/70 bg-card p-4 text-left shadow-[var(--shadow-card)] transition-all duration-200 hover:border-gold hover:bg-secondary active:scale-[0.98] disabled:opacity-50">
+                  <span className="text-base font-semibold leading-snug">{p.name}</span>
+                  <span className="text-lg font-semibold text-primary tabular-nums">{euro(p.priceCents)}</span>
                 </button>
               </form>
             ))}
@@ -64,35 +64,35 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
 
           {pending ? (
             <div className="space-y-4 p-5 text-center">
-              <p className="text-3xl font-extrabold tabular-nums">{euro(pending.totalCents)}</p>
-              <p className="font-semibold">Περιμένουμε την πληρωμή στο τερματικό Viva…</p>
-              <p className="text-sm text-muted-foreground">Η οθόνη ανανεώνεται μόνη της κάθε 3 δευτερόλεπτα.</p>
+              <p className="text-3xl font-semibold tabular-nums">{euro(pending.totalCents)}</p>
+              <p className="font-medium">Περιμένουμε την πληρωμή στο τερματικό Viva…</p>
+              <p className="text-sm text-muted-foreground">Η οθόνη ανανεώνεται μόνη της κάθε 3 δευτερόλεπτα</p>
               <form action={cancelPending.bind(null, pending.id)}><button className={btn("outline", "default", "w-full")}>Ακύρωση</button></form>
             </div>
           ) : (
             <>
               {draft?.fiscal?.status === "FAILED" ? (
-                <p className="m-4 mb-0 rounded-xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">Η προηγούμενη προσπάθεια απέτυχε: {draft.fiscal.error}. Δοκίμασε ξανά.</p>
+                <p className="m-4 mb-0 rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Η προηγούμενη προσπάθεια απέτυχε: {draft.fiscal.error}. Δοκίμασε ξανά.</p>
               ) : null}
               <ul className="divide-y divide-border/70">
-                {lines.length === 0 ? <li className="px-5 py-10 text-center text-muted-foreground">Πάτησε ένα προϊόν για να ξεκινήσεις.</li> : null}
+                {lines.length === 0 ? <li className="px-5 py-10 text-center text-muted-foreground">Πάτησε ένα προϊόν για να ξεκινήσεις</li> : null}
                 {lines.map((l) => (
                   <li key={l.id} className="flex items-center gap-3 px-5 py-3">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-bold">{l.name}</p>
+                      <p className="truncate font-semibold">{l.name}</p>
                       <p className="text-xs text-muted-foreground">{euro(l.unitPriceCents)} · ΦΠΑ {l.vatRate}%</p>
                     </div>
                     <form action={changeQuantity.bind(null, l.id, -1)}><button aria-label="Λιγότερο" className={btn("outline", "sm")}><Minus /></button></form>
-                    <span className="w-6 text-center font-extrabold tabular-nums">{l.quantity}</span>
+                    <span className="w-6 text-center font-semibold tabular-nums">{l.quantity}</span>
                     <form action={changeQuantity.bind(null, l.id, 1)}><button aria-label="Περισσότερο" className={btn("outline", "sm")}><Plus /></button></form>
-                    <span className="w-16 text-right font-bold tabular-nums">{euro(l.quantity * l.unitPriceCents)}</span>
+                    <span className="w-16 text-right font-semibold tabular-nums">{euro(l.quantity * l.unitPriceCents)}</span>
                   </li>
                 ))}
               </ul>
               <div className="space-y-3 border-t border-border/70 p-5">
                 <div className="flex items-baseline justify-between">
-                  <span className="font-semibold text-muted-foreground">Σύνολο</span>
-                  <span className="text-3xl font-extrabold tabular-nums">{euro(total)}</span>
+                  <span className="font-medium text-muted-foreground">Σύνολο</span>
+                  <span className="text-3xl font-semibold tabular-nums">{euro(total)}</span>
                 </div>
                 <div className={cn("grid grid-cols-2 gap-3", lines.length === 0 && "pointer-events-none opacity-50")}>
                   <form action={pay.bind(null, "CASH")}><button className={btn("success", "lg", "w-full")}><Banknote /> Μετρητά</button></form>

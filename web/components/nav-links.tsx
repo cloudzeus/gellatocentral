@@ -16,15 +16,15 @@ const isActive = (path: string, to: string) => matches(path, to) && !ALL.some((o
 
 const row = (active: boolean, extra?: string) =>
   cn(
-    "group relative flex w-full items-center gap-3 overflow-hidden rounded-xl px-3 py-2.5 text-left text-sm font-semibold tracking-tight transition-colors duration-200 pointer-coarse:min-h-11",
-    "before:absolute before:left-0 before:top-1/2 before:h-0 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary before:transition-all before:duration-200",
+    "group relative flex min-h-9 w-full items-center gap-2.5 rounded-lg px-2 text-left text-sm font-medium transition-colors duration-150 pointer-coarse:min-h-11",
+    "before:absolute before:left-0 before:top-1/2 before:h-0 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary before:transition-[height] before:duration-150",
     active
-      ? "bg-sidebar-accent/80 text-sidebar-accent-foreground shadow-[inset_0_1px_0_oklch(1_0_0/8%),0_10px_24px_-16px_oklch(0_0_0/70%)] before:h-6"
-      : "text-sidebar-foreground/65 hover:bg-sidebar-accent/45 hover:text-sidebar-accent-foreground hover:before:h-4",
+      ? "bg-sidebar-accent text-sidebar-accent-foreground before:h-4"
+      : "text-sidebar-foreground/75 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
     extra,
   );
 const tile = (active: boolean) =>
-  cn("grid size-7 shrink-0 place-items-center rounded-lg transition-colors duration-200", active ? "bg-sidebar-primary/20 text-sidebar-primary" : "bg-sidebar-accent/40 text-sidebar-foreground/60 group-hover:text-sidebar-accent-foreground");
+  cn("grid size-5 shrink-0 place-items-center transition-colors duration-150", active ? "text-sidebar-primary" : "text-sidebar-foreground/60 group-hover:text-sidebar-accent-foreground");
 const closeDrawer = (e: React.MouseEvent<HTMLElement>) => e.currentTarget.closest("details")?.removeAttribute("open");
 
 /**
@@ -37,7 +37,7 @@ export function NavLinks({ allowed, collapsed = false, onExpand }: { allowed: st
   const sections = NAV.map((s) => ({ ...s, items: s.items.filter((i) => allowed.includes(i.to)) })).filter((s) => s.items.length);
 
   return (
-    <nav aria-label="Κύριο μενού" className={cn("flex-1 space-y-1 pb-4", collapsed ? "px-2" : "px-3")}>
+    <nav aria-label="Κύριο μενού" className={cn("flex-1 space-y-0.5 pb-4", collapsed ? "px-2" : "px-3")}>
       {sections.map((section) => {
         const activeHere = section.items.some((i) => isActive(path, i.to));
         const single = section.items.length === 1 ? section.items[0] : null;
@@ -72,11 +72,11 @@ export function NavLinks({ allowed, collapsed = false, onExpand }: { allowed: st
               {collapsed ? null : <ChevronDown className={cn("size-4 shrink-0 opacity-60 transition-transform duration-200", isOpen && "rotate-180")} />}
             </button>
             {isOpen ? (
-              <div className="mt-0.5 ml-[1.625rem] space-y-0.5 border-l border-sidebar-border/60 pl-2">
+              <div className="my-0.5 ml-[1.125rem] space-y-0.5 border-l border-sidebar-border pl-2">
                 {section.items.map((item) => {
                   const active = isActive(path, item.to);
                   return (
-                    <Link key={item.to} href={item.to} onClick={closeDrawer} aria-current={active ? "page" : undefined} className={row(active, "py-2")}>
+                    <Link key={item.to} href={item.to} onClick={closeDrawer} aria-current={active ? "page" : undefined} className={row(active, "min-h-8")}>
                       <item.icon className={cn("size-4 shrink-0", active ? "text-sidebar-primary" : "opacity-70")} />
                       <span className="min-w-0 truncate">{item.label}</span>
                     </Link>
@@ -95,15 +95,15 @@ type User = { name: string; subtitle: string; logout: () => Promise<void> };
 
 export function UserFooter({ user, collapsed = false }: { user: User; collapsed?: boolean }) {
   return (
-    <div className={cn("flex items-center gap-2 border-t border-sidebar-border/50 py-3 text-xs text-sidebar-foreground/70", collapsed ? "justify-center px-2" : "px-4")}>
+    <div className={cn("flex items-center gap-2 border-t border-sidebar-border py-3 text-xs text-sidebar-foreground/70", collapsed ? "justify-center px-2" : "px-4")}>
       {collapsed ? null : (
         <div className="min-w-0 flex-1">
-          <p className="truncate font-bold text-sidebar-foreground">{user.name}</p>
+          <p className="truncate font-semibold text-sidebar-foreground">{user.name}</p>
           <p className="truncate">{user.subtitle}</p>
         </div>
       )}
       <form action={user.logout}>
-        <button aria-label="Έξοδος" title="Έξοδος" className="grid size-10 cursor-pointer place-items-center rounded-xl text-sidebar-foreground/70 transition-colors duration-200 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground pointer-coarse:size-11">
+        <button aria-label="Έξοδος" title="Έξοδος" className="grid size-10 cursor-pointer place-items-center rounded-lg text-sidebar-foreground/70 transition-colors duration-200 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground pointer-coarse:size-11">
           <LogOut className="size-4" />
         </button>
       </form>
@@ -117,13 +117,13 @@ export function Sidebar({ allowed, user }: { allowed: string[]; user: User }) {
   const Toggle = collapsed ? PanelLeftOpen : PanelLeftClose;
   const label = collapsed ? "Άνοιγμα μενού" : "Σύμπτυξη μενού";
   return (
-    <aside className={cn("sidebar-surface scrollbar-hide sticky top-0 hidden h-dvh shrink-0 flex-col overflow-y-auto border-r border-sidebar-border/50 lg:flex print:!hidden", collapsed ? "w-[4.5rem]" : "w-[17rem]")}>
-      <div className={cn("flex items-center gap-2 py-4", collapsed ? "flex-col px-2" : "px-4")}>
-        <div className={cn("flex items-center justify-center rounded-lg border border-sidebar-border/60 bg-sidebar-accent/40", collapsed ? "size-11" : "min-h-18 min-w-0 flex-1 px-3")}>
-          {collapsed ? <Image src="/icon.png" alt="Gelato System" width={28} height={28} className="size-7 object-contain" /> : <Image src="/logo.png" alt="Gelato System" width={220} height={96} priority className="h-20 w-auto max-w-full scale-[1.2] object-contain" />}
+    <aside className={cn("sidebar-surface scrollbar-hide sticky top-0 hidden h-dvh shrink-0 flex-col overflow-y-auto lg:flex print:!hidden", collapsed ? "w-[4.5rem]" : "w-[17rem]")}>
+      <div className={cn("flex items-center gap-2 pt-5 pb-4", collapsed ? "flex-col px-2" : "pr-3 pl-5")}>
+        <div className={cn("flex items-center", collapsed ? "size-11 justify-center" : "min-w-0 flex-1")}>
+          {collapsed ? <Image src="/icon.png" alt="Gelato System" width={28} height={28} className="size-7 object-contain" /> : <Image src="/logo.png" alt="Gelato System" width={640} height={352} priority className="h-14 w-auto object-contain" />}
         </div>
-        <button type="button" onClick={() => setCollapsed(!collapsed)} aria-label={label} title={label} aria-expanded={!collapsed} className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-xl text-sidebar-foreground/70 transition-colors duration-200 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground">
-          <Toggle className="size-5" />
+        <button type="button" onClick={() => setCollapsed(!collapsed)} aria-label={label} title={label} aria-expanded={!collapsed} className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-lg text-sidebar-foreground/70 transition-colors duration-150 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground">
+          <Toggle className="size-4" />
         </button>
       </div>
       <NavLinks allowed={allowed} collapsed={collapsed} onExpand={() => setCollapsed(false)} />
@@ -140,7 +140,7 @@ export function BottomNav({ allowed }: { allowed: string[] }) {
   return (
     <nav aria-label="Γρήγορη πλοήγηση" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border/60 bg-card/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden print:hidden">
       {items.map(({ to, label, icon: Icon }) => (
-        <Link key={to} href={to} className={cn("flex h-15 flex-1 flex-col items-center justify-center gap-1 text-xs font-bold", isActive(path, to) ? "text-primary" : "text-muted-foreground")}>
+        <Link key={to} href={to} className={cn("flex h-15 flex-1 flex-col items-center justify-center gap-1 text-xs font-semibold", isActive(path, to) ? "text-primary" : "text-muted-foreground")}>
           <Icon className="size-5" />
           {label}
         </Link>

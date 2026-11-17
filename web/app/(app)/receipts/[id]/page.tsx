@@ -20,11 +20,11 @@ export default async function ReceiptPage({ params }: PageProps<"/receipts/[id]"
     <Page section="Αποδείξεις" title={`Απόδειξη ${sale.series}-${sale.aa}`} description="Για εκτύπωση: Ctrl/Cmd + P">
       <article className="mx-auto w-[80mm] max-w-full rounded-lg bg-white p-4 font-mono text-sm leading-relaxed text-black shadow-[var(--shadow-card)] print:shadow-none">
         <header className="text-center">
-          <p className="text-lg font-bold">{org.name}</p>
+          <p className="text-lg font-semibold">{org.name}</p>
           <p>{sale.store.name}</p>
           {sale.store.address ? <p>{sale.store.address}</p> : null}
           <p>ΑΦΜ {org.vatNumber}</p>
-          <p className="mt-2 font-bold">ΑΠΟΔΕΙΞΗ ΛΙΑΝΙΚΗΣ ΠΩΛΗΣΗΣ</p>
+          <p className="mt-2 font-semibold">ΑΠΟΔΕΙΞΗ ΛΙΑΝΙΚΗΣ ΠΩΛΗΣΗΣ</p>
           <p>{sale.series}-{sale.aa} · {sale.issuedAt ? dateTime.format(sale.issuedAt) : ""}</p>
         </header>
         <hr className="my-2 border-dashed border-black" />
@@ -35,7 +35,7 @@ export default async function ReceiptPage({ params }: PageProps<"/receipts/[id]"
           </div>
         ))}
         <hr className="my-2 border-dashed border-black" />
-        <div className="flex justify-between text-lg font-bold"><span>ΣΥΝΟΛΟ</span><span className="tabular-nums">{euro(sale.totalCents)}</span></div>
+        <div className="flex justify-between text-lg font-semibold"><span>ΣΥΝΟΛΟ</span><span className="tabular-nums">{euro(sale.totalCents)}</span></div>
         {[...vat].map(([rate, cents]) => (
           <div key={rate} className="flex justify-between"><span>εκ των οποίων ΦΠΑ {rate}%</span><span className="tabular-nums">{euro(cents)}</span></div>
         ))}
@@ -44,7 +44,7 @@ export default async function ReceiptPage({ params }: PageProps<"/receipts/[id]"
         {sale.fiscal?.status === "SIGNED" ? (
           <p className="break-all text-center">Αναφορά: {sale.fiscal.receiptReference}</p>
         ) : (
-          <p className="text-center font-bold">ΔΟΚΙΜΑΣΤΙΚΟ — ΔΕΝ ΑΠΟΤΕΛΕΙ ΦΟΡΟΛΟΓΙΚΟ ΣΤΟΙΧΕΙΟ</p>
+          <p className="text-center font-semibold">ΔΟΚΙΜΑΣΤΙΚΟ — ΔΕΝ ΑΠΟΤΕΛΕΙ ΦΟΡΟΛΟΓΙΚΟ ΣΤΟΙΧΕΙΟ</p>
         )}
       </article>
       <p className="mt-4 text-center print:hidden">{sale.fiscal ? <FiscalBadge status={sale.fiscal.status} /> : null}</p>

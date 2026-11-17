@@ -36,8 +36,8 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
 
   return (
     <Page section="Πλατφόρμα" title="Ρυθμίσεις & email" description="Ισχύουν για όλη την πλατφόρμα και όλους τους πελάτες">
-      <div className="mx-auto max-w-5xl space-y-4">
-        {q.error ? <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">{String(q.error)}</p> : null}
+      <div className="max-w-7xl space-y-4">
+        {q.error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{String(q.error)}</p> : null}
 
         <Card className="flex flex-wrap items-center gap-4 p-5">
           {ready ? <CircleCheck className="size-6 shrink-0 text-success" /> : <CircleAlert className="size-6 shrink-0 text-gold" />}
@@ -48,7 +48,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
                 ? `Συνδεδεμένο · τομέας αποστολής ${mailDomain()} · περιοχή ${process.env.MAILGUN_REGION === "us" ? "ΗΠΑ" : "ΕΕ"}. Κάθε πελάτης στέλνει ως υποτομέας@${mailDomain()}, με το δικό του όνομα και email απαντήσεων.`
                 : "Δεν έχει συνδεθεί. Γράψε MAILGUN_API_KEY και MAILGUN_DOMAIN (και MAILGUN_REGION=eu ή us) στο .env του server και ξεκίνα τον ξανά. Μέχρι τότε τα email μόνο καταγράφονται, δεν φεύγουν."}
             </p>
-            {test ? <p role="status" className={`mt-1 text-sm font-bold ${test.ok ? "text-success" : "text-destructive"}`}>{test.text}</p> : null}
+            {test ? <p role="status" className={`mt-1 text-sm font-semibold ${test.ok ? "text-success" : "text-destructive"}`}>{test.text}</p> : null}
           </div>
           <form action={sendTestMail}><button className={btn("outline")}>Δοκιμαστικό email σε {admin.email}</button></form>
         </Card>
@@ -67,7 +67,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
 
         <Card>
           <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
-            <h2 className="min-w-0 flex-1 text-lg">Στοιχεία πλατφόρμας {q.saved ? <span role="status" className="ml-2 text-sm font-bold text-success">Αποθηκεύτηκε</span> : null}</h2>
+            <h2 className="min-w-0 flex-1 text-lg">Στοιχεία πλατφόρμας {q.saved ? <span role="status" className="ml-2 text-sm font-semibold text-success">Αποθηκεύτηκε</span> : null}</h2>
             <Modal label="Αλλαγή" title="Στοιχεία πλατφόρμας">
               <form key={[settings.brandName, settings.baseDomain, settings.supportEmail].join()} action={savePlatformSettings} className="grid gap-4 [&>button]:justify-self-end">
                 <Field label="Όνομα πλατφόρμας" name="brandName" required minLength={2} maxLength={60} defaultValue={settings.brandName} hint="Στην κεφαλίδα κάθε email και στον αποστολέα" />
@@ -79,7 +79,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
           </div>
           <dl className="grid gap-x-6 gap-y-3 p-5 sm:grid-cols-3">
             {[["Όνομα πλατφόρμας", settings.brandName], ["Βασικός τομέας", settings.baseDomain], ["Email υποστήριξης", settings.supportEmail]].map(([l, v]) => (
-              <div key={l} className="min-w-0"><dt className="text-xs font-semibold text-muted-foreground">{l}</dt><dd className="truncate font-bold">{v ?? <span className="font-normal text-muted-foreground">Δεν έχει οριστεί</span>}</dd></div>
+              <div key={l} className="min-w-0"><dt className="text-xs font-medium text-muted-foreground">{l}</dt><dd className="truncate font-semibold">{v ?? <span className="font-normal text-muted-foreground">Δεν έχει οριστεί</span>}</dd></div>
             ))}
           </dl>
         </Card>
@@ -87,7 +87,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
         <Card id="staff" className="scroll-mt-28">
           <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg">Προσωπικό πλατφόρμας {q.saved === "staff" ? <span role="status" className="ml-2 text-sm font-bold text-success">Αποθηκεύτηκε</span> : null}</h2>
+              <h2 className="text-lg">Προσωπικό πλατφόρμας {q.saved === "staff" ? <span role="status" className="ml-2 text-sm font-semibold text-success">Αποθηκεύτηκε</span> : null}</h2>
               <p className="text-sm text-muted-foreground">Όσοι δουλεύουν στην κονσόλα. Δεν ανήκουν σε συνδρομητή.</p>
             </div>
             {admin.can("staff.manage") ? (
@@ -105,7 +105,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
             {staff.map((u) => (
               <li key={u.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold">{u.name}{u.id === admin.id ? " (εσύ)" : ""}</p>
+                  <p className="font-semibold">{u.name}{u.id === admin.id ? " (εσύ)" : ""}</p>
                   <p className="text-xs text-muted-foreground">{u.email} · {PLATFORM_ROLES[u.platformRole!].hint}</p>
                 </div>
                 <Badge tone={u.platformRole === "SUPER_ADMIN" ? "success" : "neutral"}>{PLATFORM_ROLES[u.platformRole!].label}</Badge>
@@ -126,7 +126,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
           </ul>
           <dl className="grid gap-x-6 gap-y-2 border-t border-border/70 p-5 sm:grid-cols-2">
             {Object.values(PLATFORM_ROLES).map((r) => (
-              <div key={r.label}><dt className="text-xs font-bold">{r.label}</dt><dd className="text-xs text-muted-foreground">{r.permissions.map((p) => PLATFORM_PERMISSIONS[p]).join(" · ")}</dd></div>
+              <div key={r.label}><dt className="text-xs font-semibold">{r.label}</dt><dd className="text-xs text-muted-foreground">{r.permissions.map((p) => PLATFORM_PERMISSIONS[p]).join(" · ")}</dd></div>
             ))}
           </dl>
         </Card>
@@ -139,7 +139,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
           {previews.map(([key, m], i) => (
             <details key={key} open={i === 0} className="border-b border-border/70 last:border-0">
               <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-baseline gap-x-3 px-5 py-3 hover:bg-secondary [&::-webkit-details-marker]:hidden">
-                <span className="font-bold">{TEMPLATE_LABEL[key]}</span>
+                <span className="font-semibold">{TEMPLATE_LABEL[key]}</span>
                 <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">Θέμα: {m.subject}</span>
               </summary>
               {/* sandbox χωρίς δικαιώματα: το δείγμα δεν τρέχει scripts και δεν ανοίγει συνδέσμους */}
@@ -153,7 +153,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
           <DataTable
             id="email-log"
             listing={{ ...list, total, placeholder: "Παραλήπτης ή θέμα" }}
-            empty="Δεν έχει σταλεί κανένα email ακόμα."
+            empty="Δεν έχει σταλεί κανένα email ακόμα"
             columns={[
               { key: "to", label: "Προς", required: true },
               { key: "when", label: "Πότε" },
@@ -165,7 +165,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
             rows={log.map((l) => ({
               id: l.id,
               cells: {
-                to: <span className="font-semibold">{l.to}</span>,
+                to: <span className="font-medium">{l.to}</span>,
                 when: l.createdAt.toLocaleString("el-GR", { dateStyle: "short", timeStyle: "short" }),
                 template: TEMPLATE_LABEL[l.template as keyof typeof TEMPLATE_LABEL] ?? l.template,
                 subject: l.subject,

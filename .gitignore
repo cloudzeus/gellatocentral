@@ -10,3 +10,5 @@ web/.claude/
 # Η παλιά πρόταση EPIC Hub μένει εκτός αυτού του repo
 docs/EPIC_Hub_*
 docs/proposal_build/
+# Δείχνουν προσωπικό email
+docs/screens/**/platform_settings.png

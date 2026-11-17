@@ -7,8 +7,8 @@ export function AuthCard({ children }: { children: ReactNode }) {
   return (
     <main className="grid min-h-dvh place-items-center p-4">
       <Card className="w-full max-w-sm overflow-hidden">
-        <div className="sidebar-surface flex justify-center px-6 py-6">
-          <Image src="/logo.png" alt="Gelato System" width={220} height={96} priority className="h-20 w-auto" />
+        <div className="sidebar-surface flex justify-center px-6 py-8">
+          <Image src="/logo.png" alt="Gelato System" width={640} height={352} priority className="h-16 w-auto" />
         </div>
         <div className="space-y-4 p-6">{children}</div>
       </Card>
@@ -16,5 +16,5 @@ export function AuthCard({ children }: { children: ReactNode }) {
   );
 }
 export const Notice = ({ tone, children }: { tone: "error" | "ok"; children: ReactNode }) => (
-  <p role={tone === "error" ? "alert" : "status"} className={`rounded-xl px-4 py-3 text-sm font-semibold ${tone === "error" ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"}`}>{children}</p>
+  <p role={tone === "error" ? "alert" : "status"} className={`rounded-lg px-4 py-3 text-sm font-medium ${tone === "error" ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"}`}>{children}</p>
 );

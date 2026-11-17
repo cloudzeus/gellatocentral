@@ -27,7 +27,7 @@ function Section({ id, title, hint, saved, action, children }: { id: string; tit
     <Card id={id} className="scroll-mt-28">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/70 px-5 py-4">
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg">{title} {saved ? <span role="status" className="ml-2 text-sm font-bold text-success">Αποθηκεύτηκε</span> : null}</h2>
+          <h2 className="text-lg">{title} {saved ? <span role="status" className="ml-2 text-sm font-semibold text-success">Αποθηκεύτηκε</span> : null}</h2>
           <p className="text-sm text-muted-foreground">{hint}</p>
         </div>
         {action}
@@ -41,7 +41,7 @@ function Row({ title, meta, active, toggle, children }: { title: string; meta: s
   return (
     <li className="flex flex-wrap items-center gap-3 px-5 py-3">
       <div className="min-w-0 flex-1">
-        <p className={active ? "font-bold" : "font-bold text-muted-foreground line-through"}>{title}</p>
+        <p className={active ? "font-semibold" : "font-semibold text-muted-foreground line-through"}>{title}</p>
         <p className="text-xs text-muted-foreground">{meta}</p>
       </div>
       {children}
@@ -56,8 +56,8 @@ function Facts({ items }: { items: [label: string, value: ReactNode][] }) {
     <dl className="grid gap-x-6 gap-y-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
       {items.map(([label, value]) => (
         <div key={label} className="min-w-0">
-          <dt className="text-xs font-semibold text-muted-foreground">{label}</dt>
-          <dd className="truncate font-bold">{value || <span className="font-normal text-muted-foreground">—</span>}</dd>
+          <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+          <dd className="truncate font-semibold">{value || <span className="font-normal text-muted-foreground">—</span>}</dd>
         </div>
       ))}
     </dl>
@@ -97,13 +97,13 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
   return (
     <Page section="Πλατφόρμα › Συνδρομητές" title={org.name} description={`ΑΦΜ ${org.vatNumber}`} actions={<Link href="/platform" className={btn("outline")}>Όλοι οι συνδρομητές</Link>}>
-      <div className="mx-auto max-w-5xl space-y-4">
-        {q.error ? <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">Δεν αποθηκεύτηκε: {String(q.error)}</p> : null}
+      <div className="max-w-7xl space-y-4">
+        {q.error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {String(q.error)}</p> : null}
 
         <Card className="p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg">{doneCount === steps.length ? "Έτοιμη να εκδώσει αποδείξεις" : "Τι λείπει για να εκδώσει αποδείξεις"}</h2>
-            <p className="text-sm font-bold tabular-nums text-muted-foreground">{doneCount} από {steps.length}</p>
+            <p className="text-sm font-semibold tabular-nums text-muted-foreground">{doneCount} από {steps.length}</p>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={doneCount}>
             <div className="h-full rounded-full bg-success" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
@@ -111,10 +111,10 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
           <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {steps.map((s) => (
               <li key={s.label}>
-                <a href={`#${s.fix}`} className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold hover:bg-secondary">
+                <a href={`#${s.fix}`} className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium hover:bg-secondary">
                   {s.done ? <CircleCheck className="size-5 shrink-0 text-success" /> : <CircleDashed className="size-5 shrink-0 text-gold" />}
                   <span className={s.done ? "text-muted-foreground" : ""}>{s.label}</span>
-                  {s.done ? null : <span className="ml-auto text-xs font-bold text-primary">Ρύθμιση</span>}
+                  {s.done ? null : <span className="ml-auto text-xs font-semibold text-primary">Ρύθμιση</span>}
                 </a>
               </li>
             ))}
@@ -160,7 +160,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
           ]} />
           <div className="border-t border-border/70">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
-              <p className="text-sm font-bold">Χρεώσεις</p>
+              <p className="text-sm font-semibold">Χρεώσεις</p>
               <form action={issueCharge.bind(null, org.id)}><button className={btn("outline", "sm")}>Έκδοση χρέωσης επόμενου μήνα ({euro(charge.totalCents)})</button></form>
             </div>
             {sub?.charges.length ? (
@@ -222,7 +222,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             <ul className="divide-y divide-border/70">
               {org.stores.flatMap((s) => s.warehouses.map((w) => <Row key={w.id} title={w.name} meta={w.device ? `${s.name} · είναι η συσκευή «${w.device.name}»` : s.name} active={w.active} toggle={toggleActive.bind(null, org.id, "warehouses", w.id)} />))}
             </ul>
-          ) : <Empty>Καμία αποθήκη ακόμα.</Empty>}
+          ) : <Empty>Καμία αποθήκη ακόμα</Empty>}
         </Section>
 
         <Section
@@ -242,7 +242,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             <ul className="divide-y divide-border/70">
               {org.stores.flatMap((s) => s.printers.map((p) => <Row key={p.id} title={p.name} meta={`${s.name} · ${CONNECTION[p.connection]}${p.address ? ` ${p.address}` : ""} · ${p.paperWidth} mm`} active={p.active} toggle={toggleActive.bind(null, org.id, "printers", p.id)} />))}
             </ul>
-          ) : <Empty>Κανένας εκτυπωτής ακόμα.</Empty>}
+          ) : <Empty>Κανένας εκτυπωτής ακόμα</Empty>}
         </Section>
 
         <Section
@@ -300,7 +300,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                     </Modal>
                   ) : null}
                   {d.kind === "POS_WEB" ? null : (
-                    <div className="order-last flex basis-full flex-wrap items-center gap-3 rounded-xl bg-secondary px-4 py-3 text-sm">
+                    <div className="order-last flex basis-full flex-wrap items-center gap-3 rounded-lg bg-secondary px-4 py-3 text-sm">
                       {d.pairCode && d.pairCodeExpiresAt && d.pairCodeExpiresAt > new Date() ? (
                         <span className="min-w-0 flex-1">Κωδικός σύζευξης: <b className="font-mono text-lg tracking-widest">{d.pairCode}</b> <span className="text-muted-foreground">· ισχύει ως τις {d.pairCodeExpiresAt.toLocaleTimeString("el-GR", { timeStyle: "short" })}, για μία χρήση</span></span>
                       ) : (
@@ -334,7 +334,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               {org.members.map((m) => (
                 <li key={m.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold">{m.user.name}</p>
+                    <p className="font-semibold">{m.user.name}</p>
                     <p className="text-xs text-muted-foreground">{m.user.email} · {m.store?.name ?? "Όλα τα καταστήματα"}</p>
                   </div>
                   <Badge tone={m.role.locked ? "success" : "neutral"}>{m.role.name}</Badge>

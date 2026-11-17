@@ -18,12 +18,12 @@ export default async function ResetPage({ searchParams }: PageProps<"/reset">) {
       <h1 className="text-xl">Νέος κωδικός</h1>
       {!valid ? (
         <>
-          <Notice tone="error">Ο σύνδεσμος έληξε ή χρησιμοποιήθηκε ήδη.</Notice>
+          <Notice tone="error">Ο σύνδεσμος έληξε ή χρησιμοποιήθηκε ήδη</Notice>
           <Link href="/forgot" className={btn("default", "lg", "w-full")}>Ζήτησε νέο σύνδεσμο</Link>
         </>
       ) : (
         <form action={resetPassword} className="space-y-4">
-          {q.error === "short" ? <Notice tone="error">Ο κωδικός θέλει τουλάχιστον 10 χαρακτήρες.</Notice> : null}
+          {q.error === "short" ? <Notice tone="error">Ο κωδικός θέλει τουλάχιστον 10 χαρακτήρες</Notice> : null}
           <input type="hidden" name="token" value={token} />
           <Field label="Νέος κωδικός" name="password" type="password" autoComplete="new-password" required minLength={10} hint="Τουλάχιστον 10 χαρακτήρες. Μετά την αλλαγή αποσυνδέονται όλες οι συσκευές σου." />
           <button className={btn("default", "lg", "w-full")}>Αποθήκευση κωδικού</button>

@@ -33,7 +33,7 @@ export default async function ReceiptsPage({ searchParams }: PageProps<"/receipt
         <DataTable
           id="receipts"
           listing={{ ...list, total, placeholder: "Απόδειξη (π.χ. A1-12) ή ταμείο" }}
-          empty={<>Δεν έχει εκδοθεί ακόμα απόδειξη. Ξεκίνα από το <Link href="/pos" className="font-bold underline">Ταμείο</Link>.</>}
+          empty={<>Δεν έχει εκδοθεί ακόμα απόδειξη. Ξεκίνα από το <Link href="/pos" className="font-semibold underline">Ταμείο</Link>.</>}
           columns={[
             { key: "no", label: "Απόδειξη", required: true },
             { key: "date", label: "Ημερομηνία" },
@@ -45,7 +45,7 @@ export default async function ReceiptsPage({ searchParams }: PageProps<"/receipt
           rows={sales.map((s) => ({
             id: s.id,
             cells: {
-              no: <Link href={`/receipts/${s.id}`} className="font-bold underline-offset-2 hover:underline">{s.series}-{s.aa}</Link>,
+              no: <Link href={`/receipts/${s.id}`} className="font-semibold underline-offset-2 hover:underline">{s.series}-{s.aa}</Link>,
               date: s.issuedAt ? dateTime.format(s.issuedAt) : "—",
               device: s.device.name,
               method: s.payment ? METHOD[s.payment.method] : "—",
