@@ -15,6 +15,7 @@ const NEEDS: Record<Group, { keys: SettingKey[]; missing: string; test?: string 
   mailgun: { keys: ["MAILGUN_API_KEY", "MAILGUN_DOMAIN"], missing: "Χωρίς αυτά τα email μόνο καταγράφονται, δεν φεύγουν", test: "Δοκιμαστικό email σε μένα" },
   bunny: { keys: ["BUNNY_STORAGE_ZONE", "BUNNY_STORAGE_KEY"], missing: "Χωρίς αυτά δεν ανεβαίνουν αρχεία ούτε αντίγραφα ασφαλείας", test: "Δοκιμή σύνδεσης" },
   rustdesk: { keys: ["RUSTDESK_SERVER"], missing: "Χωρίς server οι συνδέσεις περνούν από τον δημόσιο server του RustDesk" },
+  openrouter: { keys: ["OPENROUTER_API_KEY", "OPENROUTER_CHAT_MODEL", "OPENROUTER_EMBED_MODEL"], missing: "Χωρίς αυτά δεν υπάρχουν προσχέδια απαντήσεων και η αναζήτηση γίνεται μόνο με λέξεις", test: "Δοκιμή σύνδεσης" },
   app: { keys: ["APP_URL"], missing: "Χωρίς διεύθυνση, οι σύνδεσμοι στα email δείχνουν στο localhost" },
 };
 

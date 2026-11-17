@@ -55,6 +55,18 @@ export const GROUPS = {
       RUSTDESK_LINK: { label: "Μορφή συνδέσμου", placeholder: "rustdesk://{id}", hint: "Ο σύνδεσμος που ανοίγει το RustDesk στον υπολογιστή του τεχνικού. Το {id} γίνεται ο αριθμός της συσκευής", check: [/^[a-z][a-z0-9+.-]*:\/\/\S*\{id\}\S*$/i, "πρέπει να περιέχει {id}, π.χ. rustdesk://{id}"] },
     },
   },
+  openrouter: {
+    title: "OpenRouter: βοηθός υποστήριξης (agent)",
+    hint: "Ο agent γράφει προσχέδια απαντήσεων στα αιτήματα και ψάχνει τη βάση γνώσεων με το νόημα, όχι μόνο με λέξεις. Πριν φύγει κείμενο, αφαιρούνται email, τηλέφωνα και ΑΦΜ",
+    fields: {
+      OPENROUTER_API_KEY: { label: "Κλειδί API", secret: true },
+      OPENROUTER_CHAT_MODEL: { label: "Μοντέλο συνομιλίας", placeholder: "π.χ. anthropic/claude-sonnet-4.5", hint: "Το όνομα όπως το γράφει το OpenRouter (openrouter.ai/models)", check: [/^[a-z0-9._-]+\/[a-z0-9._:-]+$/i, "γράφεται ως πάροχος/μοντέλο"] },
+      OPENROUTER_EMBED_MODEL: { label: "Μοντέλο embeddings", placeholder: "π.χ. openai/text-embedding-3-small", hint: "Για την αναζήτηση με νόημα. Αν το αλλάξεις, πάτα «Ενημέρωση μνήμης» στη Βάση γνώσεων", check: [/^[a-z0-9._-]+\/[a-z0-9._:-]+$/i, "γράφεται ως πάροχος/μοντέλο"] },
+      OPENROUTER_PRIVACY: { label: "Πάροχοι", options: [["strict", "Μόνο όσοι δεν κρατούν δεδομένα (προτείνεται)"], ["any", "Οποιοσδήποτε πάροχος"]] },
+      AGENT_LEVEL: { label: "Τι κάνει ο agent", options: [["0", "Τίποτα (κλειστός)"], ["1", "Βοηθός υπαλλήλου: προσχέδιο που στέλνει άνθρωπος"]] },
+      AGENT_BUDGET_USD: { label: "Μηνιαίο όριο κόστους (USD)", placeholder: "π.χ. 50", hint: "Όταν ξεπεραστεί, ο agent σταματά μέχρι τον επόμενο μήνα. Κενό = χωρίς προσχέδια", check: [/^\d{1,5}(\.\d{1,2})?$/, "είναι αριθμός, π.χ. 50"] },
+    },
+  },
   app: {
     title: "Εφαρμογή",
     hint: "Η δημόσια διεύθυνση (για τους συνδέσμους στα email) και το μυστικό των προγραμματισμένων εργασιών",

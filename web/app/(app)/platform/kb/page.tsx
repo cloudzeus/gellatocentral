@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
@@ -9,6 +9,9 @@ import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
 import { helpful, KB_STATUS } from "@/lib/support/kb";
 import { CATEGORIES } from "@/lib/support/rules";
+import { budget } from "@/lib/ai/agent";
+import { aiConfig } from "@/lib/ai/openrouter";
+import { refreshMemory } from "../support/agent-actions";
 import { createArticle } from "./actions";
 
 const day = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeZone: "Europe/Athens" });
@@ -27,6 +30,13 @@ export default async function KbPage({ searchParams }: PageProps<"/platform/kb">
     db.kbArticle.groupBy({ by: ["status", "internal"], _count: true }),
     db.kbArticle.aggregate({ where: { status: "PUBLISHED" }, _sum: { helpfulYes: true, helpfulNo: true, views: true } }),
   ]);
+  const [ai, money, chunkRows, runRows] = await Promise.all([
+    aiConfig(), budget(),
+    db.kbChunk.groupBy({ by: ["sourceType"], _count: true }),
+    db.agentRun.groupBy({ by: ["outcome"], where: { createdAt: { gte: new Date(new Date().getTime() - 30 * 864e5) } }, _count: true }),
+  ]);
+  const chunks = { article: chunkRows.find((c) => c.sourceType === "article")?._count ?? 0, ticket: chunkRows.find((c) => c.sourceType === "ticket")?._count ?? 0 };
+  const runs = { total: runRows.reduce((x, r) => x + r._count, 0), decided: runRows.filter((r) => r.outcome).reduce((x, r) => x + r._count, 0), sent: runRows.find((r) => r.outcome === "sent")?._count ?? 0 };
   const n = (s: string, internal?: boolean) => counts.filter((c) => c.status === s && (internal === undefined || c.internal === internal)).reduce((x, c) => x + c._count, 0);
   const rate = helpful(votes._sum.helpfulYes ?? 0, votes._sum.helpfulNo ?? 0);
   const tiles = [
@@ -36,7 +46,7 @@ export default async function KbPage({ searchParams }: PageProps<"/platform/kb">
   ];
 
   return (
-    <Page section="Πλατφόρμα" title="Βάση γνώσεων" description="Οι οδηγοί που διαβάζουν οι πελάτες στη «Βοήθεια» και οι εσωτερικές οδηγίες της υποστήριξης"
+    <Page section="Υποστήριξη πελατών" title="Βάση γνώσεων" description="Οι οδηγοί που διαβάζουν οι πελάτες στη «Βοήθεια» και οι εσωτερικές οδηγίες της υποστήριξης"
       actions={
         <Modal label={<><Plus /> Νέο άρθρο</>} variant="default" title="Νέο άρθρο" description="Ξεκινά ως πρόχειρο. Το κείμενο το γράφεις στο επόμενο βήμα">
           <form action={createArticle} className="grid gap-4 [&>button]:justify-self-end">
@@ -58,6 +68,20 @@ export default async function KbPage({ searchParams }: PageProps<"/platform/kb">
             </Card>
           ))}
         </div>
+        <Card id="agent" className="scroll-mt-28">
+          <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
+            <Sparkles className="size-5 shrink-0 text-gold-ink" />
+            <div className="min-w-0 flex-1"><h2 className="text-lg">Μνήμη και agent</h2><p className="text-sm text-muted-foreground">{ai.memory ? "Τα δημοσιευμένα άρθρα και τα λυμένα αιτήματα γίνονται αναζητήσιμα με το νόημα. Τα αιτήματα ενός πελάτη χρησιμοποιούνται μόνο για τον ίδιο" : "Κλειστό: ορίζεται στις Ρυθμίσεις & email › OpenRouter. Μέχρι τότε η αναζήτηση γίνεται με λέξεις και δεν υπάρχουν προσχέδια"}</p></div>
+            {ai.memory && me.can("support.kb") ? <form action={refreshMemory}><Submit className={btn("outline")}>Ενημέρωση μνήμης</Submit></form> : null}
+          </div>
+          {typeof sp.saved === "string" ? <p role="status" className="mx-5 mt-4 rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{sp.saved.slice(0, 120)}</p> : null}
+          <dl className="grid gap-x-6 gap-y-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div><dt className="text-xs font-medium text-muted-foreground">Στη μνήμη</dt><dd className="font-semibold tabular-nums">{chunks.article} κομμάτια άρθρων · {chunks.ticket} από λυμένα αιτήματα</dd></div>
+            <div><dt className="text-xs font-medium text-muted-foreground">Agent</dt><dd className="font-semibold">{ai.level >= 1 && ai.chat ? "Βοηθός υπαλλήλου: προσχέδια" : "Κλειστός"}</dd></div>
+            <div><dt className="text-xs font-medium text-muted-foreground">Κόστος αυτόν τον μήνα</dt><dd className={cn("font-semibold tabular-nums", money.limit > 0 && money.left <= 0 && "text-destructive")}>{money.spent.toFixed(2)} $ {money.limit ? `από όριο ${money.limit.toFixed(2)} $` : "· χωρίς όριο, άρα χωρίς προσχέδια"}</dd></div>
+            <div><dt className="text-xs font-medium text-muted-foreground">Προσχέδια (30 ημέρες)</dt><dd className="font-semibold tabular-nums">{runs.total ? `${runs.total} · ${Math.round((runs.sent / Math.max(1, runs.decided)) * 100)}% στάλθηκαν χωρίς αλλαγή` : "Κανένα ακόμα"}</dd></div>
+          </dl>
+        </Card>
         <Card>
           <DataTable
             id="kb"

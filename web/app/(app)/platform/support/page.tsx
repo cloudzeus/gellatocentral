@@ -45,7 +45,7 @@ export default async function QueuePage({ searchParams }: PageProps<"/platform/s
   ];
 
   return (
-    <Page section="Πλατφόρμα" title="Αιτήματα" description="Τα αιτήματα υποστήριξης όλων των πελατών. Πρώτα όσα κινδυνεύουν να ξεπεράσουν τον χρόνο απάντησης">
+    <Page section="Υποστήριξη πελατών" title="Αιτήματα" description="Τα αιτήματα υποστήριξης όλων των πελατών. Πρώτα όσα κινδυνεύουν να ξεπεράσουν τον χρόνο απάντησης">
       <div className="max-w-7xl space-y-4">
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
           {tiles.map((t) => (

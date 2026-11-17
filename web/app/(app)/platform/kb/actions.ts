@@ -1,4 +1,5 @@
 "use server";
+import { indexArticle } from "@/lib/ai/memory";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -42,6 +43,7 @@ export async function saveArticle(id: string, form: FormData) {
     ...(changed && article.body ? [db.kbVersion.create({ data: { articleId: id, title: article.title, body: article.body, savedByName: article.updatedByName ?? article.authorName } })] : []),
     db.kbArticle.update({ where: { id }, data: { title: d.data.title, category: d.data.category, body: d.data.body, internal: form.get("internal") === "on", updatedByName: me.name, ...(demote ? { status: "REVIEW" } : {}) } }),
   ]);
+  await indexArticle(id).catch((e) => console.error("kb index", e));
   revalidatePath(`/platform/kb/${id}`);
   to(id, { saved: demote ? "review" : "1" });
 }
@@ -55,6 +57,7 @@ export async function setArticleStatus(id: string, next: keyof typeof MOVES) {
   if ((next === "PUBLISHED" || next === "RETIRED" || article.status === "PUBLISHED") && !me.can("support.kb")) return to(id, { error: "Η δημοσίευση και η απόσυρση θέλουν δικαίωμα έγκρισης άρθρων" });
   if (next !== "DRAFT" && article.body.trim().length < 20) return to(id, { error: "Γράψε και αποθήκευσε πρώτα το κείμενο του άρθρου" });
   await db.kbArticle.update({ where: { id }, data: { status: next, ...(next === "PUBLISHED" ? { publishedAt: new Date() } : {}) } });
+  await indexArticle(id).catch((e) => console.error("kb index", e));
   revalidatePath("/platform/kb");
   to(id, { saved: next.toLowerCase() });
 }

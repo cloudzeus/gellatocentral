@@ -132,6 +132,7 @@ export async function completeErasure(id: string, actor: Actor) {
       counts.emails = (await tx.emailLog.updateMany({ where: { to: user.email }, data: { to: "[διαγράφηκε]" } })).count;
       counts.uploads = (await tx.storedFile.updateMany({ where: { uploadedById: user.id }, data: { uploadedById: null } })).count;
       await tx.gdprEvent.updateMany({ where: { actorId: user.id }, data: { actorLabel: ERASED_NAME } });
+      await tx.kbChunk.deleteMany({ where: { sourceType: "ticket", sourceId: { in: (await tx.ticket.findMany({ where: { openedById: user.id }, select: { id: true } })).map((t) => t.id) } } });
       counts.tickets = (await tx.ticket.updateMany({ where: { openedById: user.id }, data: { openedById: null, openedByName: ERASED_NAME } })).count;
       await tx.ticket.updateMany({ where: { assigneeId: user.id }, data: { assigneeId: null, assigneeName: null } });
       await tx.ticketMessage.updateMany({ where: { authorId: user.id }, data: { authorId: null, authorName: ERASED_NAME } });

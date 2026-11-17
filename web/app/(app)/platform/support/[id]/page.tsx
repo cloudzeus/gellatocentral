@@ -1,4 +1,4 @@
-import { BookOpen, CircleCheck, MonitorUp } from "lucide-react";
+import { BookOpen, CircleCheck, MonitorUp, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Modal } from "@/components/modal";
@@ -11,12 +11,15 @@ import { DEVICE_KIND, readingStatus } from "@/lib/devices";
 import { showRemoteId } from "@/lib/remote";
 import { searchArticles } from "@/lib/support/kb-data";
 import { articleFromTicket } from "../../kb/actions";
+import { aiConfig } from "@/lib/ai/openrouter";
+import { decideDraft, makeDraft } from "../agent-actions";
 import { ACTIVE, CATEGORIES, type Category, PRIORITY, type Priority, responseClock, STATUS, type Status } from "@/lib/support/rules";
 import { assignToMe, resolve, setPriority } from "@/app/(app)/support/actions";
 import { startRemote } from "../../actions";
 
 const day = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeZone: "Europe/Athens" });
-const SAVED: Record<string, string> = { reply: "Το μήνυμα καταχωρίστηκε", resolved: "Το αίτημα σημειώθηκε ως λυμένο", assigned: "Το αίτημα ανατέθηκε σε σένα", priority: "Η προτεραιότητα άλλαξε" };
+const CONF: Record<string, { tone: "success" | "warning" | "danger"; text: string }> = { high: { tone: "success", text: "Βεβαιότητα υψηλή" }, medium: { tone: "warning", text: "Βεβαιότητα μέτρια" }, low: { tone: "danger", text: "Βεβαιότητα χαμηλή: έλεγξέ το" } };
+const SAVED: Record<string, string> = { draft: "Το προσχέδιο είναι έτοιμο. Διάβασέ το πριν το στείλεις", rejected: "Το προσχέδιο απορρίφθηκε", reply: "Το μήνυμα καταχωρίστηκε", resolved: "Το αίτημα σημειώθηκε ως λυμένο", assigned: "Το αίτημα ανατέθηκε σε σένα", priority: "Η προτεραιότητα άλλαξε" };
 const DOT = { success: "bg-success", warning: "bg-gold", danger: "bg-destructive", neutral: "bg-muted-foreground/40" };
 
 export default async function SupportTicketPage({ params, searchParams }: PageProps<"/platform/support/[id]">) {
@@ -25,12 +28,16 @@ export default async function SupportTicketPage({ params, searchParams }: PagePr
   if (!ticket) notFound();
   const q = await searchParams;
   const status = ticket.status as Status, priority = ticket.priority as Priority;
-  const [devices, unsent, others, articles] = await Promise.all([
+  const [devices, unsent, others, articles, ai, run] = await Promise.all([
     db.device.findMany({ where: { store: { orgId: ticket.orgId }, active: true }, orderBy: { createdAt: "asc" }, include: { store: true, readings: { orderBy: { at: "desc" }, take: 1 } } }),
     db.fiscalDocument.count({ where: { sale: { orgId: ticket.orgId, status: "COMPLETED" }, status: { not: "SIGNED" } } }),
     db.ticket.findMany({ where: { orgId: ticket.orgId, id: { not: ticket.id } }, orderBy: { createdAt: "desc" }, take: 5 }),
     searchArticles(ticket.subject, { internal: true, limit: 4 }),
+    aiConfig(),
+    db.agentRun.findFirst({ where: { ticketId: ticket.id, outcome: null }, orderBy: { createdAt: "desc" } }),
   ]);
+  const sources = (Array.isArray(run?.sources) ? run.sources : []) as { n: number; type: string; id: string; title: string; used: boolean }[];
+  const used = sources.filter((x, i) => x.used && sources.findIndex((y) => y.used && y.type === x.type && y.id === x.id) === i);
   const device = devices.find((d) => d.id === ticket.deviceId);
   const clock = responseClock({ ...ticket, priority, status });
   const sub = ticket.org.subscription;
@@ -47,7 +54,7 @@ export default async function SupportTicketPage({ params, searchParams }: PagePr
   ];
 
   return (
-    <Page section="Πλατφόρμα › Αιτήματα" title={ticket.subject} description={`#${ticket.number} · ${ticket.org.name}${device ? ` · ${device.name}` : ""} · ${CATEGORIES[ticket.category as Category] ?? ticket.category} · το άνοιξε ο χρήστης ${ticket.openedByName}`}
+    <Page section="Υποστήριξη πελατών › Αιτήματα" title={ticket.subject} description={`#${ticket.number} · ${ticket.org.name}${device ? ` · ${device.name}` : ""} · ${CATEGORIES[ticket.category as Category] ?? ticket.category} · το άνοιξε ο χρήστης ${ticket.openedByName}`}
       actions={<>
         <Badge tone={PRIORITY[priority].tone}>{PRIORITY[priority].label}</Badge><Badge tone={clock.tone}>{clock.text}</Badge>
         {ticket.assigneeId === me.id ? null : <form action={assignToMe.bind(null, ticket.id)}><Submit className={btn("outline")}>Ανάθεση σε μένα</Submit></form>}
@@ -57,6 +64,31 @@ export default async function SupportTicketPage({ params, searchParams }: PagePr
         <div className="min-w-0 space-y-4">
           {typeof q.saved === "string" && SAVED[q.saved] ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{SAVED[q.saved]}</p> : null}
           {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{q.error.slice(0, 200)}</p> : null}
+          {ai.level >= 1 && ai.chat && status !== "CLOSED" ? (
+            <Card id="agent" className={run ? "scroll-mt-28 border-gold shadow-[inset_3px_0_0_var(--gold)]" : "scroll-mt-28"}>
+              {run ? (
+                <form action={decideDraft.bind(null, run.id)} className="space-y-3 p-5">
+                  <p className="flex flex-wrap items-center gap-2 text-sm"><Sparkles className="size-4 text-gold-ink" /><span className="font-semibold">Προσχέδιο του agent</span><span className="text-muted-foreground">δεν έχει σταλεί</span><Badge tone={CONF[run.confidence]?.tone ?? "neutral"}>{CONF[run.confidence]?.text ?? run.confidence}</Badge></p>
+                  <label className="block space-y-1 text-sm font-medium">Διάβασέ το και άλλαξε ό,τι χρειάζεται
+                    <textarea name="body" required rows={9} defaultValue={run.reply} className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm font-normal leading-relaxed" />
+                  </label>
+                  {run.note ? <p className="rounded-lg bg-secondary px-3 py-2 text-sm"><span className="font-semibold">Σημείωση του agent:</span> {run.note}</p> : null}
+                  <p className="text-sm text-muted-foreground"><span className="font-semibold text-foreground">Πηγές:</span> {used.length ? used.map((x, i) => <span key={x.n}>{i ? " · " : ""}<Link href={x.type === "article" ? `/platform/kb/${x.id}` : `/platform/support/${x.id}`} className="font-semibold text-primary underline underline-offset-2">{x.title}</Link></span>) : "καμία: στηρίζεται μόνο στα διαγνωστικά, έλεγξέ το"}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Submit name="decision" value="send" className={btn("default")}>Αποστολή στον πελάτη</Submit>
+                    <Submit name="decision" value="reject" formNoValidate className={btn("ghost")}>Απόρριψη</Submit>
+                    <span className="flex-1" /><span className="text-xs text-muted-foreground tabular-nums">{run.model} · {run.costUsd.toFixed(4)} $</span>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3 px-5 py-4">
+                  <Sparkles className="size-5 shrink-0 text-gold-ink" />
+                  <p className="min-w-0 flex-1"><span className="font-medium">Προσχέδιο απάντησης</span><span className="block text-sm text-muted-foreground">Ο agent διαβάζει το αίτημα, τα διαγνωστικά και τη βάση γνώσεων. Το προσχέδιο το στέλνεις εσύ</span></p>
+                  <form action={makeDraft.bind(null, ticket.id)}><Submit className={btn("outline")}>Γράψε προσχέδιο</Submit></form>
+                </div>
+              )}
+            </Card>
+          ) : null}
           <TicketThread ticket={ticket} messages={ticket.messages} support closed={status === "CLOSED"} />
         </div>
         <div className="min-w-0 space-y-4">

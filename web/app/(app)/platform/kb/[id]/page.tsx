@@ -22,7 +22,7 @@ export default async function ArticleEditPage({ params, searchParams }: PageProp
   const act = (next: Parameters<typeof setArticleStatus>[1], label: string, variant: "default" | "outline" = "outline") => <form action={setArticleStatus.bind(null, article.id, next)}><Submit className={btn(variant)}>{label}</Submit></form>;
 
   return (
-    <Page section="Πλατφόρμα › Βάση γνώσεων" title={article.title} description={`${article.internal ? "Εσωτερικό" : "Για τους πελάτες"} · το έγραψε ο χρήστης ${article.authorName}${article.sourceTicketId ? " · από αίτημα" : ""}`}
+    <Page section="Υποστήριξη πελατών › Βάση γνώσεων" title={article.title} description={`${article.internal ? "Εσωτερικό" : "Για τους πελάτες"} · το έγραψε ο χρήστης ${article.authorName}${article.sourceTicketId ? " · από αίτημα" : ""}`}
       actions={<>
         <Badge tone={KB_STATUS[article.status].tone}>{KB_STATUS[article.status].text}</Badge>
         {article.status === "DRAFT" ? act("REVIEW", "Αποστολή για έγκριση", canPublish ? "outline" : "default") : null}

@@ -70,10 +70,15 @@ export const NAV: { title: string; icon: LucideIcon; items: NavItem[] }[] = [
     title: "Πλατφόρμα", icon: Building2,
     items: [
       { to: "/platform", label: "Συνδρομητές", icon: Building2, ready: true },
+      { to: "/platform/gdpr", label: "GDPR & συναινέσεις", icon: ShieldCheck, ready: true },
+    ],
+  },
+  { title: "Ρυθμίσεις πλατφόρμας", icon: Settings, items: [{ to: "/platform/settings", label: "Ρυθμίσεις & email", icon: Settings, ready: true }] },
+  {
+    title: "Υποστήριξη πελατών", icon: Inbox,
+    items: [
       { to: "/platform/support", label: "Αιτήματα", icon: Inbox, ready: true },
       { to: "/platform/kb", label: "Βάση γνώσεων", icon: BookOpen, ready: true },
-      { to: "/platform/gdpr", label: "GDPR & συναινέσεις", icon: ShieldCheck, ready: true },
-      { to: "/platform/settings", label: "Ρυθμίσεις & email", icon: Settings, ready: true },
     ],
   },
   {

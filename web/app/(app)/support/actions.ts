@@ -1,5 +1,6 @@
 "use server";
 // Ενέργειες αιτημάτων, κοινές για τον πελάτη και την υποστήριξη. Η πλευρά βγαίνει από τον χρήστη, όχι από τη φόρμα.
+import { indexTicket } from "@/lib/ai/memory";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -35,6 +36,7 @@ export async function resolve(ticketId: string) {
   const to = pathOf(isSupport(user), ticketId);
   const error = await resolveTicket(ticketId, user).then(() => null, (e) => e);
   if (error) return fail(to, error);
+  await indexTicket(ticketId).catch((e) => console.error("ticket index", e)); // το λυμένο αίτημα μπαίνει στη μνήμη του ίδιου πελάτη
   revalidatePath(to);
   redirect(`${to}?saved=resolved`);
 }

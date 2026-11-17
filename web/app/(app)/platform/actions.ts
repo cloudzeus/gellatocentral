@@ -2,6 +2,7 @@
 // Ενέργειες της κονσόλας πλατφόρμας: ο διαχειριστής ενεργεί για ΟΠΟΙΑΔΗΠΟΤΕ επιχείρηση (orgId από τη φόρμα).
 // Κάθε action ξεκινά με requirePlatform(δικαίωμα): οι server actions καλούνται και απευθείας, όχι μόνο από τη σελίδα.
 
+import { pingAi } from "@/lib/ai/openrouter";
 import { cleanRemoteId } from "@/lib/remote";
 import { type Group, GROUPS, saveGroup } from "@/lib/config";
 import { ping } from "@/lib/storage/bunny";
@@ -384,6 +385,7 @@ export async function testConnection(group: string) {
   const admin = await requirePlatform("settings.manage");
   let r: { ok: boolean; text: string };
   if (group === "bunny") r = await ping();
+  else if (group === "openrouter") r = await pingAi();
   else if (group === "viva_isv") {
     const error = await testIsvCredentials();
     r = error ? { ok: false, text: `Η Viva δεν δέχτηκε τα κλειδιά: ${error}. Έλεγξε και το περιβάλλον (demo ή παραγωγή)` } : { ok: true, text: "Η Viva δέχτηκε τα κλειδιά ISV" };

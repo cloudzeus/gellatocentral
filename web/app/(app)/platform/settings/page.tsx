@@ -33,7 +33,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
   const previews = Object.entries(samples(settings)) as [keyof typeof TEMPLATE_LABEL, ReturnType<typeof samples>["test"]][];
 
   return (
-    <Page section="Πλατφόρμα" title="Ρυθμίσεις & email" description="Όλες οι συνδέσεις και τα στοιχεία της πλατφόρμας σε ένα σημείο. Ισχύουν για όλους τους πελάτες">
+    <Page section="Ρυθμίσεις πλατφόρμας" title="Ρυθμίσεις & email" description="Όλες οι συνδέσεις και τα στοιχεία της πλατφόρμας σε ένα σημείο. Ισχύουν για όλους τους πελάτες">
       <div className="max-w-7xl space-y-4">
         {q.error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{String(q.error)}</p> : null}
 

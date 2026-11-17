@@ -645,3 +645,42 @@ model KbVersion {
 
   @@index([articleId, createdAt])
 }
+
+// ---- Μνήμη του agent (RAG). Κάθε κομμάτι κειμένου έχει το διάνυσμά του (pgvector) για αναζήτηση με νόημα.
+// orgId = null → κοινή γνώση (άρθρα)· orgId = πελάτης → ανακτάται ΜΟΝΟ σε αιτήματα του ίδιου πελάτη (λυμένα αιτήματά του).
+model KbChunk {
+  id         String   @id @default(cuid())
+  sourceType String // article | ticket
+  sourceId   String
+  orgId      String?
+  internal   Boolean  @default(false) // εσωτερικό άρθρο: μόνο όταν ο agent βοηθά υπάλληλο
+  title      String
+  content    String
+  model      String // το μοντέλο embeddings που έβγαλε το διάνυσμα· η αναζήτηση συγκρίνει μόνο ίδια μοντέλα
+  embedding  Unsupported("vector")?
+  createdAt  DateTime @default(now())
+
+  @@index([sourceType, sourceId])
+  @@index([orgId])
+}
+
+// Κάθε εκτέλεση του agent: τι του δόθηκε, τι απάντησε, πόσο κόστισε και τι έκανε ο υπάλληλος με το προσχέδιο.
+model AgentRun {
+  id               String   @id @default(cuid())
+  ticketId         String
+  model            String
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  costUsd          Float    @default(0)
+  sources          Json // τα κομμάτια μνήμης που ανακτήθηκαν
+  facts            Json // τα διαγνωστικά της επιχείρησης που του δόθηκαν
+  reply            String
+  note             String? // εσωτερική παρατήρηση του agent για τον υπάλληλο
+  confidence       String // high | medium | low
+  outcome          String? // sent | edited | rejected· κενό = δεν αποφασίστηκε ακόμα
+  createdByName    String
+  createdAt        DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+  @@index([createdAt])
+}
