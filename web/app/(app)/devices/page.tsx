@@ -11,9 +11,12 @@ import { Submit } from "@/components/submit";
 
 const field = "h-8.5 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
 
+const when = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Athens" });
+
 export default async function DevicesPage() {
   const { org } = await currentOrg("devices.manage");
   const stores = await db.store.findMany({ where: { orgId: org.id }, orderBy: { name: "asc" }, include: { devices: { orderBy: { createdAt: "asc" }, include: { readings: { orderBy: { at: "desc" }, take: 1 } } } } });
+  const accesses = await db.remoteAccess.findMany({ where: { orgId: org.id }, orderBy: { at: "desc" }, take: 20, include: { device: { select: { name: true } } } });
   return (
     <Page section="Ταμείο & τιμολόγηση" title="Συσκευές" description={`Ταμεία, οθόνες κουζίνας, ψυγεία, αυτόματοι πωλητές και ζυγαριές. Χρεώνονται μόνο τα ταμεία: ${euro(PRICE_PER_DEVICE)} τον μήνα.`}
       actions={
@@ -58,6 +61,24 @@ export default async function DevicesPage() {
               </ul>
             </Card>
           ))}
+
+          <Card>
+            <div className="border-b border-border/70 px-5 py-4">
+              <h2 className="text-lg">Απομακρυσμένες συνδέσεις της υποστήριξης</h2>
+              <p className="text-sm text-muted-foreground">Κάθε φορά που κάποιος από την υποστήριξη συνδέεται σε συσκευή σου, γράφεται εδώ. Η σύνδεση ανοίγει μόνο αφού πατήσεις «Αποδοχή» στη συσκευή</p>
+            </div>
+            {accesses.length === 0 ? <p className="px-5 py-6 text-muted-foreground">Καμία σύνδεση μέχρι τώρα</p> : (
+              <ul className="divide-y divide-border/70">
+                {accesses.map((a) => (
+                  <li key={a.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-5 py-3">
+                    <span className="w-36 shrink-0 text-muted-foreground tabular-nums">{when.format(a.at)}</span>
+                    <span className="min-w-0 flex-1"><span className="font-medium">{a.device.name}</span> · {a.reason}</span>
+                    <span className="text-muted-foreground">{a.startedByName}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
         </div>
     </Page>
   );

@@ -1,6 +1,7 @@
+import { showRemoteId } from "@/lib/remote";
 import { Files } from "@/components/files";
 import { ProcessFlow } from "@/components/process-flow";
-import { Pencil, Plus } from "lucide-react";
+import { MonitorUp, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -13,7 +14,7 @@ import { mailDomain, platformSettings } from "@/lib/mail/send";
 import { euro } from "@/lib/money";
 import { isBillable, monthlyCharge, PRICE_PER_DEVICE, PRICE_PER_STORE } from "@/lib/pricing";
 import { setupSteps } from "@/lib/setup";
-import { addDevice, addPrinter, addStore, addUser, addWarehouse, issueCharge, issuePairCode, markChargePaid, removeMember, revokeDevice, saveOrgProfile, saveSubscription, saveViva, toggleActive, updateDevice } from "../actions";
+import { addDevice, addPrinter, addStore, addUser, addWarehouse, issueCharge, issuePairCode, markChargePaid, removeMember, revokeDevice, saveOrgProfile, setRemoteId, startRemote, saveSubscription, saveViva, toggleActive, updateDevice } from "../actions";
 import { STATUS } from "../status";
 import { Submit } from "@/components/submit";
 
@@ -314,6 +315,22 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                       ) : (
                         <span className="min-w-0 flex-1">{d.pairedAt ? <Badge tone="success">Πιστοποιημένη από {day(d.pairedAt)}</Badge> : <Badge tone="warning">Δεν έχει πιστοποιηθεί</Badge>}{kind.measures ? <span className="ml-2 text-muted-foreground">Μετά τη σύζευξη στέλνει μετρήσεις στο /api/devices/readings</span> : null}</span>
                       )}
+                      {d.remoteId && me.can("support.remote") ? (
+                        <Modal label={<><MonitorUp /> Σύνδεση</>} size="sm" variant="default" title={`Απομακρυσμένη σύνδεση: ${d.name}`} description={`RustDesk ${showRemoteId(d.remoteId)}. Η σύνδεση καταγράφεται και ο πελάτης τη βλέπει στις Συσκευές του`}>
+                          <form action={startRemote.bind(null, org.id, d.id)} className="grid gap-4 [&>button]:justify-self-end">
+                            <Field label="Λόγος σύνδεσης" name="reason" required minLength={5} maxLength={300} placeholder="π.χ. δεν τυπώνει αποδείξεις" hint="Τον διαβάζει ο πελάτης στο ιστορικό συνδέσεων" />
+                            <Submit className={btn("default")}>Καταγραφή και συνέχεια</Submit>
+                          </form>
+                        </Modal>
+                      ) : null}
+                      {me.can("setup.manage") ? (
+                        <Modal label={d.remoteId ? "RustDesk" : "Ορισμός RustDesk"} size="sm" variant="ghost" title={`Αριθμός RustDesk: ${d.name}`} description="Ο αριθμός που δείχνει το πρόγραμμα RustDesk στη συσκευή του πελάτη">
+                          <form key={d.remoteId ?? ""} action={setRemoteId.bind(null, org.id, d.id)} className="grid gap-4 [&>button]:justify-self-end">
+                            <Field label="Αριθμός RustDesk" name="remoteId" maxLength={40} defaultValue={d.remoteId ? showRemoteId(d.remoteId) : ""} placeholder="123 456 789" hint="Κενό για να αφαιρεθεί" />
+                            <Submit className={btn("default")}>Αποθήκευση</Submit>
+                          </form>
+                        </Modal>
+                      ) : null}
                       {me.can("setup.manage") ? <form action={issuePairCode.bind(null, org.id, d.id)}><Submit className={btn("outline", "sm")}>{d.pairedAt ? "Νέα σύζευξη" : "Κωδικός σύζευξης"}</Submit></form> : null}
                       {d.pairedAt && me.can("setup.manage") ? <form action={revokeDevice.bind(null, org.id, d.id)}><Submit className={btn("destructive", "sm")}>Ανάκληση</Submit></form> : null}
                     </div>

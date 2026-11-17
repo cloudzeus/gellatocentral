@@ -46,6 +46,15 @@ export const GROUPS = {
       BUNNY_CDN_URL: { label: "Διεύθυνση CDN (pull zone)", placeholder: "https://gelato.b-cdn.net", hint: "Από εδώ σερβίρονται οι φωτογραφίες. Χωρίς αυτήν περνούν μέσα από την εφαρμογή, πιο αργά", check: https },
     },
   },
+  rustdesk: {
+    title: "RustDesk: απομακρυσμένη υποστήριξη",
+    hint: "Ο δικός μας server RustDesk. Με αυτά τα στοιχεία ρυθμίζεται το πρόγραμμα RustDesk στις συσκευές των πελατών και στους υπολογιστές της υποστήριξης",
+    fields: {
+      RUSTDESK_SERVER: { label: "Διεύθυνση server (ID server)", placeholder: "rd.gelatosystem.app", check: [/^[a-z0-9.-]+(:\d{2,5})?$/i, "γράφεται χωρίς https://, π.χ. rd.gelatosystem.app"] },
+      RUSTDESK_KEY: { label: "Δημόσιο κλειδί server", hint: "Το περιεχόμενο του id_ed25519.pub. Δεν είναι μυστικό: μπαίνει σε κάθε πρόγραμμα RustDesk" },
+      RUSTDESK_LINK: { label: "Μορφή συνδέσμου", placeholder: "rustdesk://{id}", hint: "Ο σύνδεσμος που ανοίγει το RustDesk στον υπολογιστή του τεχνικού. Το {id} γίνεται ο αριθμός της συσκευής", check: [/^[a-z][a-z0-9+.-]*:\/\/\S*\{id\}\S*$/i, "πρέπει να περιέχει {id}, π.χ. rustdesk://{id}"] },
+    },
+  },
   app: {
     title: "Εφαρμογή",
     hint: "Η δημόσια διεύθυνση (για τους συνδέσμους στα email) και το μυστικό των προγραμματισμένων εργασιών",

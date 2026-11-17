@@ -2,6 +2,7 @@
 // Ενέργειες της κονσόλας πλατφόρμας: ο διαχειριστής ενεργεί για ΟΠΟΙΑΔΗΠΟΤΕ επιχείρηση (orgId από τη φόρμα).
 // Κάθε action ξεκινά με requirePlatform(δικαίωμα): οι server actions καλούνται και απευθείας, όχι μόνο από τη σελίδα.
 
+import { cleanRemoteId } from "@/lib/remote";
 import { type Group, GROUPS, saveGroup } from "@/lib/config";
 import { ping } from "@/lib/storage/bunny";
 import { revalidatePath } from "next/cache";
@@ -227,6 +228,29 @@ export async function updateDevice(form: FormData) {
     data: { vivaTerminalId: v.vivaTerminalId, printerId: v.printerId, linkedDeviceId: v.linkedDeviceId, tempMin: v.tempMin, tempMax: v.tempMax, macAddress: v.macAddress, tailscaleIp: v.tailscaleIp },
   });
   done(orgId, "devices");
+}
+
+// ---- Απομακρυσμένη υποστήριξη (RustDesk) ----
+
+/** Ο αριθμός RustDesk μιας συσκευής, όπως τον δείχνει το πρόγραμμα στη συσκευή. Κενό = αφαίρεση. */
+export async function setRemoteId(orgId: string, deviceId: string, form: FormData) {
+  await requirePlatform("setup.manage");
+  const raw = String(form.get("remoteId") ?? "").trim();
+  const remoteId = raw ? cleanRemoteId(raw) : null;
+  if (raw && !remoteId) redirect(`/platform/${id.parse(orgId)}?error=${encodeURIComponent("Ο αριθμός RustDesk έχει 6 έως 32 ψηφία ή λατινικά γράμματα")}#devices`);
+  await db.device.updateMany({ where: { id: id.parse(deviceId), orgId: id.parse(orgId) }, data: { remoteId } });
+  done(orgId, "devices");
+}
+
+/** Καταγράφει ποιος συνδέεται, σε ποια συσκευή και γιατί, και μετά δείχνει τη σελίδα από όπου ανοίγει το RustDesk. */
+export async function startRemote(orgId: string, deviceId: string, form: FormData) {
+  const me = await requirePlatform("support.remote");
+  const reason = String(form.get("reason") ?? "").trim().slice(0, 300);
+  if (reason.length < 5) redirect(`/platform/${id.parse(orgId)}?error=${encodeURIComponent("Γράψε τον λόγο της σύνδεσης: τον βλέπει ο πελάτης στο ιστορικό του")}#devices`);
+  const device = await db.device.findFirst({ where: { id: id.parse(deviceId), orgId: id.parse(orgId), remoteId: { not: null } } });
+  if (!device) redirect(`/platform/${orgId}#devices`);
+  const access = await db.remoteAccess.create({ data: { orgId, deviceId: device.id, startedById: me.id, startedByName: me.name, reason } });
+  redirect(`/platform/remote/${access.id}`);
 }
 
 const TABLES = { stores: "store", warehouses: "warehouse", printers: "printer", devices: "device" } as const;

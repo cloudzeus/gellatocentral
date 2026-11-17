@@ -223,6 +223,8 @@ model Device {
   // Όταν υπάρχει tailscaleIp, η συσκευή γίνεται δεκτή ΜΟΝΟ από αυτή τη διεύθυνση.
   macAddress        String?
   tailscaleIp       String?
+  remoteId       String? // αριθμός RustDesk της συσκευής, για απομακρυσμένη υποστήριξη
+  remoteAccesses RemoteAccess[]
   // Ψυγείο / αυτόματος πωλητής: ο αποθηκευτικός χώρος που αντιστοιχεί στη συσκευή και τα όρια θερμοκρασίας (°C)
   warehouseId       String?  @unique
   tempMin           Float?
@@ -529,4 +531,19 @@ model Setting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// Κάθε φορά που κάποιος από την υποστήριξη ανοίγει απομακρυσμένη σύνδεση σε συσκευή πελάτη: ποιος, πότε, γιατί.
+// Ο πελάτης το βλέπει στις Συσκευές του. Μόνο προσθήκες.
+model RemoteAccess {
+  id            String   @id @default(cuid())
+  orgId         String
+  deviceId      String
+  startedById   String?
+  startedByName String
+  reason        String
+  at            DateTime @default(now())
+  device        Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, at])
 }
