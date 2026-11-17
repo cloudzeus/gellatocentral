@@ -25,6 +25,7 @@ const row = (active: boolean, extra?: string) =>
   );
 const tile = (active: boolean) =>
   cn("grid size-5 shrink-0 place-items-center transition-colors duration-150", active ? "text-sidebar-primary" : "text-sidebar-foreground/60 group-hover:text-sidebar-accent-foreground");
+const soon = <span className="ml-auto shrink-0 text-xs font-normal text-sidebar-foreground/45">Σύντομα</span>;
 const closeDrawer = (e: React.MouseEvent<HTMLElement>) => e.currentTarget.closest("details")?.removeAttribute("open");
 
 /**
@@ -47,7 +48,8 @@ export function NavLinks({ allowed, collapsed = false, onExpand }: { allowed: st
           return (
             <Link key={section.title} href={single.to} onClick={closeDrawer} aria-current={activeHere ? "page" : undefined} title={collapsed ? single.label : undefined} className={row(activeHere, collapsed ? "justify-center px-0" : "")}>
               <span className={tile(activeHere)}><Icon className="size-4" /></span>
-              <span className={collapsed ? "sr-only" : ""}>{single.label}</span>
+              <span className={collapsed ? "sr-only" : "min-w-0 truncate"}>{single.label}</span>
+              {!single.ready && !collapsed ? soon : null}
             </Link>
           );
 
@@ -79,6 +81,7 @@ export function NavLinks({ allowed, collapsed = false, onExpand }: { allowed: st
                     <Link key={item.to} href={item.to} onClick={closeDrawer} aria-current={active ? "page" : undefined} className={row(active, "min-h-8")}>
                       <item.icon className={cn("size-4 shrink-0", active ? "text-sidebar-primary" : "opacity-70")} />
                       <span className="min-w-0 truncate">{item.label}</span>
+                      {item.ready ? null : soon}
                     </Link>
                   );
                 })}

@@ -1,6 +1,6 @@
 import { Banknote, CreditCard, Minus, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { Badge, btn, Card, cn, Page } from "@/components/ui";
+import { Badge, btn, Card, Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { currentContext } from "@/lib/tenant";
@@ -38,16 +38,16 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
         <section className="min-w-0 space-y-3">
           <div className="scrollbar-hide flex gap-2 overflow-x-auto">
             {categories.map((c) => (
-              <Link key={c.id} href={`/pos?cat=${c.id}`} className={btn(c.id === active?.id ? "default" : "outline")}>{c.name}</Link>
+              <Link key={c.id} href={`/pos?cat=${c.id}`} className={btn(c.id === active?.id ? "default" : "outline", "default", "h-11 shrink-0 px-5 text-base")}>{c.name}</Link>
             ))}
           </div>
           {categories.length === 0 ? <p className="rounded-xl border border-dashed border-border px-5 py-10 text-center text-muted-foreground">Δεν υπάρχουν προϊόντα ακόμα. Ο κατάλογος προϊόντων έρχεται στην επόμενη φάση.</p> : null}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {active?.products.map((p) => (
               <form key={p.id} action={addLine.bind(null, p.id)}>
-                <button disabled={Boolean(pending)} className="flex min-h-24 w-full cursor-pointer flex-col justify-between rounded-xl border border-border/70 bg-card p-4 text-left shadow-[var(--shadow-card)] transition-all duration-200 hover:border-gold hover:bg-secondary active:scale-[0.98] disabled:opacity-50">
-                  <span className="text-base font-semibold leading-snug">{p.name}</span>
-                  <span className="text-lg font-semibold text-primary tabular-nums">{euro(p.priceCents)}</span>
+                <button disabled={Boolean(pending)} className="flex min-h-28 w-full cursor-pointer flex-col justify-between rounded-xl border border-border bg-card p-4 text-left shadow-[var(--shadow-card)] transition-[border-color,background-color,transform] duration-150 hover:border-gold hover:bg-secondary active:scale-[0.98] disabled:opacity-50">
+                  <span className="text-lg font-semibold leading-snug">{p.name}</span>
+                  <span className="text-xl font-semibold text-primary tabular-nums">{euro(p.priceCents)}</span>
                 </button>
               </form>
             ))}
@@ -79,13 +79,13 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
                 {lines.map((l) => (
                   <li key={l.id} className="flex items-center gap-3 px-5 py-3">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold">{l.name}</p>
+                      <p className="truncate text-base font-semibold">{l.name}</p>
                       <p className="text-xs text-muted-foreground">{euro(l.unitPriceCents)} · ΦΠΑ {l.vatRate}%</p>
                     </div>
-                    <form action={changeQuantity.bind(null, l.id, -1)}><button aria-label="Λιγότερο" className={btn("outline", "sm")}><Minus /></button></form>
-                    <span className="w-6 text-center font-semibold tabular-nums">{l.quantity}</span>
-                    <form action={changeQuantity.bind(null, l.id, 1)}><button aria-label="Περισσότερο" className={btn("outline", "sm")}><Plus /></button></form>
-                    <span className="w-16 text-right font-semibold tabular-nums">{euro(l.quantity * l.unitPriceCents)}</span>
+                    <form action={changeQuantity.bind(null, l.id, -1)}><button aria-label="Λιγότερο" className={btn("outline", "sm", "size-10! px-0")}><Minus /></button></form>
+                    <span className="w-6 text-center text-base font-semibold tabular-nums">{l.quantity}</span>
+                    <form action={changeQuantity.bind(null, l.id, 1)}><button aria-label="Περισσότερο" className={btn("outline", "sm", "size-10! px-0")}><Plus /></button></form>
+                    <span className="w-18 text-right text-base font-semibold tabular-nums">{euro(l.quantity * l.unitPriceCents)}</span>
                   </li>
                 ))}
               </ul>
@@ -94,9 +94,10 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
                   <span className="font-medium text-muted-foreground">Σύνολο</span>
                   <span className="text-3xl font-semibold tabular-nums">{euro(total)}</span>
                 </div>
-                <div className={cn("grid grid-cols-2 gap-3", lines.length === 0 && "pointer-events-none opacity-50")}>
-                  <form action={pay.bind(null, "CASH")}><button className={btn("success", "lg", "w-full")}><Banknote /> Μετρητά</button></form>
-                  <form action={pay.bind(null, "CARD")}><button className={btn("default", "lg", "w-full")}><CreditCard /> Κάρτα</button></form>
+                {lines.length === 0 ? <p className="text-sm text-muted-foreground">Η πληρωμή ανοίγει μόλις μπει το πρώτο προϊόν</p> : null}
+                <div className="grid grid-cols-2 gap-3">
+                  <form action={pay.bind(null, "CASH")}><button disabled={lines.length === 0} className={btn("success", "lg", "w-full")}><Banknote /> Μετρητά</button></form>
+                  <form action={pay.bind(null, "CARD")}><button disabled={lines.length === 0} className={btn("default", "lg", "w-full")}><CreditCard /> Κάρτα</button></form>
                 </div>
               </div>
             </>
