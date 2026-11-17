@@ -28,7 +28,7 @@ async function navFor() {
   const access = m ? await accessFor(m.orgId, m.storeId) : null;
   const permissions: string[] = m ? allowedPermissions(m.role.locked ? ALL_PERMISSIONS : m.role.permissions, access!.open) : [];
   const allowed = ALL_ITEMS.map((i) => i.to).filter((to) =>
-    SUPER_ONLY.includes(to) ? platformCan(user, "settings.manage") : to === "/platform/gdpr" ? platformCan(user, "gdpr.manage") : to === "/platform/support" ? platformCan(user, "support.tickets") : to === "/support" || to === "/help" ? !!m : to === "/platform/kb" ? platformCan(user, "support.tickets") : to === "/platform/plans" ? platformCan(user, "billing.manage") : to.startsWith("/platform") ? !!user.platformRole : permissions.includes(permissionFor(to)) && pathOpen(to, access?.open ?? []),
+    SUPER_ONLY.includes(to) ? platformCan(user, "settings.manage") : to === "/platform/gdpr" ? platformCan(user, "gdpr.manage") : to === "/platform/support" ? platformCan(user, "support.tickets") : to === "/support" || to === "/help" ? !!m : to === "/platform/kb" ? platformCan(user, "support.tickets") : to === "/platform/plans" ? platformCan(user, "billing.manage") : to === "/platform/staff" ? platformCan(user, "staff.manage") : to.startsWith("/platform") ? !!user.platformRole : permissions.includes(permissionFor(to)) && pathOpen(to, access?.open ?? []),
   );
   // εκκρεμότητες δίπλα στο στοιχείο του μενού που τις λύνει
   const unsent = m && allowed.includes("/receipts") ? await db.fiscalDocument.count({ where: { sale: { orgId: m.orgId, status: "COMPLETED" }, status: { not: "SIGNED" } } }) : 0;

@@ -84,6 +84,8 @@ export async function createOrganization(form: FormData) {
         contactEmail: d.contactEmail,
         subscription: { create: { status: "TRIALING", currentPeriodEnd: new Date(Date.now() + d.trialDays * 864e5) } },
         stores: { create: { name: d.storeName, address: d.storeAddress } },
+        // κάθε συνδρομητής είναι και συναλλασσόμενος (πελάτης) της πλατφόρμας
+        asParty: { create: { roles: ["customer"], name: d.name, vatNumber: d.vatNumber, email: d.contactEmail } },
       },
       include: { stores: true },
     });
@@ -436,15 +438,15 @@ async function pickStaffRole(value: string, mine: string[]) {
   if (!canGrant(mine, staffPermissions(who))) return staffFail(`Δεν μπορείς να δώσεις τον ρόλο «${staffRoleLabel(who)}»: έχει δικαιώματα που δεν έχεις εσύ`);
   return { data, label: staffRoleLabel(who) };
 }
-const staffFail = (message: string): never => redirect(`/platform/settings?error=${encodeURIComponent(message)}#staff`);
+const staffFail = (message: string): never => redirect(`/platform/staff?error=${encodeURIComponent(message)}#staff`);
 const staffDone = (): never => {
-  revalidatePath("/platform/settings");
-  redirect("/platform/settings?saved=staff#staff");
+  revalidatePath("/", "layout"); // ρόλοι και δικαιώματα αλλάζουν και το μενού
+  redirect("/platform/staff?saved=staff#staff");
 };
 // Σε κάθε αλλαγή ελέγχεται ότι μένει τουλάχιστον ένας Super Admin, αλλιώς κανείς δεν θα μπορούσε να ξαναδώσει ρόλους.
 export async function addStaff(form: FormData) {
   const admin = await requirePlatform("staff.manage");
-  const d = read(z.object({ name, email, platformRole }), form, "/platform/settings");
+  const d = read(z.object({ name, email, platformRole }), form, "/platform/staff");
   if (await db.user.findUnique({ where: { email: d.email } })) staffFail("Υπάρχει ήδη χρήστης με αυτό το email");
   const picked = await pickStaffRole(d.platformRole, staffPermissions(admin));
   const user = await db.user.create({ data: { name: d.name, email: d.email, ...picked.data } });
@@ -457,7 +459,7 @@ export async function addStaff(form: FormData) {
 
 export async function setStaffRole(form: FormData) {
   const admin = await requirePlatform("staff.manage");
-  const d = read(z.object({ userId: id, platformRole }), form, "/platform/settings");
+  const d = read(z.object({ userId: id, platformRole }), form, "/platform/staff");
   const before = await db.user.findFirst({ where: { id: d.userId, platformRole: { not: null } }, include: { staffRole: true } });
   if (before && !canGrant(staffPermissions(admin), staffPermissions(before))) staffFail(`Ο ρόλος του χρήστη «${before.name}» έχει δικαιώματα που δεν έχεις εσύ`);
   const picked = await pickStaffRole(d.platformRole, staffPermissions(admin));
@@ -530,7 +532,7 @@ export async function savePlatformRole(form: FormData) {
 /** Δικός σας ρόλος προσωπικού: νέος ή αλλαγή ονόματος και δικαιωμάτων. */
 export async function saveStaffRole(form: FormData) {
   const admin = await requirePlatform("staff.manage");
-  const d = read(z.object({ roleId: z.string().max(60), name }), form, "/platform/settings");
+  const d = read(z.object({ roleId: z.string().max(60), name }), form, "/platform/staff");
   const mine = staffPermissions(admin);
   const wanted = form.getAll("permissions").filter(isPlatformPermission);
   if (!canGrant(mine, wanted)) staffFail("Δεν μπορείς να δώσεις σε ρόλο δικαιώματα που δεν έχεις εσύ");

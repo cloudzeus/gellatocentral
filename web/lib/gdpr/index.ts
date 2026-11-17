@@ -115,7 +115,7 @@ export async function completeErasure(id: string, actor: Actor) {
     if (user.platformRole === "SUPER_ADMIN" && (await db.user.count({ where: { platformRole: "SUPER_ADMIN", id: { not: user.id } } })) === 0) throw new GdprError("Είναι ο μόνος Super Admin της πλατφόρμας");
     await notify(req, "completed");
   }
-  const customer = req.subjectType === "customer" && req.subjectId ? await db.customer.findFirst({ where: { id: req.subjectId, orgId: req.orgId ?? "" } }) : null;
+  const customer = req.subjectType === "customer" && req.subjectId ? await db.party.findFirst({ where: { id: req.subjectId, orgId: req.orgId ?? "" } }) : null;
 
   // Αρχεία του υποκειμένου στο Bunny (φάκελος του πελάτη): πρώτα αυτά, γιατί δεν μπαίνουν σε συναλλαγή της βάσης
   const files = req.subjectId ? await db.storedFile.findMany({ where: { orgId: req.orgId, refType: req.subjectType, refId: req.subjectId } }) : [];
@@ -143,7 +143,7 @@ export async function completeErasure(id: string, actor: Actor) {
     }
     if (customer) {
       // shortcut: σήμερα τίποτα άλλο δεν δείχνει σε πελάτη. Όταν υπάρξουν παραστατικά χονδρικής, η εγγραφή θα ανωνυμοποιείται αντί να σβήνεται (τα παραστατικά τα κρατά ο νόμος).
-      await tx.customer.delete({ where: { id: customer.id } });
+      await tx.party.delete({ where: { id: customer.id } });
       counts.customer = 1;
     }
     await tx.erasureRequest.update({ where: { id }, data: { status: "COMPLETED", decidedById: actor?.id === user?.id ? null : (actor?.id ?? null), decidedAt: new Date(), subjectLabel: null, reason: null, summary: counts } });
@@ -157,7 +157,7 @@ export async function completeErasure(id: string, actor: Actor) {
 
 /** Ό,τι κρατά η επιχείρηση για έναν πελάτη της, για να του το παραδώσει. */
 export async function exportCustomer(id: string, orgId: string, actor: Actor) {
-  const c = await db.customer.findFirst({ where: { id, orgId } });
+  const c = await db.party.findFirst({ where: { id, orgId } });
   if (!c) throw new GdprError("Ο πελάτης δεν βρέθηκε");
   const [consents, files, requests] = await Promise.all([
     consentsOf("customer", id),

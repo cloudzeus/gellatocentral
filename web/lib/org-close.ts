@@ -11,7 +11,7 @@ export async function exportOrg(orgId: string) {
   const org = await db.organization.findUnique({ where: { id: orgId }, include: { subscription: { include: { charges: true, plan: { select: { name: true } } } } } });
   if (!org) return null;
   const where = { orgId };
-  const [stores, warehouses, printers, devices, roles, members, categories, products, customers, sales, files, tickets, pauses, consents, erasures] = await Promise.all([
+  const [stores, warehouses, printers, devices, roles, members, categories, products, parties, sales, files, tickets, pauses, consents, erasures] = await Promise.all([
     db.store.findMany({ where }),
     db.warehouse.findMany({ where }),
     db.printer.findMany({ where }),
@@ -20,7 +20,7 @@ export async function exportOrg(orgId: string) {
     db.membership.findMany({ where, select: { storeId: true, role: { select: { name: true } }, user: { select: { name: true, email: true, createdAt: true, lastLoginAt: true, disabledAt: true } } } }),
     db.category.findMany({ where }),
     db.product.findMany({ where }),
-    db.customer.findMany({ where }),
+    db.party.findMany({ where, include: { addresses: true, contacts: true, bankAccounts: true } }),
     db.sale.findMany({ where, orderBy: { createdAt: "asc" }, include: { lines: true, payment: true, fiscal: true } }),
     db.storedFile.findMany({ where, select: { id: true, name: true, category: true, refType: true, refId: true, size: true, contentType: true, createdAt: true } }),
     db.ticket.findMany({ where, include: { messages: { where: { internal: false } } } }),
@@ -28,7 +28,7 @@ export async function exportOrg(orgId: string) {
     db.consent.findMany({ where }),
     db.erasureRequest.findMany({ where }),
   ]);
-  return { exportedAt: new Date(), organization: org, stores, warehouses, printers, devices, roles, users: members, categories, products, customers, sales, files, tickets, storePauses: pauses, consents, erasureRequests: erasures };
+  return { exportedAt: new Date(), organization: org, stores, warehouses, printers, devices, roles, users: members, categories, products, parties, sales, files, tickets, storePauses: pauses, consents, erasureRequests: erasures };
 }
 
 /**

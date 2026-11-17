@@ -72,6 +72,7 @@ export const GROUPS = {
     hint: "Η δημόσια διεύθυνση (για τους συνδέσμους στα email) και το μυστικό των προγραμματισμένων εργασιών",
     fields: {
       APP_URL: { label: "Διεύθυνση εφαρμογής", placeholder: "https://app.gelatosystem.app", check: https },
+      PLATFORM_VAT: { label: "ΑΦΜ της εταιρείας μας", placeholder: "9 ψηφία", hint: "Με αυτό το VIES δίνει αριθμό ελέγχου όταν η πλατφόρμα ελέγχει ΑΦΜ άλλης χώρας της ΕΕ", check: [/^\d{9}$/, "έχει 9 ψηφία"] },
       CRON_SECRET: { label: "Μυστικό προγραμματισμένων εργασιών", secret: true, hint: "Τουλάχιστον 20 χαρακτήρες. Το ίδιο στέλνει ο cron στο /api/cron/subscriptions", check: [/^\S{20,}$/, "θέλει τουλάχιστον 20 χαρακτήρες χωρίς κενά"] },
     },
   },

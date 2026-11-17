@@ -86,7 +86,8 @@ model Organization {
   sales        Sale[]
   subscription Subscription?
   files        StoredFile[]
-  customers    Customer[]
+  parties      Party[]       @relation("OrgParties")
+  asParty      Party?        @relation("OrgAsParty")
   tickets      Ticket[]
 }
 
@@ -204,6 +205,12 @@ model Store {
   address String?
   // Viva: «πηγή πληρωμών» του καταστήματος, αν ο έμπορος έχει περισσότερα από ένα
   vivaSourceCode String?
+  // Γεωγραφικά του καταστήματος: για χάρτη, αποστάσεις από πελάτες και αναφορές ανά περιοχή
+  city       String?
+  postalCode String?
+  region     String?
+  latitude   Float?
+  longitude  Float?
   active  Boolean @default(true)
   org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   devices    Device[]
@@ -517,31 +524,117 @@ model GdprEvent {
   @@index([subjectType, subjectId])
 }
 
-// Πελάτης μιας επιχείρησης (χονδρική ή τακτικός πελάτης). Προσωπικά δεδομένα: συναινέσεις, αρχεία και διαγραφή
-// περνούν από το κοινό σύστημα GDPR με subjectType = "customer" (lib/gdpr) και refType = "customer" (lib/storage).
-model Customer {
+// Προσωπικά δεδομένα συναλλασσομένων: συναινέσεις, αρχεία και διαγραφή περνούν από το κοινό σύστημα GDPR με
+// subjectType = "customer" (lib/gdpr) και refType = "customer" (lib/storage). Το κλειδί «customer» έμεινε από τότε που
+// υπήρχαν μόνο πελάτες· σημαίνει «συναλλασσόμενος» όποιου ρόλου.
+// Συναλλασσόμενος: ΚΟΙΝΟ μοντέλο για όποιον συναλλάσσεται μια επιχείρηση ή η ίδια η πλατφόρμα.
+// orgId = η επιχείρηση που τον έχει στο αρχείο της· orgId κενό = συναλλασσόμενος της πλατφόρμας (οι συνδρομητές της,
+// οι προμηθευτές και οι συνεργάτες της). Ένας συναλλασσόμενος έχει έναν ή περισσότερους ρόλους (lib/parties.ts).
+model Party {
   id               String   @id @default(cuid())
-  orgId            String
+  orgId            String?
+  roles            String[] // customer, supplier, franchisee, partner…
   name             String // επωνυμία ή ονοματεπώνυμο
   tradeName        String? // διακριτικός τίτλος
-  vatNumber        String? // ΑΦΜ
+  vatNumber        String? // ΑΦΜ (χωρίς πρόθεμα χώρας)
+  countryCode      String   @default("GR") // ISO 3166-1 alpha-2· για ΑΦΜ άλλης χώρας της ΕΕ ο έλεγχος γίνεται στο VIES
   taxOffice        String? // ΔΟΥ
-  profession       String?
-  contactName      String? // υπεύθυνος επικοινωνίας
+  profession       String? // δραστηριότητα
+  contactName      String? // υπεύθυνος επικοινωνίας (ο κύριος· οι υπόλοιποι στο PartyContact)
   email            String?
   phone            String?
-  address          String?
+  website          String?
+  address          String? // έδρα (οι υπόλοιπες διευθύνσεις στο PartyAddress)
   city             String?
   postalCode       String?
+  // Γεωγραφικά: περιοχή (νομός ή περιφέρεια) για αναφορές και συντεταγμένες (WGS84) για χάρτη και δρομολόγια
+  region           String?
+  latitude         Float?
+  longitude        Float?
   paymentTermsDays Int? // ημέρες πίστωσης
+  paymentMethod    String? // κωδικός από τη λίστα αναφοράς paymentMethod
   notes            String?
   active           Boolean  @default(true)
+  // Συναλλασσόμενος της πλατφόρμας που ΕΙΝΑΙ συνδρομητής: δένει με την επιχείρησή του
+  linkedOrgId      String?  @unique
+  vatCheckedAt     DateTime? // πότε επιβεβαιώθηκαν τα στοιχεία από ΑΑΔΕ ή VIES
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org              Organization? @relation("OrgParties", fields: [orgId], references: [id], onDelete: Cascade)
+  linkedOrg        Organization? @relation("OrgAsParty", fields: [linkedOrgId], references: [id], onDelete: Cascade)
+  addresses        PartyAddress[]
+  contacts         PartyContact[]
+  bankAccounts     PartyBankAccount[]
 
   @@unique([orgId, vatNumber])
   @@index([orgId, name])
+}
+
+model PartyAddress {
+  id          String  @id @default(cuid())
+  partyId     String
+  kind        String // branch, delivery, billing, other (lib/parties.ts)
+  // Υποκατάστημα: ο αριθμός εγκατάστασης όπως είναι δηλωμένος στην εφορία (η έδρα είναι 0 και ζει στο Party)·
+  // με αυτόν δηλώνεται ο αντισυμβαλλόμενος στα παραστατικά (myDATA «branch»)
+  branchNo    Int?
+  label       String? // π.χ. «Κατάστημα Γλυφάδας»
+  phone       String?
+  email       String?
+  street      String
+  city        String?
+  postalCode  String?
+  countryCode String  @default("GR")
+  region      String? // νομός ή περιφέρεια
+  latitude    Float?
+  longitude   Float?
+  notes       String?
+  party       Party   @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  contacts    PartyContact[]
+
+  @@unique([partyId, branchNo])
+  @@index([partyId])
+}
+
+model PartyContact {
+  id      String  @id @default(cuid())
+  partyId String
+  name    String
+  title   String? // ιδιότητα, π.χ. «Λογιστήριο»
+  addressId String? // σε ποιο υποκατάστημα ή διεύθυνση βρίσκεται· κενό = στην έδρα
+  address PartyAddress? @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  email   String?
+  phone   String?
+  notes   String?
+  party   Party   @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@index([partyId])
+}
+
+model PartyBankAccount {
+  id        String  @id @default(cuid())
+  partyId   String
+  bank      String?
+  iban      String // χωρίς κενά, κεφαλαία· ελέγχεται (mod 97) πριν αποθηκευτεί
+  holder    String? // δικαιούχος, αν διαφέρει από την επωνυμία
+  isPrimary Boolean @default(false)
+  party     Party   @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@unique([partyId, iban])
+}
+
+// Λίστες αναφοράς, κοινές για όλους: χώρες, ΔΟΥ, τρόποι και όροι πληρωμής, κατηγορίες ΦΠΑ, μονάδες μέτρησης.
+// Τις ορίζει μία φορά η πλατφόρμα· οι επιχειρήσεις διαλέγουν από αυτές.
+model RefItem {
+  id     String  @id @default(cuid())
+  list   String // country, taxOffice, paymentMethod, paymentTerm, vatCategory, unit
+  code   String
+  label  String
+  value  Int? // αριθμητική τιμή όπου έχει νόημα: ημέρες πίστωσης, ποσοστό ΦΠΑ ×100
+  sort   Int     @default(0)
+  active Boolean @default(true)
+
+  @@unique([list, code])
+  @@index([list, active, sort])
 }
 
 // Ρύθμιση σύνδεσης της πλατφόρμας ως κλειδί → τιμή (βλ. lib/config.ts για τα κλειδιά). Περιέχει και μυστικά κλειδιά:
@@ -758,4 +851,28 @@ model StorePause {
 
   @@index([storeId, startedAt])
   @@index([orgId])
+}
+
+// Ιστορικό ελέγχων ξένων ΑΦΜ (VIES κ.ά.). Ο αριθμός ελέγχου είναι το αποδεικτικό για ενδοκοινοτικές συναλλαγές·
+// ένας έγκυρος έλεγχος ξαναχρησιμοποιείται για 30 ημέρες (lib/party-lookup.ts).
+model VatCheck {
+  id                 String   @id @default(cuid())
+  orgId              String? // ποια επιχείρηση ρώτησε· κενό = η πλατφόρμα
+  vat                String
+  countryCode        String
+  valid              Boolean?
+  name               String?
+  address            String?
+  provider           String?
+  source             String?
+  consultationNumber String?
+  requester          String?
+  match              Json?
+  error              String?
+  message            String?
+  createdByName      String?
+  createdAt          DateTime @default(now())
+
+  @@index([vat, createdAt])
+  @@index([orgId, createdAt])
 }

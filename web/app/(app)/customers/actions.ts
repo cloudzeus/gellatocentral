@@ -31,29 +31,29 @@ export async function saveCustomer(id: string | null, form: FormData) {
   const back = id ? `/customers/${id}` : "/customers";
   const d = schema.safeParse(Object.fromEntries(form));
   if (!d.success) return fail(back, d.error.issues[0].message);
-  if (d.data.vatNumber && (await db.customer.findFirst({ where: { orgId: org.id, vatNumber: d.data.vatNumber, ...(id ? { id: { not: id } } : {}) } }))) return fail(back, `Υπάρχει ήδη πελάτης με ΑΦΜ ${d.data.vatNumber}`);
+  if (d.data.vatNumber && (await db.party.findFirst({ where: { orgId: org.id, vatNumber: d.data.vatNumber, ...(id ? { id: { not: id } } : {}) } }))) return fail(back, `Υπάρχει ήδη πελάτης με ΑΦΜ ${d.data.vatNumber}`);
   if (id) {
     // updateMany με orgId: κανείς δεν αλλάζει πελάτη άλλης επιχείρησης, ακόμα κι αν μαντέψει το id
-    const { count } = await db.customer.updateMany({ where: { id, orgId: org.id }, data: d.data });
+    const { count } = await db.party.updateMany({ where: { id, orgId: org.id }, data: d.data });
     if (!count) redirect("/customers");
     revalidatePath(back);
     redirect(`${back}?saved=1`);
   }
-  const created = await db.customer.create({ data: { ...d.data, orgId: org.id } });
+  const created = await db.party.create({ data: { ...d.data, orgId: org.id, roles: ["customer"] } });
   redirect(`/customers/${created.id}?saved=1`);
 }
 
 export async function toggleCustomer(id: string) {
   const { org } = await currentOrg("customers.manage");
-  const c = await db.customer.findFirst({ where: { id, orgId: org.id } });
-  if (c) await db.customer.update({ where: { id: c.id }, data: { active: !c.active } });
+  const c = await db.party.findFirst({ where: { id, orgId: org.id } });
+  if (c) await db.party.update({ where: { id: c.id }, data: { active: !c.active } });
   revalidatePath("/customers");
 }
 
 /** Συναίνεση του πελάτη που δόθηκε εκτός εφαρμογής (έντυπο, email, προφορικά): την καταχωρεί ο χρήστης της επιχείρησης. */
 export async function setCustomerConsent(id: string, granted: boolean) {
   const { org, user } = await currentOrg("customers.manage");
-  const c = await db.customer.findFirst({ where: { id, orgId: org.id } });
+  const c = await db.party.findFirst({ where: { id, orgId: org.id } });
   if (!c) redirect("/customers");
   await recordConsent({ orgId: org.id, subjectType: "customer", subjectId: c.id, subjectLabel: [c.name, c.email].filter(Boolean).join(" · "), purpose: "customer_marketing", granted, source: "admin", actor: { id: user.id, name: user.name } });
   revalidatePath(`/customers/${id}`);
@@ -63,7 +63,7 @@ export async function setCustomerConsent(id: string, granted: boolean) {
 /** Ο πελάτης ζήτησε να σβηστούν τα στοιχεία του: ανοίγει αίτημα στο GDPR της επιχείρησης (προθεσμία 30 ημερών). */
 export async function requestCustomerErasure(id: string, form: FormData) {
   const { org, user } = await currentOrg("customers.manage");
-  const c = await db.customer.findFirst({ where: { id, orgId: org.id } });
+  const c = await db.party.findFirst({ where: { id, orgId: org.id } });
   if (!c) redirect("/customers");
   const error = await requestErasure({ orgId: org.id, subjectType: "customer", subjectId: c.id, name: c.name, email: c.email, reason: String(form.get("reason") ?? "").trim().slice(0, 500), actor: { id: user.id, name: user.name } }).then(
     () => null,

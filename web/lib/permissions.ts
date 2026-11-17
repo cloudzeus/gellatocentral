@@ -43,6 +43,8 @@ export const PLATFORM_PERMISSIONS = {
   "support.remote": "Απομακρυσμένη σύνδεση σε συσκευές πελατών",
   "support.tickets": "Αιτήματα υποστήριξης των πελατών",
   "support.kb": "Έγκριση και δημοσίευση άρθρων της βάσης γνώσεων",
+  // κανένας ρόλος δεν το έχει από την αρχή (εκτός από τον Super Admin): το δίνεις εσύ από «Χρήστες & δικαιώματα»
+  "parties.view": "Βλέπει τους συναλλασσόμενους των συνδρομητών (πελάτες, προμηθευτές τους)",
 } as const;
 export type PlatformPermission = keyof typeof PLATFORM_PERMISSIONS;
 export type PlatformRoleKey = "SUPER_ADMIN" | "MANAGER" | "STAFF" | "SUPPORT";

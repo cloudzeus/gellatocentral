@@ -17,7 +17,7 @@ const SAVED: Record<string, string> = { "1": "Τα στοιχεία αποθηκ
 
 export default async function CustomerPage({ params, searchParams }: PageProps<"/customers/[id]">) {
   const { org, permissions } = await currentOrg("customers.manage");
-  const customer = await db.customer.findFirst({ where: { id: (await params).id, orgId: org.id } });
+  const customer = await db.party.findFirst({ where: { id: (await params).id, orgId: org.id } });
   if (!customer) notFound();
   const q = await searchParams;
   const [consents, request] = await Promise.all([

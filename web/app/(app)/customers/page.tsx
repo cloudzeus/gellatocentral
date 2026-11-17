@@ -20,16 +20,17 @@ export default async function CustomersPage({ searchParams }: PageProps<"/custom
   const like = { contains: list.q, mode: "insensitive" as const };
   const where = {
     orgId: org.id,
+    roles: { has: "customer" }, // η οθόνη «Πελάτες» δείχνει όσους συναλλασσόμενους έχουν και τον ρόλο του πελάτη
     ...(status ? { active: status === "active" } : {}),
     ...(list.q ? { OR: [{ name: like }, { tradeName: like }, { vatNumber: { contains: list.q } }, { email: like }, { phone: { contains: list.q } }, { contactName: like }] } : {}),
   };
   const monthAgo = daysAgo(30);
   const [rows, total, active, recent, noEmail] = await Promise.all([
-    db.customer.findMany({ where, orderBy: list.sort === "city" ? { city: list.dir } : list.sort === "created" ? { createdAt: list.dir } : { name: list.sort === "name" ? list.dir : "asc" }, skip: list.skip, take: list.take }),
-    db.customer.count({ where }),
-    db.customer.count({ where: { orgId: org.id, active: true } }),
-    db.customer.count({ where: { orgId: org.id, createdAt: { gte: monthAgo } } }),
-    db.customer.count({ where: { orgId: org.id, active: true, email: null } }),
+    db.party.findMany({ where, orderBy: list.sort === "city" ? { city: list.dir } : list.sort === "created" ? { createdAt: list.dir } : { name: list.sort === "name" ? list.dir : "asc" }, skip: list.skip, take: list.take }),
+    db.party.count({ where }),
+    db.party.count({ where: { orgId: org.id, roles: { has: "customer" }, active: true } }),
+    db.party.count({ where: { orgId: org.id, roles: { has: "customer" }, createdAt: { gte: monthAgo } } }),
+    db.party.count({ where: { orgId: org.id, roles: { has: "customer" }, active: true, email: null } }),
   ]);
   const tiles = [
     { label: "Ενεργοί πελάτες", value: active, hint: active ? "Σε αυτούς μπορείς να εκδώσεις παραστατικό" : "Πρόσθεσε τον πρώτο με το «Νέος πελάτης»" },
