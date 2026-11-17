@@ -10,6 +10,9 @@ export const ACCESS_ACTIONS = {
   "role.created": "Νέος ρόλος",
   "role.changed": "Αλλαγή δικαιωμάτων ρόλου",
   "role.deleted": "Διαγραφή ρόλου",
+  "store.paused": "Εποχιακή παύση καταστήματος",
+  "store.resumed": "Άνοιγμα καταστήματος μετά από παύση",
+  "plan.changed": "Αλλαγή πακέτου συνδρομής",
 } as const;
 export type AccessAction = keyof typeof ACCESS_ACTIONS;
 export const actionLabel = (a: string) => (ACCESS_ACTIONS as Record<string, string>)[a] ?? a;

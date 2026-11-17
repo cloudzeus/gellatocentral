@@ -19,10 +19,11 @@ import { savePlatformRoles, storedPlatformRoles } from "@/lib/platform-roles";
 import { hashPassword } from "@/lib/password";
 import { settleCharge } from "@/lib/billing";
 import { DEVICE_KIND } from "@/lib/devices";
+import { isModule } from "@/lib/modules";
 import { db } from "@/lib/db";
 import { appUrl, billingRecipients, platformSettings, sendMail } from "@/lib/mail/send";
 import { templates } from "@/lib/mail/templates";
-import { BILLABLE_KINDS, monthlyCharge } from "@/lib/pricing";
+import { nextCharge } from "@/lib/plan-data";
 import { createResetLink } from "@/lib/reset";
 import { testIsvCredentials } from "@/lib/viva/cloud-terminal";
 
@@ -99,32 +100,40 @@ export async function createOrganization(form: FormData) {
 }
 
 export async function saveSubscription(form: FormData) {
-  await requirePlatform("billing.manage");
   const orgId = id.parse(form.get("orgId"));
-  const d = read(z.object({ status: z.enum(["TRIALING", "ACTIVE", "PAST_DUE", "CANCELLED"]), currentPeriodEnd: z.coerce.date() }), form, `/platform/${orgId}`);
-  await db.subscription.upsert({ where: { orgId }, update: d, create: { orgId, ...d } });
+  const admin = await requirePlatform("billing.manage");
+  const d = read(z.object({ status: z.enum(["TRIALING", "ACTIVE", "PAST_DUE", "CANCELLED"]), currentPeriodEnd: z.coerce.date(), planId: z.string().max(60).optional() }), form, `/platform/${orgId}`);
+  const plan = d.planId ? await db.plan.findUnique({ where: { id: d.planId } }) : null;
+  const before = await db.subscription.findUnique({ where: { orgId }, include: { plan: true } });
+  const data = { status: d.status, currentPeriodEnd: d.currentPeriodEnd, planId: plan?.id ?? null };
+  await db.subscription.upsert({ where: { orgId }, update: data, create: { orgId, ...data } });
+  if ((before?.planId ?? null) !== data.planId) await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "plan.changed", target: plan?.name ?? "Προεπιλεγμένο πακέτο", detail: `Πριν: ${before?.plan?.name ?? "προεπιλεγμένο"}` });
   done(orgId, "subscription");
 }
 
-/** Εκδίδει τη χρέωση του επόμενου μήνα με το πλήθος καταστημάτων/συσκευών ΑΥΤΗΣ της στιγμής. */
+/** Εκδίδει τη χρέωση του επόμενου μήνα από το πακέτο: καταστήματα και συσκευές ΑΥΤΗΣ της στιγμής, μείον την έκπτωση παύσης. */
 export async function issueCharge(orgId: string) {
   await requirePlatform("billing.manage");
-  id.parse(orgId);
-  const [sub, stores, devices] = await Promise.all([
-    db.subscription.findUnique({ where: { orgId } }),
-    db.store.count({ where: { orgId, active: true } }),
-    db.device.count({ where: { orgId, active: true, kind: { in: [...BILLABLE_KINDS] } } }),
-  ]);
-  if (!sub) redirect(`/platform/${orgId}?error=${encodeURIComponent("Δεν υπάρχει συνδρομή")}`);
-  const periodStart = sub.currentPeriodEnd > new Date() ? sub.currentPeriodEnd : new Date(new Date().toDateString());
-  const periodEnd = new Date(periodStart);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
-  // unique (συνδρομή, αρχή περιόδου): διπλό πάτημα δεν βγάζει δεύτερη χρέωση
-  const amountCents = monthlyCharge(stores, devices).totalCents;
-  const { count } = await db.subscriptionCharge.createMany({ data: [{ subscriptionId: sub.id, periodStart, periodEnd, stores, devices, amountCents }], skipDuplicates: true });
-  if (count) {
+  const next = await nextCharge(id.parse(orgId));
+  if (!next) redirect(`/platform/${orgId}?error=${encodeURIComponent("Δεν υπάρχει συνδρομή")}`);
+  const { sub, plan, periodStart, periodEnd, calc, stores, devices } = next;
+  const amountCents = calc.totalCents;
+  // unique (συνδρομή, αρχή περιόδου): διπλό πάτημα δεν βγάζει δεύτερη χρέωση ούτε δίνει δεύτερη φορά την έκπτωση παύσης
+  const created = await db.$transaction(async (tx) => {
+    const { count } = await tx.subscriptionCharge.createMany({ data: [{ subscriptionId: sub.id, periodStart, periodEnd, stores: stores.length, devices, amountCents, planName: plan.name, lines: calc.lines }], skipDuplicates: true });
+    if (count) {
+      for (const p of calc.settled) await tx.storePause.update({ where: { id: p.pauseId }, data: { settledThrough: p.through } });
+      await tx.subscription.update({ where: { id: sub.id }, data: { creditCents: calc.carryCents } });
+    }
+    return count;
+  });
+  // χρέωση 0 € (η έκπτωση παύσης κάλυψε τον μήνα): δεν υπάρχει κάτι να πληρωθεί, εξοφλείται αμέσως και η συνδρομή παρατείνεται
+  if (created && amountCents === 0) {
+    const zero = await db.subscriptionCharge.findUnique({ where: { subscriptionId_periodStart: { subscriptionId: sub.id, periodStart } } });
+    if (zero) await settleCharge(zero.id);
+  } else if (created) {
     const { org, to } = await billingRecipients(orgId);
-    const mail = templates.chargeIssued(await platformSettings(), { orgName: org!.name, periodStart, periodEnd, stores, devices, amountCents, payUrl: `${await appUrl(org)}/billing` });
+    const mail = templates.chargeIssued(await platformSettings(), { orgName: org!.name, periodStart, periodEnd, stores: stores.length, devices, amountCents, payUrl: `${await appUrl(org)}/billing` });
     for (const address of to) await sendMail({ to: address, template: "chargeIssued", org, mail });
   }
   done(orgId, "subscription");
@@ -548,4 +557,59 @@ export async function recordContinuityCheck(what: "backup" | "drill") {
   await db.platformSettings.upsert({ where: { id: 1 }, update: data, create: { id: 1, ...data } });
   revalidatePath("/platform/continuity");
   redirect("/platform/continuity?saved=1");
+}
+
+// ---- Πακέτα συνδρομής και τιμές ----
+// το πρώτο πακέτο έχει σταθερό id («plan_default»), όχι cuid
+const planKey = z.string().min(1).max(60);
+const plansBack = (q: string): never => {
+  revalidatePath("/", "layout"); // ένα πακέτο αλλάζει τι βλέπει κάθε πελάτης που το έχει
+  redirect(`/platform/plans?${q}`);
+};
+const cents = (v: FormDataEntryValue | null) => Math.round(Number(String(v ?? "0").replace(",", ".")) * 100);
+
+export async function savePlan(form: FormData) {
+  const admin = await requirePlatform("billing.manage");
+  const planId = String(form.get("planId") ?? "");
+  const d = z.object({ name, description: z.string().trim().max(200), pausePercent: z.coerce.number().int().min(0).max(100), pauseMaxDaysPerYear: z.coerce.number().int().min(0).max(365) }).safeParse(Object.fromEntries(form));
+  if (!d.success) return plansBack(`error=${encodeURIComponent(d.error.issues[0].message)}`);
+  const storeCents = cents(form.get("storeCents"));
+  const devicePrices = Object.fromEntries(Object.keys(DEVICE_KIND).map((k) => [k, cents(form.get(`device_${k}`))]));
+  if (![storeCents, ...Object.values(devicePrices)].every((n) => Number.isInteger(n) && n >= 0 && n <= 1_000_000)) return plansBack(`error=${encodeURIComponent("Οι τιμές είναι ποσά σε ευρώ, από 0 και πάνω")}`);
+  const modules = form.getAll("modules").filter(isModule);
+  const pausedModules = form.getAll("pausedModules").filter(isModule).filter((m) => modules.includes(m));
+  const same = (x: string) => x.toLocaleLowerCase("el") === d.data.name.toLocaleLowerCase("el");
+  if ((await db.plan.findMany({ where: { NOT: { id: planId || undefined } }, select: { name: true } })).some((p) => same(p.name))) return plansBack(`error=${encodeURIComponent(`Υπάρχει ήδη πακέτο «${d.data.name}»`)}`);
+  const data = { ...d.data, description: d.data.description || null, storeCents, devicePrices, modules, pausedModules };
+  if (planId) await db.plan.update({ where: { id: planKey.parse(planId) }, data });
+  else await db.plan.create({ data: { ...data, isDefault: (await db.plan.count()) === 0 } });
+  await logAccess({ orgId: null, actorName: admin.name, action: "plan.changed", target: d.data.name, detail: planId ? "Αλλαγή τιμών ή ενοτήτων" : "Νέο πακέτο" });
+  plansBack("saved=1");
+}
+
+/** Ανενεργό πακέτο: δεν δίνεται σε νέους πελάτες· όσοι το έχουν το κρατούν. Το προεπιλεγμένο δεν απενεργοποιείται. */
+export async function togglePlan(planId: string) {
+  await requirePlatform("billing.manage");
+  const plan = await db.plan.findUnique({ where: { id: planKey.parse(planId) } });
+  if (!plan) return;
+  if (plan.isDefault && plan.active) return plansBack(`error=${encodeURIComponent("Το προεπιλεγμένο πακέτο δεν απενεργοποιείται. Όρισε πρώτα άλλο ως προεπιλογή")}`);
+  await db.plan.update({ where: { id: plan.id }, data: { active: !plan.active } });
+  plansBack("saved=1");
+}
+
+export async function setDefaultPlan(planId: string) {
+  await requirePlatform("billing.manage");
+  const plan = await db.plan.findFirst({ where: { id: planKey.parse(planId), active: true } });
+  if (!plan) return;
+  await db.$transaction([db.plan.updateMany({ data: { isDefault: false } }), db.plan.update({ where: { id: plan.id }, data: { isDefault: true } })]);
+  plansBack("saved=1");
+}
+
+export async function deletePlan(planId: string) {
+  await requirePlatform("billing.manage");
+  const plan = await db.plan.findUnique({ where: { id: planKey.parse(planId) }, include: { _count: { select: { subscriptions: true } } } });
+  if (!plan) return;
+  if (plan.isDefault || plan._count.subscriptions) return plansBack(`error=${encodeURIComponent(plan.isDefault ? "Το προεπιλεγμένο πακέτο δεν διαγράφεται" : `Το πακέτο «${plan.name}» το έχουν ${plan._count.subscriptions} πελάτες. Απενεργοποίησέ το`)}`);
+  await db.plan.delete({ where: { id: plan.id } });
+  plansBack("saved=1");
 }

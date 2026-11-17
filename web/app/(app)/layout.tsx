@@ -1,4 +1,5 @@
-import { Menu } from "lucide-react";
+import { Menu, Snowflake } from "lucide-react";
+import Link from "next/link";
 import { Suspense } from "react";
 import { BottomNav, NavLinks, Sidebar, UserFooter } from "@/components/nav-links";
 import { getUser } from "@/lib/auth";
@@ -7,6 +8,8 @@ import { needsLegalConsent } from "@/lib/gdpr";
 import { redirect } from "next/navigation";
 import { ALL_PERMISSIONS, permissionFor, platformCan, staffRoleLabel } from "@/lib/permissions";
 import { ALL_ITEMS } from "@/lib/nav";
+import { allowedPermissions, pathOpen } from "@/lib/modules";
+import { accessFor } from "@/lib/plan-data";
 import { logout } from "../login/actions";
 
 // Κάθε σελίδα εδώ είναι ζωντανά δεδομένα μιας επιχείρησης: δεν ζητάμε «στιγμιαία» πλοήγηση από cache.
@@ -22,9 +25,10 @@ async function navFor() {
   // νέα έκδοση όρων (ή πρώτη είσοδος): πρώτα αποδοχή, μετά η εφαρμογή
   if (await needsLegalConsent(user.id)) redirect("/consent");
   const m = user.memberships[0];
-  const permissions: string[] = m ? (m.role.locked ? ALL_PERMISSIONS : m.role.permissions) : [];
+  const access = m ? await accessFor(m.orgId, m.storeId) : null;
+  const permissions: string[] = m ? allowedPermissions(m.role.locked ? ALL_PERMISSIONS : m.role.permissions, access!.open) : [];
   const allowed = ALL_ITEMS.map((i) => i.to).filter((to) =>
-    SUPER_ONLY.includes(to) ? platformCan(user, "settings.manage") : to === "/platform/gdpr" ? platformCan(user, "gdpr.manage") : to === "/platform/support" ? platformCan(user, "support.tickets") : to === "/support" || to === "/help" ? !!m : to === "/platform/kb" ? platformCan(user, "support.tickets") : to.startsWith("/platform") ? !!user.platformRole : permissions.includes(permissionFor(to)),
+    SUPER_ONLY.includes(to) ? platformCan(user, "settings.manage") : to === "/platform/gdpr" ? platformCan(user, "gdpr.manage") : to === "/platform/support" ? platformCan(user, "support.tickets") : to === "/support" || to === "/help" ? !!m : to === "/platform/kb" ? platformCan(user, "support.tickets") : to === "/platform/plans" ? platformCan(user, "billing.manage") : to.startsWith("/platform") ? !!user.platformRole : permissions.includes(permissionFor(to)) && pathOpen(to, access?.open ?? []),
   );
   // εκκρεμότητες δίπλα στο στοιχείο του μενού που τις λύνει
   const unsent = m && allowed.includes("/receipts") ? await db.fiscalDocument.count({ where: { sale: { orgId: m.orgId, status: "COMPLETED" }, status: { not: "SIGNED" } } }) : 0;
@@ -56,6 +60,26 @@ async function Menus() {
   );
 }
 
+/** Κατάστημα σε εποχιακή παύση: το λέμε σε κάθε σελίδα, μαζί με το τι μένει ανοιχτό και ποιος το ανοίγει ξανά. */
+async function PauseBanner() {
+  const user = await getUser();
+  const m = user?.memberships[0];
+  if (!m) return null;
+  const access = await accessFor(m.orgId, m.storeId);
+  if (!access.paused) return null;
+  const mine = access.pausedStores.filter((s) => !m.storeId || s.id === m.storeId);
+  const canResume = (m.role.locked ? ALL_PERMISSIONS : m.role.permissions).includes("stores.pause");
+  return (
+    <div role="status" className="flex items-start gap-3 border-b border-gold/40 bg-gold/10 px-6 py-3 text-sm print:hidden max-lg:pl-16">
+      <Snowflake className="mt-0.5 size-4 shrink-0 text-gold-ink" aria-hidden />
+      <p className="min-w-0 flex-1">
+        <b>{mine.length === 1 ? `Το κατάστημα «${mine[0].name}» είναι` : "Τα καταστήματα είναι"} σε εποχιακή παύση από {mine[0].since.toLocaleDateString("el-GR")}.</b>{" "}
+        Το ταμείο και οι βασικές ενότητες είναι κλειστά όσο κρατά. {canResume ? <Link href="/billing#stores" className="font-semibold underline">Άνοιγμα ξανά από τη Συνδρομή</Link> : "Για να ανοίξει ξανά, μίλα με τον διαχειριστή της επιχείρησης"}
+      </p>
+    </div>
+  );
+}
+
 // Το μενού και οι σελίδες διαβάζουν τη βάση και έρχονται με ροή (Suspense / loading.tsx).
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
@@ -63,7 +87,10 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       <Suspense fallback={<div className="sidebar-surface hidden w-[17rem] shrink-0 lg:block" />}>
         <Menus />
       </Suspense>
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Suspense fallback={null}><PauseBanner /></Suspense>
+        {children}
+      </div>
     </div>
   );
 }

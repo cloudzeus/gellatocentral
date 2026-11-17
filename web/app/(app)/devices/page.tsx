@@ -3,8 +3,6 @@ import { Modal } from "@/components/modal";
 import { Badge, btn, Card, Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { DEVICE_KIND, FOR, KIND_OPTIONS, readingStatus } from "@/lib/devices";
-import { euro } from "@/lib/money";
-import { PRICE_PER_DEVICE } from "@/lib/pricing";
 import { currentOrg } from "@/lib/auth";
 import { addDevice, toggleDevice } from "./actions";
 import { Submit } from "@/components/submit";
@@ -18,9 +16,9 @@ export default async function DevicesPage() {
   const stores = await db.store.findMany({ where: { orgId: org.id }, orderBy: { name: "asc" }, include: { devices: { orderBy: { createdAt: "asc" }, include: { readings: { orderBy: { at: "desc" }, take: 1 } } } } });
   const accesses = await db.remoteAccess.findMany({ where: { orgId: org.id }, orderBy: { at: "desc" }, take: 20, include: { device: { select: { name: true } } } });
   return (
-    <Page section="Ταμείο & τιμολόγηση" title="Συσκευές" description={`Ταμεία, οθόνες κουζίνας, ψυγεία, αυτόματοι πωλητές και ζυγαριές. Χρεώνονται μόνο τα ταμεία: ${euro(PRICE_PER_DEVICE)} τον μήνα.`}
+    <Page section="Ταμείο & τιμολόγηση" title="Συσκευές" description={`Ταμεία, οθόνες κουζίνας, ψυγεία, αυτόματοι πωλητές και ζυγαριές. Κάθε ενεργή συσκευή χρεώνεται με την τιμή του πακέτου σου (βλ. Συνδρομή)`}
       actions={
-        <Modal label={<><Plus /> Νέα συσκευή</>} variant="default" title="Νέα συσκευή" description={`Μόνο τα ταμεία χρεώνονται: ${euro(PRICE_PER_DEVICE)} τον μήνα το καθένα`}>
+        <Modal label={<><Plus /> Νέα συσκευή</>} variant="default" title="Νέα συσκευή" description="Η τιμή της εξαρτάται από το είδος και το πακέτο σου. Τη βλέπεις στη Συνδρομή">
           <form action={addDevice} data-by-kind className="grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end">
             <label className="block space-y-1 text-sm font-medium">Όνομα<input name="name" required minLength={2} maxLength={40} placeholder="π.χ. Ταμείο 2" className={field} /></label>
             <label className="block space-y-1 text-sm font-medium">Κατάστημα

@@ -4,6 +4,8 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { db } from "./db";
+import { allowedPermissions } from "./modules";
+import { accessFor } from "./plan-data";
 import { loadPlatformRoles } from "./platform-roles";
 import { ALL_PERMISSIONS, type Permission, permissionFor, platformCan, type PlatformPermission } from "./permissions";
 
@@ -68,7 +70,9 @@ export const currentOrg = cache(async (needs?: Permission) => {
   const m = user.memberships[0];
   if (!m) redirect(user.platformRole ? "/platform" : "/login");
   // ο κλειδωμένος ρόλος έχει πάντα όλα τα δικαιώματα, και όσα προστεθούν αργότερα
-  const permissions: string[] = m.role.locked ? ALL_PERMISSIONS : m.role.permissions;
-  if (needs && !permissions.includes(needs)) redirect(home(permissions) ?? "/login");
-  return { user, membership: m, role: m.role, permissions, org: m.org, storeId: m.storeId };
+  // …μείον όσα ανήκουν σε ενότητες που δεν έχει το πακέτο της επιχείρησης ή που κλείνουν στην εποχιακή παύση
+  const access = await accessFor(m.orgId, m.storeId);
+  const permissions: string[] = allowedPermissions(m.role.locked ? ALL_PERMISSIONS : m.role.permissions, access.open);
+  if (needs && !permissions.includes(needs)) redirect(home(permissions) ?? "/account");
+  return { user, membership: m, role: m.role, permissions, org: m.org, storeId: m.storeId, access };
 });

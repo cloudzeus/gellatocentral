@@ -12,7 +12,8 @@ import { db } from "@/lib/db";
 import { DEVICE_KIND, FOR, KIND_OPTIONS, readingStatus } from "@/lib/devices";
 import { mailDomain, platformSettings } from "@/lib/mail/send";
 import { euro } from "@/lib/money";
-import { isBillable, monthlyCharge, PRICE_PER_DEVICE, PRICE_PER_STORE } from "@/lib/pricing";
+import { billableStores, nextCharge, planOf } from "@/lib/plan-data";
+import { daysBetween, MIN_PAUSE_DAYS, monthlyPreview } from "@/lib/plans";
 import { setupSteps } from "@/lib/setup";
 import { addDevice, addPrinter, addStore, addUser, addWarehouse, issueCharge, issuePairCode, markChargePaid, removeMember, revokeDevice, saveOrgProfile, setRemoteId, startRemote, saveSubscription, saveViva, toggleActive, updateDevice } from "../actions";
 import { STATUS } from "../status";
@@ -90,8 +91,9 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const steps = setupSteps(org);
   const doneCount = steps.filter((s) => s.done).length;
   const stores = org.stores.filter((s) => s.active);
-  const devices = stores.flatMap((s) => s.devices).filter((d) => d.active && isBillable(d.kind)).length;
-  const charge = monthlyCharge(stores.length, devices);
+  const [plan, plans, bstores, next] = await Promise.all([planOf(org.id), db.plan.findMany({ orderBy: { name: "asc" } }), billableStores(org.id), nextCharge(org.id)]);
+  const monthly = monthlyPreview(plan, bstores.map((s) => ({ ...s, paused: !!s.paused })));
+  const pauses = bstores.flatMap((s) => s.pauses.map((p) => ({ ...p, store: s.name }))).sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime()).slice(0, 8);
   const storeOptions = stores.map((s): [string, string] => [s.id, s.name]);
   const printerOptions: [string, string][] = [["", "Κανένας"], ...org.stores.flatMap((s) => s.printers.filter((p) => p.active).map((p): [string, string] => [p.id, `${p.name} · ${s.name}`]))];
   const tillOptions: [string, string][] = [["", "Καμία — ζυγαριά εργαστηρίου"], ...org.stores.flatMap((s) => s.devices.filter((d) => d.active && DEVICE_KIND[d.kind].invoices).map((d): [string, string] => [d.id, `${d.name} · ${s.name}`]))];
@@ -152,10 +154,11 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Card>
 
         <Section
-          id="subscription" title="Συνδρομή" hint={`${stores.length} × ${euro(PRICE_PER_STORE)} κατάστημα + ${devices} × ${euro(PRICE_PER_DEVICE)} ταμείο = ${euro(charge.totalCents)} τον μήνα, προ ΦΠΑ`} saved={saved("subscription")}
+          id="subscription" title="Συνδρομή" hint={`Πακέτο «${plan.name}» · ${euro(monthly.totalCents)} τον μήνα προ ΦΠΑ${monthly.fullCents > monthly.totalCents ? ` (χωρίς παύση ${euro(monthly.fullCents)})` : ""}`} saved={saved("subscription")}
           action={me.can("billing.manage") && <Modal label={edit} title="Συνδρομή" description="Χειροκίνητη αλλαγή. Η εξόφληση μιας χρέωσης την παρατείνει αυτόματα.">
-            <form key={`${sub?.status}-${sub?.currentPeriodEnd.toISOString()}`} action={saveSubscription} className={form}>
+            <form key={`${sub?.status}-${sub?.currentPeriodEnd.toISOString()}-${sub?.planId}`} action={saveSubscription} className={form}>
               {hidden}
+              <Select label="Πακέτο" name="planId" defaultValue={sub?.planId ?? ""} options={[["", "Προεπιλεγμένο"], ...plans.filter((p) => p.active || p.id === sub?.planId).map((p): [string, string] => [p.id, `${p.name} · ${euro(p.storeCents)} το κατάστημα`])]} />
               <Select label="Κατάσταση" name="status" defaultValue={sub?.status ?? "TRIALING"} options={Object.entries(STATUS).map(([k, v]) => [k, v.text])} />
               <Field label="Ισχύει μέχρι" name="currentPeriodEnd" type="date" required defaultValue={(sub?.currentPeriodEnd ?? new Date()).toISOString().slice(0, 10)} />
               {save}
@@ -165,18 +168,57 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
           <Facts items={[
             ["Κατάσταση", sub ? <Badge tone={STATUS[sub.status].tone}>{STATUS[sub.status].text}</Badge> : null],
             ["Ισχύει μέχρι", sub ? day(sub.currentPeriodEnd) : null],
-            ["Ανά μήνα", euro(charge.totalCents)],
+            ["Πακέτο", <Link key="p" href="/platform/plans" className="font-semibold underline">{plan.name}</Link>],
+            ["Ανά μήνα", euro(monthly.totalCents)],
           ]} />
+          {next ? (
+            <div className="border-t border-border/70">
+              <p className="px-5 pt-3 text-sm font-semibold">Επόμενη χρέωση: {day(next.periodStart)} – {day(next.periodEnd)} <span className="font-normal text-muted-foreground">· όπως θα εκδοθεί σήμερα</span></p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="text-left text-xs text-muted-foreground"><th className="px-5 py-2 font-semibold">Κατάστημα</th><th className="px-3 py-2 font-semibold">Κατάσταση</th><th className="px-3 py-2 font-semibold">Συσκευές</th><th className="px-3 py-2 text-right font-semibold">Πλήρης τιμή</th><th className="px-3 py-2 font-semibold">Παύση</th><th className="px-5 py-2 text-right font-semibold">Χρέωση</th></tr></thead>
+                  <tbody>
+                    {next.calc.lines.map((l) => { const st = bstores.find((x) => x.id === l.storeId); return (
+                      <tr key={l.storeId} className="border-t border-border/70">
+                        <td className="px-5 py-2 font-semibold">{l.name}</td>
+                        <td className="px-3 py-2">{st?.paused ? <Badge tone="warning">Σε παύση από {day(st.paused.startedAt)}</Badge> : <Badge tone="success">Σε λειτουργία</Badge>}</td>
+                        <td className="px-3 py-2 tabular-nums text-muted-foreground">{l.devices} · {euro(l.devicesCents)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{euro(l.fullCents)}</td>
+                        <td className="px-3 py-2 tabular-nums">{l.pauseDays ? `${l.pauseDays} ημέρες · ${l.discountCents > 0 ? "−" : "+"}${euro(Math.abs(l.discountCents))}` : "—"}</td>
+                        <td className="px-5 py-2 text-right font-semibold tabular-nums">{euro(l.cents)}</td>
+                      </tr>
+                    ); })}
+                    {next.calc.usedCreditCents ? <tr className="border-t border-border/70"><td colSpan={5} className="px-5 py-2">Πιστωτικό υπόλοιπο από προηγούμενη χρέωση</td><td className="px-5 py-2 text-right tabular-nums">−{euro(next.calc.usedCreditCents)}</td></tr> : null}
+                    <tr className="border-t border-border/70 bg-secondary/50"><td colSpan={5} className="px-5 py-2 font-medium">Σύνολο προ ΦΠΑ</td><td className="px-5 py-2 text-right font-semibold tabular-nums">{euro(next.calc.totalCents)}</td></tr>
+                    {next.calc.carryCents ? <tr className="border-t border-border/70"><td colSpan={5} className="px-5 py-2 text-muted-foreground">Η έκπτωση ξεπερνά τη χρέωση του μήνα: μένει πιστωτικό για την επόμενη</td><td className="px-5 py-2 text-right tabular-nums text-success-ink">{euro(next.calc.carryCents)}</td></tr> : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+          {pauses.length ? (
+            <div className="border-t border-border/70">
+              <p className="px-5 pt-3 text-sm font-semibold">Εποχιακές παύσεις</p>
+              <ul className="divide-y divide-border/70">
+                {pauses.map((p) => { const days = daysBetween(p.startedAt, p.endedAt ?? new Date()); return (
+                  <li key={p.id} className="flex flex-wrap items-center gap-3 px-5 py-2.5 text-sm">
+                    <span className="min-w-0 flex-1">{p.store} · {day(p.startedAt)} {p.endedAt ? `έως ${day(p.endedAt)}` : ", συνεχίζεται"} <span className="text-muted-foreground">· {days} ημέρες · {p.startedByName}{p.settledThrough ? ` · έκπτωση δοσμένη ως ${day(p.settledThrough)}` : ""}</span></span>
+                    {days >= MIN_PAUSE_DAYS ? <Badge tone="success">Μετρά ως παύση</Badge> : p.endedAt ? <Badge>Κάτω από {MIN_PAUSE_DAYS} ημέρες: χρεώθηκε κανονικά</Badge> : <Badge tone="warning">Θέλει {MIN_PAUSE_DAYS - days} ημέρες ακόμα</Badge>}
+                  </li>
+                ); })}
+              </ul>
+            </div>
+          ) : null}
           <div className="border-t border-border/70">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
               <p className="text-sm font-semibold">Χρεώσεις</p>
-              <form action={issueCharge.bind(null, org.id)}><Submit className={btn("outline", "sm")}>Έκδοση χρέωσης επόμενου μήνα ({euro(charge.totalCents)})</Submit></form>
+              <form action={issueCharge.bind(null, org.id)}><Submit className={btn("outline", "sm")}>Έκδοση χρέωσης επόμενου μήνα ({euro(next?.calc.totalCents ?? monthly.totalCents)})</Submit></form>
             </div>
             {sub?.charges.length ? (
               <ul className="divide-y divide-border/70 border-t border-border/70">
                 {sub.charges.map((c) => (
                   <li key={c.id} className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
-                    <span className="min-w-0 flex-1 tabular-nums">{day(c.periodStart)} – {day(c.periodEnd)} <span className="text-muted-foreground">· {c.stores} καταστ., {c.devices} ταμεία</span></span>
+                    <span className="min-w-0 flex-1 tabular-nums">{day(c.periodStart)} – {day(c.periodEnd)} <span className="text-muted-foreground">· {c.stores} καταστ., {c.devices} συσκευές{c.planName ? ` · ${c.planName}` : ""}</span></span>
                     <b className="tabular-nums">{euro(c.amountCents)}</b>
                     {c.paidAt ? <Badge tone="success">Πληρώθηκε {day(c.paidAt)}</Badge> : (
                       <form action={markChargePaid.bind(null, c.id)}><Submit className={btn("success", "sm")}>Πληρώθηκε</Submit></form>
@@ -184,7 +226,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                   </li>
                 ))}
               </ul>
-            ) : <Empty>Καμία χρέωση ακόμα. Η έκδοση «φωτογραφίζει» τα σημερινά καταστήματα και ταμεία· όταν σημειωθεί πληρωμένη, η συνδρομή παρατείνεται.</Empty>}
+            ) : <Empty>Καμία χρέωση ακόμα. Η έκδοση «φωτογραφίζει» τα σημερινά καταστήματα και συσκευές με τις τιμές του πακέτου· όταν σημειωθεί πληρωμένη, η συνδρομή παρατείνεται.</Empty>}
           </div>
         </Section>
 
@@ -202,8 +244,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Section>
 
         <Section
-          id="stores" title="Υποκαταστήματα" hint={`Κάθε ενεργό κατάστημα χρεώνεται ${euro(PRICE_PER_STORE)} τον μήνα`} saved={saved("stores")}
-          action={me.can("setup.manage") && <Modal label={add} title="Νέο υποκατάστημα" description={`Προσθέτει ${euro(PRICE_PER_STORE)} τον μήνα στη συνδρομή`}>
+          id="stores" title="Υποκαταστήματα" hint={`Κάθε ενεργό κατάστημα χρεώνεται ${euro(plan.storeCents)} τον μήνα (πακέτο «${plan.name}»)`} saved={saved("stores")}
+          action={me.can("setup.manage") && <Modal label={add} title="Νέο υποκατάστημα" description={`Προσθέτει ${euro(plan.storeCents)} τον μήνα στη συνδρομή`}>
             <form action={addStore} className={form}>{hidden}
               <Field label="Όνομα" name="name" required minLength={2} maxLength={60} placeholder="π.χ. Κατάστημα Τήνου" />
               <Field label="Διεύθυνση" name="address" maxLength={120} hint="Τυπώνεται στην απόδειξη" />
@@ -255,13 +297,13 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Section>
 
         <Section
-          id="devices" title="Συσκευές" hint={`Ταμεία, οθόνες κουζίνας, ψυγεία, αυτόματοι πωλητές και ζυγαριές. Χρεώνονται μόνο τα ταμεία: ${euro(PRICE_PER_DEVICE)} τον μήνα το καθένα.`} saved={saved("devices")}
+          id="devices" title="Συσκευές" hint={`Ταμεία, οθόνες κουζίνας, ψυγεία, αυτόματοι πωλητές και ζυγαριές. Κάθε ενεργή συσκευή χρεώνεται με την τιμή του είδους της στο πακέτο «${plan.name}»`} saved={saved("devices")}
           action={me.can("setup.manage") && <Modal label={add} title="Νέα συσκευή" description="Διάλεξε είδος· η φόρμα δείχνει μόνο όσα χρειάζεται">
             <form action={addDevice} data-by-kind className={form}>{hidden}
               <Select label="Είδος" name="kind" options={KIND_OPTIONS} />
               <Field label="Όνομα" name="name" required minLength={2} maxLength={40} placeholder="π.χ. Ταμείο 2 ή Καταψύκτης εργαστηρίου" />
               <Select label="Κατάστημα" name="storeId" options={storeOptions} />
-              <div data-for={FOR.invoicing}><Field label="Σειρά αποδείξεων" name="series" pattern="[A-Za-z0-9]{1,6}" placeholder="π.χ. A2" hint={`Μοναδική, δεν αλλάζει μετά. Το ταμείο προσθέτει ${euro(PRICE_PER_DEVICE)} τον μήνα.`} /></div>
+              <div data-for={FOR.invoicing}><Field label="Σειρά αποδείξεων" name="series" pattern="[A-Za-z0-9]{1,6}" placeholder="π.χ. A2" hint={`Μοναδική, δεν αλλάζει μετά. Το ταμείο χρεώνεται με την τιμή του πακέτου`} /></div>
               <div data-for={FOR.invoicing}><Field label="Τερματικό Viva (Terminal ID)" name="vivaTerminalId" maxLength={20} placeholder="π.χ. 16000010" /></div>
               <div data-for={`${FOR.invoicing} KITCHEN_DISPLAY`}><Select label="Εκτυπωτής" name="printerId" options={printerOptions} /></div>
               <div data-for={FOR.storage}><Field label="Κάτω όριο θερμοκρασίας (°C)" name="tempMin" inputMode="decimal" placeholder="π.χ. -25" /></div>

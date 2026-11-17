@@ -206,6 +206,7 @@ model Store {
   printers   Printer[]
   sales      Sale[]
   members    Membership[]
+  pauses     StorePause[]
 
   @@index([orgId])
 }
@@ -398,6 +399,9 @@ model Subscription {
   orgId            String             @unique
   status           SubscriptionStatus @default(TRIALING)
   currentPeriodEnd DateTime
+  planId           String? // κενό = το προεπιλεγμένο πακέτο
+  creditCents      Int                @default(0) // πιστωτικό υπόλοιπο (έκπτωση παύσης που ξεπέρασε τη χρέωση ενός μήνα)
+  plan             Plan?              @relation(fields: [planId], references: [id], onDelete: Restrict)
   org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   charges          SubscriptionCharge[]
 }
@@ -411,6 +415,8 @@ model SubscriptionCharge {
   stores         Int
   devices        Int
   amountCents    Int // προ ΦΠΑ
+  lines          Json? // ανάλυση ανά κατάστημα: πλήρης τιμή, ημέρες παύσης, έκπτωση (lib/plans.ts)
+  planName       String?
   paidAt         DateTime?
   // Πληρωμή με κάρτα στον λογαριασμό Viva της πλατφόρμας (Smart Checkout)
   vivaOrderCode     String? @unique
@@ -712,4 +718,39 @@ model StaffRole {
   permissions String[]
   createdAt   DateTime @default(now())
   users       User[]
+}
+
+// Πακέτο συνδρομής: ποιες ενότητες ανοίγει και πόσο κοστίζει κάθε κατάστημα και κάθε είδος συσκευής (λεπτά, προ ΦΠΑ, τον μήνα).
+model Plan {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String?
+  active        Boolean  @default(true) // ανενεργό: δεν δίνεται σε νέους πελάτες, όσοι το έχουν το κρατούν
+  isDefault     Boolean  @default(false)
+  modules       String[] // κλειδιά από lib/modules.ts
+  storeCents    Int
+  devicePrices  Json // { POS_WEB: 1500, FRIDGE: 0, … } ανά DeviceKind
+  // Εποχιακή παύση καταστήματος
+  pausePercent        Int      @default(30) // τι ποσοστό της τιμής πληρώνει το κατάστημα όσο είναι σε παύση
+  pausedModules       String[] // ενότητες που μένουν ανοιχτές στην παύση
+  pauseMaxDaysPerYear Int      @default(240)
+  createdAt     DateTime @default(now())
+  subscriptions Subscription[]
+}
+
+// Περίοδος παύσης ενός καταστήματος (εποχιακό). Η έκπτωση δίνεται μόνο αν κρατήσει 30+ ημέρες.
+model StorePause {
+  id             String    @id @default(cuid())
+  orgId          String
+  storeId        String
+  startedAt      DateTime  @default(now())
+  endedAt        DateTime?
+  maxDays        Int // πόσες ημέρες έκπτωσης δικαιούται αυτή η παύση (όριο πακέτου μείον όσες χρησιμοποιήθηκαν το τελευταίο 12μηνο)
+  settledThrough DateTime? // ως ποια ημέρα έχει ήδη δοθεί η έκπτωση σε χρέωση
+  startedByName  String
+  endedByName    String?
+  store          Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, startedAt])
+  @@index([orgId])
 }

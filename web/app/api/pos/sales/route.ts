@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { tillFromRequest } from "@/lib/device-auth";
+import { accessFor } from "@/lib/plan-data";
 import { issueSale } from "@/lib/pos";
 import { toVivaJson } from "@/lib/viva/fiscal";
 
@@ -13,6 +14,9 @@ const body = z.object({
 export async function POST(req: Request) {
   const ctx = await tillFromRequest(req);
   if (!ctx) return Response.json({ error: "unauthorized" }, { status: 401 });
+  // κατάστημα σε εποχιακή παύση ή πακέτο χωρίς ταμείο: δεν εκδίδονται αποδείξεις
+  const access = await accessFor(ctx.org.id, ctx.device.storeId);
+  if (!access.open.includes("pos")) return Response.json({ error: "paused", message: access.paused ? "Το κατάστημα είναι σε εποχιακή παύση. Ο διαχειριστής το ανοίγει ξανά από τη Συνδρομή" : "Το πακέτο της επιχείρησης δεν περιλαμβάνει ταμείο" }, { status: 403 });
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "invalid" }, { status: 400 });
 

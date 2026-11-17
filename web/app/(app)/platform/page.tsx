@@ -7,7 +7,9 @@ import { Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { filterParam, listParams } from "@/lib/paging";
-import { isBillable, monthlyCharge } from "@/lib/pricing";
+import { DEVICE_KIND } from "@/lib/devices";
+import { defaultPlan, toPlanRow } from "@/lib/plan-data";
+import { monthlyPreview } from "@/lib/plans";
 import { setupSteps } from "@/lib/setup";
 import { vivaConfigured, vivaEnv } from "@/lib/viva/cloud-terminal";
 import { checkViva, createOrganization } from "./actions";
@@ -20,7 +22,7 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
   const list = listParams(q, 25, ["org", "until"]);
   const status = filterParam(q, "status", ["TRIALING", "ACTIVE", "PAST_DUE", "CANCELLED"]);
   const orderBy = list.sort === "org" ? { name: list.dir } : list.sort === "until" ? { subscription: { currentPeriodEnd: list.dir } } : { createdAt: "desc" as const };
-  const include = { subscription: true, members: { select: { id: true } }, stores: { include: { warehouses: true, devices: true } } } as const;
+  const include = { subscription: { include: { plan: true } }, members: { select: { id: true } }, stores: { include: { warehouses: true, devices: true, pauses: { where: { endedAt: null }, select: { id: true } } } } } as const;
   const where = {
     ...(list.q ? { OR: [{ name: { contains: list.q, mode: "insensitive" as const } }, { vatNumber: { contains: list.q } }, { slug: { contains: list.q.toLowerCase() } }] } : {}),
     ...(status ? { subscription: { status } } : {}),
@@ -32,11 +34,13 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
     db.organization.findMany({ where, orderBy, skip: list.skip, take: list.take, include }),
     db.organization.count({ where }),
   ]);
+  const fallback = await defaultPlan();
   const summarize = (o: (typeof orgs)[number]) => {
     const stores = o.stores.filter((s) => s.active);
-    const devices = stores.flatMap((s) => s.devices).filter((d) => d.active && isBillable(d.kind)).length;
+    const devices = stores.flatMap((s) => s.devices).filter((d) => d.active && DEVICE_KIND[d.kind].invoices).length;
+    const plan = o.subscription?.plan ? toPlanRow(o.subscription.plan) : fallback;
     const steps = setupSteps(o);
-    return { o, stores: stores.length, devices, cents: monthlyCharge(stores.length, devices).totalCents, missing: steps.filter((s) => !s.done).length };
+    return { o, stores: stores.length, devices, plan: plan.name, cents: monthlyPreview(plan, stores.map((s) => ({ id: s.id, name: s.name, deviceKinds: s.devices.filter((d) => d.active).map((d) => d.kind as string), paused: s.pauses.length > 0 }))).totalCents, missing: steps.filter((s) => !s.done).length };
   };
   const all = orgs.map(summarize);
   const rows = pageOrgs.map(summarize);

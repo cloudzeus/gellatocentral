@@ -70,6 +70,7 @@ export const NAV: { title: string; icon: LucideIcon; items: NavItem[] }[] = [
     title: "Πλατφόρμα", icon: Building2,
     items: [
       { to: "/platform", label: "Συνδρομητές", icon: Building2, ready: true },
+      { to: "/platform/plans", label: "Πακέτα & τιμές", icon: Package, ready: true },
       { to: "/platform/gdpr", label: "GDPR & συναινέσεις", icon: ShieldCheck, ready: true },
     ],
   },
