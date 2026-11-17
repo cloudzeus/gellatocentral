@@ -1,4 +1,4 @@
-import { CircleCheck, MonitorUp } from "lucide-react";
+import { BookOpen, CircleCheck, MonitorUp } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Modal } from "@/components/modal";
@@ -9,6 +9,8 @@ import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DEVICE_KIND, readingStatus } from "@/lib/devices";
 import { showRemoteId } from "@/lib/remote";
+import { searchArticles } from "@/lib/support/kb-data";
+import { articleFromTicket } from "../../kb/actions";
 import { ACTIVE, CATEGORIES, type Category, PRIORITY, type Priority, responseClock, STATUS, type Status } from "@/lib/support/rules";
 import { assignToMe, resolve, setPriority } from "@/app/(app)/support/actions";
 import { startRemote } from "../../actions";
@@ -23,10 +25,11 @@ export default async function SupportTicketPage({ params, searchParams }: PagePr
   if (!ticket) notFound();
   const q = await searchParams;
   const status = ticket.status as Status, priority = ticket.priority as Priority;
-  const [devices, unsent, others] = await Promise.all([
+  const [devices, unsent, others, articles] = await Promise.all([
     db.device.findMany({ where: { store: { orgId: ticket.orgId }, active: true }, orderBy: { createdAt: "asc" }, include: { store: true, readings: { orderBy: { at: "desc" }, take: 1 } } }),
     db.fiscalDocument.count({ where: { sale: { orgId: ticket.orgId, status: "COMPLETED" }, status: { not: "SIGNED" } } }),
     db.ticket.findMany({ where: { orgId: ticket.orgId, id: { not: ticket.id } }, orderBy: { createdAt: "desc" }, take: 5 }),
+    searchArticles(ticket.subject, { internal: true, limit: 4 }),
   ]);
   const device = devices.find((d) => d.id === ticket.deviceId);
   const clock = responseClock({ ...ticket, priority, status });
@@ -90,6 +93,13 @@ export default async function SupportTicketPage({ params, searchParams }: PagePr
                   </>
                 )}
             </div>
+          </Card>
+          <Card>
+            <h2 className="px-5 pt-4 pb-3 text-base">Σχετικά άρθρα</h2>
+            {articles.length === 0 ? <p className="border-t border-border px-5 py-4 text-muted-foreground">Κανένα άρθρο δεν ταιριάζει με το θέμα. Αν το λύσεις, γράψε ένα για την επόμενη φορά</p> : (
+              <ul>{articles.map((a) => <li key={a.id} className="border-t border-border"><Link href={`/platform/kb/${a.id}`} className="flex min-h-11 items-center gap-3 px-5 py-1.5 hover:bg-secondary"><BookOpen className="size-4 shrink-0 text-muted-foreground" /><span className="min-w-0 flex-1 font-medium">{a.title}</span><Badge tone="neutral">{a.internal ? "Εσωτερικό" : "Για πελάτες"}</Badge></Link></li>)}</ul>
+            )}
+            <form action={articleFromTicket.bind(null, ticket.id)} className="border-t border-border px-5 py-3"><Submit className={btn("outline", "sm")}><BookOpen /> Άρθρο από αυτή τη λύση</Submit></form>
           </Card>
           <Card>
             <h2 className="px-5 pt-4 pb-3 text-base">Άλλα αιτήματα του πελάτη</h2>

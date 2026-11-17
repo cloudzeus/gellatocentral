@@ -3,7 +3,8 @@ import Link from "next/link";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
+import { TicketSubject } from "@/components/ticket-subject";
+import { Badge, btn, Card, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -38,7 +39,7 @@ export default async function SupportPage({ searchParams }: PageProps<"/support"
       actions={
         <Modal label={<><Plus /> Νέο αίτημα</>} variant="default" title="Νέο αίτημα" description="Πες μας τι συμβαίνει με δικά σου λόγια">
           <form action={createTicket} className="grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end">
-            <div className="sm:col-span-2"><Field label="Τι συμβαίνει;" name="subject" required minLength={5} maxLength={140} placeholder="π.χ. Δεν τυπώνει ο εκτυπωτής" /></div>
+            <div className="sm:col-span-2"><TicketSubject /></div>
             <Select label="Τι αφορά" name="category" options={Object.entries(CATEGORIES)} />
             <Select label="Ποια συσκευή αφορά" name="deviceId" options={[["", "Καμία συγκεκριμένη"], ...devices.map((d): [string, string] => [d.id, `${d.name} · ${d.store.name}`])]} />
             <div className="sm:col-span-2"><Select label="Πόσο επείγει" name="urgency" defaultValue="hard" options={Object.entries(URGENCY)} /></div>

@@ -1,4 +1,5 @@
 // Δοκιμαστικά δεδομένα για τοπική ανάπτυξη: npx prisma db seed
+import { seedKb } from "./kb-starter";
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
@@ -27,6 +28,8 @@ async function admin() {
 
 async function main() {
   await admin();
+  const articles = await seedKb(db);
+  if (articles) console.log(`Βοήθεια: ${articles} αρχικά άρθρα`);
   if (await db.organization.count()) return console.log("Η βάση έχει ήδη δεδομένα — δεν άλλαξε τίποτα.");
   const org = await db.organization.create({ data: { name: "Gelateria Demo", vatNumber: "000000000" } });
   await db.orgRole.createMany({ data: SYSTEM_ROLES.map((r) => ({ orgId: org.id, system: true, ...r })) });

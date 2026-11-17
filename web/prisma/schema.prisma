@@ -603,3 +603,45 @@ model TicketMessage {
 
   @@index([ticketId, createdAt])
 }
+
+// ---- Βάση γνώσεων: άρθρα για τους πελάτες (δημόσια) και για την υποστήριξη (εσωτερικά) ----
+enum KbStatus {
+  DRAFT // πρόχειρο
+  REVIEW // προς έγκριση
+  PUBLISHED
+  RETIRED // αποσυρμένο: δεν φαίνεται πουθενά, αλλά δεν σβήνεται
+}
+
+model KbArticle {
+  id             String     @id @default(cuid())
+  title          String
+  body           String // απλό κείμενο: παράγραφοι, «- » για λίστα, «1. » για βήματα, «## » για υπότιτλο
+  category       String // κλειδί του CATEGORIES (lib/support/rules.ts)
+  internal       Boolean    @default(false) // true = μόνο για την υποστήριξη
+  status         KbStatus   @default(DRAFT)
+  sourceTicketId String? // το αίτημα από το οποίο προέκυψε, αν προέκυψε από αίτημα
+  authorName     String
+  updatedByName  String?
+  publishedAt    DateTime?
+  views          Int        @default(0)
+  helpfulYes     Int        @default(0)
+  helpfulNo      Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  versions       KbVersion[]
+
+  @@index([status, internal])
+}
+
+// Η προηγούμενη μορφή ενός άρθρου, κάθε φορά που αλλάζει τίτλος ή κείμενο.
+model KbVersion {
+  id          String    @id @default(cuid())
+  articleId   String
+  title       String
+  body        String
+  savedByName String
+  createdAt   DateTime  @default(now())
+  article     KbArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId, createdAt])
+}

@@ -41,13 +41,14 @@ export const PLATFORM_PERMISSIONS = {
   "gdpr.manage": "GDPR: συναινέσεις, αιτήματα διαγραφής, ημερολόγιο",
   "support.remote": "Απομακρυσμένη σύνδεση σε συσκευές πελατών",
   "support.tickets": "Αιτήματα υποστήριξης των πελατών",
+  "support.kb": "Έγκριση και δημοσίευση άρθρων της βάσης γνώσεων",
 } as const;
 export type PlatformPermission = keyof typeof PLATFORM_PERMISSIONS;
 export type PlatformRoleKey = "SUPER_ADMIN" | "MANAGER" | "STAFF" | "SUPPORT";
 
 export const PLATFORM_ROLES: Record<PlatformRoleKey, { label: string; hint: string; permissions: PlatformPermission[] }> = {
   SUPER_ADMIN: { label: "Super Admin", hint: "Όλα, μαζί με ρυθμίσεις και προσωπικό", permissions: Object.keys(PLATFORM_PERMISSIONS) as PlatformPermission[] },
-  MANAGER: { label: "Manager", hint: "Συνδρομητές, συνδρομές και αρχικοποίηση", permissions: ["orgs.view", "orgs.create", "billing.manage", "setup.manage", "users.manage", "gdpr.manage", "support.remote", "support.tickets"] },
+  MANAGER: { label: "Manager", hint: "Συνδρομητές, συνδρομές και αρχικοποίηση", permissions: ["orgs.view", "orgs.create", "billing.manage", "setup.manage", "users.manage", "gdpr.manage", "support.remote", "support.tickets", "support.kb"] },
   STAFF: { label: "Υπάλληλος εφαρμογής", hint: "Αρχικοποίηση συνδρομητών, χωρίς χρεώσεις", permissions: ["orgs.view", "setup.manage", "users.manage", "support.remote", "support.tickets"] },
   SUPPORT: { label: "Υπάλληλος υποστήριξης", hint: "Βλέπει τους συνδρομητές και βοηθά τους χρήστες τους", permissions: ["orgs.view", "users.manage", "support.remote", "support.tickets"] },
 };

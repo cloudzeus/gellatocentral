@@ -1,5 +1,5 @@
 import {
-  BarChart3, Boxes, Building2, CalendarDays, ChefHat, ClipboardCheck, ClipboardList, Contact, CreditCard,
+  BarChart3, BookOpen, Boxes, Building2, CalendarDays, ChefHat, ClipboardCheck, ClipboardList, Contact, CreditCard,
   Factory, FileText, Inbox, Landmark, LayoutDashboard, MonitorSmartphone, Package, ReceiptText, ScanSearch, Server, Settings, ShieldCheck, LifeBuoy,
   ShoppingCart, Store, TabletSmartphone, ThermometerSnowflake, Truck, Users, Warehouse, type LucideIcon,
 } from "lucide-react";
@@ -58,13 +58,20 @@ export const NAV: { title: string; icon: LucideIcon; items: NavItem[] }[] = [
       { to: "/reports", label: "Αναφορές", icon: BarChart3 },
     ],
   },
-  { title: "Υποστήριξη", icon: LifeBuoy, items: [{ to: "/support", label: "Υποστήριξη", icon: LifeBuoy, ready: true }] },
+  {
+    title: "Υποστήριξη", icon: LifeBuoy,
+    items: [
+      { to: "/help", label: "Βοήθεια", icon: BookOpen, ready: true },
+      { to: "/support", label: "Τα αιτήματά μου", icon: LifeBuoy, ready: true },
+    ],
+  },
   { title: "Οικονομικά", icon: Landmark, items: [{ to: "/finance", label: "Οικονομικά", icon: Landmark }] },
   {
     title: "Πλατφόρμα", icon: Building2,
     items: [
       { to: "/platform", label: "Συνδρομητές", icon: Building2, ready: true },
       { to: "/platform/support", label: "Αιτήματα", icon: Inbox, ready: true },
+      { to: "/platform/kb", label: "Βάση γνώσεων", icon: BookOpen, ready: true },
       { to: "/platform/gdpr", label: "GDPR & συναινέσεις", icon: ShieldCheck, ready: true },
       { to: "/platform/settings", label: "Ρυθμίσεις & email", icon: Settings, ready: true },
     ],

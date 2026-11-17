@@ -24,7 +24,7 @@ async function navFor() {
   const m = user.memberships[0];
   const permissions: string[] = m ? (m.role.locked ? ALL_PERMISSIONS : m.role.permissions) : [];
   const allowed = ALL_ITEMS.map((i) => i.to).filter((to) =>
-    SUPER_ONLY.includes(to) ? platformCan(user.platformRole, "settings.manage") : to === "/platform/gdpr" ? platformCan(user.platformRole, "gdpr.manage") : to === "/platform/support" ? platformCan(user.platformRole, "support.tickets") : to === "/support" ? !!m : to.startsWith("/platform") ? !!user.platformRole : permissions.includes(permissionFor(to)),
+    SUPER_ONLY.includes(to) ? platformCan(user.platformRole, "settings.manage") : to === "/platform/gdpr" ? platformCan(user.platformRole, "gdpr.manage") : to === "/platform/support" ? platformCan(user.platformRole, "support.tickets") : to === "/support" || to === "/help" ? !!m : to === "/platform/kb" ? platformCan(user.platformRole, "support.tickets") : to.startsWith("/platform") ? !!user.platformRole : permissions.includes(permissionFor(to)),
   );
   // εκκρεμότητες δίπλα στο στοιχείο του μενού που τις λύνει
   const unsent = m && allowed.includes("/receipts") ? await db.fiscalDocument.count({ where: { sale: { orgId: m.orgId, status: "COMPLETED" }, status: { not: "SIGNED" } } }) : 0;
@@ -32,7 +32,7 @@ async function navFor() {
   const seesAll = permissions.includes("tickets.manage");
   const waiting = m ? await db.ticket.count({ where: { orgId: m.orgId, status: "WAITING_CUSTOMER", ...(seesAll ? {} : { openedById: user.id }) } }) : 0;
   const fresh = platformCan(user.platformRole, "support.tickets") ? await db.ticket.count({ where: { status: "NEW" } }) : 0;
-  return { allowed, badges: { "/receipts": unsent, "/support": waiting, "/platform/support": fresh }, user: { name: user.name, subtitle: m ? `${m.role.name} · ${m.org.name}` : user.platformRole ? PLATFORM_ROLES[user.platformRole].label : "", logout } };
+  return { allowed, badges: { "/receipts": unsent, "/support": waiting, "/platform/support": fresh, "/platform/kb": platformCan(user.platformRole, "support.kb") ? await db.kbArticle.count({ where: { status: "REVIEW" } }) : 0 }, user: { name: user.name, subtitle: m ? `${m.role.name} · ${m.org.name}` : user.platformRole ? PLATFORM_ROLES[user.platformRole].label : "", logout } };
 }
 
 async function Menus() {
