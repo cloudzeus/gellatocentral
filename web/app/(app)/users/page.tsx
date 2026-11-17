@@ -1,16 +1,19 @@
-import { KeyRound, Pencil, Plus, UserMinus } from "lucide-react";
+import { KeyRound, Pencil, Plus, UserCheck, UserMinus, UserX } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
+import { accountStatus, actionLabel } from "@/lib/access";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
 import { ALL_PERMISSIONS, canGrant, PERMISSIONS } from "@/lib/permissions";
-import { deleteRole, inviteUser, removeMember, saveRole, sendResetLink, updateMember } from "./actions";
+import { deleteRole, inviteUser, removeMember, saveRole, sendResetLink, setMemberActive, updateMember } from "./actions";
 import { Submit } from "@/components/submit";
 
-const SAVED: Record<string, string> = { invited: "Η πρόσκληση στάλθηκε με email", member: "Ο χρήστης ενημερώθηκε", removed: "Η πρόσβαση αφαιρέθηκε", reset: "Στάλθηκε email για ορισμό κωδικού", role: "Οι ρόλοι ενημερώθηκαν" };
+const SAVED: Record<string, string> = { invited: "Η πρόσκληση στάλθηκε με email", member: "Ο χρήστης ενημερώθηκε", removed: "Η πρόσβαση αφαιρέθηκε", disabled: "Ο χρήστης απενεργοποιήθηκε και αποσυνδέθηκε από παντού", enabled: "Ο χρήστης ενεργοποιήθηκε ξανά", reset: "Στάλθηκε email για ορισμό κωδικού", role: "Οι ρόλοι ενημερώθηκαν" };
 const form = "grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end";
+const when = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Athens" });
+const STATUS = { active: ["success", "Ενεργός"], pending: ["warning", "Εκκρεμεί η πρόσκληση"], disabled: ["neutral", "Απενεργοποιημένος"] } as const;
 const GROUPS = [...new Set(PERMISSIONS.map((p) => p.group))];
 
 /** Τα δικαιώματα ως πλαίσια επιλογής, ομαδοποιημένα όπως το μενού. Όσα δεν έχει ο ίδιος ο χρήστης δεν επιλέγονται. */
@@ -42,11 +45,12 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
   const roleIds = (await db.orgRole.findMany({ where: { orgId: org.id }, select: { id: true } })).map((r) => r.id);
   const role = filterParam(q, "role", roleIds);
   const where = { orgId: org.id, ...(role ? { roleId: role } : {}), ...(list.q ? { user: { OR: [{ name: { contains: list.q, mode: "insensitive" as const } }, { email: { contains: list.q, mode: "insensitive" as const } }] } } : {}) };
-  const [members, total, roles, stores] = await Promise.all([
+  const [members, total, roles, stores, history] = await Promise.all([
     db.membership.findMany({ where, orderBy: list.sort === "role" ? { role: { name: list.dir } } : { user: { name: list.sort === "user" ? list.dir : "asc" } }, skip: list.skip, take: list.take, include: { user: true, role: true, store: true } }),
     db.membership.count({ where }),
     db.orgRole.findMany({ where: { orgId: org.id }, orderBy: [{ locked: "desc" }, { system: "desc" }, { name: "asc" }], include: { _count: { select: { members: true } } } }),
     db.store.findMany({ where: { orgId: org.id, active: true }, orderBy: { name: "asc" } }),
+    db.accessEvent.findMany({ where: { orgId: org.id }, orderBy: { createdAt: "desc" }, take: 30 }),
   ]);
   const perms = (r: { locked: boolean; permissions: string[] }) => (r.locked ? ALL_PERMISSIONS : r.permissions);
   // μόνο ρόλοι που δικαιούται να δώσει όποιος βλέπει τη σελίδα
@@ -83,6 +87,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
               { key: "role", label: "Ρόλος", sortable: true },
               { key: "store", label: "Κατάστημα" },
               { key: "status", label: "Κατάσταση" },
+              { key: "seen", label: "Τελευταία σύνδεση" },
               { key: "edit", label: "Αλλαγή", required: true },
             ]}
             rows={members.map((m) => ({
@@ -91,7 +96,8 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
                 user: <><span className="font-semibold">{m.user.name}{m.id === me.id ? " (εσύ)" : ""}</span><span className="block text-xs text-muted-foreground">{m.user.email}</span></>,
                 role: <Badge tone={m.role.locked ? "success" : "neutral"}>{m.role.name}</Badge>,
                 store: m.store?.name ?? "Όλα",
-                status: m.user.passwordHash ? <Badge tone="success">Ενεργός</Badge> : <Badge tone="warning">Εκκρεμεί η πρόσκληση</Badge>,
+                status: <Badge tone={STATUS[accountStatus(m.user)][0]}>{STATUS[accountStatus(m.user)][1]}</Badge>,
+                seen: m.user.lastLoginAt ? when.format(m.user.lastLoginAt) : <span className="text-muted-foreground">Ποτέ</span>,
                 edit: (
                   <Modal label={<><Pencil /> Ρόλος</>} size="sm" title={m.user.name} description={m.user.email}>
                     <form key={`${m.roleId}-${m.storeId}`} action={updateMember} className={form}>
@@ -106,6 +112,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
               menu: (
                 <>
                   <form action={sendResetLink.bind(null, m.id)}><Submit role="menuitem" className={menuItem}><KeyRound /> Email για ορισμό κωδικού</Submit></form>
+                  {m.id === me.id ? null : <form action={setMemberActive.bind(null, m.id, !!m.user.disabledAt)}><Submit role="menuitem" className={menuItem}>{m.user.disabledAt ? <><UserCheck /> Ενεργοποίηση</> : <><UserX /> Απενεργοποίηση</>}</Submit></form>}
                   <form action={removeMember.bind(null, m.id)}><Submit role="menuitem" className={`${menuItem} text-destructive`}><UserMinus /> Αφαίρεση πρόσβασης</Submit></form>
                 </>
               ),
@@ -151,6 +158,23 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
               </li>
             ))}
           </ul>
+        </Card>
+
+        <Card id="history" className="scroll-mt-28">
+          <div className="border-b border-border/70 px-5 py-4">
+            <h2 className="text-lg">Ιστορικό αλλαγών</h2>
+            <p className="text-sm text-muted-foreground">Ποιος άλλαξε χρήστη, ρόλο ή δικαίωμα και πότε. Οι 30 πιο πρόσφατες</p>
+          </div>
+          {history.length ? (
+            <ul className="divide-y divide-border/70">
+              {history.map((e) => (
+                <li key={e.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-5 py-2.5">
+                  <p className="min-w-0 flex-1"><span className="font-semibold">{actionLabel(e.action)}</span>: {e.target}{e.detail ? <span className="block text-xs text-muted-foreground">{e.detail}</span> : null}</p>
+                  <p className="text-xs text-muted-foreground tabular-nums">{e.actorName} · {when.format(e.createdAt)}</p>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="px-5 py-6 text-sm text-muted-foreground">Καμία αλλαγή ακόμα. Κάθε πρόσκληση, αλλαγή ρόλου ή απενεργοποίηση θα φαίνεται εδώ</p>}
         </Card>
       </div>
     </Page>

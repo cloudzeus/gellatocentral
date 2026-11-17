@@ -52,4 +52,22 @@ export const PLATFORM_ROLES: Record<PlatformRoleKey, { label: string; hint: stri
   STAFF: { label: "Υπάλληλος εφαρμογής", hint: "Αρχικοποίηση συνδρομητών, χωρίς χρεώσεις", permissions: ["orgs.view", "setup.manage", "users.manage", "support.remote", "support.tickets"] },
   SUPPORT: { label: "Υπάλληλος υποστήριξης", hint: "Βλέπει τους συνδρομητές και βοηθά τους χρήστες τους", permissions: ["orgs.view", "users.manage", "support.remote", "support.tickets"] },
 };
-export const platformCan = (role: PlatformRoleKey | null | undefined, p: PlatformPermission) => !!role && PLATFORM_ROLES[role].permissions.includes(p);
+
+// Οι ρόλοι του προσωπικού έχουν τα παραπάνω δικαιώματα ως αφετηρία· ο Super Admin μπορεί να τα αλλάξει από τις Ρυθμίσεις.
+// shortcut: οι αλλαγές κρατιούνται στη μνήμη της διεργασίας και φορτώνονται σε κάθε αίτημα (lib/platform-roles.ts)·
+// έτσι το platformCan μένει σύγχρονο. Αν χρειαστούν δικοί σας ρόλοι προσωπικού (όχι μόνο οι 4), θέλει πίνακα.
+export type PlatformOverrides = Partial<Record<PlatformRoleKey, PlatformPermission[]>>;
+let overrides: PlatformOverrides = {};
+export const isPlatformPermission = (v: unknown): v is PlatformPermission => typeof v === "string" && v in PLATFORM_PERMISSIONS;
+/** Διαβάζει τις αποθηκευμένες αλλαγές. Ό,τι δεν είναι έγκυρο αγνοείται· ο Super Admin δεν αλλάζει ποτέ. */
+export function parsePlatformOverrides(raw: string | null | undefined): PlatformOverrides {
+  try {
+    const j = JSON.parse(raw || "{}") as Record<string, unknown>;
+    return Object.fromEntries(Object.entries(j).filter(([k, v]) => k in PLATFORM_ROLES && k !== "SUPER_ADMIN" && Array.isArray(v)).map(([k, v]) => [k, (v as unknown[]).filter(isPlatformPermission)]));
+  } catch {
+    return {};
+  }
+}
+export const applyPlatformOverrides = (o: PlatformOverrides) => { overrides = o; };
+export const platformPermissionsOf = (role: PlatformRoleKey): PlatformPermission[] => (role === "SUPER_ADMIN" ? PLATFORM_ROLES.SUPER_ADMIN.permissions : (overrides[role] ?? PLATFORM_ROLES[role].permissions));
+export const platformCan = (role: PlatformRoleKey | null | undefined, p: PlatformPermission) => !!role && platformPermissionsOf(role).includes(p);

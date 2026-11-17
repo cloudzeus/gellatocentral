@@ -11,8 +11,11 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { randomInt } from "node:crypto";
 import { validAfm } from "@/lib/afm";
+import { logAccess } from "@/lib/access-log";
 import { requirePlatform } from "@/lib/auth";
-import { PLATFORM_ROLES, SYSTEM_ROLES } from "@/lib/permissions";
+import { permissionDiff } from "@/lib/access";
+import { canGrant, isPlatformPermission, PLATFORM_PERMISSIONS, PLATFORM_ROLES, platformPermissionsOf, type PlatformRoleKey, SYSTEM_ROLES } from "@/lib/permissions";
+import { savePlatformRoles, storedPlatformRoles } from "@/lib/platform-roles";
 import { hashPassword } from "@/lib/password";
 import { settleCharge } from "@/lib/billing";
 import { DEVICE_KIND } from "@/lib/devices";
@@ -297,7 +300,7 @@ export async function revokeDevice(orgId: string, deviceId: string) {
 
 // ---- Χρήστες και ρόλοι ----
 export async function addUser(form: FormData) {
-  await requirePlatform("users.manage");
+  const admin = await requirePlatform("users.manage");
   const orgId = id.parse(form.get("orgId"));
   const d = read(
     z.object({
@@ -324,14 +327,18 @@ export async function addUser(form: FormData) {
     const url = await createResetLink(user.id, 72, org);
     await sendMail({ to: user.email, template: "invitation", org, mail: templates.invitation(await platformSettings(), { name: user.name, orgName: org.name, role: role.name, url }) });
   }
+  await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "user.invited", target: `${user.name} · ${user.email}`, detail: `Ρόλος: ${role.name}` });
   done(orgId, "users");
 }
 
 /** Αφαίρεση πρόσβασης: σβήνει τη συμμετοχή και τις ανοιχτές συνεδρίες του χρήστη. */
 export async function removeMember(orgId: string, membershipId: string) {
-  await requirePlatform("users.manage");
-  const m = await db.membership.findFirst({ where: { id: id.parse(membershipId), orgId: id.parse(orgId) } });
-  if (m) await db.$transaction([db.membership.delete({ where: { id: m.id } }), db.session.deleteMany({ where: { userId: m.userId } })]);
+  const admin = await requirePlatform("users.manage");
+  const m = await db.membership.findFirst({ where: { id: id.parse(membershipId), orgId: id.parse(orgId) }, include: { user: true, role: true } });
+  if (m) {
+    await db.$transaction([db.membership.delete({ where: { id: m.id } }), db.session.deleteMany({ where: { userId: m.userId } })]);
+    await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "user.removed", target: `${m.user.name} · ${m.user.email}`, detail: `Ρόλος: ${m.role.name}` });
+  }
   done(orgId, "users");
 }
 
@@ -405,44 +412,84 @@ const staffDone = (): never => {
 };
 // Σε κάθε αλλαγή ελέγχεται ότι μένει τουλάχιστον ένας Super Admin, αλλιώς κανείς δεν θα μπορούσε να ξαναδώσει ρόλους.
 export async function addStaff(form: FormData) {
-  await requirePlatform("staff.manage");
+  const admin = await requirePlatform("staff.manage");
   const d = read(z.object({ name, email, platformRole }), form, "/platform/settings");
   if (await db.user.findUnique({ where: { email: d.email } })) staffFail("Υπάρχει ήδη χρήστης με αυτό το email");
   const user = await db.user.create({ data: d });
   const brand = await platformSettings();
   const url = await createResetLink(user.id, 72);
   await sendMail({ to: user.email, template: "invitation", mail: templates.invitation(brand, { name: user.name, orgName: brand.brandName, role: PLATFORM_ROLES[d.platformRole].label, url }) });
+  await logAccess({ orgId: null, actorName: admin.name, action: "user.invited", target: `${user.name} · ${user.email}`, detail: `Ρόλος: ${PLATFORM_ROLES[d.platformRole].label}` });
   staffDone();
 }
 
 export async function setStaffRole(form: FormData) {
-  await requirePlatform("staff.manage");
+  const admin = await requirePlatform("staff.manage");
   const d = read(z.object({ userId: id, platformRole }), form, "/platform/settings");
+  const before = await db.user.findFirst({ where: { id: d.userId, platformRole: { not: null } } });
   try {
     await db.$transaction(async (tx) => {
       await tx.user.updateMany({ where: { id: d.userId, platformRole: { not: null } }, data: { platformRole: d.platformRole } });
-      if ((await tx.user.count({ where: { platformRole: "SUPER_ADMIN" } })) === 0) throw new Error("LOCKOUT");
+      if ((await tx.user.count({ where: { platformRole: "SUPER_ADMIN", disabledAt: null } })) === 0) throw new Error("LOCKOUT");
     });
   } catch (e) {
     if (e instanceof Error && e.message === "LOCKOUT") staffFail("Πρέπει να μείνει τουλάχιστον ένας Super Admin");
     throw e;
   }
+  if (before?.platformRole && before.platformRole !== d.platformRole) await logAccess({ orgId: null, actorName: admin.name, action: "user.role", target: before.name, detail: `${PLATFORM_ROLES[before.platformRole].label} → ${PLATFORM_ROLES[d.platformRole].label}` });
   staffDone();
 }
 
 /** Αφαιρεί την πρόσβαση στην κονσόλα και αποσυνδέει τον χρήστη. */
 export async function removeStaff(userId: string) {
-  await requirePlatform("staff.manage");
+  const admin = await requirePlatform("staff.manage");
+  const gone = await db.user.findFirst({ where: { id: id.parse(userId), platformRole: { not: null } } });
   try {
     await db.$transaction(async (tx) => {
       await tx.user.updateMany({ where: { id: id.parse(userId), platformRole: { not: null } }, data: { platformRole: null } });
       await tx.session.deleteMany({ where: { userId } });
-      if ((await tx.user.count({ where: { platformRole: "SUPER_ADMIN" } })) === 0) throw new Error("LOCKOUT");
+      if ((await tx.user.count({ where: { platformRole: "SUPER_ADMIN", disabledAt: null } })) === 0) throw new Error("LOCKOUT");
     });
   } catch (e) {
     if (e instanceof Error && e.message === "LOCKOUT") staffFail("Πρέπει να μείνει τουλάχιστον ένας Super Admin");
     throw e;
   }
+  if (gone) await logAccess({ orgId: null, actorName: admin.name, action: "user.removed", target: `${gone.name} · ${gone.email}` });
+  staffDone();
+}
+
+/** Απενεργοποίηση μέλους προσωπικού: δεν συνδέεται, μένει στη λίστα με τον ρόλο του. */
+export async function setStaffActive(userId: string, active: boolean) {
+  const admin = await requirePlatform("staff.manage");
+  const target = await db.user.findFirst({ where: { id: id.parse(userId), platformRole: { not: null } } });
+  if (!target?.platformRole) return;
+  if (target.id === admin.id) staffFail("Δεν μπορείς να απενεργοποιήσεις τον εαυτό σου");
+  if (!canGrant(platformPermissionsOf(admin.platformRole), platformPermissionsOf(target.platformRole))) staffFail(`Ο ρόλος του χρήστη «${target.name}» έχει δικαιώματα που δεν έχεις εσύ`);
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: target.id }, data: { disabledAt: active ? null : new Date() } });
+      if (!active) await tx.session.deleteMany({ where: { userId: target.id } });
+      if ((await tx.user.count({ where: { platformRole: "SUPER_ADMIN", disabledAt: null } })) === 0) throw new Error("LOCKOUT");
+    });
+  } catch (e) {
+    if (e instanceof Error && e.message === "LOCKOUT") staffFail("Πρέπει να μείνει τουλάχιστον ένας ενεργός Super Admin");
+    throw e;
+  }
+  await logAccess({ orgId: null, actorName: admin.name, action: active ? "user.enabled" : "user.disabled", target: target.name });
+  staffDone();
+}
+
+/** Τα δικαιώματα ενός ρόλου προσωπικού. Ο Super Admin δεν αλλάζει· κανείς δεν δίνει δικαίωμα που δεν έχει ο ίδιος. */
+export async function savePlatformRole(form: FormData) {
+  const admin = await requirePlatform("staff.manage");
+  const role = String(form.get("role")) as PlatformRoleKey;
+  if (!(role in PLATFORM_ROLES) || role === "SUPER_ADMIN") staffFail("Αυτός ο ρόλος δεν αλλάζει");
+  const mine = platformPermissionsOf(admin.platformRole);
+  const before = platformPermissionsOf(role);
+  const wanted = form.get("reset") ? PLATFORM_ROLES[role].permissions : form.getAll("permissions").filter(isPlatformPermission);
+  if (!canGrant(mine, before) || !canGrant(mine, wanted)) staffFail("Δεν μπορείς να δώσεις ή να αλλάξεις δικαιώματα που δεν έχεις εσύ");
+  await savePlatformRoles({ ...(await storedPlatformRoles()), [role]: wanted });
+  await logAccess({ orgId: null, actorName: admin.name, action: "role.changed", target: PLATFORM_ROLES[role].label, detail: permissionDiff(before, wanted, (k) => PLATFORM_PERMISSIONS[k as keyof typeof PLATFORM_PERMISSIONS] ?? k) });
   staffDone();
 }
 

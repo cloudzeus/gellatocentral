@@ -12,8 +12,8 @@ export async function login(form: FormData) {
   const d = z.object({ email: z.string().trim().toLowerCase().email(), password: z.string().min(1).max(200) }).safeParse(Object.fromEntries(form));
   if (!d.success) return fail();
   const user = await db.user.findUnique({ where: { email: d.data.email }, include: { memberships: true } });
-  // ίδιο μήνυμα για άγνωστο email, λάθος κωδικό και κλειδωμένο λογαριασμό
-  if (!user || (user.lockedUntil && user.lockedUntil > new Date())) return fail();
+  // ίδιο μήνυμα για άγνωστο email, λάθος κωδικό, κλειδωμένο και απενεργοποιημένο λογαριασμό
+  if (!user || user.disabledAt || (user.lockedUntil && user.lockedUntil > new Date())) return fail();
   if (!verifyPassword(d.data.password, user.passwordHash)) {
     const failed = user.failedLogins + 1;
     // 5 λάθος κωδικοί στη σειρά = κλείδωμα 15 λεπτών

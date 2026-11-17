@@ -94,6 +94,8 @@ model User {
   platformRole PlatformRole?
   failedLogins Int          @default(0)
   lockedUntil  DateTime?
+  disabledAt   DateTime? // απενεργοποιημένος: δεν συνδέεται, αλλά μένει στο ιστορικό
+  lastLoginAt  DateTime?
   createdAt    DateTime     @default(now())
   memberships  Membership[]
   sessions     Session[]
@@ -152,6 +154,8 @@ model Session {
   tokenHash String   @unique // sha256 του cookie· το ίδιο το token δεν αποθηκεύεται
   userId    String
   expiresAt DateTime
+  createdAt DateTime @default(now())
+  userAgent String? // για τη λίστα «Συνδέσεις» του χρήστη
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -683,4 +687,17 @@ model AgentRun {
 
   @@index([ticketId, createdAt])
   @@index([createdAt])
+}
+
+// Ιστορικό πρόσβασης: ποιος άλλαξε χρήστη, ρόλο ή δικαίωμα και πότε. Μόνο προσθήκες, ποτέ αλλαγή.
+model AccessEvent {
+  id        String   @id @default(cuid())
+  orgId     String? // κενό = προσωπικό της πλατφόρμας
+  actorName String
+  action    String // κλειδί από lib/access.ts
+  target    String // όνομα χρήστη ή ρόλου τη στιγμή της αλλαγής
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([orgId, createdAt])
 }

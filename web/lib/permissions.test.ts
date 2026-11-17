@@ -31,3 +31,17 @@ test("ρόλοι πλατφόρμας", () => {
   assert.equal(platformCan(null, "orgs.view"), false);
   for (const r of Object.values(PLATFORM_ROLES)) assert.ok(r.permissions.includes("orgs.view"));
 });
+
+import { applyPlatformOverrides, parsePlatformOverrides, platformCan as can2 } from "./permissions.ts";
+test("δικαιώματα ρόλων προσωπικού: αλλαγές από τις ρυθμίσεις", () => {
+  const o = parsePlatformOverrides('{"SUPPORT":["orgs.view","άκυρο"],"SUPER_ADMIN":[],"ΑΛΛΟ":["orgs.view"]}');
+  assert.deepEqual(o, { SUPPORT: ["orgs.view"] });
+  assert.deepEqual(parsePlatformOverrides("χαλασμένο"), {});
+  applyPlatformOverrides(o);
+  assert.equal(can2("SUPPORT", "support.tickets"), false);
+  assert.equal(can2("SUPPORT", "orgs.view"), true);
+  assert.equal(can2("SUPER_ADMIN", "staff.manage"), true); // ο Super Admin δεν κλειδώνεται ποτέ έξω
+  assert.equal(can2("STAFF", "setup.manage"), true); // ρόλος χωρίς αλλαγή κρατά τα αρχικά
+  applyPlatformOverrides({});
+  assert.equal(can2("SUPPORT", "support.tickets"), true);
+});

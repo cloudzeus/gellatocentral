@@ -116,7 +116,7 @@ export function UserFooter({ user, collapsed = false }: { user: User; collapsed?
   return (
     <div className={cn("flex items-center gap-2 border-t border-sidebar-border py-3 text-xs text-sidebar-foreground/70", collapsed ? "justify-center px-2" : "px-4")}>
       {collapsed ? null : (
-        <Link href="/my-data" onClick={closeDrawer} title="Τα δεδομένα μου" className="min-w-0 flex-1 rounded-lg px-1 py-0.5 hover:bg-sidebar-accent/60">
+        <Link href="/account" onClick={closeDrawer} title="Ο λογαριασμός μου" className="min-w-0 flex-1 rounded-lg px-1 py-0.5 hover:bg-sidebar-accent/60">
           <p className="truncate font-semibold text-sidebar-foreground">{user.name}</p>
           <p className="truncate">{user.subtitle}</p>
         </Link>

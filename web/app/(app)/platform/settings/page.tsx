@@ -1,4 +1,5 @@
 import { CircleAlert, CircleCheck } from "lucide-react";
+import { accountStatus, actionLabel } from "@/lib/access";
 import { requirePlatform } from "@/lib/auth";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
@@ -7,9 +8,9 @@ import { db } from "@/lib/db";
 import { platformSettings } from "@/lib/mail/send";
 import { samples, TEMPLATE_LABEL } from "@/lib/mail/templates";
 import { filterParam, listParams } from "@/lib/paging";
-import { PLATFORM_PERMISSIONS, PLATFORM_ROLES } from "@/lib/permissions";
+import { PLATFORM_PERMISSIONS, PLATFORM_ROLES, type PlatformPermission, platformPermissionsOf, type PlatformRoleKey } from "@/lib/permissions";
 import { Connections } from "@/components/connections";
-import { addStaff, removeStaff, saveLegalSettings, savePlatformSettings, setStaffRole } from "../actions";
+import { addStaff, removeStaff, saveLegalSettings, savePlatformRole, savePlatformSettings, setStaffActive, setStaffRole } from "../actions";
 import { Submit } from "@/components/submit";
 
 const STATUS = { SENT: { tone: "success", text: "Στάλθηκε" }, FAILED: { tone: "danger", text: "Απέτυχε" }, SKIPPED: { tone: "warning", text: "Δεν στάλθηκε" } } as const;
@@ -24,12 +25,14 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
     ...(status ? { status } : {}),
   };
   const roleOptions = Object.entries(PLATFORM_ROLES).map(([k, r]): [string, string] => [k, r.label]);
-  const [staff, settings, log, total] = await Promise.all([
+  const [staff, settings, log, total, staffHistory] = await Promise.all([
     db.user.findMany({ where: { platformRole: { not: null } }, orderBy: { name: "asc" } }),
     platformSettings(),
     db.emailLog.findMany({ where, orderBy: list.sort === "to" ? { to: list.dir } : { createdAt: list.sort === "when" ? list.dir : "desc" }, skip: list.skip, take: list.take, include: { org: true } }),
     db.emailLog.count({ where }),
+    db.accessEvent.findMany({ where: { orgId: null }, orderBy: { createdAt: "desc" }, take: 10 }),
   ]);
+  const seen = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Athens" });
   const previews = Object.entries(samples(settings)) as [keyof typeof TEMPLATE_LABEL, ReturnType<typeof samples>["test"]][];
 
   return (
@@ -103,8 +106,9 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
               <li key={u.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold">{u.name}{u.id === admin.id ? " (εσύ)" : ""}</p>
-                  <p className="text-xs text-muted-foreground">{u.email} · {PLATFORM_ROLES[u.platformRole!].hint}</p>
+                  <p className="text-xs text-muted-foreground">{u.email} · {accountStatus(u) === "disabled" ? "Δεν μπορεί να συνδεθεί" : accountStatus(u) === "pending" ? "Εκκρεμεί η πρόσκληση" : u.lastLoginAt ? `Τελευταία σύνδεση ${seen.format(u.lastLoginAt)}` : "Δεν έχει συνδεθεί ακόμα"}</p>
                 </div>
+                {u.disabledAt ? <Badge tone="warning">Απενεργοποιημένος</Badge> : null}
                 <Badge tone={u.platformRole === "SUPER_ADMIN" ? "success" : "neutral"}>{PLATFORM_ROLES[u.platformRole!].label}</Badge>
                 {admin.can("staff.manage") ? (
                   <>
@@ -115,17 +119,64 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
                         <Submit className={btn("default")}>Αποθήκευση</Submit>
                       </form>
                     </Modal>
+                    {u.id === admin.id ? null : <form action={setStaffActive.bind(null, u.id, !!u.disabledAt)}><Submit className={btn("ghost", "sm")}>{u.disabledAt ? "Ενεργοποίηση" : "Απενεργοποίηση"}</Submit></form>}
                     <form action={removeStaff.bind(null, u.id)}><Submit className={btn("ghost", "sm")}>Αφαίρεση</Submit></form>
                   </>
                 ) : null}
               </li>
             ))}
           </ul>
-          <dl className="grid gap-x-6 gap-y-2 border-t border-border/70 p-5 sm:grid-cols-2">
-            {Object.values(PLATFORM_ROLES).map((r) => (
-              <div key={r.label}><dt className="text-xs font-semibold">{r.label}</dt><dd className="text-xs text-muted-foreground">{r.permissions.map((p) => PLATFORM_PERMISSIONS[p]).join(" · ")}</dd></div>
-            ))}
-          </dl>
+          {staffHistory.length ? (
+            <details className="border-t border-border/70 px-5 py-3">
+              <summary className="cursor-pointer text-sm font-semibold">Ιστορικό αλλαγών στο προσωπικό ({staffHistory.length} πιο πρόσφατες)</summary>
+              <ul className="mt-2 space-y-1.5">
+                {staffHistory.map((e) => <li key={e.id} className="text-sm"><span className="font-semibold">{actionLabel(e.action)}</span>: {e.target}{e.detail ? ` · ${e.detail}` : ""} <span className="text-xs text-muted-foreground">· {e.actorName} · {seen.format(e.createdAt)}</span></li>)}
+              </ul>
+            </details>
+          ) : null}
+          <div className="border-t border-border/70 px-5 py-4">
+            <h3 className="text-base font-semibold">Ρόλοι και δικαιώματα προσωπικού</h3>
+            <p className="text-sm text-muted-foreground">Τι επιτρέπεται να κάνει κάθε ρόλος στην κονσόλα. Η αλλαγή ισχύει αμέσως για όλους όσοι έχουν τον ρόλο</p>
+          </div>
+          <ul className="divide-y divide-border/70 border-t border-border/70">
+            {(Object.keys(PLATFORM_ROLES) as PlatformRoleKey[]).map((k) => {
+              const has = platformPermissionsOf(k);
+              const changed = k !== "SUPER_ADMIN" && [...has].sort().join() !== [...PLATFORM_ROLES[k].permissions].sort().join();
+              return (
+                <li key={k} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                  <div className="min-w-0 basis-64 flex-1">
+                    <p className="font-semibold">{PLATFORM_ROLES[k].label} <span className="font-normal text-muted-foreground">· {staff.filter((u) => u.platformRole === k).length} άτομα{changed ? " · αλλαγμένος" : ""}</span></p>
+                    <p className="mt-1 flex flex-wrap gap-1">
+                      {k === "SUPER_ADMIN" ? <Badge tone="success">Όλα τα δικαιώματα</Badge> : has.length ? (Object.keys(PLATFORM_PERMISSIONS) as PlatformPermission[]).filter((p) => has.includes(p)).map((p) => <Badge key={p}>{PLATFORM_PERMISSIONS[p]}</Badge>) : <Badge tone="warning">Κανένα δικαίωμα</Badge>}
+                    </p>
+                  </div>
+                  {k === "SUPER_ADMIN" ? <span className="text-xs text-muted-foreground">Δεν αλλάζει</span> : admin.can("staff.manage") ? (
+                    <Modal label="Δικαιώματα" size="sm" title={`Ρόλος: ${PLATFORM_ROLES[k].label}`} description={PLATFORM_ROLES[k].hint}>
+                      <form key={has.join()} action={savePlatformRole} className="grid gap-3">
+                        <input type="hidden" name="role" value={k} />
+                        <fieldset className="rounded-lg border border-border/70 p-3">
+                          <legend className="px-1 text-xs font-semibold text-muted-foreground">Δικαιώματα</legend>
+                          {(Object.keys(PLATFORM_PERMISSIONS) as PlatformPermission[]).map((p) => {
+                            const allowed = admin.can(p);
+                            return (
+                              <label key={p} className={`flex min-h-10 items-center gap-3 rounded-lg px-2 py-1.5 ${allowed ? "cursor-pointer hover:bg-secondary" : "opacity-50"}`}>
+                                <input type="checkbox" name="permissions" value={p} defaultChecked={has.includes(p)} disabled={!allowed} className="size-4 accent-[var(--primary)]" />
+                                <span>{PLATFORM_PERMISSIONS[p]}{allowed ? "" : " · δεν το έχεις εσύ"}</span>
+                              </label>
+                            );
+                          })}
+                        </fieldset>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {changed ? <Submit name="reset" value="1" className={btn("ghost")}>Επαναφορά στα αρχικά</Submit> : null}
+                          <Submit className={btn("default")}>Αποθήκευση</Submit>
+                        </div>
+                      </form>
+                    </Modal>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
         </Card>
 
         <Card>
