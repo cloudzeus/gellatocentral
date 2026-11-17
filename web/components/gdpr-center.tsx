@@ -143,7 +143,7 @@ async function Consents({ scope, sp }: Part) {
   const bySubject = new Map<string, typeof rows>();
   for (const r of rows) bySubject.set(`${r.subjectType}:${r.subjectId}`, [...(bySubject.get(`${r.subjectType}:${r.subjectId}`) ?? []), r]);
   const users = new Map((await db.user.findMany({ where: { id: { in: rows.filter((r) => r.subjectType === "user").map((r) => r.subjectId) } }, select: { id: true, name: true, email: true } })).map((u) => [u.id, u]));
-  for (const c of scope ? await db.customer.findMany({ where: { orgId: scope, id: { in: rows.filter((r) => r.subjectType === "customer").map((r) => r.subjectId) } }, select: { id: true, name: true, email: true } }) : []) users.set(c.id, { id: c.id, name: c.name, email: c.email ?? "" });
+  for (const c of scope ? await db.party.findMany({ where: { orgId: scope, id: { in: rows.filter((r) => r.subjectType === "customer").map((r) => r.subjectId) } }, select: { id: true, name: true, email: true } }) : []) users.set(c.id, { id: c.id, name: c.name, email: c.email ?? "" });
   const current = [...bySubject.values()].flatMap((rs) => [...currentConsents(rs).values()])
     .map((c) => ({ c, who: users.get(c.subjectId) }))
     .filter(({ who }) => !list.q || `${who?.name} ${who?.email}`.toLowerCase().includes(list.q.toLowerCase()))
