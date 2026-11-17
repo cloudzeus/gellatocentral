@@ -1,3 +1,4 @@
+import { Files } from "@/components/files";
 import { ProcessFlow } from "@/components/process-flow";
 import { Pencil, Plus } from "lucide-react";
 import Link from "next/link";
@@ -136,6 +137,17 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             ["Όνομα αποστολέα", org.emailFromName ?? org.name],
           ]} />
         </Section>
+
+        <Card id="files" className="scroll-mt-28">
+          <div className="border-b border-border/70 px-5 py-4">
+            <h2 className="text-lg">Αρχεία</h2>
+            <p className="text-sm text-muted-foreground">Αποθηκεύονται στον φάκελο του πελάτη στο Bunny: orgs/{org.id}/</p>
+          </div>
+          <div className="grid gap-6 p-5 lg:grid-cols-2">
+            <div className="space-y-2"><h3 className="text-base font-semibold">Λογότυπο</h3><Files orgId={org.id} category="logo" empty="Δεν έχει ανέβει λογότυπο" /></div>
+            <div className="space-y-2"><h3 className="text-base font-semibold">Έγγραφα</h3><Files orgId={org.id} category="document" empty="Κανένα έγγραφο ακόμα (συμβάσεις, δικαιολογητικά)" /></div>
+          </div>
+        </Card>
 
         <Section
           id="subscription" title="Συνδρομή" hint={`${stores.length} × ${euro(PRICE_PER_STORE)} κατάστημα + ${devices} × ${euro(PRICE_PER_DEVICE)} ταμείο = ${euro(charge.totalCents)} τον μήνα, προ ΦΠΑ`} saved={saved("subscription")}

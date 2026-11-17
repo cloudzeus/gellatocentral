@@ -80,6 +80,7 @@ model Organization {
   products     Product[]
   sales        Sale[]
   subscription Subscription?
+  files        StoredFile[]
 }
 
 model User {
@@ -138,6 +139,10 @@ model PlatformSettings {
   // Συνέχεια λειτουργίας: πότε επιβεβαιώθηκε τελευταία φορά ότι τα αντίγραφα υπάρχουν και ότι η επαναφορά δουλεύει
   lastBackupCheckAt  DateTime?
   lastRestoreDrillAt DateTime?
+  // Αποθήκευση αρχείων στο Bunny. Ο κωδικός της ζώνης ΔΕΝ μπαίνει εδώ: μένει στο περιβάλλον του server (BUNNY_STORAGE_KEY).
+  bunnyZone   String? // όνομα storage zone
+  bunnyRegion String? // κενό = Falkenstein· αλλιώς uk, ny, la, sg, se, br, jh, syd
+  bunnyCdnUrl String? // pull zone, π.χ. https://gelato.b-cdn.net
 }
 
 model Session {
@@ -402,4 +407,24 @@ model SubscriptionCharge {
   subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@unique([subscriptionId, periodStart])
+}
+
+// Αρχείο αποθηκευμένο στο Bunny. Η βάση κρατά μόνο πού βρίσκεται και σε τι ανήκει· τα bytes ζουν στο Bunny,
+// στον φάκελο του πελάτη (orgs/<orgId>/…) ή της πλατφόρμας (platform/…). Βλ. lib/storage.
+model StoredFile {
+  id           String   @id @default(cuid())
+  orgId        String? // κενό = αρχείο της πλατφόρμας (π.χ. αντίγραφο ασφαλείας)
+  category     String // κλειδί του CATEGORIES (lib/storage/rules.ts)
+  refType      String? // σε τι ανήκει, π.χ. "product"· μαζί με το refId δένει το αρχείο σε οποιαδήποτε εγγραφή
+  refId        String?
+  path         String   @unique // διαδρομή μέσα στη ζώνη του Bunny
+  name         String // το όνομα που έδωσε ο χρήστης
+  contentType  String
+  size         Int
+  public       Boolean // true = σερβίρεται από το CDN· false = μόνο μέσα από την εφαρμογή
+  uploadedById String?
+  createdAt    DateTime @default(now())
+  org          Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, category, refType, refId])
 }

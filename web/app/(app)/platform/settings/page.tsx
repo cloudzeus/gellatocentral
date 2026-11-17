@@ -9,7 +9,8 @@ import { samples, TEMPLATE_LABEL } from "@/lib/mail/templates";
 import { filterParam, listParams } from "@/lib/paging";
 import { PLATFORM_PERMISSIONS, PLATFORM_ROLES } from "@/lib/permissions";
 import { checkoutConfigured } from "@/lib/viva/checkout";
-import { addStaff, removeStaff, savePlatformSettings, sendTestMail, setStaffRole } from "../actions";
+import { REGIONS, storageConfig } from "@/lib/storage/bunny";
+import { addStaff, removeStaff, savePlatformSettings, saveStorageSettings, sendTestMail, setStaffRole, testStorage } from "../actions";
 import { Submit } from "@/components/submit";
 
 const TEST: Record<string, { ok: boolean; text: string }> = {
@@ -35,6 +36,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
     db.emailLog.findMany({ where, orderBy: list.sort === "to" ? { to: list.dir } : { createdAt: list.sort === "when" ? list.dir : "desc" }, skip: list.skip, take: list.take, include: { org: true } }),
     db.emailLog.count({ where }),
   ]);
+  const storage = await storageConfig();
   const ready = mailConfigured();
   const test = typeof q.test === "string" ? TEST[q.test] : undefined;
   const previews = Object.entries(samples(settings)) as [keyof typeof TEMPLATE_LABEL, ReturnType<typeof samples>["test"]][];
@@ -86,6 +88,33 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
             {[["Όνομα πλατφόρμας", settings.brandName], ["Βασικός τομέας", settings.baseDomain], ["Email υποστήριξης", settings.supportEmail]].map(([l, v]) => (
               <div key={l} className="min-w-0"><dt className="text-xs font-medium text-muted-foreground">{l}</dt><dd className="truncate font-semibold">{v ?? <span className="font-normal text-muted-foreground">Δεν έχει οριστεί</span>}</dd></div>
             ))}
+          </dl>
+        </Card>
+
+        <Card id="storage" className="scroll-mt-28">
+          <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
+            {storage.ready ? <CircleCheck className="size-6 shrink-0 text-success" /> : <CircleAlert className="size-6 shrink-0 text-gold" />}
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg">Αποθήκευση αρχείων (Bunny) {q.saved === "storage" ? <span role="status" className="ml-2 text-sm font-semibold text-success">Αποθηκεύτηκε</span> : null}</h2>
+              <p className="text-sm text-muted-foreground">Φωτογραφίες, έγγραφα και αντίγραφα ασφαλείας. Κάθε πελάτης έχει δικό του φάκελο: orgs/&lt;πελάτης&gt;/…</p>
+            </div>
+            <form action={testStorage}><Submit className={btn("outline")}>Δοκιμή σύνδεσης</Submit></form>
+            <Modal label="Αλλαγή" title="Αποθήκευση αρχείων (Bunny)" description="Τα στοιχεία της storage zone και του pull zone από τον πίνακα του Bunny">
+              <form key={[storage.zone, storage.region, storage.cdn].join()} action={saveStorageSettings} className="grid gap-4 [&>button]:justify-self-end">
+                <Field label="Όνομα storage zone" name="bunnyZone" maxLength={60} defaultValue={settings.bunnyZone ?? ""} placeholder="gelato-files" hint="Bunny › Storage › η ζώνη σου › FTP & API Access › Username" />
+                <Select label="Περιοχή της ζώνης" name="bunnyRegion" defaultValue={settings.bunnyRegion ?? ""} options={REGIONS} />
+                <Field label="Διεύθυνση CDN (pull zone)" name="bunnyCdnUrl" maxLength={120} defaultValue={settings.bunnyCdnUrl ?? ""} placeholder="https://gelato.b-cdn.net" hint="Από εδώ σερβίρονται οι φωτογραφίες. Χωρίς αυτήν περνούν μέσα από την εφαρμογή, πιο αργά" />
+                <p className="rounded-lg bg-secondary px-3 py-2 text-sm text-muted-foreground">Ο κωδικός της ζώνης (FTP & API Access › Password) δεν γράφεται εδώ. Μπαίνει στο .env του server ως BUNNY_STORAGE_KEY, όπως όλα τα μυστικά κλειδιά.</p>
+                <Submit className={btn("default")}>Αποθήκευση</Submit>
+              </form>
+            </Modal>
+          </div>
+          {typeof q.storage === "string" ? <p role={q.storage === "ok" ? "status" : "alert"} className={`mx-5 mt-4 rounded-lg px-4 py-3 text-sm font-medium ${q.storage === "ok" ? "bg-success/10 text-success-ink" : "bg-destructive/10 text-destructive"}`}>{String(q.msg ?? "").slice(0, 200)}</p> : null}
+          <dl className="grid gap-x-6 gap-y-3 p-5 sm:grid-cols-4">
+            {[["Storage zone", storage.zone], ["Περιοχή", REGIONS.find(([r]) => r === storage.region)?.[1]], ["Διεύθυνση CDN", storage.cdn]].map(([l, v]) => (
+              <div key={l} className="min-w-0"><dt className="text-xs font-medium text-muted-foreground">{l}</dt><dd className="truncate font-semibold">{v || <span className="font-normal text-muted-foreground">Δεν έχει οριστεί</span>}</dd></div>
+            ))}
+            <div><dt className="text-xs font-medium text-muted-foreground">Κωδικός ζώνης (BUNNY_STORAGE_KEY)</dt><dd><Badge tone={storage.hasKey ? "success" : "warning"}>{storage.hasKey ? "Ορισμένος στον server" : "Λείπει από το .env"}</Badge></dd></div>
           </dl>
         </Card>
 

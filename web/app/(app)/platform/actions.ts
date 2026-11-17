@@ -2,6 +2,7 @@
 // Ενέργειες της κονσόλας πλατφόρμας: ο διαχειριστής ενεργεί για ΟΠΟΙΑΔΗΠΟΤΕ επιχείρηση (orgId από τη φόρμα).
 // Κάθε action ξεκινά με requirePlatform(δικαίωμα): οι server actions καλούνται και απευθείας, όχι μόνο από τη σελίδα.
 
+import { ping, REGIONS } from "@/lib/storage/bunny";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -334,6 +335,27 @@ export async function savePlatformSettings(form: FormData) {
   await db.platformSettings.upsert({ where: { id: 1 }, update: d, create: { id: 1, ...d } });
   revalidatePath("/platform", "layout");
   redirect("/platform/settings?saved=1");
+}
+
+export async function saveStorageSettings(form: FormData) {
+  await requirePlatform("settings.manage");
+  const d = read(
+    z.object({
+      bunnyZone: optional(60).refine((v) => !v || /^[a-z0-9-]+$/.test(v), "Το όνομα ζώνης έχει μόνο πεζά λατινικά, ψηφία και παύλες"),
+      bunnyRegion: optional(4).refine((v) => !v || REGIONS.some(([r]) => r === v), "Άγνωστη περιοχή"),
+      bunnyCdnUrl: optional(120).refine((v) => !v || /^https:\/\/[a-z0-9.-]+\.[a-z]{2,}\/?$/.test(v), "Η διεύθυνση CDN γράφεται ολόκληρη, π.χ. https://gelato.b-cdn.net"),
+    }),
+    form,
+    "/platform/settings",
+  );
+  await db.platformSettings.upsert({ where: { id: 1 }, update: d, create: { id: 1, ...d } });
+  redirect("/platform/settings?saved=storage#storage");
+}
+
+export async function testStorage() {
+  await requirePlatform("settings.manage");
+  const r = await ping();
+  redirect(`/platform/settings?storage=${r.ok ? "ok" : "fail"}&msg=${encodeURIComponent(r.text)}#storage`);
 }
 
 /** Στέλνει το δοκιμαστικό email στον ίδιο τον διαχειριστή που πάτησε το κουμπί. */

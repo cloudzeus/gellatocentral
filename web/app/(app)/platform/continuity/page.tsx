@@ -1,3 +1,4 @@
+import { Files } from "@/components/files";
 import Image from "next/image";
 import { Badge, btn, Card, Page } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
@@ -37,6 +38,14 @@ export default async function ContinuityPage({ searchParams }: PageProps<"/platf
             );
           })}
         </div>
+
+        <Card>
+          <div className="border-b border-border/70 px-5 py-4">
+            <h2 className="text-lg">Αντίγραφα ασφαλείας στο Bunny</h2>
+            <p className="text-sm text-muted-foreground">Τα ανεβάζει το script του server (npm run backup) στον φάκελο platform/backup/. Από εδώ κατεβαίνουν για δοκιμή επαναφοράς.</p>
+          </div>
+          <div className="p-5"><Files orgId={null} category="backup" readOnly empty="Δεν έχει ανέβει ακόμα αντίγραφο ασφαλείας" /></div>
+        </Card>
 
         <Card>
           <div className="border-b border-border/70 px-5 py-4">
