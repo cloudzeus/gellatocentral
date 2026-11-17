@@ -12,3 +12,6 @@ docs/EPIC_Hub_*
 docs/proposal_build/
 # Δείχνουν προσωπικό email
 docs/screens/**/platform_settings.png
+# Μένουν μόνο τοπικά: οθόνες της εφαρμογής του πελάτη και γκαλερί (περιέχουν προσωπικό email)
+docs/screens/pelati-lovable/
+docs/screens/*.html
