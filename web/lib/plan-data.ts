@@ -2,6 +2,7 @@
 import { cache } from "react";
 import { db } from "./db";
 import { ALL_MODULES } from "./modules";
+import { orgState, RESTRICTED_MODULES } from "./org-state";
 import { chargeFor, type PlanPricing, type StoreInput } from "./plans";
 
 const prices = (v: unknown): Record<string, number> => Object.fromEntries(Object.entries((v ?? {}) as Record<string, unknown>).map(([k, n]) => [k, Math.max(0, Math.round(Number(n) || 0))]));
@@ -28,11 +29,18 @@ export const billableStores = cache(async (orgId: string) => {
  * καταστημάτων, αν είναι ΟΛΑ σε παύση), μόνο όσες το πακέτο κρατά ανοιχτές στην παύση.
  */
 export const accessFor = cache(async (orgId: string, storeId: string | null) => {
-  const [plan, stores] = await Promise.all([planOf(orgId), db.store.findMany({ where: { orgId, active: true }, select: { id: true, name: true, pauses: { where: { endedAt: null }, select: { startedAt: true }, take: 1 } } })]);
+  const [plan, stores, org] = await Promise.all([
+    planOf(orgId),
+    db.store.findMany({ where: { orgId, active: true }, select: { id: true, name: true, pauses: { where: { endedAt: null }, select: { startedAt: true }, take: 1 } } }),
+    db.organization.findUnique({ where: { id: orgId }, select: { suspendedAt: true, suspendedReason: true, closingAt: true, deleteAfter: true, subscription: { select: { status: true, currentPeriodEnd: true } } } }),
+  ]);
   const pausedStores = stores.filter((s) => s.pauses.length).map((s) => ({ id: s.id, name: s.name, since: s.pauses[0].startedAt }));
   const mine = storeId ? stores.filter((s) => s.id === storeId) : stores;
   const paused = mine.length > 0 && mine.every((s) => s.pauses.length);
-  return { plan, paused, pausedStores, open: paused ? plan.modules.filter((m) => plan.pausedModules.includes(m)) : plan.modules };
+  // αναστολή, κλείσιμο ή απλήρωτη συνδρομή: μένουν μόνο όσα χρειάζονται για να πληρώσει και να δει το αρχείο του
+  const state = org ? orgState(org, new Date()) : ({ kind: "ok", restricted: false, daysLeft: null } as const);
+  const byPlan = paused ? plan.modules.filter((m) => plan.pausedModules.includes(m)) : plan.modules;
+  return { plan, paused, pausedStores, state, reason: org?.suspendedReason ?? null, open: state.restricted ? byPlan.filter((m) => (RESTRICTED_MODULES as readonly string[]).includes(m)) : byPlan };
 });
 export const storePaused = async (storeId: string) => !!(await db.storePause.findFirst({ where: { storeId, endedAt: null }, select: { id: true } }));
 

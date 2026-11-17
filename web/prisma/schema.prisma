@@ -68,6 +68,11 @@ model Organization {
   slug          String?  @unique
   contactEmail  String? // εδώ απαντούν οι παραλήπτες (Reply-To) και εδώ πάνε οι ειδοποιήσεις συνδρομής
   emailFromName String? // όνομα αποστολέα· κενό = η επωνυμία
+  // Αναστολή από την πλατφόρμα και κλείσιμο επιχείρησης (lib/org-state.ts)
+  suspendedAt     DateTime?
+  suspendedReason String?
+  closingAt       DateTime? // ξεκίνησε το κλείσιμο: περιορισμένη λειτουργία και εξαγωγή δεδομένων
+  deleteAfter     DateTime? // από αυτή την ημέρα επιτρέπεται η οριστική διαγραφή
   createdAt DateTime @default(now())
   emails    EmailLog[]
 

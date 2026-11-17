@@ -12,10 +12,12 @@ import { db } from "@/lib/db";
 import { DEVICE_KIND, FOR, KIND_OPTIONS, readingStatus } from "@/lib/devices";
 import { mailDomain, platformSettings } from "@/lib/mail/send";
 import { euro } from "@/lib/money";
+import { closingChecks } from "@/lib/org-close";
+import { canDelete, CLOSING_DAYS, orgState } from "@/lib/org-state";
 import { billableStores, nextCharge, planOf } from "@/lib/plan-data";
 import { daysBetween, MIN_PAUSE_DAYS, monthlyPreview } from "@/lib/plans";
 import { setupSteps } from "@/lib/setup";
-import { addDevice, addPrinter, addStore, addUser, addWarehouse, issueCharge, issuePairCode, markChargePaid, removeMember, revokeDevice, saveOrgProfile, setRemoteId, startRemote, saveSubscription, saveViva, toggleActive, updateDevice } from "../actions";
+import { addDevice, addPrinter, addStore, addUser, addWarehouse, issueCharge, issuePairCode, markChargePaid, removeMember, revokeDevice, saveOrgProfile, setRemoteId, startRemote, saveSubscription, saveViva, toggleActive, updateDevice, cancelClosing, deleteOrg, resumeOrg, startClosing, suspendOrg } from "../actions";
 import { STATUS } from "../status";
 import { Submit } from "@/components/submit";
 
@@ -24,6 +26,7 @@ const CONNECTION = { NETWORK: "Δίκτυο", BLUETOOTH: "Bluetooth", USB: "USB"
 const add = <><Plus /> Προσθήκη</>;
 const edit = <><Pencil /> Αλλαγή</>;
 /** Φόρμα μέσα σε παράθυρο: δύο στήλες, κουμπί αποθήκευσης κάτω δεξιά. */
+const LIFE = { ok: "Λειτουργεί κανονικά", grace: "Περίοδος χάριτος", unpaid: "Ληξιπρόθεσμη: περιορισμένη", suspended: "Σε αναστολή", closing: "Κλείνει" } as const;
 const form = "grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end";
 
 /** Ενότητα με τίτλο, εξήγηση και μία ενέργεια (παράθυρο φόρμας) πάνω δεξιά. */
@@ -93,6 +96,9 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const stores = org.stores.filter((s) => s.active);
   const [plan, plans, bstores, next] = await Promise.all([planOf(org.id), db.plan.findMany({ orderBy: { name: "asc" } }), billableStores(org.id), nextCharge(org.id)]);
   const monthly = monthlyPreview(plan, bstores.map((s) => ({ ...s, paused: !!s.paused })));
+  const life = orgState(org, new Date());
+  const deletable = canDelete(org, new Date());
+  const checks = await closingChecks(org.id);
   const pauses = bstores.flatMap((s) => s.pauses.map((p) => ({ ...p, store: s.name }))).sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime()).slice(0, 8);
   const storeOptions = stores.map((s): [string, string] => [s.id, s.name]);
   const printerOptions: [string, string][] = [["", "Κανένας"], ...org.stores.flatMap((s) => s.printers.filter((p) => p.active).map((p): [string, string] => [p.id, `${p.name} · ${s.name}`]))];
@@ -410,6 +416,65 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               ))}
             </ul>
           ) : <Empty>Κανένας χρήστης ακόμα. Χωρίς χρήστη η επιχείρηση δεν μπορεί να συνδεθεί.</Empty>}
+        </Section>
+
+        <Section
+          id="lifecycle" title="Αναστολή και κλείσιμο" saved={saved("lifecycle")}
+          hint={life.kind === "closing" ? `Κλείνει: η οριστική διαγραφή επιτρέπεται από ${org.deleteAfter ? day(org.deleteAfter) : "—"}` : life.kind === "suspended" ? `Σε αναστολή από ${day(org.suspendedAt!)}` : life.kind === "unpaid" ? "Περιορισμένη λειτουργία: η συνδρομή έχει λήξει" : life.kind === "grace" ? `Η συνδρομή έληξε: κλειδώνει σε ${life.daysLeft} ημέρες` : "Η επιχείρηση λειτουργεί κανονικά"}
+        >
+          <Facts items={[
+            ["Κατάσταση", <Badge key="s" tone={life.kind === "ok" ? "success" : life.kind === "grace" ? "warning" : "danger"}>{LIFE[life.kind]}</Badge>],
+            ["Λόγος αναστολής", org.suspendedReason],
+            ["Διαγραφή επιτρέπεται από", org.deleteAfter ? day(org.deleteAfter) : null],
+          ]} />
+          <div className="grid gap-3 border-t border-border/70 p-5 text-sm md:grid-cols-3">
+            <div className="space-y-2">
+              <p className="font-semibold">Αναστολή</p>
+              <p className="text-muted-foreground">Κλείνει αμέσως το ταμείο και τις ενότητες. Μένουν οι αποδείξεις, η συνδρομή και η υποστήριξη. Τίποτα δεν σβήνεται και αναιρείται με ένα κλικ</p>
+              {!me.can("billing.manage") ? null : org.suspendedAt ? (
+                <form action={resumeOrg.bind(null, org.id)}><Submit className={btn("default")}>Άρση αναστολής</Submit></form>
+              ) : org.closingAt ? null : (
+                <Modal label="Αναστολή" size="sm" title={`Αναστολή: ${org.name}`} description="Οι χρήστες βλέπουν τον λόγο σε κάθε σελίδα">
+                  <form action={suspendOrg} className="grid gap-4 [&>button]:justify-self-end">{hidden}
+                    <Field label="Λόγος (τον βλέπει ο πελάτης)" name="reason" required minLength={5} maxLength={300} placeholder="π.χ. Εκκρεμεί η ανανέωση της σύμβασης" />
+                    <Submit className={btn("destructive")}>Αναστολή τώρα</Submit>
+                  </form>
+                </Modal>
+              )}
+            </div>
+            <div className="space-y-2">
+              <p className="font-semibold">Κλείσιμο</p>
+              <p className="text-muted-foreground">Ο πελάτης φεύγει. Η εφαρμογή περιορίζεται, η συνδρομή ακυρώνεται και κρατάμε όλα τα στοιχεία {CLOSING_DAYS} ημέρες για να τα κατεβάσει. Το ίδιο ξεκινά αυτόματα όταν η συνδρομή γίνει «Ακυρωμένη». Αναιρείται μέχρι τη διαγραφή</p>
+              <p className="text-xs text-muted-foreground">Θύμισε στον πελάτη: η σύμβασή του με το Viva Fiscal και η δήλωση παρόχου στην ΑΑΔΕ είναι δικές του και δεν κλείνουν από εδώ. Το αρχείο των αποδείξεων το οφείλει ο ίδιος στην εφορία</p>
+              {!me.can("orgs.create") ? null : org.closingAt ? (
+                <form action={cancelClosing.bind(null, org.id)}><Submit className={btn("outline")}>Ακύρωση κλεισίματος</Submit></form>
+              ) : (
+                <Modal label="Έναρξη κλεισίματος" size="sm" title={`Κλείσιμο: ${org.name}`} description={`Το ταμείο κλείνει αμέσως. Η διαγραφή επιτρέπεται μετά από ${CLOSING_DAYS} ημέρες και γίνεται χειροκίνητα`}>
+                  <form action={startClosing} className="grid gap-4 [&>button]:justify-self-end">{hidden}
+                    <Field label={`Για επιβεβαίωση γράψε το ΑΦΜ (${org.vatNumber})`} name="confirm" required autoComplete="off" inputMode="numeric" />
+                    <Submit className={btn("destructive")}>Έναρξη κλεισίματος</Submit>
+                  </form>
+                </Modal>
+              )}
+              {me.can("gdpr.manage") ? <p className="flex flex-wrap gap-1"><a href={`/api/org-export?org=${org.id}`} download className={btn("ghost", "sm")}>Όλα τα δεδομένα (JSON)</a><a href={`/api/org-export?org=${org.id}&format=receipts`} download className={btn("ghost", "sm")}>Αρχείο αποδείξεων (CSV)</a></p> : null}
+            </div>
+            <div className="space-y-2">
+              <p className="font-semibold">Οριστική διαγραφή</p>
+              <p className="text-muted-foreground">Σβήνει καταστήματα, αποδείξεις, πελάτες, χρήστες και τα αρχεία στο Bunny. <b className="text-foreground">Δεν αναιρείται.</b></p>
+              <ul className="space-y-1">
+                <li className={checks.stuck ? "font-medium text-destructive" : "text-muted-foreground"}>{checks.stuck ? `✕ ${checks.stuck} αποδείξεις δεν έχουν διαβιβαστεί στο myDATA` : `✓ Καμία απόδειξη σε εκκρεμότητα (${checks.receipts} συνολικά)`}</li>
+                <li className={checks.receipts && !checks.exportedAt ? "font-medium text-destructive" : "text-muted-foreground"}>{checks.exportedAt ? `✓ Αντίγραφο δεδομένων: ${checks.exportedBy}, ${day(checks.exportedAt)}` : checks.receipts ? "✕ Δεν έχει κατέβει αντίγραφο των δεδομένων" : "✓ Δεν υπάρχουν αποδείξεις για αντίγραφο"}</li>
+              </ul>
+              {!me.can("settings.manage") ? <p className="text-xs text-muted-foreground">Μόνο Super Admin</p> : !org.closingAt ? <p className="text-xs text-muted-foreground">Ξεκίνα πρώτα το κλείσιμο</p> : !deletable ? <p className="text-xs text-muted-foreground">Διαθέσιμη από {day(org.deleteAfter!)}</p> : (
+                <Modal label="Οριστική διαγραφή" size="sm" title={`Διαγραφή: ${org.name}`} description="Όλα τα δεδομένα και τα αρχεία της επιχείρησης σβήνονται. Δεν υπάρχει επαναφορά">
+                  <form action={deleteOrg} className="grid gap-4 [&>button]:justify-self-end">{hidden}
+                    <Field label={`Για επιβεβαίωση γράψε το ΑΦΜ (${org.vatNumber})`} name="confirm" required autoComplete="off" inputMode="numeric" />
+                    <Submit className={btn("destructive")}>Διαγραφή για πάντα</Submit>
+                  </form>
+                </Modal>
+              )}
+            </div>
+          </div>
         </Section>
       </div>
     </Page>

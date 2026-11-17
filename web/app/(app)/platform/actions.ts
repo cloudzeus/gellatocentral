@@ -23,6 +23,8 @@ import { isModule } from "@/lib/modules";
 import { db } from "@/lib/db";
 import { appUrl, billingRecipients, platformSettings, sendMail } from "@/lib/mail/send";
 import { templates } from "@/lib/mail/templates";
+import { closingChecks, deleteOrgForever } from "@/lib/org-close";
+import { canDelete, CLOSING_DAYS } from "@/lib/org-state";
 import { nextCharge } from "@/lib/plan-data";
 import { createResetLink } from "@/lib/reset";
 import { testIsvCredentials } from "@/lib/viva/cloud-terminal";
@@ -107,6 +109,15 @@ export async function saveSubscription(form: FormData) {
   const before = await db.subscription.findUnique({ where: { orgId }, include: { plan: true } });
   const data = { status: d.status, currentPeriodEnd: d.currentPeriodEnd, planId: plan?.id ?? null };
   await db.subscription.upsert({ where: { orgId }, update: data, create: { orgId, ...data } });
+  // διακοπή συνδρομής: από εδώ μετρά ο ένας μήνας που κρατάμε ΟΛΑ τα στοιχεία πριν επιτραπεί η διαγραφή
+  if (d.status === "CANCELLED" && before?.status !== "CANCELLED") {
+    const org = await db.organization.findUnique({ where: { id: orgId } });
+    if (org && !org.closingAt) {
+      const now = new Date();
+      await db.organization.update({ where: { id: orgId }, data: { closingAt: now, deleteAfter: new Date(now.getTime() + CLOSING_DAYS * 864e5) } });
+      await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "org.closing", target: org.name, detail: `Διακοπή συνδρομής: τα στοιχεία κρατιούνται ${CLOSING_DAYS} ημέρες` });
+    }
+  }
   if ((before?.planId ?? null) !== data.planId) await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "plan.changed", target: plan?.name ?? "Προεπιλεγμένο πακέτο", detail: `Πριν: ${before?.plan?.name ?? "προεπιλεγμένο"}` });
   done(orgId, "subscription");
 }
@@ -612,4 +623,75 @@ export async function deletePlan(planId: string) {
   if (plan.isDefault || plan._count.subscriptions) return plansBack(`error=${encodeURIComponent(plan.isDefault ? "Το προεπιλεγμένο πακέτο δεν διαγράφεται" : `Το πακέτο «${plan.name}» το έχουν ${plan._count.subscriptions} πελάτες. Απενεργοποίησέ το`)}`);
   await db.plan.delete({ where: { id: plan.id } });
   plansBack("saved=1");
+}
+
+// ---- Αναστολή και κλείσιμο επιχείρησης ----
+const lifeBack = (orgId: string, q: string): never => {
+  revalidatePath("/", "layout"); // αλλάζει τι βλέπουν όλοι οι χρήστες της επιχείρησης
+  redirect(`/platform/${orgId}?${q}#lifecycle`);
+};
+const kick = (orgId: string) => db.session.deleteMany({ where: { user: { memberships: { some: { orgId } } } } });
+
+/** Αναστολή: το ταμείο και οι ενότητες κλείνουν αμέσως· μένουν αποδείξεις, συνδρομή και υποστήριξη. Τίποτα δεν σβήνεται. */
+export async function suspendOrg(form: FormData) {
+  const admin = await requirePlatform("billing.manage");
+  const orgId = id.parse(form.get("orgId"));
+  const reason = z.string().trim().min(5, "Γράψε τον λόγο της αναστολής (τον βλέπει ο πελάτης)").max(300).safeParse(form.get("reason"));
+  if (!reason.success) return lifeBack(orgId, `error=${encodeURIComponent(reason.error.issues[0].message)}`);
+  const org = await db.organization.update({ where: { id: orgId }, data: { suspendedAt: new Date(), suspendedReason: reason.data } });
+  await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "org.suspended", target: org.name, detail: reason.data });
+  lifeBack(orgId, "saved=lifecycle");
+}
+
+export async function resumeOrg(orgId: string) {
+  const admin = await requirePlatform("billing.manage");
+  const org = await db.organization.update({ where: { id: id.parse(orgId) }, data: { suspendedAt: null, suspendedReason: null } });
+  await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "org.resumed", target: org.name });
+  lifeBack(orgId, "saved=lifecycle");
+}
+
+/** Έναρξη κλεισίματος: περιορισμένη λειτουργία και προθεσμία για εξαγωγή δεδομένων. Αναιρείται μέχρι την οριστική διαγραφή. */
+export async function startClosing(form: FormData) {
+  const admin = await requirePlatform("orgs.create");
+  const orgId = id.parse(form.get("orgId"));
+  const org = await db.organization.findUnique({ where: { id: orgId } });
+  if (!org) return;
+  if (String(form.get("confirm") ?? "").trim() !== org.vatNumber) return lifeBack(orgId, `error=${encodeURIComponent("Για επιβεβαίωση γράψε το ΑΦΜ της επιχείρησης")}`);
+  const now = new Date();
+  await db.organization.update({ where: { id: orgId }, data: { closingAt: now, deleteAfter: new Date(now.getTime() + CLOSING_DAYS * 864e5) } });
+  await db.subscription.updateMany({ where: { orgId }, data: { status: "CANCELLED" } });
+  await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "org.closing", target: org.name, detail: `Διαγραφή επιτρέπεται μετά από ${CLOSING_DAYS} ημέρες` });
+  lifeBack(orgId, "saved=lifecycle");
+}
+
+export async function cancelClosing(orgId: string) {
+  const admin = await requirePlatform("orgs.create");
+  const org = await db.organization.update({ where: { id: id.parse(orgId) }, data: { closingAt: null, deleteAfter: null } });
+  await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "org.closing_cancelled", target: org.name, detail: "Η συνδρομή μένει ακυρωμένη: όρισέ την ξανά από την κάρτα Συνδρομή" });
+  lifeBack(orgId, "saved=lifecycle");
+}
+
+/** Οριστική διαγραφή: μόνο Super Admin, μόνο μετά την προθεσμία, και με το ΑΦΜ γραμμένο για επιβεβαίωση. ΔΕΝ αναιρείται. */
+export async function deleteOrg(form: FormData) {
+  const admin = await requirePlatform("settings.manage");
+  const orgId = id.parse(form.get("orgId"));
+  const org = await db.organization.findUnique({ where: { id: orgId } });
+  if (!org) return;
+  if (!canDelete(org, new Date())) return lifeBack(orgId, `error=${encodeURIComponent("Η διαγραφή επιτρέπεται μόνο σε επιχείρηση που κλείνει και αφού περάσει η προθεσμία εξαγωγής")}`);
+  if (String(form.get("confirm") ?? "").trim() !== org.vatNumber) return lifeBack(orgId, `error=${encodeURIComponent("Για επιβεβαίωση γράψε το ΑΦΜ της επιχείρησης")}`);
+  // δεν σβήνουμε επιχείρηση με αποδείξεις που δεν έφτασαν στο myDATA, ούτε πριν πάρει ο έμπορος το αρχείο του
+  const checks = await closingChecks(orgId);
+  if (checks.stuck) return lifeBack(orgId, `error=${encodeURIComponent(`${checks.stuck} αποδείξεις δεν έχουν διαβιβαστεί (εκκρεμείς ή αποτυχημένες). Τακτοποίησέ τες πρώτα`)}`);
+  if (checks.receipts && !checks.exportedAt) return lifeBack(orgId, `error=${encodeURIComponent("Δεν έχει κατέβει ακόμα το αντίγραφο των δεδομένων. Κατέβασέ το και δώσ' το στον πελάτη πριν από τη διαγραφή")}`);
+  await kick(orgId);
+  let result: { files: number; users: number };
+  try {
+    result = await deleteOrgForever(orgId);
+  } catch (e) {
+    console.error("org delete", orgId, e);
+    return lifeBack(orgId, `error=${encodeURIComponent("Η διαγραφή σταμάτησε: κάποιο αρχείο δεν σβήστηκε από το Bunny. Τίποτα άλλο δεν χάθηκε· δοκίμασε ξανά")}`);
+  }
+  await logAccess({ orgId: null, actorName: admin.name, action: "org.deleted", target: `${org.name} · ΑΦΜ ${org.vatNumber}`, detail: `${checks.receipts} αποδείξεις${checks.first && checks.last ? ` (${checks.first.toLocaleDateString("el-GR")} – ${checks.last.toLocaleDateString("el-GR")})` : ""}, ${result.files} αρχεία, ${result.users} χρήστες · αντίγραφο δεδομένων: ${checks.exportedAt ? `${checks.exportedBy}, ${checks.exportedAt.toLocaleDateString("el-GR")}` : "δεν χρειάστηκε"}` });
+  revalidatePath("/platform");
+  redirect("/platform?saved=deleted");
 }

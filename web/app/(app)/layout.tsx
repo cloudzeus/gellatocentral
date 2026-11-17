@@ -1,4 +1,4 @@
-import { Menu, Snowflake } from "lucide-react";
+import { CircleAlert, Menu, Snowflake } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { BottomNav, NavLinks, Sidebar, UserFooter } from "@/components/nav-links";
@@ -60,21 +60,55 @@ async function Menus() {
   );
 }
 
-/** Κατάστημα σε εποχιακή παύση: το λέμε σε κάθε σελίδα, μαζί με το τι μένει ανοιχτό και ποιος το ανοίγει ξανά. */
-async function PauseBanner() {
+const bar = "flex items-start gap-3 border-b px-6 py-3 text-sm print:hidden max-lg:pl-16";
+/**
+ * Ό,τι περιορίζει την επιχείρηση το λέμε σε κάθε σελίδα, μαζί με το τι κάνει ο χρήστης μετά: κλείσιμο, αναστολή,
+ * απλήρωτη συνδρομή (ή περίοδος χάριτος) και εποχιακή παύση καταστήματος.
+ */
+async function StateBanner() {
   const user = await getUser();
   const m = user?.memberships[0];
   if (!m) return null;
   const access = await accessFor(m.orgId, m.storeId);
+  const perms = m.role.locked ? ALL_PERMISSIONS : m.role.permissions;
+  const pay = perms.includes("billing.view") ? <Link href="/billing" className="font-semibold underline">Πληρωμή από τη Συνδρομή</Link> : "Ενημέρωσε τον διαχειριστή της επιχείρησης";
+  const { kind, daysLeft } = access.state;
+  if (kind === "closing")
+    return (
+      <div role="alert" className={`${bar} border-destructive/30 bg-destructive/10`}>
+        <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
+        <p className="min-w-0 flex-1"><b>Η επιχείρηση κλείνει.</b> Το ταμείο είναι κλειστό και τα δεδομένα θα διαγραφούν οριστικά {daysLeft ? `σε ${daysLeft} ημέρες` : "σύντομα"}. {m.role.locked ? <><a href="/api/org-export" download className="font-semibold underline">Κατέβασε αντίγραφο όλων των δεδομένων</a> και το <a href="/api/org-export?format=receipts" download className="font-semibold underline">αρχείο αποδείξεων για τον λογιστή σου</a></> : "Ο Επιχειρηματίας μπορεί να κατεβάσει αντίγραφο των δεδομένων"}. Αν έγινε κατά λάθος, γράψε στην υποστήριξη</p>
+      </div>
+    );
+  if (kind === "suspended")
+    return (
+      <div role="alert" className={`${bar} border-destructive/30 bg-destructive/10`}>
+        <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
+        <p className="min-w-0 flex-1"><b>Η επιχείρηση είναι σε αναστολή.</b> {access.reason ? `Λόγος: ${access.reason}. ` : ""}Το ταμείο και οι ενότητες είναι κλειστά· βλέπεις τις αποδείξεις που έχουν εκδοθεί. <Link href="/support" className="font-semibold underline">Γράψε στην υποστήριξη</Link></p>
+      </div>
+    );
+  if (kind === "unpaid")
+    return (
+      <div role="alert" className={`${bar} border-destructive/30 bg-destructive/10`}>
+        <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
+        <p className="min-w-0 flex-1"><b>Η συνδρομή έχει λήξει και το ταμείο είναι κλειστό.</b> Με την πληρωμή ανοίγουν όλα αμέσως, χωρίς να έχει χαθεί τίποτα. {pay}</p>
+      </div>
+    );
+  if (kind === "grace")
+    return (
+      <div role="status" className={`${bar} border-gold/40 bg-gold/10`}>
+        <CircleAlert className="mt-0.5 size-4 shrink-0 text-gold-ink" aria-hidden />
+        <p className="min-w-0 flex-1"><b>Η συνδρομή έληξε.</b> Όλα δουλεύουν κανονικά για {daysLeft} {daysLeft === 1 ? "ημέρα" : "ημέρες"} ακόμα· μετά κλείνει το ταμείο. {pay}</p>
+      </div>
+    );
   if (!access.paused) return null;
   const mine = access.pausedStores.filter((s) => !m.storeId || s.id === m.storeId);
-  const canResume = (m.role.locked ? ALL_PERMISSIONS : m.role.permissions).includes("stores.pause");
   return (
-    <div role="status" className="flex items-start gap-3 border-b border-gold/40 bg-gold/10 px-6 py-3 text-sm print:hidden max-lg:pl-16">
+    <div role="status" className={`${bar} border-gold/40 bg-gold/10`}>
       <Snowflake className="mt-0.5 size-4 shrink-0 text-gold-ink" aria-hidden />
       <p className="min-w-0 flex-1">
         <b>{mine.length === 1 ? `Το κατάστημα «${mine[0].name}» είναι` : "Τα καταστήματα είναι"} σε εποχιακή παύση από {mine[0].since.toLocaleDateString("el-GR")}.</b>{" "}
-        Το ταμείο και οι βασικές ενότητες είναι κλειστά όσο κρατά. {canResume ? <Link href="/billing#stores" className="font-semibold underline">Άνοιγμα ξανά από τη Συνδρομή</Link> : "Για να ανοίξει ξανά, μίλα με τον διαχειριστή της επιχείρησης"}
+        Το ταμείο και οι βασικές ενότητες είναι κλειστά όσο κρατά. {perms.includes("stores.pause") ? <Link href="/billing#stores" className="font-semibold underline">Άνοιγμα ξανά από τη Συνδρομή</Link> : "Για να ανοίξει ξανά, μίλα με τον διαχειριστή της επιχείρησης"}
       </p>
     </div>
   );
@@ -88,7 +122,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         <Menus />
       </Suspense>
       <div className="flex min-w-0 flex-1 flex-col">
-        <Suspense fallback={null}><PauseBanner /></Suspense>
+        <Suspense fallback={null}><StateBanner /></Suspense>
         {children}
       </div>
     </div>

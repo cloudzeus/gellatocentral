@@ -67,6 +67,7 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
           </form>
         </Modal>
       }>
+      {q.saved === "deleted" ? <p role="status" className="mb-4 rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Η επιχείρηση και τα αρχεία της διαγράφηκαν οριστικά</p> : null}
       {q.error && !q.viva ? <p role="alert" className="mb-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν δημιουργήθηκε: {String(q.error)}</p> : null}
       <div className="grid gap-4 md:grid-cols-3">
         {tiles.map((t) => (
@@ -111,7 +112,7 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
             id: o.id,
             cells: {
               org: <><Link href={`/platform/${o.id}`} className="font-semibold underline-offset-2 hover:underline">{o.name}</Link><span className="block text-xs text-muted-foreground">ΑΦΜ {o.vatNumber}{o.slug ? ` · ${o.slug}` : ""}</span></>,
-              status: o.subscription ? <Badge tone={STATUS[o.subscription.status].tone}>{STATUS[o.subscription.status].text}</Badge> : "—",
+              status: o.closingAt ? <Badge tone="danger">Κλείνει</Badge> : o.suspendedAt ? <Badge tone="danger">Σε αναστολή</Badge> : o.subscription ? <Badge tone={STATUS[o.subscription.status].tone}>{STATUS[o.subscription.status].text}</Badge> : "—",
               until: o.subscription?.currentPeriodEnd.toLocaleDateString("el-GR") ?? "—",
               stores,
               devices,

@@ -14,9 +14,9 @@ const body = z.object({
 export async function POST(req: Request) {
   const ctx = await tillFromRequest(req);
   if (!ctx) return Response.json({ error: "unauthorized" }, { status: 401 });
-  // κατάστημα σε εποχιακή παύση ή πακέτο χωρίς ταμείο: δεν εκδίδονται αποδείξεις
+  // αναστολή, κλείσιμο, απλήρωτη συνδρομή, εποχιακή παύση ή πακέτο χωρίς ταμείο: δεν εκδίδονται αποδείξεις
   const access = await accessFor(ctx.org.id, ctx.device.storeId);
-  if (!access.open.includes("pos")) return Response.json({ error: "paused", message: access.paused ? "Το κατάστημα είναι σε εποχιακή παύση. Ο διαχειριστής το ανοίγει ξανά από τη Συνδρομή" : "Το πακέτο της επιχείρησης δεν περιλαμβάνει ταμείο" }, { status: 403 });
+  if (!access.open.includes("pos")) return Response.json({ error: "paused", message: access.state.kind === "closing" ? "Η επιχείρηση κλείνει: το ταμείο είναι κλειστό" : access.state.kind === "suspended" ? "Η επιχείρηση είναι σε αναστολή. Επικοινώνησε με την υποστήριξη" : access.state.kind === "unpaid" ? "Η συνδρομή έχει λήξει. Με την πληρωμή το ταμείο ανοίγει αμέσως" : access.paused ? "Το κατάστημα είναι σε εποχιακή παύση. Ο διαχειριστής το ανοίγει ξανά από τη Συνδρομή" : "Το πακέτο της επιχείρησης δεν περιλαμβάνει ταμείο" }, { status: 403 });
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "invalid" }, { status: 400 });
 
