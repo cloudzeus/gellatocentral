@@ -54,7 +54,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
     <Page
       section="Ρυθμίσεις" title="Χρήστες & ρόλοι" description="Ποιος μπαίνει στην εφαρμογή και τι επιτρέπεται να κάνει"
       actions={
-        <Modal label={<><Plus /> Νέος χρήστης</>} variant="gold" title="Πρόσκληση χρήστη" description="Παίρνει email με σύνδεσμο και ορίζει μόνος του τον κωδικό του (ισχύει 72 ώρες)">
+        <Modal label={<><Plus /> Νέος χρήστης</>} variant="default" title="Πρόσκληση χρήστη" description="Παίρνει email με σύνδεσμο και ορίζει μόνος του τον κωδικό του (ισχύει 72 ώρες)">
           <form action={inviteUser} className={form}>
             <Field label="Ονοματεπώνυμο" name="name" required minLength={2} maxLength={60} />
             <Field label="Email" name="email" type="email" required autoComplete="off" />

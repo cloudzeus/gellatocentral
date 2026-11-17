@@ -69,30 +69,28 @@
   --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
   /* Ρευστή τυπογραφία: τα text-* του Tailwind δείχνουν στα --fs-* (scripts/fluid-type.mjs) */
-  /* Βάση 11,5px (πυκνή διαχειριστική οθόνη)· στο κινητό τα μικρά μεγέθη μεγαλώνουν κατά 1px μόνα τους */
-  --text-xs: var(--fs-10);
-  --text-sm: var(--fs-11-5);
-  --text-base: var(--fs-12-5);
-  --text-lg: var(--fs-14);
-  --text-xl: var(--fs-16);
+  /* Βάση 12,5px· στο κινητό τα μικρά μεγέθη μεγαλώνουν κατά 1px μόνα τους */
+  --text-2xs: var(--fs-10-5);
+  --text-xs: var(--fs-11-5);
+  --text-sm: var(--fs-12-5);
+  --text-base: var(--fs-13-5);
+  --text-lg: var(--fs-15);
+  --text-xl: var(--fs-17);
   --text-2xl: var(--fs-20);
-  --text-3xl: var(--fs-24);
+  --text-3xl: var(--fs-26);
+  --text-4xl: var(--fs-34);
 }
 
 :root {
-  --fs-10: clamp(0.625rem, 0.712rem - 0.1087vw, 0.6875rem);
-  --fs-11: clamp(0.6875rem, 0.7745rem - 0.1087vw, 0.75rem);
+  --fs-10-5: clamp(0.6563rem, 0.7432rem - 0.1087vw, 0.7188rem);
   --fs-11-5: clamp(0.7188rem, 0.8057rem - 0.1087vw, 0.7813rem);
-  --fs-12: clamp(0.75rem, 0.837rem - 0.1087vw, 0.8125rem);
   --fs-12-5: clamp(0.7813rem, 0.8682rem - 0.1087vw, 0.8438rem);
-  --fs-13: clamp(0.8125rem, 0.8995rem - 0.1087vw, 0.875rem);
-  --fs-14: clamp(0.875rem, 0.962rem - 0.1087vw, 0.9375rem);
+  --fs-13-5: clamp(0.8438rem, 0.9307rem - 0.1087vw, 0.9063rem);
   --fs-15: clamp(0.9375rem, 1.0245rem - 0.1087vw, 1rem);
-  --fs-16: 1rem;
-  --fs-18: 1.125rem;
+  --fs-17: 1.0625rem;
   --fs-20: 1.25rem;
-  --fs-24: clamp(1.17rem, 1.0409rem + 0.5739vw, 1.5rem);
-  --fs-30: clamp(1.4625rem, 1.3011rem + 0.7174vw, 1.875rem);
+  --fs-26: clamp(1.2675rem, 1.1276rem + 0.6217vw, 1.625rem);
+  --fs-34: clamp(1.6575rem, 1.4746rem + 0.8130vw, 2.125rem);
   --radius: 0.5rem;
   --background: oklch(0.962 0.008 85);
   --foreground: oklch(0.32 0 0);
@@ -157,7 +155,7 @@
   --card-foreground: oklch(0.95 0.006 80);
   --popover: oklch(0.235 0.056 262.3);
   --popover-foreground: oklch(0.95 0.006 80);
-  --primary: oklch(0.647 0.08 82.9);
+  --primary: oklch(0.93 0.008 85);
   --primary-foreground: oklch(0.19 0.04 262);
   --secondary: oklch(0.305 0.07 262.1);
   --secondary-foreground: oklch(0.95 0.006 80);
@@ -180,7 +178,7 @@
   --input: oklch(1 0 0 / 16%);
   --ring: oklch(0.647 0.08 82.9);
   /*
-   * Στο σκοτεινό το --primary γίνεται χρυσό (= --accent). Στα γραφήματα η «navy» σειρά
+   * Στο σκοτεινό το --primary γίνεται ανοιχτό (κουμπί με σκούρα γράμματα). Στα γραφήματα η «navy» σειρά
    * χρησιμοποιεί --chart-1 (φωτεινό = navy, σκοτεινό = ανοιχτό μπλε), ώστε να ξεχωρίζει από τη χρυσή.
    */
   --chart-1: oklch(0.74 0.075 264);
@@ -218,7 +216,7 @@
   }
 
   body {
-    font-size: var(--fs-11-5);
+    font-size: var(--fs-12-5);
     background-color: var(--color-background);
     color: var(--color-foreground);
     letter-spacing: 0.005em;
@@ -381,7 +379,7 @@
     content: attr(data-label);
     flex-shrink: 0;
     text-align: left;
-    font-size: var(--fs-10);
+    font-size: var(--fs-10-5);
     font-weight: 600;
     color: var(--color-muted-foreground);
   }

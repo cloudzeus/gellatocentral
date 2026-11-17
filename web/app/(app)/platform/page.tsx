@@ -44,7 +44,7 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
 
   return (
     <Page section="Πλατφόρμα" title="Συνδρομητές" description="Οι επιχειρήσεις που χρησιμοποιούν το Gelato System και η ετοιμότητά τους" actions={
-        me.can("orgs.create") && <Modal label={<><Plus /> Νέα επιχείρηση</>} variant="gold" title="Νέα επιχείρηση" description="Δημιουργείται μαζί η έδρα, μια κεντρική αποθήκη, το πρώτο ταμείο (σειρά A1) και δοκιμαστική συνδρομή. Στέλνεται email καλωσορίσματος.">
+        me.can("orgs.create") && <Modal label={<><Plus /> Νέα επιχείρηση</>} variant="default" title="Νέα επιχείρηση" description="Δημιουργείται μαζί η έδρα, μια κεντρική αποθήκη, το πρώτο ταμείο (σειρά A1) και δοκιμαστική συνδρομή. Στέλνεται email καλωσορίσματος.">
           <form action={createOrganization} className="grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end">
             <Field label="Επωνυμία" name="name" required minLength={2} maxLength={60} placeholder="π.χ. Gelateria Aurora" />
             <Field label="ΑΦΜ" name="vatNumber" required inputMode="numeric" pattern="\d{9}" maxLength={9} hint="9 ψηφία. Δεν αλλάζει μετά." />

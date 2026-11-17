@@ -2,6 +2,7 @@ import { Menu } from "lucide-react";
 import { Suspense } from "react";
 import { BottomNav, NavLinks, Sidebar, UserFooter } from "@/components/nav-links";
 import { getUser } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { ALL_PERMISSIONS, permissionFor, PLATFORM_ROLES, platformCan } from "@/lib/permissions";
 import { ALL_ITEMS } from "@/lib/nav";
 import { logout } from "../login/actions";
@@ -21,7 +22,9 @@ async function navFor() {
   const allowed = ALL_ITEMS.map((i) => i.to).filter((to) =>
     SUPER_ONLY.includes(to) ? platformCan(user.platformRole, "settings.manage") : to.startsWith("/platform") ? !!user.platformRole : permissions.includes(permissionFor(to)),
   );
-  return { allowed, user: { name: user.name, subtitle: m ? `${m.role.name} · ${m.org.name}` : user.platformRole ? PLATFORM_ROLES[user.platformRole].label : "", logout } };
+  // εκκρεμότητες δίπλα στο στοιχείο του μενού που τις λύνει
+  const unsent = m && allowed.includes("/receipts") ? await db.fiscalDocument.count({ where: { sale: { orgId: m.orgId, status: "COMPLETED" }, status: { not: "SIGNED" } } }) : 0;
+  return { allowed, badges: { "/receipts": unsent }, user: { name: user.name, subtitle: m ? `${m.role.name} · ${m.org.name}` : user.platformRole ? PLATFORM_ROLES[user.platformRole].label : "", logout } };
 }
 
 async function Menus() {
@@ -36,7 +39,7 @@ async function Menus() {
           <Menu className="size-4" />
         </summary>
         <div className="sidebar-surface fixed inset-y-0 left-0 z-40 flex w-72 flex-col overflow-y-auto pt-14 shadow-[var(--shadow-pop)]">
-          <NavLinks allowed={nav.allowed} />
+          <NavLinks allowed={nav.allowed} badges={nav.badges} />
           <UserFooter user={nav.user} />
         </div>
       </details>

@@ -7,15 +7,14 @@ const BTN =
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium cursor-pointer transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0";
 const VARIANT = {
   default: "bg-primary text-primary-foreground hover:bg-primary/90",
-  gold: "bg-gold text-accent-foreground hover:bg-gold-strong",
   success: "bg-success text-success-foreground hover:bg-success/90",
   destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
   outline: "border border-border bg-card shadow-xs hover:bg-secondary hover:text-secondary-foreground",
   ghost: "hover:bg-secondary hover:text-secondary-foreground",
 };
 const SIZE = {
-  default: "h-8.5 px-3.5 pointer-coarse:min-h-11",
-  sm: "h-7 rounded-lg px-2.5 text-xs pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+  default: "h-9 px-3.5 pointer-coarse:min-h-11",
+  sm: "h-7.5 rounded-lg px-2.5 text-xs pointer-coarse:min-h-11 pointer-coarse:min-w-11",
   lg: "h-12 px-6 text-lg",
 };
 
@@ -33,7 +32,7 @@ const TONE = {
   danger: "bg-destructive/15 text-destructive",
 };
 export function Badge({ tone = "neutral", children }: { tone?: keyof typeof TONE; children: ReactNode }) {
-  return <span className={cn("inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold", TONE[tone])}>{children}</span>;
+  return <span className={cn("inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-2xs font-semibold", TONE[tone])}>{children}</span>;
 }
 
 /** Κεφαλίδα σελίδας + περιεχόμενο, όπως το AppLayout του Gelato System. */
@@ -53,7 +52,7 @@ export function Page({ section, title, description, actions, children }: { secti
   );
 }
 
-const FIELD = "h-8.5 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
+const FIELD = "h-9 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
 /** Πεδίο φόρμας με ορατή ετικέτα και προαιρετική βοήθεια από κάτω. */
 export function Field({ label, hint, ...p }: { label: string; hint?: string } & ComponentProps<"input">) {
   return (

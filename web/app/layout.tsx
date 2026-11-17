@@ -15,9 +15,13 @@ export const metadata: Metadata = {
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#131F3B" };
 
+// Η εφαρμογή ανοίγει πάντα φωτεινή. Σκοτεινή γίνεται μόνο αν το διαλέξει ο χρήστης από το κουμπί του μενού.
+const THEME_SCRIPT = `try{var t=JSON.parse(localStorage.getItem("gs.theme"));if(t==="dark")document.documentElement.classList.add("dark")}catch(e){}`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="el" className={nunito.variable} data-bottom-nav>
+    <html lang="el" className={nunito.variable} data-bottom-nav suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} /></head>
       <body className="app-canvas min-h-dvh antialiased">{children}<RegisterServiceWorker /></body>
     </html>
   );

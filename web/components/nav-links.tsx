@@ -1,7 +1,7 @@
 "use client";
 // Το μενού. Client component: το ενεργό στοιχείο εξαρτάται από το URL, και το άνοιγμα/κλείσιμο των ομάδων
 // και του ίδιου του μενού θυμάται την επιλογή του χρήστη (localStorage).
-import { ChevronDown, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronDown, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -32,7 +32,7 @@ const closeDrawer = (e: React.MouseEvent<HTMLElement>) => e.currentTarget.closes
  * Ομάδες με εικονίδιο που ανοίγουν και κλείνουν. Ομάδα με ένα μόνο στοιχείο είναι απευθείας σύνδεσμος.
  * `collapsed`: στενή στήλη μόνο με εικονίδια ομάδων· το πάτημα σε ομάδα ανοίγει το μενού σε εκείνη (`onExpand`).
  */
-export function NavLinks({ allowed, collapsed = false, onExpand }: { allowed: string[]; collapsed?: boolean; onExpand?: () => void }) {
+export function NavLinks({ allowed, badges = {}, collapsed = false, onExpand }: { allowed: string[]; badges?: Record<string, number>; collapsed?: boolean; onExpand?: () => void }) {
   const path = usePathname();
   const [open, setOpen] = useStored<Record<string, boolean>>("gs.nav.open", {});
   const sections = NAV.map((s) => ({ ...s, items: s.items.filter((i) => allowed.includes(i.to)) })).filter((s) => s.items.length);
@@ -82,6 +82,7 @@ export function NavLinks({ allowed, collapsed = false, onExpand }: { allowed: st
                       <item.icon className={cn("size-4 shrink-0", active ? "text-sidebar-primary" : "opacity-70")} />
                       <span className="min-w-0 truncate">{item.label}</span>
                       {item.ready ? null : soon}
+                      {badges[item.to] ? <span aria-label={`${badges[item.to]} σε εκκρεμότητα`} className="ml-auto grid h-4.5 min-w-4.5 shrink-0 place-items-center rounded-md bg-sidebar-primary px-1 text-2xs font-semibold text-sidebar-primary-foreground tabular-nums">{badges[item.to]}</span> : null}
                     </Link>
                   );
                 })}
@@ -92,6 +93,20 @@ export function NavLinks({ allowed, collapsed = false, onExpand }: { allowed: st
       })}
     </nav>
   );
+}
+
+const footBtn = "grid size-10 cursor-pointer place-items-center rounded-lg text-sidebar-foreground/70 transition-colors duration-150 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground pointer-coarse:size-11";
+
+/** Φωτεινό (προεπιλογή) / σκοτεινό, μόνο με επιλογή του χρήστη (βλ. THEME_SCRIPT στο app/layout). */
+function ThemeToggle() {
+  const [theme, setTheme] = useStored<"light" | "dark" | null>("gs.theme", null);
+  const toggle = () => {
+    const next = document.documentElement.classList.contains("dark") ? "light" : "dark";
+    document.documentElement.classList.toggle("dark", next === "dark");
+    setTheme(next);
+  };
+  const label = theme === "dark" ? "Φωτεινό θέμα" : "Σκοτεινό θέμα";
+  return <button type="button" onClick={toggle} aria-label="Αλλαγή θέματος" title={label} className={footBtn}><Sun className="hidden size-4 dark:block" /><Moon className="size-4 dark:hidden" /></button>;
 }
 
 type User = { name: string; subtitle: string; logout: () => Promise<void> };
@@ -105,6 +120,7 @@ export function UserFooter({ user, collapsed = false }: { user: User; collapsed?
           <p className="truncate">{user.subtitle}</p>
         </div>
       )}
+      {collapsed ? null : <ThemeToggle />}
       <form action={user.logout}>
         <button aria-label="Έξοδος" title="Έξοδος" className="grid size-10 cursor-pointer place-items-center rounded-lg text-sidebar-foreground/70 transition-colors duration-200 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground pointer-coarse:size-11">
           <LogOut className="size-4" />
@@ -115,12 +131,12 @@ export function UserFooter({ user, collapsed = false }: { user: User; collapsed?
 }
 
 /** Πλαϊνό μενού desktop: πλήρες (17rem) ή στενή στήλη εικονιδίων (4.5rem). */
-export function Sidebar({ allowed, user }: { allowed: string[]; user: User }) {
+export function Sidebar({ allowed, badges, user }: { allowed: string[]; badges?: Record<string, number>; user: User }) {
   const [collapsed, setCollapsed] = useStored("gs.nav.collapsed", false);
   const Toggle = collapsed ? PanelLeftOpen : PanelLeftClose;
   const label = collapsed ? "Άνοιγμα μενού" : "Σύμπτυξη μενού";
   return (
-    <aside className={cn("sidebar-surface scrollbar-hide sticky top-0 hidden h-dvh shrink-0 flex-col overflow-y-auto lg:flex print:!hidden", collapsed ? "w-[4.5rem]" : "w-[17rem]")}>
+    <aside className={cn("sidebar-surface scrollbar-hide sticky top-0 hidden h-dvh shrink-0 flex-col overflow-y-auto border-r border-sidebar-border lg:flex print:!hidden", collapsed ? "w-[4.5rem]" : "w-[17rem]")}>
       <div className={cn("flex items-center gap-2 pt-5 pb-4", collapsed ? "flex-col px-2" : "pr-3 pl-5")}>
         <div className={cn("flex items-center", collapsed ? "size-11 justify-center" : "min-w-0 flex-1")}>
           {collapsed ? <Image src="/icon.png" alt="Gelato System" width={28} height={28} className="size-7 object-contain" /> : <Image src="/logo.png" alt="Gelato System" width={640} height={352} priority className="h-14 w-auto object-contain" />}
@@ -129,7 +145,7 @@ export function Sidebar({ allowed, user }: { allowed: string[]; user: User }) {
           <Toggle className="size-4" />
         </button>
       </div>
-      <NavLinks allowed={allowed} collapsed={collapsed} onExpand={() => setCollapsed(false)} />
+      <NavLinks allowed={allowed} badges={badges} collapsed={collapsed} onExpand={() => setCollapsed(false)} />
       <UserFooter user={user} collapsed={collapsed} />
     </aside>
   );
