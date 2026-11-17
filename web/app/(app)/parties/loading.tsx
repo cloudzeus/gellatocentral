@@ -1,5 +1,5 @@
 import { PageSkeleton } from "@/components/skeleton";
 
 export default function Loading() {
-  return <PageSkeleton kind="table" title="Πελάτες" />;
+  return <PageSkeleton kind="table" title="Συναλλασσόμενοι" />;
 }

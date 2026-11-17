@@ -19,6 +19,7 @@ import { savePlatformRoles, storedPlatformRoles } from "@/lib/platform-roles";
 import { hashPassword } from "@/lib/password";
 import { settleCharge } from "@/lib/billing";
 import { DEVICE_KIND } from "@/lib/devices";
+import { isRefList, REF_LISTS } from "@/lib/refs";
 import { isModule } from "@/lib/modules";
 import { db } from "@/lib/db";
 import { appUrl, billingRecipients, platformSettings, sendMail } from "@/lib/mail/send";
@@ -696,4 +697,32 @@ export async function deleteOrg(form: FormData) {
   await logAccess({ orgId: null, actorName: admin.name, action: "org.deleted", target: `${org.name} · ΑΦΜ ${org.vatNumber}`, detail: `${checks.receipts} αποδείξεις${checks.first && checks.last ? ` (${checks.first.toLocaleDateString("el-GR")} – ${checks.last.toLocaleDateString("el-GR")})` : ""}, ${result.files} αρχεία, ${result.users} χρήστες · αντίγραφο δεδομένων: ${checks.exportedAt ? `${checks.exportedBy}, ${checks.exportedAt.toLocaleDateString("el-GR")}` : "δεν χρειάστηκε"}` });
   revalidatePath("/platform");
   redirect("/platform?saved=deleted");
+}
+
+// ---- Λίστες αναφοράς (κοινές για όλους τους συνδρομητές) ----
+const refsBack = (list: string, q: string): never => {
+  revalidatePath("/", "layout");
+  redirect(`/platform/refs?list=${list}&${q}`);
+};
+export async function saveRef(form: FormData) {
+  await requirePlatform("settings.manage");
+  const list = form.get("list");
+  if (!isRefList(list)) redirect("/platform/refs");
+  const d = z.object({ refId: z.string().max(80), code: z.string().trim().min(1, "Γράψε κωδικό").max(20), label: z.string().trim().min(1, "Γράψε περιγραφή").max(120), value: z.string().trim().transform((v) => (v === "" ? null : Number(v))).refine((v) => v === null || Number.isInteger(v), "Η τιμή είναι ακέραιος αριθμός") }).safeParse(Object.fromEntries(form));
+  if (!d.success) return refsBack(list, `error=${encodeURIComponent(d.error.issues[0].message)}`);
+  const code = list === "country" ? d.data.code.toUpperCase() : d.data.code;
+  if (list === "country" && !/^[A-Z]{2}$/.test(code)) return refsBack(list, `error=${encodeURIComponent("Ο κωδικός χώρας έχει δύο λατινικά γράμματα, π.χ. GR")}`);
+  if (await db.refItem.findFirst({ where: { list, code, NOT: { id: d.data.refId || undefined } } })) return refsBack(list, `error=${encodeURIComponent(`Υπάρχει ήδη τιμή με κωδικό «${code}» στη λίστα «${REF_LISTS[list].label}»`)}`);
+  const data = { code, label: d.data.label, value: d.data.value };
+  if (d.data.refId) await db.refItem.updateMany({ where: { id: d.data.refId, list }, data });
+  else await db.refItem.create({ data: { ...data, list, sort: await db.refItem.count({ where: { list } }) } });
+  refsBack(list, "saved=1");
+}
+/** Τιμή που μπορεί να χρησιμοποιείται δεν σβήνεται: κρύβεται από τις νέες καταχωρίσεις και ξαναεμφανίζεται με ένα κλικ. */
+export async function toggleRef(refId: string) {
+  await requirePlatform("settings.manage");
+  const r = await db.refItem.findUnique({ where: { id: refId } });
+  if (!r) return;
+  await db.refItem.update({ where: { id: r.id }, data: { active: !r.active } });
+  refsBack(r.list, "saved=1");
 }

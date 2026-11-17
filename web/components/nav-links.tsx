@@ -138,7 +138,7 @@ export function Sidebar({ allowed, badges, user }: { allowed: string[]; badges?:
   const label = collapsed ? "Άνοιγμα μενού" : "Σύμπτυξη μενού";
   return (
     <aside className={cn("sidebar-surface scrollbar-hide sticky top-0 hidden h-dvh shrink-0 flex-col overflow-y-auto border-r border-sidebar-border lg:flex print:!hidden", collapsed ? "w-[4.5rem]" : "w-[17rem]")}>
-      <div className={cn("flex items-center gap-2 pt-5 pb-4", collapsed ? "flex-col px-2" : "pr-3 pl-5")}>
+      <div className={cn("flex items-center gap-2 pt-5 pb-4", collapsed ? "flex-col px-2" : "pr-3 pl-[1.375rem]")}>
         <div className={cn("flex items-center", collapsed ? "size-11 justify-center" : "min-w-0 flex-1")}>
           {collapsed ? <Image src="/icon.png" alt="Gelato System" width={28} height={28} className="size-7 object-contain" /> : <Image src="/logo.png" alt="Gelato System" width={640} height={352} priority className="h-14 w-auto object-contain" />}
         </div>

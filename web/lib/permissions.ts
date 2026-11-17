@@ -4,7 +4,7 @@ export const PERMISSIONS = [
   { key: "pos.use", group: "Ταμείο & τιμολόγηση", label: "Ταμείο", hint: "Έκδοση αποδείξεων" },
   { key: "receipts.view", group: "Ταμείο & τιμολόγηση", label: "Αποδείξεις", hint: "Προβολή και επανεκτύπωση" },
   { key: "devices.manage", group: "Ταμείο & τιμολόγηση", label: "Συσκευές", hint: "Προσθήκη και απενεργοποίηση ταμείων (αλλάζει τη χρέωση)" },
-  { key: "customers.manage", group: "Πελάτες & πωλήσεις", label: "Πελάτες", hint: "Καρτέλες πελατών, αρχεία και συναινέσεις τους" },
+  { key: "customers.manage", group: "Πελάτες & πωλήσεις", label: "Συναλλασσόμενοι", hint: "Πελάτες, προμηθευτές, franchisees και συνεργάτες: καρτέλες, αρχεία και συναινέσεις τους" },
   { key: "billing.view", group: "Ρυθμίσεις", label: "Συνδρομή", hint: "Το κόστος της συνδρομής" },
   { key: "stores.pause", group: "Ρυθμίσεις", label: "Εποχιακή παύση καταστημάτων", hint: "Κλείνει και ανοίγει ξανά ένα κατάστημα για την περίοδο που δεν λειτουργεί (αλλάζει τη χρέωση)" },
   { key: "users.manage", group: "Ρυθμίσεις", label: "Χρήστες & ρόλοι", hint: "Προσκλήσεις, ρόλοι και δικαιώματα" },
@@ -17,7 +17,7 @@ export const ALL_PERMISSIONS = PERMISSIONS.map((p) => p.key) as Permission[];
 export const isPermission = (v: string): v is Permission => (ALL_PERMISSIONS as string[]).includes(v);
 
 /** Ποιο δικαίωμα θέλει κάθε σελίδα. Ό,τι δεν αναφέρεται (ενότητες υπό κατασκευή) θέλει τον πίνακα ελέγχου. */
-const PAGE: Record<string, Permission> = { "/pos": "pos.use", "/receipts": "receipts.view", "/devices": "devices.manage", "/billing": "billing.view", "/users": "users.manage", "/gdpr": "gdpr.manage", "/customers": "customers.manage" };
+const PAGE: Record<string, Permission> = { "/pos": "pos.use", "/receipts": "receipts.view", "/devices": "devices.manage", "/billing": "billing.view", "/users": "users.manage", "/gdpr": "gdpr.manage", "/customers": "customers.manage", "/parties": "customers.manage" };
 export const permissionFor = (path: string): Permission => PAGE[Object.keys(PAGE).find((p) => path === p || path.startsWith(`${p}/`)) ?? ""] ?? "dashboard.view";
 
 /** Οι τρεις ρόλοι που αποκτά κάθε νέα επιχείρηση. Ο «Επιχειρηματίας» είναι κλειδωμένος: έχει πάντα όλα τα δικαιώματα. */

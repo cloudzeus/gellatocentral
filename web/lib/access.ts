@@ -19,6 +19,7 @@ export const ACCESS_ACTIONS = {
   "org.closing_cancelled": "Ακύρωση κλεισίματος",
   "org.deleted": "Οριστική διαγραφή επιχείρησης",
   "org.exported": "Εξαγωγή δεδομένων επιχείρησης",
+  "parties.viewed": "Προβολή συναλλασσομένων συνδρομητή",
 } as const;
 export type AccessAction = keyof typeof ACCESS_ACTIONS;
 export const actionLabel = (a: string) => (ACCESS_ACTIONS as Record<string, string>)[a] ?? a;

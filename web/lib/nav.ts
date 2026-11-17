@@ -1,7 +1,7 @@
 import {
   BarChart3, BookOpen, Boxes, Building2, CalendarDays, ChefHat, ClipboardCheck, ClipboardList, Contact, CreditCard,
   Factory, FileText, Inbox, Landmark, LayoutDashboard, MonitorSmartphone, Package, ReceiptText, ScanSearch, Server, Settings, ShieldCheck, LifeBuoy,
-  ShoppingCart, Store, TabletSmartphone, ThermometerSnowflake, Truck, Users, Warehouse, type LucideIcon,
+  ShoppingCart, Store, TabletSmartphone, ThermometerSnowflake, Users, Warehouse, type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = { to: string; label: string; icon: LucideIcon; ready?: boolean };
@@ -39,13 +39,12 @@ export const NAV: { title: string; icon: LucideIcon; items: NavItem[] }[] = [
       { to: "/inventory", label: "Αποθήκη", icon: Warehouse },
       { to: "/counts", label: "Απογραφές", icon: ClipboardCheck },
       { to: "/orders", label: "Παραγγελίες υλών", icon: ClipboardList },
-      { to: "/suppliers", label: "Προμηθευτές", icon: Truck },
     ],
   },
   {
     title: "Πελάτες & πωλήσεις", icon: Contact,
     items: [
-      { to: "/customers", label: "Πελάτες", icon: Contact, ready: true },
+      { to: "/parties", label: "Συναλλασσόμενοι", icon: Contact, ready: true },
       { to: "/wholesale-orders", label: "Παραγγελίες", icon: ShoppingCart },
       { to: "/invoices", label: "Παραστατικά", icon: FileText },
       { to: "/vitrine", label: "Βιτρίνα", icon: MonitorSmartphone },
@@ -71,11 +70,12 @@ export const NAV: { title: string; icon: LucideIcon; items: NavItem[] }[] = [
     items: [
       { to: "/platform", label: "Συνδρομητές", icon: Building2, ready: true },
       { to: "/platform/plans", label: "Πακέτα & τιμές", icon: Package, ready: true },
+      { to: "/platform/parties", label: "Συναλλασσόμενοι", icon: Contact, ready: true },
       { to: "/platform/staff", label: "Χρήστες & δικαιώματα", icon: Users, ready: true },
       { to: "/platform/gdpr", label: "GDPR & συναινέσεις", icon: ShieldCheck, ready: true },
     ],
   },
-  { title: "Ρυθμίσεις πλατφόρμας", icon: Settings, items: [{ to: "/platform/settings", label: "Ρυθμίσεις & email", icon: Settings, ready: true }] },
+  { title: "Ρυθμίσεις πλατφόρμας", icon: Settings, items: [{ to: "/platform/settings", label: "Ρυθμίσεις & email", icon: Settings, ready: true }, { to: "/platform/refs", label: "Λίστες αναφοράς", icon: ClipboardList, ready: true }] },
   {
     title: "Υποστήριξη πελατών", icon: Inbox,
     items: [

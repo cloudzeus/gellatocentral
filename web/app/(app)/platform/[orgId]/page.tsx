@@ -12,6 +12,8 @@ import { db } from "@/lib/db";
 import { DEVICE_KIND, FOR, KIND_OPTIONS, readingStatus } from "@/lib/devices";
 import { mailDomain, platformSettings } from "@/lib/mail/send";
 import { euro } from "@/lib/money";
+import { logAccess } from "@/lib/access-log";
+import { RoleBadges } from "@/components/party-bits";
 import { closingChecks } from "@/lib/org-close";
 import { canDelete, CLOSING_DAYS, orgState } from "@/lib/org-state";
 import { billableStores, nextCharge, planOf } from "@/lib/plan-data";
@@ -99,6 +101,11 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const life = orgState(org, new Date());
   const deletable = canDelete(org, new Date());
   const checks = await closingChecks(org.id);
+  // Συναλλασσόμενοι του συνδρομητή: μόνο με το δικαίωμα, μόνο όταν ζητηθούν (?parties=1), και κάθε άνοιγμα καταγράφεται
+  const showParties = me.can("parties.view") && q.parties === "1";
+  const partyTotal = me.can("parties.view") ? await db.party.count({ where: { orgId: org.id } }) : 0;
+  const theirParties = showParties ? await db.party.findMany({ where: { orgId: org.id }, orderBy: { name: "asc" }, take: 200, include: { _count: { select: { addresses: true } } } }) : [];
+  if (showParties) await logAccess({ orgId: org.id, actorName: `${me.name} (πλατφόρμα)`, action: "parties.viewed", target: org.name, detail: `${theirParties.length} συναλλασσόμενοι` });
   const pauses = bstores.flatMap((s) => s.pauses.map((p) => ({ ...p, store: s.name }))).sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime()).slice(0, 8);
   const storeOptions = stores.map((s): [string, string] => [s.id, s.name]);
   const printerOptions: [string, string][] = [["", "Κανένας"], ...org.stores.flatMap((s) => s.printers.filter((p) => p.active).map((p): [string, string] => [p.id, `${p.name} · ${s.name}`]))];
@@ -417,6 +424,31 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             </ul>
           ) : <Empty>Κανένας χρήστης ακόμα. Χωρίς χρήστη η επιχείρηση δεν μπορεί να συνδεθεί.</Empty>}
         </Section>
+
+        {me.can("parties.view") ? (
+          <Section id="parties" title="Συναλλασσόμενοι του συνδρομητή" saved={false} hint={`${partyTotal} στο αρχείο του: πελάτες, προμηθευτές, franchisees, συνεργάτες. Μόνο ανάγνωση· κάθε άνοιγμα καταγράφεται με το όνομά σου`}
+            action={showParties ? <Link href={`/platform/${org.id}#parties`} className={btn("outline", "sm")}>Απόκρυψη</Link> : partyTotal ? <Link href={`/platform/${org.id}?parties=1#parties`} className={btn("outline", "sm")}>Εμφάνιση</Link> : null}>
+            {showParties ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="text-left text-xs text-muted-foreground"><th className="px-5 py-2 font-semibold">Συναλλασσόμενος</th><th className="px-3 py-2 font-semibold">Ρόλοι</th><th className="px-3 py-2 font-semibold">Έδρα · περιοχή</th><th className="px-3 py-2 font-semibold">Επικοινωνία</th><th className="px-5 py-2 text-right font-semibold">Διευθύνσεις</th></tr></thead>
+                  <tbody>
+                    {theirParties.map((p) => (
+                      <tr key={p.id} className="border-t border-border/70">
+                        <td className="px-5 py-2"><span className="font-semibold">{p.name}</span><span className="block text-xs text-muted-foreground">{p.vatNumber ? `ΑΦΜ ${p.vatNumber}` : "χωρίς ΑΦΜ"}{p.active ? "" : " · ανενεργός"}</span></td>
+                        <td className="px-3 py-2"><RoleBadges roles={p.roles} /></td>
+                        <td className="px-3 py-2">{[p.city, p.region].filter(Boolean).join(" · ") || "—"}</td>
+                        <td className="px-3 py-2">{p.phone ?? p.email ?? "—"}</td>
+                        <td className="px-5 py-2 text-right tabular-nums">{p._count.addresses || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {partyTotal > theirParties.length ? <p className="border-t border-border/70 px-5 py-3 text-xs text-muted-foreground">Εμφανίζονται οι πρώτοι {theirParties.length} από {partyTotal}</p> : null}
+              </div>
+            ) : <Empty>{partyTotal ? "Πάτησε «Εμφάνιση» για να τους δεις. Το άνοιγμα γράφεται στο ιστορικό του συνδρομητή" : "Ο συνδρομητής δεν έχει καταχωρίσει συναλλασσόμενους ακόμα"}</Empty>}
+          </Section>
+        ) : null}
 
         <Section
           id="lifecycle" title="Αναστολή και κλείσιμο" saved={saved("lifecycle")}
