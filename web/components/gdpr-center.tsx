@@ -16,7 +16,7 @@ const dayOnly = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeZone:
 const TABS = { requests: "Αιτήματα διαγραφής", consents: "Συναινέσεις", log: "Ημερολόγιο" } as const;
 const STATUS = { PENDING: { tone: "warning", text: "Ανοιχτό" }, COMPLETED: { tone: "success", text: "Ολοκληρώθηκε" }, REJECTED: { tone: "neutral", text: "Απορρίφθηκε" } } as const;
 const SOURCE: Record<string, string> = { activation: "Ενεργοποίηση λογαριασμού", self: "Ο ίδιος", admin: "Καταχώριση διαχειριστή" };
-const SUMMARY: Record<string, string> = { customer: "καρτέλα πελάτη", account: "λογαριασμός", files: "αρχεία", sessions: "συνεδρίες", memberships: "συμμετοχές", emails: "email στο ιστορικό", consents: "συναινέσεις (χωρίς IP)", uploads: "αναφορές σε ανεβάσματα" };
+const SUMMARY: Record<string, string> = { tickets: "αιτήματα υποστήριξης (χωρίς όνομα)", customer: "καρτέλα πελάτη", account: "λογαριασμός", files: "αρχεία", sessions: "συνεδρίες", memberships: "συμμετοχές", emails: "email στο ιστορικό", consents: "συναινέσεις (χωρίς IP)", uploads: "αναφορές σε ανεβάσματα" };
 
 export async function GdprCenter({ scope, base, sp }: { scope: string | null; base: string; sp: Record<string, string | string[] | undefined> }) {
   const key = scope ?? "platform";

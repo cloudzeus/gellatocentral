@@ -122,6 +122,16 @@ export const templates = {
       paragraphs: [`Αυτό το μήνυμα στάλθηκε στο ${d.to} από τις ρυθμίσεις της πλατφόρμας. Αν το διαβάζεις, το Mailgun είναι σωστά ρυθμισμένο.`],
       tone: "success",
     }),
+  /** Κίνηση σε αίτημα υποστήριξης: απάντηση προς τον πελάτη ή νέο αίτημα προς την υποστήριξη. */
+  ticket: (b: Brand, d: { name: string; number: number; subject: string; intro: string; text: string; url: string }) =>
+    mail(b, `[#${d.number}] ${d.subject}`, {
+      preheader: d.intro,
+      title: d.intro,
+      paragraphs: [`Γεια σου ${d.name},`, d.text.length > 600 ? `${d.text.slice(0, 600)}…` : d.text],
+      rows: [["Αίτημα", `#${d.number}`], ["Θέμα", d.subject]],
+      button: { label: "Άνοιγμα αιτήματος", url: d.url },
+      note: "Απάντησε μέσα από την εφαρμογή· οι απαντήσεις σε αυτό το email δεν διαβάζονται.",
+    }),
   /** Αποτέλεσμα αιτήματος διαγραφής προσωπικών δεδομένων. */
   gdpr: (b: Brand, d: { name: string; outcome: "completed" | "rejected"; note?: string }) =>
     d.outcome === "completed"
@@ -150,6 +160,7 @@ export const TEMPLATE_LABEL: Record<keyof typeof templates, string> = {
   subscriptionExpired: "Η συνδρομή έληξε",
   test: "Δοκιμαστικό",
   gdpr: "Αποτέλεσμα αιτήματος διαγραφής",
+  ticket: "Αίτημα υποστήριξης",
 };
 
 /** Δείγματα για την προεπισκόπηση στις ρυθμίσεις. */
@@ -166,5 +177,6 @@ export function samples(b: Brand): Record<keyof typeof templates, Mail> {
     subscriptionExpired: templates.subscriptionExpired(b, { orgName: "Gelateria Aurora", endedAt: new Date("2026-11-30") }),
     test: templates.test(b, { to: "you@example.com" }),
     gdpr: templates.gdpr(b, { name: "Μαρία", outcome: "completed" }),
+    ticket: templates.ticket(b, { name: "Μαρία", number: 1042, subject: "Το ταμείο δεν εκδίδει αποδείξεις", intro: "Η υποστήριξη απάντησε στο αίτημά σου", text: "Το τερματικό του Ταμείου 2 έχει χάσει τη σύνδεση. Κλείσε και άνοιξέ το και δοκίμασε μια πληρωμή 0,10 €.", url: "https://aurora.gelatosystem.app/support/δείγμα" }),
   };
 }

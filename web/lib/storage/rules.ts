@@ -8,7 +8,7 @@ const MB = 1024 * 1024;
 
 /**
  * Τα είδη αρχείων. `public`: σερβίρεται απευθείας από το CDN (φωτογραφίες, λογότυπα). Αλλιώς κατεβαίνει μόνο
- * μέσα από την εφαρμογή, με έλεγχο δικαιώματος. `platform`: ανήκει στην πλατφόρμα, όχι σε πελάτη. `needs`: τι δικαίωμα θέλει ο χρήστης του πελάτη για να ανεβάσει ή να σβήσει.
+ * μέσα από την εφαρμογή, με έλεγχο δικαιώματος. `platform`: ανήκει στην πλατφόρμα, όχι σε πελάτη. `needs`: τι δικαίωμα θέλει ο χρήστης του πελάτη για να ανεβάσει ή να σβήσει (null = κάθε μέλος της επιχείρησης).
  * Νέο είδος = μία γραμμή εδώ.
  */
 export const CATEGORIES = {
@@ -16,8 +16,9 @@ export const CATEGORIES = {
   photo: { label: "Φωτογραφίες", public: true, types: IMAGES, maxBytes: 8 * MB, needs: "devices.manage", platform: false },
   document: { label: "Έγγραφα", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "users.manage", platform: false },
   customer_document: { label: "Έγγραφα πελάτη", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "customers.manage", platform: false },
+  ticket_attachment: { label: "Συνημμένα αιτήματος", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 10 * MB, needs: null, platform: false, staff: "support.tickets" },
   backup: { label: "Αντίγραφα ασφαλείας", public: false, types: ["application/octet-stream"], maxBytes: 5 * 1024 * MB, needs: "users.manage", platform: true },
-} as const satisfies Record<string, { label: string; public: boolean; types: readonly string[]; maxBytes: number; needs: Permission; platform: boolean; /** κρατιέται μόνο το τελευταίο */ single?: boolean }>;
+} as const satisfies Record<string, { label: string; public: boolean; types: readonly string[]; maxBytes: number; needs: Permission | null; platform: boolean; /** κρατιέται μόνο το τελευταίο */ single?: boolean; /** ποιο δικαίωμα προσωπικού πλατφόρμας αρκεί (αλλιώς: αρχικοποίηση) */ staff?: PlatformPermission }>;
 export type Category = keyof typeof CATEGORIES;
 export const isCategory = (v: unknown): v is Category => typeof v === "string" && v in CATEGORIES;
 /** Δικαίωμα προσωπικού πλατφόρμας: αρχεία πελάτη = αρχικοποίηση, αρχεία πλατφόρμας = ρυθμίσεις. */

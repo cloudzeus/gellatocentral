@@ -82,6 +82,7 @@ model Organization {
   subscription Subscription?
   files        StoredFile[]
   customers    Customer[]
+  tickets      Ticket[]
 }
 
 model User {
@@ -546,4 +547,59 @@ model RemoteAccess {
   device        Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
   @@index([orgId, at])
+}
+
+// ---- Support desk: αιτήματα των πελατών προς την υποστήριξη (docs/analysis/SUPPORT-DESK.md) ----
+enum TicketStatus {
+  NEW // δεν έχει απαντηθεί ακόμα
+  OPEN // σε εξέλιξη: περιμένει την υποστήριξη
+  WAITING_CUSTOMER // απαντήθηκε: περιμένει τον πελάτη
+  RESOLVED // λύθηκε· κλείνει μόνο του μετά από 5 ημέρες χωρίς απάντηση
+  CLOSED
+}
+
+enum TicketPriority {
+  CRITICAL
+  HIGH
+  NORMAL
+  LOW
+}
+
+model Ticket {
+  id              String         @id @default(cuid())
+  number          Int            @unique @default(autoincrement()) // ο αριθμός που βλέπουν όλοι: #1042
+  orgId           String
+  subject         String
+  category        String // κλειδί του CATEGORIES (lib/support/rules.ts)
+  priority        TicketPriority
+  status          TicketStatus   @default(NEW)
+  deviceId        String? // η συσκευή που αφορά, αν αφορά κάποια
+  openedById      String?
+  openedByName    String
+  assigneeId      String?
+  assigneeName    String?
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  rating          Int? // 1–5, από τον πελάτη όταν λυθεί
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  org             Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  messages        TicketMessage[]
+
+  @@index([orgId, status])
+  @@index([status, priority, createdAt])
+}
+
+model TicketMessage {
+  id         String   @id @default(cuid())
+  ticketId   String
+  authorKind String // customer | support | system
+  authorId   String?
+  authorName String
+  body       String
+  internal   Boolean  @default(false) // εσωτερική σημείωση: ο πελάτης δεν τη βλέπει
+  createdAt  DateTime @default(now())
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
 }

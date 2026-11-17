@@ -1,5 +1,6 @@
 // Ημερήσιος έλεγχος συνδρομών: υπενθύμιση 3 ημέρες πριν λήξει η δοκιμή και ειδοποίηση όταν λήξει η συνδρομή.
 // Καλείται από εξωτερικό χρονοδιακόπτη (π.χ. cron του Coolify) με `Authorization: Bearer $CRON_SECRET`.
+import { DAYS_TO_CLOSE } from "@/lib/support/rules";
 import { setting } from "@/lib/config";
 import { timingSafeEqual } from "node:crypto";
 import { db } from "@/lib/db";
@@ -14,6 +15,8 @@ export async function POST(req: Request) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
 
   const now = new Date();
+  // λυμένα αιτήματα χωρίς απάντηση για 5 ημέρες κλείνουν
+  await db.ticket.updateMany({ where: { status: "RESOLVED", resolvedAt: { lt: new Date(now.getTime() - DAYS_TO_CLOSE * 864e5) } }, data: { status: "CLOSED" } });
   const brand = await platformSettings();
   const result = { trialEnding: 0, expired: 0 };
 

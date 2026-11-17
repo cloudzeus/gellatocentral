@@ -21,7 +21,7 @@ export async function Files({ orgId, category, refType, refId, readOnly = false,
   const files = await Promise.all(rows.map(async (f) => ({ id: f.id, name: f.name, size: bytes(f.size), when: when.format(f.createdAt), url: await fileUrl(f), image: f.contentType.startsWith("image/") })));
   return (
     <div className="space-y-3">
-      {ready ? null : <p className="rounded-lg border border-gold/40 bg-gold/10 px-3 py-2 text-sm">Η αποθήκευση αρχείων δεν έχει ρυθμιστεί ακόμα. Ορίζεται στις Ρυθμίσεις της πλατφόρμας › Αποθήκευση αρχείων.</p>}
+      {ready ? null : <p className="rounded-lg border border-gold/40 bg-gold/10 px-3 py-2 text-sm">{user.platformRole ? "Η αποθήκευση αρχείων δεν έχει ρυθμιστεί ακόμα. Ορίζεται στις Ρυθμίσεις & email › Bunny" : "Το ανέβασμα αρχείων δεν είναι διαθέσιμο ακόμα"}</p>}
       <FileManager
         orgId={orgId} category={category} refType={refType} refId={refId} files={files}
         accept={c.types.join(",")} multiple={!("single" in c && c.single)} canEdit={ready && !readOnly}

@@ -7,6 +7,7 @@ export const PERMISSIONS = [
   { key: "customers.manage", group: "Πελάτες & πωλήσεις", label: "Πελάτες", hint: "Καρτέλες πελατών, αρχεία και συναινέσεις τους" },
   { key: "billing.view", group: "Ρυθμίσεις", label: "Συνδρομή", hint: "Το κόστος της συνδρομής" },
   { key: "users.manage", group: "Ρυθμίσεις", label: "Χρήστες & ρόλοι", hint: "Προσκλήσεις, ρόλοι και δικαιώματα" },
+  { key: "tickets.manage", group: "Υποστήριξη", label: "Όλα τα αιτήματα", hint: "Βλέπει και απαντά στα αιτήματα υποστήριξης όλης της επιχείρησης (ο καθένας βλέπει πάντα τα δικά του)" },
   { key: "gdpr.manage", group: "Ρυθμίσεις", label: "GDPR & συναινέσεις", hint: "Συναινέσεις, αιτήματα διαγραφής και ημερολόγιο προσωπικών δεδομένων" },
 ] as const;
 
@@ -21,7 +22,7 @@ export const permissionFor = (path: string): Permission => PAGE[Object.keys(PAGE
 /** Οι τρεις ρόλοι που αποκτά κάθε νέα επιχείρηση. Ο «Επιχειρηματίας» είναι κλειδωμένος: έχει πάντα όλα τα δικαιώματα. */
 export const SYSTEM_ROLES: { name: string; permissions: Permission[]; locked: boolean }[] = [
   { name: "Επιχειρηματίας", permissions: ALL_PERMISSIONS, locked: true },
-  { name: "Manager", permissions: ["dashboard.view", "pos.use", "receipts.view", "devices.manage", "customers.manage"], locked: false },
+  { name: "Manager", permissions: ["dashboard.view", "pos.use", "receipts.view", "devices.manage", "customers.manage", "tickets.manage"], locked: false },
   { name: "Υπάλληλος", permissions: ["pos.use", "receipts.view"], locked: false },
 ];
 
@@ -39,14 +40,15 @@ export const PLATFORM_PERMISSIONS = {
   "staff.manage": "Προσωπικό πλατφόρμας",
   "gdpr.manage": "GDPR: συναινέσεις, αιτήματα διαγραφής, ημερολόγιο",
   "support.remote": "Απομακρυσμένη σύνδεση σε συσκευές πελατών",
+  "support.tickets": "Αιτήματα υποστήριξης των πελατών",
 } as const;
 export type PlatformPermission = keyof typeof PLATFORM_PERMISSIONS;
 export type PlatformRoleKey = "SUPER_ADMIN" | "MANAGER" | "STAFF" | "SUPPORT";
 
 export const PLATFORM_ROLES: Record<PlatformRoleKey, { label: string; hint: string; permissions: PlatformPermission[] }> = {
   SUPER_ADMIN: { label: "Super Admin", hint: "Όλα, μαζί με ρυθμίσεις και προσωπικό", permissions: Object.keys(PLATFORM_PERMISSIONS) as PlatformPermission[] },
-  MANAGER: { label: "Manager", hint: "Συνδρομητές, συνδρομές και αρχικοποίηση", permissions: ["orgs.view", "orgs.create", "billing.manage", "setup.manage", "users.manage", "gdpr.manage", "support.remote"] },
-  STAFF: { label: "Υπάλληλος εφαρμογής", hint: "Αρχικοποίηση συνδρομητών, χωρίς χρεώσεις", permissions: ["orgs.view", "setup.manage", "users.manage", "support.remote"] },
-  SUPPORT: { label: "Υπάλληλος υποστήριξης", hint: "Βλέπει τους συνδρομητές και βοηθά τους χρήστες τους", permissions: ["orgs.view", "users.manage", "support.remote"] },
+  MANAGER: { label: "Manager", hint: "Συνδρομητές, συνδρομές και αρχικοποίηση", permissions: ["orgs.view", "orgs.create", "billing.manage", "setup.manage", "users.manage", "gdpr.manage", "support.remote", "support.tickets"] },
+  STAFF: { label: "Υπάλληλος εφαρμογής", hint: "Αρχικοποίηση συνδρομητών, χωρίς χρεώσεις", permissions: ["orgs.view", "setup.manage", "users.manage", "support.remote", "support.tickets"] },
+  SUPPORT: { label: "Υπάλληλος υποστήριξης", hint: "Βλέπει τους συνδρομητές και βοηθά τους χρήστες τους", permissions: ["orgs.view", "users.manage", "support.remote", "support.tickets"] },
 };
 export const platformCan = (role: PlatformRoleKey | null | undefined, p: PlatformPermission) => !!role && PLATFORM_ROLES[role].permissions.includes(p);

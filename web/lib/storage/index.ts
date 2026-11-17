@@ -16,10 +16,11 @@ type User = NonNullable<Awaited<ReturnType<typeof getUser>>>;
  */
 export function canAccess(user: User, orgId: string | null, category: Category) {
   if (CATEGORIES[category].platform !== (orgId === null)) return false; // αρχεία πλατφόρμας δεν ανήκουν σε πελάτη, και το αντίστροφο
-  if (platformCan(user.platformRole, platformNeeds(orgId))) return true;
+  const c = CATEGORIES[category];
+  if (platformCan(user.platformRole, "staff" in c && c.staff ? c.staff : platformNeeds(orgId))) return true;
   const m = user.memberships.find((x) => x.orgId === orgId);
   if (!m) return false;
-  return (m.role.locked ? ALL_PERMISSIONS : m.role.permissions).includes(CATEGORIES[category].needs);
+  return c.needs === null || (m.role.locked ? ALL_PERMISSIONS : m.role.permissions).includes(c.needs);
 }
 
 export class FileError extends Error {}

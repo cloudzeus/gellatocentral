@@ -50,6 +50,7 @@ export function NavLinks({ allowed, badges = {}, collapsed = false, onExpand }: 
               <span className={tile(activeHere)}><Icon className="size-4" /></span>
               <span className={collapsed ? "sr-only" : "min-w-0 truncate"}>{single.label}</span>
               {!single.ready && !collapsed ? soon : null}
+              {badges[single.to] && !collapsed ? <span aria-label={`${badges[single.to]} σε εκκρεμότητα`} className="ml-auto grid h-4.5 min-w-4.5 shrink-0 place-items-center rounded-md bg-sidebar-primary px-1 text-2xs font-semibold text-sidebar-primary-foreground tabular-nums">{badges[single.to]}</span> : null}
             </Link>
           );
 
