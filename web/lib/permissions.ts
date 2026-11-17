@@ -70,4 +70,14 @@ export function parsePlatformOverrides(raw: string | null | undefined): Platform
 }
 export const applyPlatformOverrides = (o: PlatformOverrides) => { overrides = o; };
 export const platformPermissionsOf = (role: PlatformRoleKey): PlatformPermission[] => (role === "SUPER_ADMIN" ? PLATFORM_ROLES.SUPER_ADMIN.permissions : (overrides[role] ?? PLATFORM_ROLES[role].permissions));
-export const platformCan = (role: PlatformRoleKey | null | undefined, p: PlatformPermission) => !!role && platformPermissionsOf(role).includes(p);
+/** Μέλος προσωπικού: ο σταθερός ρόλος του και, αν έχει, ο δικός σας ρόλος που υπερισχύει. */
+export type StaffLike = { platformRole: PlatformRoleKey | null; staffRole?: { name: string; permissions: string[] } | null };
+type Who = StaffLike | PlatformRoleKey | null | undefined;
+const asStaff = (who: Who): StaffLike | null => (typeof who === "string" ? { platformRole: who } : who ?? null);
+export function staffPermissions(who: Who): PlatformPermission[] {
+  const u = asStaff(who);
+  if (!u?.platformRole) return [];
+  return u.staffRole && u.platformRole !== "SUPER_ADMIN" ? u.staffRole.permissions.filter(isPlatformPermission) : platformPermissionsOf(u.platformRole);
+}
+export const staffRoleLabel = (who: Who) => { const u = asStaff(who); return u?.platformRole ? (u.staffRole && u.platformRole !== "SUPER_ADMIN" ? u.staffRole.name : PLATFORM_ROLES[u.platformRole].label) : ""; };
+export const platformCan = (who: Who, p: PlatformPermission) => staffPermissions(who).includes(p);

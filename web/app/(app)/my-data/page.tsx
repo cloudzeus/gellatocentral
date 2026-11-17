@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { activeVersion, consentsOf } from "@/lib/gdpr";
 import { currentConsents, daysLeft, DUE_DAYS, PURPOSES, type Purpose } from "@/lib/gdpr/rules";
 import { platformSettings } from "@/lib/mail/send";
-import { PLATFORM_ROLES } from "@/lib/permissions";
+import { staffRoleLabel } from "@/lib/permissions";
 import { requestMyErasure, setMyConsent } from "../gdpr/actions";
 
 const day = new Intl.DateTimeFormat("el-GR", { dateStyle: "long", timeZone: "Europe/Athens" });
@@ -31,7 +31,7 @@ export default async function MyDataPage({ searchParams }: PageProps<"/my-data">
     ["Ονοματεπώνυμο", user.name],
     ["Email", user.email],
     ["Λογαριασμός από", day.format(user.createdAt)],
-    ["Ρόλος", m ? `${m.role.name} · ${m.org.name}` : user.platformRole ? PLATFORM_ROLES[user.platformRole].label : "—"],
+    ["Ρόλος", m ? `${m.role.name} · ${m.org.name}` : user.platformRole ? staffRoleLabel(user) : "—"],
   ];
   const pending = request?.status === "PENDING";
 

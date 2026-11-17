@@ -94,6 +94,9 @@ model User {
   platformRole PlatformRole?
   failedLogins Int          @default(0)
   lockedUntil  DateTime?
+  // Δικός σας ρόλος προσωπικού (φτιαγμένος από την οθόνη). Όταν υπάρχει, τα δικαιώματα έρχονται από αυτόν και το platformRole μένει STAFF.
+  staffRoleId  String?
+  staffRole    StaffRole?   @relation(fields: [staffRoleId], references: [id], onDelete: Restrict)
   disabledAt   DateTime? // απενεργοποιημένος: δεν συνδέεται, αλλά μένει στο ιστορικό
   lastLoginAt  DateTime?
   createdAt    DateTime     @default(now())
@@ -700,4 +703,13 @@ model AccessEvent {
   createdAt DateTime @default(now())
 
   @@index([orgId, createdAt])
+}
+
+// Ρόλος προσωπικού της πλατφόρμας φτιαγμένος από την οθόνη: όνομα + δικαιώματα (κλειδιά PLATFORM_PERMISSIONS).
+model StaffRole {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  permissions String[]
+  createdAt   DateTime @default(now())
+  users       User[]
 }

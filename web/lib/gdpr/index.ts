@@ -19,7 +19,7 @@ export const scopeOf = (user: { memberships: { orgId: string }[] }) => user.memb
 
 /** Μπορεί ο χρήστης να διαχειριστεί το GDPR αυτού του επιπέδου; Ο πελάτης μόνο το δικό του. */
 export function canManageGdpr(user: User, scope: string | null) {
-  if (scope === null) return platformCan(user.platformRole, "gdpr.manage");
+  if (scope === null) return platformCan(user, "gdpr.manage");
   const m = user.memberships.find((x) => x.orgId === scope);
   return !!m && (m.role.locked ? ALL_PERMISSIONS : m.role.permissions).includes("gdpr.manage");
 }

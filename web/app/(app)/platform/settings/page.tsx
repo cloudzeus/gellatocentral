@@ -8,12 +8,30 @@ import { db } from "@/lib/db";
 import { platformSettings } from "@/lib/mail/send";
 import { samples, TEMPLATE_LABEL } from "@/lib/mail/templates";
 import { filterParam, listParams } from "@/lib/paging";
-import { PLATFORM_PERMISSIONS, PLATFORM_ROLES, type PlatformPermission, platformPermissionsOf, type PlatformRoleKey } from "@/lib/permissions";
+import { PLATFORM_PERMISSIONS, PLATFORM_ROLES, type PlatformPermission, platformPermissionsOf, type PlatformRoleKey, staffRoleLabel } from "@/lib/permissions";
 import { Connections } from "@/components/connections";
-import { addStaff, removeStaff, saveLegalSettings, savePlatformRole, savePlatformSettings, setStaffActive, setStaffRole } from "../actions";
+import { addStaff, deleteStaffRole, removeStaff, saveLegalSettings, savePlatformRole, savePlatformSettings, saveStaffRole, setStaffActive, setStaffRole } from "../actions";
 import { Submit } from "@/components/submit";
 
 const STATUS = { SENT: { tone: "success", text: "Στάλθηκε" }, FAILED: { tone: "danger", text: "Απέτυχε" }, SKIPPED: { tone: "warning", text: "Δεν στάλθηκε" } } as const;
+
+/** Τα δικαιώματα της κονσόλας ως κουτάκια. Όσα δεν έχει ο ίδιος ο χρήστης δεν επιλέγονται. */
+function PermBoxes({ selected, can }: { selected: readonly string[]; can: (p: PlatformPermission) => boolean }) {
+  return (
+    <fieldset className="rounded-lg border border-border/70 p-3">
+      <legend className="px-1 text-xs font-semibold text-muted-foreground">Δικαιώματα</legend>
+      {(Object.keys(PLATFORM_PERMISSIONS) as PlatformPermission[]).map((p) => {
+        const allowed = can(p);
+        return (
+          <label key={p} className={`flex min-h-10 items-center gap-3 rounded-lg px-2 py-1.5 ${allowed ? "cursor-pointer hover:bg-secondary" : "opacity-50"}`}>
+            <input type="checkbox" name="permissions" value={p} defaultChecked={selected.includes(p)} disabled={!allowed} className="size-4 accent-[var(--primary)]" />
+            <span>{PLATFORM_PERMISSIONS[p]}{allowed ? "" : " · δεν το έχεις εσύ"}</span>
+          </label>
+        );
+      })}
+    </fieldset>
+  );
+}
 
 export default async function PlatformSettingsPage({ searchParams }: PageProps<"/platform/settings">) {
   const admin = await requirePlatform("settings.manage");
@@ -24,14 +42,17 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
     ...(list.q ? { OR: [{ to: { contains: list.q, mode: "insensitive" as const } }, { subject: { contains: list.q, mode: "insensitive" as const } }] } : {}),
     ...(status ? { status } : {}),
   };
-  const roleOptions = Object.entries(PLATFORM_ROLES).map(([k, r]): [string, string] => [k, r.label]);
-  const [staff, settings, log, total, staffHistory] = await Promise.all([
-    db.user.findMany({ where: { platformRole: { not: null } }, orderBy: { name: "asc" } }),
+  
+  const [staff, customRoles, settings, log, total, staffHistory] = await Promise.all([
+    db.user.findMany({ where: { platformRole: { not: null } }, orderBy: { name: "asc" }, include: { staffRole: true } }),
+    db.staffRole.findMany({ orderBy: { name: "asc" } }),
     platformSettings(),
     db.emailLog.findMany({ where, orderBy: list.sort === "to" ? { to: list.dir } : { createdAt: list.sort === "when" ? list.dir : "desc" }, skip: list.skip, take: list.take, include: { org: true } }),
     db.emailLog.count({ where }),
     db.accessEvent.findMany({ where: { orgId: null }, orderBy: { createdAt: "desc" }, take: 10 }),
   ]);
+  const roleOptions: [string, string][] = [...Object.entries(PLATFORM_ROLES).map(([k, r]): [string, string] => [k, r.label]), ...customRoles.map((r): [string, string] => [`custom:${r.id}`, r.name])];
+  const roleValue = (u: { platformRole: PlatformRoleKey | null; staffRoleId: string | null }) => (u.staffRoleId && u.platformRole !== "SUPER_ADMIN" ? `custom:${u.staffRoleId}` : u.platformRole!);
   const seen = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Athens" });
   const previews = Object.entries(samples(settings)) as [keyof typeof TEMPLATE_LABEL, ReturnType<typeof samples>["test"]][];
 
@@ -109,13 +130,13 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
                   <p className="text-xs text-muted-foreground">{u.email} · {accountStatus(u) === "disabled" ? "Δεν μπορεί να συνδεθεί" : accountStatus(u) === "pending" ? "Εκκρεμεί η πρόσκληση" : u.lastLoginAt ? `Τελευταία σύνδεση ${seen.format(u.lastLoginAt)}` : "Δεν έχει συνδεθεί ακόμα"}</p>
                 </div>
                 {u.disabledAt ? <Badge tone="warning">Απενεργοποιημένος</Badge> : null}
-                <Badge tone={u.platformRole === "SUPER_ADMIN" ? "success" : "neutral"}>{PLATFORM_ROLES[u.platformRole!].label}</Badge>
+                <Badge tone={u.platformRole === "SUPER_ADMIN" ? "success" : "neutral"}>{staffRoleLabel(u)}</Badge>
                 {admin.can("staff.manage") ? (
                   <>
                     <Modal label="Ρόλος" size="sm" title={u.name} description={u.email}>
-                      <form key={u.platformRole} action={setStaffRole} className="grid gap-4 [&>button]:justify-self-end">
+                      <form key={roleValue(u)} action={setStaffRole} className="grid gap-4 [&>button]:justify-self-end">
                         <input type="hidden" name="userId" value={u.id} />
-                        <Select label="Ρόλος" name="platformRole" defaultValue={u.platformRole!} options={roleOptions} />
+                        <Select label="Ρόλος" name="platformRole" defaultValue={roleValue(u)} options={roleOptions} />
                         <Submit className={btn("default")}>Αποθήκευση</Submit>
                       </form>
                     </Modal>
@@ -134,9 +155,21 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
               </ul>
             </details>
           ) : null}
-          <div className="border-t border-border/70 px-5 py-4">
-            <h3 className="text-base font-semibold">Ρόλοι και δικαιώματα προσωπικού</h3>
-            <p className="text-sm text-muted-foreground">Τι επιτρέπεται να κάνει κάθε ρόλος στην κονσόλα. Η αλλαγή ισχύει αμέσως για όλους όσοι έχουν τον ρόλο</p>
+          <div className="flex flex-wrap items-center gap-3 border-t border-border/70 px-5 py-4">
+            <div className="min-w-0 basis-64 flex-1">
+              <h3 className="text-base font-semibold">Ρόλοι και δικαιώματα προσωπικού</h3>
+              <p className="text-sm text-muted-foreground">Τι επιτρέπεται να κάνει κάθε ρόλος στην κονσόλα. Η αλλαγή ισχύει αμέσως για όλους όσοι έχουν τον ρόλο. Φτιάξε και δικούς σου, π.χ. «Λογιστήριο»</p>
+            </div>
+            {admin.can("staff.manage") ? (
+              <Modal label="Νέος ρόλος" size="sm" title="Νέος ρόλος προσωπικού">
+                <form action={saveStaffRole} className="grid gap-3">
+                  <input type="hidden" name="roleId" value="" />
+                  <Field label="Όνομα ρόλου" name="name" required minLength={2} maxLength={60} placeholder="π.χ. Λογιστήριο" />
+                  <PermBoxes selected={[]} can={admin.can} />
+                  <Submit className={`${btn("default")} justify-self-end`}>Δημιουργία ρόλου</Submit>
+                </form>
+              </Modal>
+            ) : null}
           </div>
           <ul className="divide-y divide-border/70 border-t border-border/70">
             {(Object.keys(PLATFORM_ROLES) as PlatformRoleKey[]).map((k) => {
@@ -145,7 +178,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
               return (
                 <li key={k} className="flex flex-wrap items-center gap-3 px-5 py-3">
                   <div className="min-w-0 basis-64 flex-1">
-                    <p className="font-semibold">{PLATFORM_ROLES[k].label} <span className="font-normal text-muted-foreground">· {staff.filter((u) => u.platformRole === k).length} άτομα{changed ? " · αλλαγμένος" : ""}</span></p>
+                    <p className="font-semibold">{PLATFORM_ROLES[k].label} <span className="font-normal text-muted-foreground">· {staff.filter((u) => roleValue(u) === k).length} άτομα{changed ? " · αλλαγμένος" : ""}</span></p>
                     <p className="mt-1 flex flex-wrap gap-1">
                       {k === "SUPER_ADMIN" ? <Badge tone="success">Όλα τα δικαιώματα</Badge> : has.length ? (Object.keys(PLATFORM_PERMISSIONS) as PlatformPermission[]).filter((p) => has.includes(p)).map((p) => <Badge key={p}>{PLATFORM_PERMISSIONS[p]}</Badge>) : <Badge tone="warning">Κανένα δικαίωμα</Badge>}
                     </p>
@@ -154,24 +187,39 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
                     <Modal label="Δικαιώματα" size="sm" title={`Ρόλος: ${PLATFORM_ROLES[k].label}`} description={PLATFORM_ROLES[k].hint}>
                       <form key={has.join()} action={savePlatformRole} className="grid gap-3">
                         <input type="hidden" name="role" value={k} />
-                        <fieldset className="rounded-lg border border-border/70 p-3">
-                          <legend className="px-1 text-xs font-semibold text-muted-foreground">Δικαιώματα</legend>
-                          {(Object.keys(PLATFORM_PERMISSIONS) as PlatformPermission[]).map((p) => {
-                            const allowed = admin.can(p);
-                            return (
-                              <label key={p} className={`flex min-h-10 items-center gap-3 rounded-lg px-2 py-1.5 ${allowed ? "cursor-pointer hover:bg-secondary" : "opacity-50"}`}>
-                                <input type="checkbox" name="permissions" value={p} defaultChecked={has.includes(p)} disabled={!allowed} className="size-4 accent-[var(--primary)]" />
-                                <span>{PLATFORM_PERMISSIONS[p]}{allowed ? "" : " · δεν το έχεις εσύ"}</span>
-                              </label>
-                            );
-                          })}
-                        </fieldset>
+                        <PermBoxes selected={has} can={admin.can} />
                         <div className="flex flex-wrap justify-end gap-2">
                           {changed ? <Submit name="reset" value="1" className={btn("ghost")}>Επαναφορά στα αρχικά</Submit> : null}
                           <Submit className={btn("default")}>Αποθήκευση</Submit>
                         </div>
                       </form>
                     </Modal>
+                  ) : null}
+                </li>
+              );
+            })}
+            {customRoles.map((r) => {
+              const members = staff.filter((u) => roleValue(u) === `custom:${r.id}`).length;
+              return (
+                <li key={r.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                  <div className="min-w-0 basis-64 flex-1">
+                    <p className="font-semibold">{r.name} <span className="font-normal text-muted-foreground">· {members} άτομα · δικός σας ρόλος</span></p>
+                    <p className="mt-1 flex flex-wrap gap-1">
+                      {r.permissions.length ? (Object.keys(PLATFORM_PERMISSIONS) as PlatformPermission[]).filter((p) => r.permissions.includes(p)).map((p) => <Badge key={p}>{PLATFORM_PERMISSIONS[p]}</Badge>) : <Badge tone="warning">Κανένα δικαίωμα</Badge>}
+                    </p>
+                  </div>
+                  {admin.can("staff.manage") ? (
+                    <>
+                      <Modal label="Δικαιώματα" size="sm" title={`Ρόλος: ${r.name}`} description={`${members} άτομα θα αποκτήσουν αμέσως τα νέα δικαιώματα`}>
+                        <form key={r.permissions.join()} action={saveStaffRole} className="grid gap-3">
+                          <input type="hidden" name="roleId" value={r.id} />
+                          <Field label="Όνομα ρόλου" name="name" required minLength={2} maxLength={60} defaultValue={r.name} />
+                          <PermBoxes selected={r.permissions} can={admin.can} />
+                          <Submit className={`${btn("default")} justify-self-end`}>Αποθήκευση</Submit>
+                        </form>
+                      </Modal>
+                      {members ? null : <form action={deleteStaffRole.bind(null, r.id)}><Submit className={btn("ghost", "sm")}>Διαγραφή</Submit></form>}
+                    </>
                   ) : null}
                 </li>
               );

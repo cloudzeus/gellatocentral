@@ -31,7 +31,7 @@ export const getUser = cache(async () => {
   if (!token) return null;
   const session = await db.session.findUnique({
     where: { tokenHash: sha(token) },
-    include: { user: { include: { memberships: { include: { org: true, role: true } } } } },
+    include: { user: { include: { memberships: { include: { org: true, role: true } }, staffRole: true } } },
   });
   // απενεργοποιημένος χρήστης δεν μπαίνει, ακόμα κι αν έμεινε κάποια συνεδρία
   if (!session || session.expiresAt <= new Date() || session.user.disabledAt) return null;
@@ -52,8 +52,8 @@ export async function requireUser() {
 export async function requirePlatform(permission: PlatformPermission = "orgs.view") {
   const user = await requireUser();
   if (!user.platformRole) redirect("/");
-  if (!platformCan(user.platformRole, permission)) redirect(`/platform?error=${encodeURIComponent("Ο ρόλος σου δεν επιτρέπει αυτή την ενέργεια")}`);
-  return { ...user, platformRole: user.platformRole, can: (p: PlatformPermission) => platformCan(user.platformRole, p) };
+  if (!platformCan(user, permission)) redirect(`/platform?error=${encodeURIComponent("Ο ρόλος σου δεν επιτρέπει αυτή την ενέργεια")}`);
+  return { ...user, platformRole: user.platformRole, can: (p: PlatformPermission) => platformCan(user, p) };
 }
 
 /** Η πρώτη σελίδα που επιτρέπεται με αυτά τα δικαιώματα (για ανακατεύθυνση όταν λείπει κάποιο). */

@@ -14,7 +14,7 @@ import { validAfm } from "@/lib/afm";
 import { logAccess } from "@/lib/access-log";
 import { requirePlatform } from "@/lib/auth";
 import { permissionDiff } from "@/lib/access";
-import { canGrant, isPlatformPermission, PLATFORM_PERMISSIONS, PLATFORM_ROLES, platformPermissionsOf, type PlatformRoleKey, SYSTEM_ROLES } from "@/lib/permissions";
+import { canGrant, isPlatformPermission, PLATFORM_PERMISSIONS, PLATFORM_ROLES, platformPermissionsOf, type PlatformRoleKey, staffPermissions, staffRoleLabel, SYSTEM_ROLES } from "@/lib/permissions";
 import { savePlatformRoles, storedPlatformRoles } from "@/lib/platform-roles";
 import { hashPassword } from "@/lib/password";
 import { settleCharge } from "@/lib/billing";
@@ -404,7 +404,18 @@ export async function testConnection(group: string) {
 }
 
 // ---- Προσωπικό πλατφόρμας (Super Admin, Manager, Υπάλληλος εφαρμογής, Υπάλληλος υποστήριξης) ----
-const platformRole = z.enum(Object.keys(PLATFORM_ROLES) as [keyof typeof PLATFORM_ROLES, ...(keyof typeof PLATFORM_ROLES)[]]);
+// Η επιλογή ρόλου στη φόρμα: ένας από τους σταθερούς (π.χ. SUPPORT) ή δικός σας ρόλος ως «custom:<id>»
+const platformRole = z.string().min(1).max(80);
+const permLabel = (k: string) => PLATFORM_PERMISSIONS[k as keyof typeof PLATFORM_PERMISSIONS] ?? k;
+/** Τι γράφεται στον χρήστη για την επιλογή της φόρμας. Κανείς δεν δίνει ρόλο με δικαιώματα που δεν έχει ο ίδιος. */
+async function pickStaffRole(value: string, mine: string[]) {
+  const custom = value.startsWith("custom:") ? await db.staffRole.findUnique({ where: { id: value.slice(7) } }) : null;
+  if (!custom && !(value in PLATFORM_ROLES)) return staffFail("Άγνωστος ρόλος");
+  const data = custom ? { platformRole: "STAFF" as const, staffRoleId: custom.id } : { platformRole: value as PlatformRoleKey, staffRoleId: null };
+  const who = { platformRole: data.platformRole, staffRole: custom };
+  if (!canGrant(mine, staffPermissions(who))) return staffFail(`Δεν μπορείς να δώσεις τον ρόλο «${staffRoleLabel(who)}»: έχει δικαιώματα που δεν έχεις εσύ`);
+  return { data, label: staffRoleLabel(who) };
+}
 const staffFail = (message: string): never => redirect(`/platform/settings?error=${encodeURIComponent(message)}#staff`);
 const staffDone = (): never => {
   revalidatePath("/platform/settings");
@@ -415,28 +426,31 @@ export async function addStaff(form: FormData) {
   const admin = await requirePlatform("staff.manage");
   const d = read(z.object({ name, email, platformRole }), form, "/platform/settings");
   if (await db.user.findUnique({ where: { email: d.email } })) staffFail("Υπάρχει ήδη χρήστης με αυτό το email");
-  const user = await db.user.create({ data: d });
+  const picked = await pickStaffRole(d.platformRole, staffPermissions(admin));
+  const user = await db.user.create({ data: { name: d.name, email: d.email, ...picked.data } });
   const brand = await platformSettings();
   const url = await createResetLink(user.id, 72);
-  await sendMail({ to: user.email, template: "invitation", mail: templates.invitation(brand, { name: user.name, orgName: brand.brandName, role: PLATFORM_ROLES[d.platformRole].label, url }) });
-  await logAccess({ orgId: null, actorName: admin.name, action: "user.invited", target: `${user.name} · ${user.email}`, detail: `Ρόλος: ${PLATFORM_ROLES[d.platformRole].label}` });
+  await sendMail({ to: user.email, template: "invitation", mail: templates.invitation(brand, { name: user.name, orgName: brand.brandName, role: picked.label, url }) });
+  await logAccess({ orgId: null, actorName: admin.name, action: "user.invited", target: `${user.name} · ${user.email}`, detail: `Ρόλος: ${picked.label}` });
   staffDone();
 }
 
 export async function setStaffRole(form: FormData) {
   const admin = await requirePlatform("staff.manage");
   const d = read(z.object({ userId: id, platformRole }), form, "/platform/settings");
-  const before = await db.user.findFirst({ where: { id: d.userId, platformRole: { not: null } } });
+  const before = await db.user.findFirst({ where: { id: d.userId, platformRole: { not: null } }, include: { staffRole: true } });
+  if (before && !canGrant(staffPermissions(admin), staffPermissions(before))) staffFail(`Ο ρόλος του χρήστη «${before.name}» έχει δικαιώματα που δεν έχεις εσύ`);
+  const picked = await pickStaffRole(d.platformRole, staffPermissions(admin));
   try {
     await db.$transaction(async (tx) => {
-      await tx.user.updateMany({ where: { id: d.userId, platformRole: { not: null } }, data: { platformRole: d.platformRole } });
+      await tx.user.updateMany({ where: { id: d.userId, platformRole: { not: null } }, data: picked.data });
       if ((await tx.user.count({ where: { platformRole: "SUPER_ADMIN", disabledAt: null } })) === 0) throw new Error("LOCKOUT");
     });
   } catch (e) {
     if (e instanceof Error && e.message === "LOCKOUT") staffFail("Πρέπει να μείνει τουλάχιστον ένας Super Admin");
     throw e;
   }
-  if (before?.platformRole && before.platformRole !== d.platformRole) await logAccess({ orgId: null, actorName: admin.name, action: "user.role", target: before.name, detail: `${PLATFORM_ROLES[before.platformRole].label} → ${PLATFORM_ROLES[d.platformRole].label}` });
+  if (before && staffRoleLabel(before) !== picked.label) await logAccess({ orgId: null, actorName: admin.name, action: "user.role", target: before.name, detail: `${staffRoleLabel(before)} → ${picked.label}` });
   staffDone();
 }
 
@@ -446,7 +460,7 @@ export async function removeStaff(userId: string) {
   const gone = await db.user.findFirst({ where: { id: id.parse(userId), platformRole: { not: null } } });
   try {
     await db.$transaction(async (tx) => {
-      await tx.user.updateMany({ where: { id: id.parse(userId), platformRole: { not: null } }, data: { platformRole: null } });
+      await tx.user.updateMany({ where: { id: id.parse(userId), platformRole: { not: null } }, data: { platformRole: null, staffRoleId: null } });
       await tx.session.deleteMany({ where: { userId } });
       if ((await tx.user.count({ where: { platformRole: "SUPER_ADMIN", disabledAt: null } })) === 0) throw new Error("LOCKOUT");
     });
@@ -461,10 +475,10 @@ export async function removeStaff(userId: string) {
 /** Απενεργοποίηση μέλους προσωπικού: δεν συνδέεται, μένει στη λίστα με τον ρόλο του. */
 export async function setStaffActive(userId: string, active: boolean) {
   const admin = await requirePlatform("staff.manage");
-  const target = await db.user.findFirst({ where: { id: id.parse(userId), platformRole: { not: null } } });
+  const target = await db.user.findFirst({ where: { id: id.parse(userId), platformRole: { not: null } }, include: { staffRole: true } });
   if (!target?.platformRole) return;
   if (target.id === admin.id) staffFail("Δεν μπορείς να απενεργοποιήσεις τον εαυτό σου");
-  if (!canGrant(platformPermissionsOf(admin.platformRole), platformPermissionsOf(target.platformRole))) staffFail(`Ο ρόλος του χρήστη «${target.name}» έχει δικαιώματα που δεν έχεις εσύ`);
+  if (!canGrant(staffPermissions(admin), staffPermissions(target))) staffFail(`Ο ρόλος του χρήστη «${target.name}» έχει δικαιώματα που δεν έχεις εσύ`);
   try {
     await db.$transaction(async (tx) => {
       await tx.user.update({ where: { id: target.id }, data: { disabledAt: active ? null : new Date() } });
@@ -484,12 +498,46 @@ export async function savePlatformRole(form: FormData) {
   const admin = await requirePlatform("staff.manage");
   const role = String(form.get("role")) as PlatformRoleKey;
   if (!(role in PLATFORM_ROLES) || role === "SUPER_ADMIN") staffFail("Αυτός ο ρόλος δεν αλλάζει");
-  const mine = platformPermissionsOf(admin.platformRole);
+  const mine = staffPermissions(admin);
   const before = platformPermissionsOf(role);
   const wanted = form.get("reset") ? PLATFORM_ROLES[role].permissions : form.getAll("permissions").filter(isPlatformPermission);
   if (!canGrant(mine, before) || !canGrant(mine, wanted)) staffFail("Δεν μπορείς να δώσεις ή να αλλάξεις δικαιώματα που δεν έχεις εσύ");
   await savePlatformRoles({ ...(await storedPlatformRoles()), [role]: wanted });
-  await logAccess({ orgId: null, actorName: admin.name, action: "role.changed", target: PLATFORM_ROLES[role].label, detail: permissionDiff(before, wanted, (k) => PLATFORM_PERMISSIONS[k as keyof typeof PLATFORM_PERMISSIONS] ?? k) });
+  await logAccess({ orgId: null, actorName: admin.name, action: "role.changed", target: PLATFORM_ROLES[role].label, detail: permissionDiff(before, wanted, permLabel) });
+  staffDone();
+}
+
+/** Δικός σας ρόλος προσωπικού: νέος ή αλλαγή ονόματος και δικαιωμάτων. */
+export async function saveStaffRole(form: FormData) {
+  const admin = await requirePlatform("staff.manage");
+  const d = read(z.object({ roleId: z.string().max(60), name }), form, "/platform/settings");
+  const mine = staffPermissions(admin);
+  const wanted = form.getAll("permissions").filter(isPlatformPermission);
+  if (!canGrant(mine, wanted)) staffFail("Δεν μπορείς να δώσεις σε ρόλο δικαιώματα που δεν έχεις εσύ");
+  // σύγκριση εδώ και όχι στη βάση: το ILIKE δεν πιάνει πάντα τα ελληνικά κεφαλαία (εξαρτάται από το locale της βάσης)
+  const same = (x: string) => x.toLocaleLowerCase("el") === d.name.toLocaleLowerCase("el");
+  const taken = [...Object.values(PLATFORM_ROLES).map((r) => r.label), ...(await db.staffRole.findMany({ where: { NOT: { id: d.roleId || undefined } }, select: { name: true } })).map((r) => r.name)];
+  if (taken.some(same)) staffFail(`Υπάρχει ήδη ρόλος «${d.name}»`);
+  if (!d.roleId) {
+    await db.staffRole.create({ data: { name: d.name, permissions: wanted } });
+    await logAccess({ orgId: null, actorName: admin.name, action: "role.created", target: d.name, detail: permissionDiff([], wanted, permLabel) });
+    return staffDone();
+  }
+  const role = await db.staffRole.findUnique({ where: { id: d.roleId } });
+  if (!role) return staffFail("Άγνωστος ρόλος");
+  if (!canGrant(mine, role.permissions)) staffFail(`Ο ρόλος «${role.name}» έχει δικαιώματα που δεν έχεις εσύ`);
+  await db.staffRole.update({ where: { id: role.id }, data: { name: d.name, permissions: wanted } });
+  await logAccess({ orgId: null, actorName: admin.name, action: "role.changed", target: d.name, detail: `${role.name === d.name ? "" : `Νέο όνομα (πριν: ${role.name}) · `}${permissionDiff(role.permissions, wanted, permLabel)}` });
+  staffDone();
+}
+
+export async function deleteStaffRole(roleId: string) {
+  const admin = await requirePlatform("staff.manage");
+  const role = await db.staffRole.findUnique({ where: { id: id.parse(roleId) }, include: { _count: { select: { users: true } } } });
+  if (!role) return;
+  if (role._count.users) staffFail(`Ο ρόλος «${role.name}» έχει ${role._count.users} άτομα. Άλλαξέ τους ρόλο πρώτα`);
+  await db.staffRole.delete({ where: { id: role.id } });
+  await logAccess({ orgId: null, actorName: admin.name, action: "role.deleted", target: role.name });
   staffDone();
 }
 

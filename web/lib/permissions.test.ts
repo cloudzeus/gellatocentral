@@ -45,3 +45,13 @@ test("δικαιώματα ρόλων προσωπικού: αλλαγές απ�
   applyPlatformOverrides({});
   assert.equal(can2("SUPPORT", "support.tickets"), true);
 });
+
+import { staffPermissions, staffRoleLabel } from "./permissions.ts";
+test("δικός σας ρόλος προσωπικού υπερισχύει του σταθερού, εκτός από τον Super Admin", () => {
+  const acc = { platformRole: "STAFF" as const, staffRole: { name: "Λογιστήριο", permissions: ["orgs.view", "billing.manage", "άκυρο"] } };
+  assert.deepEqual(staffPermissions(acc), ["orgs.view", "billing.manage"]);
+  assert.equal(can2(acc, "setup.manage"), false); // δεν κληρονομεί τα δικαιώματα του STAFF
+  assert.equal(staffRoleLabel(acc), "Λογιστήριο");
+  assert.equal(can2({ platformRole: "SUPER_ADMIN", staffRole: { name: "x", permissions: [] } }, "staff.manage"), true);
+  assert.equal(can2({ platformRole: null, staffRole: { name: "x", permissions: ["orgs.view"] } }, "orgs.view"), false); // όχι προσωπικό = τίποτα
+});

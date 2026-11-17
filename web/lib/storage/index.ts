@@ -17,7 +17,7 @@ type User = NonNullable<Awaited<ReturnType<typeof getUser>>>;
 export function canAccess(user: User, orgId: string | null, category: Category) {
   if (CATEGORIES[category].platform !== (orgId === null)) return false; // αρχεία πλατφόρμας δεν ανήκουν σε πελάτη, και το αντίστροφο
   const c = CATEGORIES[category];
-  if (platformCan(user.platformRole, "staff" in c && c.staff ? c.staff : platformNeeds(orgId))) return true;
+  if (platformCan(user, "staff" in c && c.staff ? c.staff : platformNeeds(orgId))) return true;
   const m = user.memberships.find((x) => x.orgId === orgId);
   if (!m) return false;
   return c.needs === null || (m.role.locked ? ALL_PERMISSIONS : m.role.permissions).includes(c.needs);

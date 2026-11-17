@@ -5,7 +5,7 @@ import { getUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { needsLegalConsent } from "@/lib/gdpr";
 import { redirect } from "next/navigation";
-import { ALL_PERMISSIONS, permissionFor, PLATFORM_ROLES, platformCan } from "@/lib/permissions";
+import { ALL_PERMISSIONS, permissionFor, platformCan, staffRoleLabel } from "@/lib/permissions";
 import { ALL_ITEMS } from "@/lib/nav";
 import { logout } from "../login/actions";
 
@@ -24,15 +24,15 @@ async function navFor() {
   const m = user.memberships[0];
   const permissions: string[] = m ? (m.role.locked ? ALL_PERMISSIONS : m.role.permissions) : [];
   const allowed = ALL_ITEMS.map((i) => i.to).filter((to) =>
-    SUPER_ONLY.includes(to) ? platformCan(user.platformRole, "settings.manage") : to === "/platform/gdpr" ? platformCan(user.platformRole, "gdpr.manage") : to === "/platform/support" ? platformCan(user.platformRole, "support.tickets") : to === "/support" || to === "/help" ? !!m : to === "/platform/kb" ? platformCan(user.platformRole, "support.tickets") : to.startsWith("/platform") ? !!user.platformRole : permissions.includes(permissionFor(to)),
+    SUPER_ONLY.includes(to) ? platformCan(user, "settings.manage") : to === "/platform/gdpr" ? platformCan(user, "gdpr.manage") : to === "/platform/support" ? platformCan(user, "support.tickets") : to === "/support" || to === "/help" ? !!m : to === "/platform/kb" ? platformCan(user, "support.tickets") : to.startsWith("/platform") ? !!user.platformRole : permissions.includes(permissionFor(to)),
   );
   // εκκρεμότητες δίπλα στο στοιχείο του μενού που τις λύνει
   const unsent = m && allowed.includes("/receipts") ? await db.fiscalDocument.count({ where: { sale: { orgId: m.orgId, status: "COMPLETED" }, status: { not: "SIGNED" } } }) : 0;
   // αιτήματα που περιμένουν ενέργεια: του πελάτη όσα απαντήθηκαν, της υποστήριξης όσα είναι νέα
   const seesAll = permissions.includes("tickets.manage");
   const waiting = m ? await db.ticket.count({ where: { orgId: m.orgId, status: "WAITING_CUSTOMER", ...(seesAll ? {} : { openedById: user.id }) } }) : 0;
-  const fresh = platformCan(user.platformRole, "support.tickets") ? await db.ticket.count({ where: { status: "NEW" } }) : 0;
-  return { allowed, badges: { "/receipts": unsent, "/support": waiting, "/platform/support": fresh, "/platform/kb": platformCan(user.platformRole, "support.kb") ? await db.kbArticle.count({ where: { status: "REVIEW" } }) : 0 }, user: { name: user.name, subtitle: m ? `${m.role.name} · ${m.org.name}` : user.platformRole ? PLATFORM_ROLES[user.platformRole].label : "", logout } };
+  const fresh = platformCan(user, "support.tickets") ? await db.ticket.count({ where: { status: "NEW" } }) : 0;
+  return { allowed, badges: { "/receipts": unsent, "/support": waiting, "/platform/support": fresh, "/platform/kb": platformCan(user, "support.kb") ? await db.kbArticle.count({ where: { status: "REVIEW" } }) : 0 }, user: { name: user.name, subtitle: m ? `${m.role.name} · ${m.org.name}` : user.platformRole ? staffRoleLabel(user) : "", logout } };
 }
 
 async function Menus() {

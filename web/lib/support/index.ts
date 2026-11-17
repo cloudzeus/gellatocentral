@@ -9,7 +9,7 @@ import { afterMessage, type Category, priorityFor, type Status, type Urgency } f
 type User = NonNullable<Awaited<ReturnType<typeof getUser>>>;
 export class SupportError extends Error {}
 
-export const isSupport = (user: User) => platformCan(user.platformRole, "support.tickets");
+export const isSupport = (user: User) => platformCan(user, "support.tickets");
 /** Η επιχείρηση του χρήστη και αν βλέπει όλα τα αιτήματά της (αλλιώς μόνο τα δικά του). */
 export function memberScope(user: User) {
   const m = user.memberships[0];

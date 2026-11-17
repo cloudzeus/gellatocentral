@@ -5,7 +5,7 @@ import { Badge, btn, Card, Field, Page } from "@/components/ui";
 import { deviceLabel } from "@/lib/access";
 import { currentTokenHash, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { PLATFORM_ROLES } from "@/lib/permissions";
+import { staffRoleLabel } from "@/lib/permissions";
 import { changePassword, saveName, signOutOthers } from "./actions";
 
 const when = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Athens" });
@@ -20,7 +20,7 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
   const others = sessions.filter((s) => s.tokenHash !== here).length;
 
   return (
-    <Page section="Προφίλ" title="Ο λογαριασμός μου" description={`${user.email} · ${m ? `${m.role.name} · ${m.org.name}` : user.platformRole ? PLATFORM_ROLES[user.platformRole].label : ""}`}>
+    <Page section="Προφίλ" title="Ο λογαριασμός μου" description={`${user.email} · ${m ? `${m.role.name} · ${m.org.name}` : user.platformRole ? staffRoleLabel(user) : ""}`}>
       <div className="max-w-4xl space-y-4">
         {typeof q.saved === "string" && SAVED[q.saved] ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{SAVED[q.saved]}</p> : null}
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν έγινε: {q.error.slice(0, 200)}</p> : null}
