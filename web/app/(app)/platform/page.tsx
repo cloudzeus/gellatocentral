@@ -6,24 +6,30 @@ import { Modal } from "@/components/modal";
 import { Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
-import { listParams } from "@/lib/paging";
+import { filterParam, listParams } from "@/lib/paging";
 import { isBillable, monthlyCharge } from "@/lib/pricing";
 import { setupSteps } from "@/lib/setup";
 import { vivaConfigured, vivaEnv } from "@/lib/viva/cloud-terminal";
 import { checkViva, createOrganization } from "./actions";
 import { STATUS } from "./status";
+import { Submit } from "@/components/submit";
 
 export default async function PlatformPage({ searchParams }: PageProps<"/platform">) {
   const me = await requirePlatform("orgs.view");
   const q = await searchParams;
-  const list = listParams(q);
+  const list = listParams(q, 25, ["org", "until"]);
+  const status = filterParam(q, "status", ["TRIALING", "ACTIVE", "PAST_DUE", "CANCELLED"]);
+  const orderBy = list.sort === "org" ? { name: list.dir } : list.sort === "until" ? { subscription: { currentPeriodEnd: list.dir } } : { createdAt: "desc" as const };
   const include = { subscription: true, members: { select: { id: true } }, stores: { include: { warehouses: true, devices: true } } } as const;
-  const where = list.q ? { OR: [{ name: { contains: list.q, mode: "insensitive" as const } }, { vatNumber: { contains: list.q } }, { slug: { contains: list.q.toLowerCase() } }] } : {};
+  const where = {
+    ...(list.q ? { OR: [{ name: { contains: list.q, mode: "insensitive" as const } }, { vatNumber: { contains: list.q } }, { slug: { contains: list.q.toLowerCase() } }] } : {}),
+    ...(status ? { subscription: { status } } : {}),
+  };
   // Τα σύνολα της κορυφής αφορούν ΟΛΕΣ τις επιχειρήσεις· ο πίνακας μόνο τη σελίδα/αναζήτηση.
   // shortcut: τα σύνολα φορτώνουν όλες τις επιχειρήσεις· πάνω από μερικές εκατοντάδες, να γίνουν ερώτημα άθροισης.
   const [orgs, pageOrgs, total] = await Promise.all([
     db.organization.findMany({ include }),
-    db.organization.findMany({ where, orderBy: { createdAt: "desc" }, skip: list.skip, take: list.take, include }),
+    db.organization.findMany({ where, orderBy, skip: list.skip, take: list.take, include }),
     db.organization.count({ where }),
   ]);
   const summarize = (o: (typeof orgs)[number]) => {
@@ -53,7 +59,7 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
             <Field label="Όνομα πρώτου καταστήματος" name="storeName" required minLength={2} maxLength={60} placeholder="π.χ. Κατάστημα Πειραιά" />
             <Field label="Διεύθυνση καταστήματος" name="storeAddress" maxLength={120} hint="Τυπώνεται στην απόδειξη" />
             <Field label="Ημέρες δοκιμής" name="trialDays" type="number" min={0} max={90} defaultValue={14} required />
-            <button className={btn("default")}>Δημιουργία</button>
+            <Submit className={btn("default")}>Δημιουργία</Submit>
           </form>
         </Modal>
       }>
@@ -80,18 +86,18 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
           {q.viva === "ok" ? <p className="mt-1 text-sm font-semibold text-success">Η Viva δέχτηκε τα κλειδιά</p> : null}
           {q.viva === "fail" ? <p className="mt-1 text-sm font-semibold text-destructive">Η δοκιμή απέτυχε: {String(q.error ?? "")}</p> : null}
         </div>
-        <form action={checkViva}><button className={btn("outline")}>Δοκιμή σύνδεσης</button></form>
+        <form action={checkViva}><Submit className={btn("outline")}>Δοκιμή σύνδεσης</Submit></form>
       </Card>
 
       <Card className="mt-4">
         <DataTable
           id="subscribers"
-          listing={{ ...list, total, placeholder: "Επωνυμία, ΑΦΜ ή υποτομέας" }}
+          listing={{ ...list, total, placeholder: "Επωνυμία, ΑΦΜ ή υποτομέας", filters: [{ key: "status", label: "Συνδρομή", value: status, options: Object.entries(STATUS).map(([k, v]): [string, string] => [k, v.text]) }] }}
           empty="Καμία επιχείρηση ακόμα. Πάτησε «Νέα επιχείρηση»."
           columns={[
-            { key: "org", label: "Επιχείρηση", required: true },
+            { key: "org", label: "Επιχείρηση", required: true, sortable: true },
             { key: "status", label: "Συνδρομή" },
-            { key: "until", label: "Λήξη" },
+            { key: "until", label: "Λήξη", sortable: true },
             { key: "stores", label: "Καταστήματα", numeric: true },
             { key: "devices", label: "Ταμεία", numeric: true },
             { key: "monthly", label: "Ανά μήνα", numeric: true },

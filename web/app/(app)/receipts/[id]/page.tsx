@@ -1,9 +1,17 @@
+import { ProcessFlow } from "@/components/process-flow";
 import { notFound } from "next/navigation";
 import { Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { dateTime, FiscalBadge, METHOD } from "@/lib/labels";
 import { euro } from "@/lib/money";
 import { currentOrg } from "@/lib/auth";
+
+const FISCAL_STEP = {
+  SIGNED: { state: "done", detail: "Διαβιβάστηκε" },
+  PENDING: { state: "current", detail: "Περιμένουμε τη Viva" },
+  NOT_SENT: { state: "todo", detail: "Δοκιμαστική: δεν στάλθηκε" },
+  FAILED: { state: "failed", detail: "Απέτυχε: θέλει ενέργεια" },
+} as const;
 
 // Απόδειξη σε πλάτος θερμικού 80mm. Ctrl/Cmd+P την τυπώνει όπως φαίνεται (το κέλυφος κρύβεται στην εκτύπωση).
 export default async function ReceiptPage({ params }: PageProps<"/receipts/[id]">) {
@@ -18,6 +26,13 @@ export default async function ReceiptPage({ params }: PageProps<"/receipts/[id]"
 
   return (
     <Page section="Αποδείξεις" title={`Απόδειξη ${sale.series}-${sale.aa}`} description="Για εκτύπωση: Ctrl/Cmd + P">
+      <div className="mx-auto mb-4 max-w-3xl rounded-xl border border-border bg-card p-4 print:hidden">
+        <ProcessFlow label="Πορεία απόδειξης" steps={[
+          { id: "sale", label: "Πώληση", state: "done", detail: sale.issuedAt ? dateTime.format(sale.issuedAt) : undefined },
+          { id: "pay", label: "Πληρωμή", state: sale.payment ? "done" : "todo", detail: sale.payment ? `${METHOD[sale.payment.method]} · ${euro(sale.totalCents)}` : undefined },
+          { id: "aade", label: "Διαβίβαση ΑΑΔΕ", ...FISCAL_STEP[sale.fiscal?.status ?? "NOT_SENT"] },
+        ]} />
+      </div>
       <article className="mx-auto w-[80mm] max-w-full rounded-lg bg-white p-4 font-mono text-sm leading-relaxed text-black shadow-[var(--shadow-card)] print:shadow-none">
         <header className="text-center">
           <p className="text-lg font-semibold">{org.name}</p>

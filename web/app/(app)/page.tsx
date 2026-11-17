@@ -1,6 +1,8 @@
 import { ArrowDown, ArrowRight, ArrowUp, Banknote, BarChart3, CircleCheck, CreditCard, Plus, ReceiptText, Store, TabletSmartphone, ThermometerSnowflake, Users } from "lucide-react";
 import Link from "next/link";
+import { RankChart, ShareChart, type TrendPoint, TrendChart } from "@/components/charts";
 import { Badge, btn, Card, cn, Page } from "@/components/ui";
+import { WidgetBoard } from "@/components/widget-board";
 import { currentOrg } from "@/lib/auth";
 import { compare } from "@/lib/dashboard";
 import { db } from "@/lib/db";
@@ -9,7 +11,13 @@ import { METHOD } from "@/lib/labels";
 import { euro } from "@/lib/money";
 
 type Hour = { h: number; total: number };
-type Meta = { now_hour: number; y_same: number; y_total: number; y_count: number };
+type Meta = { now_hour: number; today: string; y_same: number; y_total: number; y_count: number };
+type Day = { d: string; total: number };
+const PERIODS = { today: "Σήμερα", "7": "7 ημέρες", "30": "30 ημέρες" } as const;
+const PERIOD_ORDER = ["today", "7", "30"] as const; // τα αριθμητικά κλειδιά ενός αντικειμένου βγαίνουν πρώτα
+const shortDay = new Intl.DateTimeFormat("el-GR", { day: "numeric", month: "numeric", timeZone: "UTC" });
+/** Ημερομηνία `iso` (YYYY-MM-DD) μετατοπισμένη κατά `by` ημέρες. */
+const shift = (iso: string, by: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + by * 864e5).toISOString().slice(0, 10);
 type Top = { name: string; qty: number; total: number };
 
 const daysUntil = (d: Date) => Math.ceil((d.getTime() - Date.now()) / 864e5);
@@ -20,44 +28,6 @@ const LOCAL = `("issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')`;
 const NOW = `(now() AT TIME ZONE 'Europe/Athens')`;
 const SCOPE = `"orgId" = $1 AND ($2::text IS NULL OR "storeId" = $2) AND status = 'COMPLETED'`;
 
-/** Στήλες = σήμερα, διακεκομμένη = χθες. Μία έμφαση: η καλύτερη ώρα. Η ώρα που τρέχει είναι πιο αχνή (δεν έκλεισε). */
-function HourChart({ today, yesterday, nowHour, width, height, font, className }: { today: Hour[]; yesterday: Hour[]; nowHour: number; width: number; height: number; font: number; className: string }) {
-  const all = [...today, ...yesterday];
-  const from = Math.min(...all.map((x) => x.h)), to = Math.max(...all.map((x) => x.h), nowHour);
-  const hours = Array.from({ length: to - from + 1 }, (_, i) => from + i);
-  const top = Math.max(...all.map((x) => x.total));
-  const step = [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000].find((s) => top / s <= 4) ?? 1000000;
-  const max = Math.ceil(top / step) * step;
-  const pad = { l: font * 4.2, r: 8, t: font * 1.8, b: font * 2.4 };
-  const bw = (width - pad.l - pad.r) / hours.length;
-  const y = (v: number) => pad.t + (height - pad.t - pad.b) * (1 - v / max);
-  const x = (h: number) => pad.l + (h - from) * bw;
-  const peak = Math.max(0, ...today.map((t) => t.total));
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className={cn("h-auto w-full", className)} style={{ fontSize: font }} role="img"
-      aria-label={`Πωλήσεις ανά ώρα, σήμερα και χθες.${peak ? ` Καλύτερη ώρα σήμερα ${today.find((t) => t.total === peak)?.h}:00 με ${euro(peak)}.` : ""}`}>
-      {Array.from({ length: max / step + 1 }, (_, i) => i * step).map((g) => (
-        <g key={g}>
-          <line x1={pad.l} x2={width - pad.r} y1={y(g)} y2={y(g)} className="stroke-border" />
-          <text x={pad.l - 6} y={y(g) + font * 0.35} textAnchor="end" className="fill-muted-foreground tabular-nums">{g / 100} €</text>
-        </g>
-      ))}
-      {hours.map((h) => <text key={h} x={x(h) + bw / 2} y={height - font * 0.6} textAnchor="middle" className="fill-muted-foreground tabular-nums">{h}</text>)}
-      {today.map((t) => (
-        <g key={t.h}>
-          <rect x={x(t.h) + bw * 0.22} y={y(t.total)} width={bw * 0.56} height={Math.max(1, y(0) - y(t.total))} rx={2} className={t.total === peak ? "fill-gold" : t.h === nowHour ? "fill-chart-1/40" : "fill-chart-1/80"}>
-            <title>{`${t.h}:00 · ${euro(t.total)}`}</title>
-          </rect>
-          {t.total === peak ? <text x={x(t.h) + bw / 2} y={y(t.total) - font * 0.5} textAnchor="middle" className="fill-gold-ink font-semibold tabular-nums">{euro(t.total)}</text> : null}
-        </g>
-      ))}
-      {yesterday.length > 1 ? <polyline fill="none" strokeWidth={1.5} strokeDasharray="3 4" className="stroke-muted-foreground" points={yesterday.map((d) => `${x(d.h) + bw / 2},${y(d.total)}`).join(" ")} /> : null}
-      {yesterday.map((d) => <circle key={d.h} cx={x(d.h) + bw / 2} cy={y(d.total)} r={2.5} strokeWidth={1.25} className="fill-card stroke-muted-foreground"><title>{`Χθες ${d.h}:00 · ${euro(d.total)}`}</title></circle>)}
-    </svg>
-  );
-}
-
-const Swatch = ({ className }: { className: string }) => <i aria-hidden className={cn("mr-1.5 inline-block size-2.5 rounded-xs align-[-1px]", className)} />;
 const Head = ({ title, note, href, all }: { title: string; note?: string | number; href?: string; all?: string }) => (
   <div className="flex items-baseline gap-3 px-5 pt-4 pb-3">
     <h2 className="text-base">{title}</h2>
@@ -71,18 +41,21 @@ const DOT = { danger: "bg-destructive", warning: "bg-gold" };
 export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const { org, permissions } = await currentOrg("dashboard.view");
   const stores = await db.store.findMany({ where: { orgId: org.id, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } });
-  const wanted = (await searchParams).store;
+  const sp = await searchParams;
+  const wanted = sp.store;
+  const period = (typeof sp.period === "string" && sp.period in PERIODS ? sp.period : "today") as keyof typeof PERIODS;
+  const span = period === "today" ? 0 : Number(period);
   const store = stores.find((s) => s.id === wanted) ?? null;
   const args = [org.id, store?.id ?? null] as const;
   const inStore = store ? { storeId: store.id } : {};
 
   const byHour = (dayOffset: number) =>
     db.$queryRawUnsafe<Hour[]>(`SELECT extract(hour FROM ${LOCAL})::int AS h, sum("totalCents")::int AS total FROM "Sale" WHERE ${SCOPE} AND ${LOCAL}::date = ${NOW}::date - ${dayOffset} GROUP BY 1 ORDER BY 1`, ...args);
-  const [hours, yHours, [meta], paid, top, last, unsent, devices, subscription] = await Promise.all([
+  const [hours, yHours, [meta], paid, top, last, unsent, devices, subscription, days, categories] = await Promise.all([
     byHour(0),
     byHour(1),
     db.$queryRawUnsafe<Meta[]>(
-      `SELECT extract(hour FROM ${NOW})::int AS now_hour,
+      `SELECT extract(hour FROM ${NOW})::int AS now_hour, ${NOW}::date::text AS today,
         coalesce(sum("totalCents") FILTER (WHERE ${LOCAL} <= ${NOW} - interval '1 day'), 0)::int AS y_same,
         coalesce(sum("totalCents"), 0)::int AS y_total, count(*)::int AS y_count
        FROM "Sale" WHERE ${SCOPE} AND ${LOCAL}::date = ${NOW}::date - 1`, ...args),
@@ -97,6 +70,14 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     db.fiscalDocument.count({ where: { sale: { orgId: org.id, status: "COMPLETED", ...inStore }, status: { not: "SIGNED" } } }),
     db.device.findMany({ where: { store: { orgId: org.id }, active: true, ...inStore }, orderBy: { createdAt: "asc" }, include: { store: true, readings: { orderBy: { at: "desc" }, take: 1 } } }),
     db.subscription.findUnique({ where: { orgId: org.id } }),
+    // ημερήσια σύνολα: η περίοδος που ζητήθηκε και η αμέσως προηγούμενη ίδιου μήκους
+    span
+      ? db.$queryRawUnsafe<Day[]>(`SELECT ${LOCAL}::date::text AS d, sum("totalCents")::int AS total FROM "Sale" WHERE ${SCOPE} AND ${LOCAL}::date > ${NOW}::date - ${span * 2} GROUP BY 1`, ...args)
+      : Promise.resolve([] as Day[]),
+    db.$queryRawUnsafe<{ id: string; name: string; total: number }[]>(
+      `SELECT c.id, c.name, sum(l.quantity * l."unitPriceCents")::int AS total FROM "SaleLine" l JOIN "Sale" s ON s.id = l."saleId" JOIN "Product" p ON p.id = l."productId" JOIN "Category" c ON c.id = p."categoryId"
+       WHERE s."orgId" = $1 AND ($2::text IS NULL OR s."storeId" = $2) AND s.status = 'COMPLETED' AND (s."issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')::date = ${NOW}::date
+       GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 6`, ...args),
   ]);
   const sum = (m: "CASH" | "CARD") => paid.find((p) => p.method === m)?.total ?? 0;
 
@@ -106,6 +87,24 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const avg = count ? Math.round(total / count) : 0;
   const yAvg = meta.y_count ? Math.round(meta.y_total / meta.y_count) : 0;
   const best = hours.length ? hours.reduce((a, b) => (b.total > a.total ? b : a)) : null;
+
+  // Σημεία του γραφήματος: ανά ώρα (σήμερα απέναντι σε χθες) ή ανά ημέρα (περίοδος απέναντι στην προηγούμενη)
+  let trend: TrendPoint[];
+  if (span) {
+    const byDay = new Map(days.map((d) => [d.d, d.total]));
+    const dates = Array.from({ length: span }, (_, i) => shift(meta.today, i - span + 1));
+    const peak = Math.max(0, ...dates.map((d) => byDay.get(d) ?? 0));
+    trend = dates.map((d) => ({ label: shortDay.format(new Date(`${d}T00:00:00Z`)), current: byDay.get(d) ?? 0, previous: byDay.get(shift(d, -span)) ?? 0, highlight: peak > 0 && byDay.get(d) === peak, faded: d === meta.today }));
+  } else {
+    const all = [...hours, ...yHours];
+    const from = Math.min(meta.now_hour, ...all.map((x) => x.h)), to = Math.max(meta.now_hour, ...all.map((x) => x.h));
+    trend = Array.from({ length: to - from + 1 }, (_, i) => from + i).map((h) => {
+      const t = hours.find((x) => x.h === h)?.total;
+      return { label: String(h), current: t ?? (h <= meta.now_hour ? 0 : null), previous: yHours.find((x) => x.h === h)?.total ?? 0, highlight: !!best && h === best.h, faded: h === meta.now_hour };
+    });
+  }
+  const periodTotal = trend.reduce((x, p) => x + (p.current ?? 0), 0), prevTotal = trend.reduce((x, p) => x + (p.previous ?? 0), 0);
+  const link = (change: Record<string, string | undefined>) => `/?${new URLSearchParams(Object.entries({ store: store?.id, period: period === "today" ? undefined : period, ...change }).filter((e): e is [string, string] => !!e[1]))}`;
 
   // Ό,τι χρειάζεται ενέργεια σήμερα, με το πού πατάς για να το λύσεις
   const status = devices.map((d) => ({ d, st: DEVICE_KIND[d.kind].measures ? readingStatus(d, d.readings[0]) : null }));
@@ -135,8 +134,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
         <>
           {stores.length > 1 ? (
             <nav aria-label="Κατάστημα" className="scrollbar-hide flex max-w-full overflow-x-auto rounded-lg border border-border bg-card p-0.5 max-md:order-last max-md:w-full">
-              <Link href="/" className={seg(!store)} aria-current={!store ? "true" : undefined}>Όλα τα καταστήματα</Link>
-              {stores.map((s) => <Link key={s.id} href={`/?store=${s.id}`} className={seg(s.id === store?.id)} aria-current={s.id === store?.id ? "true" : undefined}>{s.name}</Link>)}
+              <Link href={link({ store: undefined })} className={seg(!store)} aria-current={!store ? "true" : undefined}>Όλα τα καταστήματα</Link>
+              {stores.map((s) => <Link key={s.id} href={link({ store: s.id })} className={seg(s.id === store?.id)} aria-current={s.id === store?.id ? "true" : undefined}>{s.name}</Link>)}
             </nav>
           ) : null}
           {permissions.includes("pos.use") ? <Link href="/pos" className={btn("default")}><Store /> Άνοιγμα ταμείου</Link> : null}
@@ -165,28 +164,30 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
           ))}
         </section>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]">
-          <Card>
-            <Head title="Πωλήσεις ανά ώρα" note={best ? `Καλύτερη ώρα ${best.h}:00` : undefined} />
-            {hours.length + yHours.length === 0 ? (
-              <p className="px-5 py-12 text-center text-muted-foreground">Το γράφημα γεμίζει με την πρώτη απόδειξη της ημέρας</p>
-            ) : (
-              <>
-                <div className="px-5 pb-3">
-                  <HourChart today={hours} yesterday={yHours} nowHour={meta.now_hour} width={760} height={330} font={11} className="max-md:hidden" />
-                  <HourChart today={hours} yesterday={yHours} nowHour={meta.now_hour} width={360} height={220} font={11.5} className="md:hidden" />
-                </div>
-                <p className="flex flex-wrap gap-x-4 gap-y-1 px-5 pb-4 text-xs text-muted-foreground">
-                  <span><Swatch className="bg-chart-1/80" />Σήμερα</span>
-                  <span><Swatch className="bg-gold" />Καλύτερη ώρα</span>
-                  <span><Swatch className="bg-chart-1/40" />Η ώρα που τρέχει</span>
-                  <span><i aria-hidden className="mr-1.5 inline-block w-4 border-t-2 border-dashed border-muted-foreground align-middle" />Χθες</span>
-                </p>
-              </>
-            )}
-          </Card>
-
-          <Card>
+        <WidgetBoard
+          id="dashboard"
+          className="space-y-4"
+          areas={[
+            { id: "main", label: "Κύρια περιοχή", className: "grid gap-4 lg:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]" },
+            { id: "bottom", label: "Κάτω περιοχή", className: "grid gap-4 md:grid-cols-2 xl:grid-cols-3" },
+          ]}
+          initial={{ main: ["sales", "attention"], bottom: ["top", "receipts", "devices", "payments", "categories", "shortcuts"] }}
+          widgets={[
+            {
+              id: "sales", title: "Πωλήσεις",
+              node: (
+                <Card>
+                  <Head title={span ? `Πωλήσεις ανά ημέρα` : "Πωλήσεις ανά ώρα"} note={span ? `${euro(periodTotal)} · προηγούμενες ${span} ημέρες ${euro(prevTotal)}` : best ? `Καλύτερη ώρα ${best.h}:00` : undefined} />
+                  <TrendChart id="sales" data={trend} currentLabel={span ? `Τελευταίες ${span} ημέρες` : "Σήμερα"} previousLabel={span ? `Προηγούμενες ${span}` : "Χθες"}
+                    summary={span ? `Πωλήσεις ανά ημέρα: ${euro(periodTotal)} τις τελευταίες ${span} ημέρες, ${euro(prevTotal)} τις προηγούμενες` : `Πωλήσεις ανά ώρα, σήμερα και χθες.${best ? ` Καλύτερη ώρα ${best.h}:00 με ${euro(best.total)}.` : ""}`}>
+                    <nav aria-label="Περίοδος" className="flex rounded-lg border border-border bg-card p-0.5">
+                      {PERIOD_ORDER.map((k) => <Link key={k} href={link({ period: k === "today" ? undefined : k })} scroll={false} aria-current={k === period ? "true" : undefined} className={cn("rounded-md px-2.5 py-1 text-xs font-medium pointer-coarse:py-2", k === period ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{PERIODS[k]}</Link>)}
+                    </nav>
+                  </TrendChart>
+                </Card>
+              ),
+            },
+            { id: "attention", title: "Θέλουν προσοχή", node: <Card>
             <Head title="Θέλουν προσοχή" note={issues.length || undefined} />
             {issues.length === 0 ? (
               <p className={cn(ROW, "text-muted-foreground")}><CircleCheck className="size-4 text-success" /> Όλα εντάξει: αποδείξεις, συσκευές και συνδρομή</p>
@@ -203,8 +204,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
                 ))}
               </ul>
             )}
-            {shortcuts.length ? (
-              <>
+          </Card> },
+            {
+              id: "shortcuts", title: "Γρήγορες ενέργειες",
+              node: (
+                <Card>
                 <Head title="Γρήγορες ενέργειες" />
                 <div className="grid grid-cols-2 gap-2 px-5 pb-5">
                   {shortcuts.map(({ href, label, icon: Icon }) => (
@@ -213,13 +217,28 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
                     </Link>
                   ))}
                 </div>
-              </>
-            ) : null}
-          </Card>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card>
+                </Card>
+              ),
+            },
+            {
+              id: "payments", title: "Τρόποι πληρωμής",
+              node: (
+                <Card>
+                  <Head title="Τρόποι πληρωμής" note="σήμερα" />
+                  {total ? <ShareChart totalLabel="σύνολο" summary={`Μετρητά ${euro(sum("CASH"))}, κάρτες ${euro(sum("CARD"))}`} data={[{ key: "CARD", label: "Κάρτα", value: sum("CARD") }, { key: "CASH", label: "Μετρητά", value: sum("CASH") }]} /> : <p className={cn(ROW, "text-muted-foreground")}>Καμία πληρωμή ακόμα σήμερα</p>}
+                </Card>
+              ),
+            },
+            {
+              id: "categories", title: "Πωλήσεις ανά κατηγορία",
+              node: (
+                <Card>
+                  <Head title="Πωλήσεις ανά κατηγορία" note="σήμερα" />
+                  {categories.length ? <RankChart summary={`Πρώτη κατηγορία: ${categories[0].name} με ${euro(categories[0].total)}`} data={categories.map((c) => ({ key: c.id, label: c.name, value: c.total }))} /> : <p className={cn(ROW, "text-muted-foreground")}>Καμία πώληση ακόμα σήμερα</p>}
+                </Card>
+              ),
+            },
+            { id: "top", title: "Τι πουλάει σήμερα", node: <Card>
             <Head title="Τι πουλάει σήμερα" />
             {top.length === 0 ? <p className={cn(ROW, "text-muted-foreground")}>Καμία πώληση ακόμα σήμερα</p> : null}
             <ul>
@@ -231,9 +250,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
                 </li>
               ))}
             </ul>
-          </Card>
-
-          <Card>
+          </Card> },
+            { id: "receipts", title: "Τελευταίες αποδείξεις", node: <Card>
             <Head title="Τελευταίες αποδείξεις" href={permissions.includes("receipts.view") ? "/receipts" : undefined} all="Όλες" />
             {last.length === 0 ? <p className={cn(ROW, "text-muted-foreground")}>Καμία απόδειξη ακόμα</p> : null}
             <ul>
@@ -249,9 +267,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
                 </li>
               ))}
             </ul>
-          </Card>
-
-          <Card>
+          </Card> },
+            { id: "devices", title: "Συσκευές", node: <Card>
             <Head title="Συσκευές" href={permissions.includes("devices.manage") ? "/devices" : undefined} all="Όλες" />
             {status.length === 0 ? <p className={cn(ROW, "text-muted-foreground")}>Καμία συσκευή ακόμα</p> : null}
             <ul>
@@ -266,8 +283,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
                 );
               })}
             </ul>
-          </Card>
-        </div>
+          </Card> },
+          ]}
+        />
       </div>
     </Page>
   );

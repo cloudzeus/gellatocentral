@@ -4,6 +4,7 @@ import { requirePlatform } from "@/lib/auth";
 import { platformSettings } from "@/lib/mail/send";
 import { BACKUP_CHECK_DAYS, daysSince, DR_SCENARIOS, RESTORE_DRILL_DAYS } from "@/lib/ops";
 import { recordContinuityCheck } from "../actions";
+import { Submit } from "@/components/submit";
 
 export default async function ContinuityPage({ searchParams }: PageProps<"/platform/continuity">) {
   await requirePlatform("settings.manage");
@@ -31,7 +32,7 @@ export default async function ContinuityPage({ searchParams }: PageProps<"/platf
                 </div>
                 <p className="text-sm text-muted-foreground">{c.how}</p>
                 <p className={`text-sm font-semibold ${late ? "text-destructive" : "text-muted-foreground"}`}>{late ? `Χρειάζεται τώρα: πρέπει να γίνεται κάθε ${c.every} ημέρες.` : `Επόμενος σε ${c.every - days!} ημέρες.`}</p>
-                <form action={recordContinuityCheck.bind(null, c.key)} className="mt-auto"><button className={btn(late ? "default" : "outline")}>{c.action}</button></form>
+                <form action={recordContinuityCheck.bind(null, c.key)} className="mt-auto"><Submit className={btn(late ? "default" : "outline")}>{c.action}</Submit></form>
               </Card>
             );
           })}

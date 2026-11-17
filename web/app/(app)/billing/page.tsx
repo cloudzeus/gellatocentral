@@ -7,6 +7,7 @@ import { euro } from "@/lib/money";
 import { BILLABLE_KINDS, monthlyCharge, PRICE_PER_DEVICE, PRICE_PER_STORE } from "@/lib/pricing";
 import { VAT_RATE, withVat } from "@/lib/viva/checkout";
 import { payCharge } from "./actions";
+import { Submit } from "@/components/submit";
 
 const day = (d: Date) => d.toLocaleDateString("el-GR");
 
@@ -36,7 +37,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
               <h2 className="text-lg">Προς πληρωμή: {euro(withVat(x.amountCents))}</h2>
               <p className="text-sm text-muted-foreground">Περίοδος {day(x.periodStart)} – {day(x.periodEnd)} · {euro(x.amountCents)} + ΦΠΑ {VAT_RATE}% · πληρωτέο μέχρι {day(x.periodStart)}</p>
             </div>
-            <form action={payCharge.bind(null, x.id)}><button className={btn("default", "lg")}><CreditCard /> Πληρωμή με κάρτα</button></form>
+            <form action={payCharge.bind(null, x.id)}><Submit className={btn("default", "lg")}><CreditCard /> Πληρωμή με κάρτα</Submit></form>
           </Card>
         ))}
 

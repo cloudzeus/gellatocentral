@@ -6,10 +6,11 @@ import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
 import { db } from "@/lib/db";
 import { mailConfigured, mailDomain, platformSettings } from "@/lib/mail/send";
 import { samples, TEMPLATE_LABEL } from "@/lib/mail/templates";
-import { listParams } from "@/lib/paging";
+import { filterParam, listParams } from "@/lib/paging";
 import { PLATFORM_PERMISSIONS, PLATFORM_ROLES } from "@/lib/permissions";
 import { checkoutConfigured } from "@/lib/viva/checkout";
 import { addStaff, removeStaff, savePlatformSettings, sendTestMail, setStaffRole } from "../actions";
+import { Submit } from "@/components/submit";
 
 const TEST: Record<string, { ok: boolean; text: string }> = {
   SENT: { ok: true, text: "Το δοκιμαστικό email στάλθηκε. Κοίταξε τα εισερχόμενά σου." },
@@ -21,13 +22,17 @@ const STATUS = { SENT: { tone: "success", text: "Στάλθηκε" }, FAILED: { 
 export default async function PlatformSettingsPage({ searchParams }: PageProps<"/platform/settings">) {
   const admin = await requirePlatform("settings.manage");
   const q = await searchParams;
-  const list = listParams(q, 15);
-  const where = list.q ? { OR: [{ to: { contains: list.q, mode: "insensitive" as const } }, { subject: { contains: list.q, mode: "insensitive" as const } }] } : {};
+  const list = listParams(q, 15, ["to", "when"]);
+  const status = filterParam(q, "status", ["SENT", "FAILED", "SKIPPED"]);
+  const where = {
+    ...(list.q ? { OR: [{ to: { contains: list.q, mode: "insensitive" as const } }, { subject: { contains: list.q, mode: "insensitive" as const } }] } : {}),
+    ...(status ? { status } : {}),
+  };
   const roleOptions = Object.entries(PLATFORM_ROLES).map(([k, r]): [string, string] => [k, r.label]);
   const [staff, settings, log, total] = await Promise.all([
     db.user.findMany({ where: { platformRole: { not: null } }, orderBy: { name: "asc" } }),
     platformSettings(),
-    db.emailLog.findMany({ where, orderBy: { createdAt: "desc" }, skip: list.skip, take: list.take, include: { org: true } }),
+    db.emailLog.findMany({ where, orderBy: list.sort === "to" ? { to: list.dir } : { createdAt: list.sort === "when" ? list.dir : "desc" }, skip: list.skip, take: list.take, include: { org: true } }),
     db.emailLog.count({ where }),
   ]);
   const ready = mailConfigured();
@@ -50,7 +55,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
             </p>
             {test ? <p role="status" className={`mt-1 text-sm font-semibold ${test.ok ? "text-success" : "text-destructive"}`}>{test.text}</p> : null}
           </div>
-          <form action={sendTestMail}><button className={btn("outline")}>Δοκιμαστικό email σε {admin.email}</button></form>
+          <form action={sendTestMail}><Submit className={btn("outline")}>Δοκιμαστικό email σε {admin.email}</Submit></form>
         </Card>
 
         <Card className="flex flex-wrap items-center gap-4 p-5">
@@ -73,7 +78,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
                 <Field label="Όνομα πλατφόρμας" name="brandName" required minLength={2} maxLength={60} defaultValue={settings.brandName} hint="Στην κεφαλίδα κάθε email και στον αποστολέα" />
                 <Field label="Βασικός τομέας" name="baseDomain" maxLength={80} defaultValue={settings.baseDomain ?? ""} placeholder="gelatosystem.app" hint="Κάθε πελάτης παίρνει υποτομέας.αυτό" />
                 <Field label="Email υποστήριξης" name="supportEmail" type="email" maxLength={120} defaultValue={settings.supportEmail ?? ""} hint="Στο κάτω μέρος κάθε email" />
-                <button className={btn("default")}>Αποθήκευση</button>
+                <Submit className={btn("default")}>Αποθήκευση</Submit>
               </form>
             </Modal>
           </div>
@@ -96,7 +101,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
                   <Field label="Ονοματεπώνυμο" name="name" required minLength={2} maxLength={60} />
                   <Field label="Email" name="email" type="email" required autoComplete="off" />
                   <Select label="Ρόλος" name="platformRole" defaultValue="SUPPORT" options={roleOptions} />
-                  <button className={btn("default")}>Αποστολή πρόσκλησης</button>
+                  <Submit className={btn("default")}>Αποστολή πρόσκλησης</Submit>
                 </form>
               </Modal>
             ) : null}
@@ -115,10 +120,10 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
                       <form key={u.platformRole} action={setStaffRole} className="grid gap-4 [&>button]:justify-self-end">
                         <input type="hidden" name="userId" value={u.id} />
                         <Select label="Ρόλος" name="platformRole" defaultValue={u.platformRole!} options={roleOptions} />
-                        <button className={btn("default")}>Αποθήκευση</button>
+                        <Submit className={btn("default")}>Αποθήκευση</Submit>
                       </form>
                     </Modal>
-                    <form action={removeStaff.bind(null, u.id)}><button className={btn("ghost", "sm")}>Αφαίρεση</button></form>
+                    <form action={removeStaff.bind(null, u.id)}><Submit className={btn("ghost", "sm")}>Αφαίρεση</Submit></form>
                   </>
                 ) : null}
               </li>
@@ -152,11 +157,11 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
           <div className="border-b border-border/70 px-5 py-4"><h2 className="text-lg">Τελευταία email</h2></div>
           <DataTable
             id="email-log"
-            listing={{ ...list, total, placeholder: "Παραλήπτης ή θέμα" }}
+            listing={{ ...list, total, placeholder: "Παραλήπτης ή θέμα", filters: [{ key: "status", label: "Κατάσταση", value: status, options: Object.entries(STATUS).map(([k, v]): [string, string] => [k, v.text]) }] }}
             empty="Δεν έχει σταλεί κανένα email ακόμα"
             columns={[
-              { key: "to", label: "Προς", required: true },
-              { key: "when", label: "Πότε" },
+              { key: "to", label: "Προς", required: true, sortable: true },
+              { key: "when", label: "Πότε", sortable: true },
               { key: "template", label: "Email" },
               { key: "subject", label: "Θέμα" },
               { key: "org", label: "Πελάτης" },

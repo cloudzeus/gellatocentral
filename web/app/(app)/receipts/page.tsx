@@ -6,17 +6,26 @@ import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { dateTime, FiscalBadge, METHOD } from "@/lib/labels";
 import { euro } from "@/lib/money";
-import { listParams } from "@/lib/paging";
+import { filterParam, listParams } from "@/lib/paging";
 
 export default async function ReceiptsPage({ searchParams }: PageProps<"/receipts">) {
   const { org } = await currentOrg("receipts.view");
-  const list = listParams(await searchParams);
+  const sp = await searchParams;
+  const list = listParams(sp, 25, ["no", "date", "total"]);
+  const devices = await db.device.findMany({ where: { store: { orgId: org.id }, series: { not: null } }, orderBy: { name: "asc" }, select: { id: true, name: true } });
+  const method = filterParam(sp, "method", ["CASH", "CARD"]);
+  const fiscal = filterParam(sp, "fiscal", ["SIGNED", "NOT_SENT", "PENDING", "FAILED"]);
+  const device = filterParam(sp, "device", devices.map((d) => d.id));
+  const orderBy = list.sort === "total" ? [{ totalCents: list.dir }] : list.sort === "no" ? [{ series: list.dir }, { aa: list.dir }] : [{ issuedAt: list.sort === "date" ? list.dir : ("desc" as const) }];
   // αναζήτηση: «A1-12», σκέτη σειρά «A1», αριθμός απόδειξης «12» ή όνομα ταμείου
   const [series, aa] = list.q.toUpperCase().split("-");
   const number = Number(aa ?? list.q);
   const where = {
     orgId: org.id,
     status: "COMPLETED" as const,
+    ...(method ? { payment: { method } } : {}),
+    ...(fiscal ? { fiscal: { status: fiscal } } : {}),
+    ...(device ? { deviceId: device } : {}),
     ...(list.q
       ? aa !== undefined
         ? { series, ...(Number.isInteger(number) ? { aa: number } : {}) }
@@ -24,7 +33,7 @@ export default async function ReceiptsPage({ searchParams }: PageProps<"/receipt
       : {}),
   };
   const [sales, total] = await Promise.all([
-    db.sale.findMany({ where, orderBy: { issuedAt: "desc" }, skip: list.skip, take: list.take, include: { payment: true, fiscal: true, device: true } }),
+    db.sale.findMany({ where, orderBy, skip: list.skip, take: list.take, include: { payment: true, fiscal: true, device: true } }),
     db.sale.count({ where }),
   ]);
   return (
@@ -32,15 +41,22 @@ export default async function ReceiptsPage({ searchParams }: PageProps<"/receipt
       <Card>
         <DataTable
           id="receipts"
-          listing={{ ...list, total, placeholder: "Απόδειξη (π.χ. A1-12) ή ταμείο" }}
+          listing={{
+            ...list, total, placeholder: "Απόδειξη (π.χ. A1-12) ή ταμείο",
+            filters: [
+              { key: "method", label: "Πληρωμή", value: method, options: [["CASH", "Μετρητά"], ["CARD", "Κάρτα"]] },
+              { key: "fiscal", label: "ΑΑΔΕ", value: fiscal, options: [["SIGNED", "Διαβιβάστηκε"], ["NOT_SENT", "Δοκιμαστική"], ["PENDING", "Σε εξέλιξη"], ["FAILED", "Απέτυχε"]] },
+              { key: "device", label: "Ταμείο", value: device, options: devices.map((d): [string, string] => [d.id, d.name]) },
+            ],
+          }}
           empty={<>Δεν έχει εκδοθεί ακόμα απόδειξη. Ξεκίνα από το <Link href="/pos" className="font-semibold underline">Ταμείο</Link>.</>}
           columns={[
-            { key: "no", label: "Απόδειξη", required: true },
-            { key: "date", label: "Ημερομηνία" },
+            { key: "no", label: "Απόδειξη", required: true, sortable: true },
+            { key: "date", label: "Ημερομηνία", sortable: true },
             { key: "device", label: "Ταμείο" },
             { key: "method", label: "Πληρωμή" },
             { key: "fiscal", label: "ΑΑΔΕ" },
-            { key: "total", label: "Ποσό", numeric: true },
+            { key: "total", label: "Ποσό", numeric: true, sortable: true },
           ]}
           rows={sales.map((s) => ({
             id: s.id,

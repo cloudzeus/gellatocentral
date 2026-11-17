@@ -6,6 +6,7 @@ import { euro } from "@/lib/money";
 import { currentContext } from "@/lib/tenant";
 import { vivaConfigured } from "@/lib/viva/cloud-terminal";
 import { addLine, cancelPending, changeQuantity, clearSale, pay, syncPayment } from "./actions";
+import { Submit } from "@/components/submit";
 
 export default async function PosPage({ searchParams }: PageProps<"/pos">) {
   const { org, device } = await currentContext();
@@ -45,10 +46,10 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {active?.products.map((p) => (
               <form key={p.id} action={addLine.bind(null, p.id)}>
-                <button disabled={Boolean(pending)} className="flex min-h-28 w-full cursor-pointer flex-col justify-between rounded-xl border border-border bg-card p-4 text-left shadow-[var(--shadow-card)] transition-[border-color,background-color,transform] duration-150 hover:border-gold hover:bg-secondary active:scale-[0.98] disabled:opacity-50">
+                <Submit disabled={Boolean(pending)} className="flex min-h-28 w-full cursor-pointer flex-col justify-between rounded-xl border border-border bg-card p-4 text-left shadow-[var(--shadow-card)] transition-[border-color,background-color,transform] duration-150 hover:border-gold hover:bg-secondary active:scale-[0.98] disabled:opacity-50">
                   <span className="text-lg font-semibold leading-snug">{p.name}</span>
                   <span className="text-xl font-semibold text-primary tabular-nums">{euro(p.priceCents)}</span>
-                </button>
+                </Submit>
               </form>
             ))}
           </div>
@@ -58,7 +59,7 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
           <div className="flex items-center justify-between border-b border-border/70 px-5 py-4">
             <h2 className="text-lg">Τρέχουσα πώληση</h2>
             {lines.length > 0 && !pending ? (
-              <form action={clearSale}><button className={btn("ghost", "sm")}><Trash2 /> Άδειασμα</button></form>
+              <form action={clearSale}><Submit className={btn("ghost", "sm")}><Trash2 /> Άδειασμα</Submit></form>
             ) : null}
           </div>
 
@@ -67,7 +68,7 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
               <p className="text-3xl font-semibold tabular-nums">{euro(pending.totalCents)}</p>
               <p className="font-medium">Περιμένουμε την πληρωμή στο τερματικό Viva…</p>
               <p className="text-sm text-muted-foreground">Η οθόνη ανανεώνεται μόνη της κάθε 3 δευτερόλεπτα</p>
-              <form action={cancelPending.bind(null, pending.id)}><button className={btn("outline", "default", "w-full")}>Ακύρωση</button></form>
+              <form action={cancelPending.bind(null, pending.id)}><Submit className={btn("outline", "default", "w-full")}>Ακύρωση</Submit></form>
             </div>
           ) : (
             <>
@@ -82,9 +83,9 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
                       <p className="truncate text-base font-semibold">{l.name}</p>
                       <p className="text-xs text-muted-foreground">{euro(l.unitPriceCents)} · ΦΠΑ {l.vatRate}%</p>
                     </div>
-                    <form action={changeQuantity.bind(null, l.id, -1)}><button aria-label="Λιγότερο" className={btn("outline", "sm", "size-10! px-0")}><Minus /></button></form>
+                    <form action={changeQuantity.bind(null, l.id, -1)}><Submit aria-label="Λιγότερο" className={btn("outline", "sm", "size-10! px-0")}><Minus /></Submit></form>
                     <span className="w-6 text-center text-base font-semibold tabular-nums">{l.quantity}</span>
-                    <form action={changeQuantity.bind(null, l.id, 1)}><button aria-label="Περισσότερο" className={btn("outline", "sm", "size-10! px-0")}><Plus /></button></form>
+                    <form action={changeQuantity.bind(null, l.id, 1)}><Submit aria-label="Περισσότερο" className={btn("outline", "sm", "size-10! px-0")}><Plus /></Submit></form>
                     <span className="w-18 text-right text-base font-semibold tabular-nums">{euro(l.quantity * l.unitPriceCents)}</span>
                   </li>
                 ))}
@@ -96,8 +97,8 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
                 </div>
                 {lines.length === 0 ? <p className="text-sm text-muted-foreground">Η πληρωμή ανοίγει μόλις μπει το πρώτο προϊόν</p> : null}
                 <div className="grid grid-cols-2 gap-3">
-                  <form action={pay.bind(null, "CASH")}><button disabled={lines.length === 0} className={btn("success", "lg", "w-full")}><Banknote /> Μετρητά</button></form>
-                  <form action={pay.bind(null, "CARD")}><button disabled={lines.length === 0} className={btn("default", "lg", "w-full")}><CreditCard /> Κάρτα</button></form>
+                  <form action={pay.bind(null, "CASH")}><Submit disabled={lines.length === 0} className={btn("success", "lg", "w-full")}><Banknote /> Μετρητά</Submit></form>
+                  <form action={pay.bind(null, "CARD")}><Submit disabled={lines.length === 0} className={btn("default", "lg", "w-full")}><CreditCard /> Κάρτα</Submit></form>
                 </div>
               </div>
             </>

@@ -7,6 +7,7 @@ import { euro } from "@/lib/money";
 import { PRICE_PER_DEVICE } from "@/lib/pricing";
 import { currentOrg } from "@/lib/auth";
 import { addDevice, toggleDevice } from "./actions";
+import { Submit } from "@/components/submit";
 
 const field = "h-8.5 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
 
@@ -29,7 +30,7 @@ export default async function DevicesPage() {
             <label data-for={FOR.invoicing} className="space-y-1 text-sm font-medium">Τερματικό Viva (προαιρετικό)<input name="vivaTerminalId" maxLength={20} placeholder="π.χ. 16000010" className={field} /></label>
             <label data-for={FOR.storage} className="space-y-1 text-sm font-medium">Κάτω όριο θερμοκρασίας (°C)<input name="tempMin" inputMode="decimal" placeholder="π.χ. -25" className={field} /></label>
             <label data-for={FOR.storage} className="space-y-1 text-sm font-medium">Πάνω όριο θερμοκρασίας (°C)<input name="tempMax" inputMode="decimal" placeholder="π.χ. -15" className={field} /></label>
-            <button className={btn("default")}>Προσθήκη συσκευής</button>
+            <Submit className={btn("default")}>Προσθήκη συσκευής</Submit>
           </form>
         </Modal>
       }>
@@ -50,7 +51,7 @@ export default async function DevicesPage() {
                       </div>
                       {status ? <Badge tone={status.tone}>{status.text}</Badge> : null}
                       <Badge tone={d.active ? "success" : "neutral"}>{!d.active ? "Ανενεργή" : kind.invoices ? "Ενεργή — χρεώνεται" : "Ενεργή — χωρίς χρέωση"}</Badge>
-                      <form action={toggleDevice.bind(null, d.id)}><button className={btn("outline", "sm")}>{d.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</button></form>
+                      <form action={toggleDevice.bind(null, d.id)}><Submit className={btn("outline", "sm")}>{d.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form>
                     </li>
                   );
                 })}

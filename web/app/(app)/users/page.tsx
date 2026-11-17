@@ -4,9 +4,10 @@ import { Modal } from "@/components/modal";
 import { Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { listParams } from "@/lib/paging";
+import { filterParam, listParams } from "@/lib/paging";
 import { ALL_PERMISSIONS, canGrant, PERMISSIONS } from "@/lib/permissions";
 import { deleteRole, inviteUser, removeMember, saveRole, sendResetLink, updateMember } from "./actions";
+import { Submit } from "@/components/submit";
 
 const SAVED: Record<string, string> = { invited: "Η πρόσκληση στάλθηκε με email", member: "Ο χρήστης ενημερώθηκε", removed: "Η πρόσβαση αφαιρέθηκε", reset: "Στάλθηκε email για ορισμό κωδικού", role: "Οι ρόλοι ενημερώθηκαν" };
 const form = "grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end";
@@ -37,10 +38,12 @@ function PermissionBoxes({ selected, mine }: { selected: string[]; mine: string[
 export default async function UsersPage({ searchParams }: PageProps<"/users">) {
   const { org, permissions: mine, membership: me } = await currentOrg("users.manage");
   const q = await searchParams;
-  const list = listParams(q);
-  const where = { orgId: org.id, ...(list.q ? { user: { OR: [{ name: { contains: list.q, mode: "insensitive" as const } }, { email: { contains: list.q, mode: "insensitive" as const } }] } } : {}) };
+  const list = listParams(q, 25, ["user", "role"]);
+  const roleIds = (await db.orgRole.findMany({ where: { orgId: org.id }, select: { id: true } })).map((r) => r.id);
+  const role = filterParam(q, "role", roleIds);
+  const where = { orgId: org.id, ...(role ? { roleId: role } : {}), ...(list.q ? { user: { OR: [{ name: { contains: list.q, mode: "insensitive" as const } }, { email: { contains: list.q, mode: "insensitive" as const } }] } } : {}) };
   const [members, total, roles, stores] = await Promise.all([
-    db.membership.findMany({ where, orderBy: { user: { name: "asc" } }, skip: list.skip, take: list.take, include: { user: true, role: true, store: true } }),
+    db.membership.findMany({ where, orderBy: list.sort === "role" ? { role: { name: list.dir } } : { user: { name: list.sort === "user" ? list.dir : "asc" } }, skip: list.skip, take: list.take, include: { user: true, role: true, store: true } }),
     db.membership.count({ where }),
     db.orgRole.findMany({ where: { orgId: org.id }, orderBy: [{ locked: "desc" }, { system: "desc" }, { name: "asc" }], include: { _count: { select: { members: true } } } }),
     db.store.findMany({ where: { orgId: org.id, active: true }, orderBy: { name: "asc" } }),
@@ -60,7 +63,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
             <Field label="Email" name="email" type="email" required autoComplete="off" />
             <Select label="Ρόλος" name="roleId" options={roleOptions} />
             <Select label="Κατάστημα" name="storeId" options={storeOptions} />
-            <button className={btn("default")}>Αποστολή πρόσκλησης</button>
+            <Submit className={btn("default")}>Αποστολή πρόσκλησης</Submit>
           </form>
         </Modal>
       }
@@ -73,11 +76,11 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
           <div className="border-b border-border/70 px-5 py-4"><h2 className="text-lg">Χρήστες</h2></div>
           <DataTable
             id="users"
-            listing={{ ...list, total, placeholder: "Όνομα ή email" }}
+            listing={{ ...list, total, placeholder: "Όνομα ή email", filters: [{ key: "role", label: "Ρόλος", value: role, options: roles.map((r): [string, string] => [r.id, r.name]) }] }}
             empty="Κανένας χρήστης ακόμα"
             columns={[
-              { key: "user", label: "Χρήστης", required: true },
-              { key: "role", label: "Ρόλος" },
+              { key: "user", label: "Χρήστης", required: true, sortable: true },
+              { key: "role", label: "Ρόλος", sortable: true },
               { key: "store", label: "Κατάστημα" },
               { key: "status", label: "Κατάσταση" },
               { key: "edit", label: "Αλλαγή", required: true },
@@ -95,15 +98,15 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
                       <input type="hidden" name="membershipId" value={m.id} />
                       <Select label="Ρόλος" name="roleId" defaultValue={m.roleId} options={roleOptions.some(([v]) => v === m.roleId) ? roleOptions : [[m.roleId, m.role.name], ...roleOptions]} />
                       <Select label="Κατάστημα" name="storeId" defaultValue={m.storeId ?? ""} options={storeOptions} />
-                      <button className={btn("default")}>Αποθήκευση</button>
+                      <Submit className={btn("default")}>Αποθήκευση</Submit>
                     </form>
                   </Modal>
                 ),
               },
               menu: (
                 <>
-                  <form action={sendResetLink.bind(null, m.id)}><button role="menuitem" className={menuItem}><KeyRound /> Email για ορισμό κωδικού</button></form>
-                  <form action={removeMember.bind(null, m.id)}><button role="menuitem" className={`${menuItem} text-destructive`}><UserMinus /> Αφαίρεση πρόσβασης</button></form>
+                  <form action={sendResetLink.bind(null, m.id)}><Submit role="menuitem" className={menuItem}><KeyRound /> Email για ορισμό κωδικού</Submit></form>
+                  <form action={removeMember.bind(null, m.id)}><Submit role="menuitem" className={`${menuItem} text-destructive`}><UserMinus /> Αφαίρεση πρόσβασης</Submit></form>
                 </>
               ),
             }))}
@@ -121,7 +124,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
                 <input type="hidden" name="roleId" value="" />
                 <Field label="Όνομα ρόλου" name="name" required minLength={2} maxLength={60} placeholder="π.χ. Υπεύθυνος βάρδιας" />
                 <PermissionBoxes selected={[]} mine={mine} />
-                <button className={btn("default")}>Δημιουργία ρόλου</button>
+                <Submit className={btn("default")}>Δημιουργία ρόλου</Submit>
               </form>
             </Modal>
           </div>
@@ -140,11 +143,11 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
                       <input type="hidden" name="roleId" value={r.id} />
                       <Field label="Όνομα ρόλου" name="name" required minLength={2} maxLength={60} defaultValue={r.name} />
                       <PermissionBoxes selected={r.permissions} mine={mine} />
-                      <button className={btn("default")}>Αποθήκευση</button>
+                      <Submit className={btn("default")}>Αποθήκευση</Submit>
                     </form>
                   </Modal>
                 )}
-                {!r.system && !r.locked ? <form action={deleteRole.bind(null, r.id)}><button className={btn("ghost", "sm")}>Διαγραφή</button></form> : null}
+                {!r.system && !r.locked ? <form action={deleteRole.bind(null, r.id)}><Submit className={btn("ghost", "sm")}>Διαγραφή</Submit></form> : null}
               </li>
             ))}
           </ul>

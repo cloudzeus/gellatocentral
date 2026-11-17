@@ -4,6 +4,7 @@ import { btn, Field } from "@/components/ui";
 import { db } from "@/lib/db";
 import { hashResetToken } from "@/lib/reset";
 import { resetPassword } from "../forgot/actions";
+import { Submit } from "@/components/submit";
 
 export const instant = false;
 
@@ -26,7 +27,7 @@ export default async function ResetPage({ searchParams }: PageProps<"/reset">) {
           {q.error === "short" ? <Notice tone="error">Ο κωδικός θέλει τουλάχιστον 10 χαρακτήρες</Notice> : null}
           <input type="hidden" name="token" value={token} />
           <Field label="Νέος κωδικός" name="password" type="password" autoComplete="new-password" required minLength={10} hint="Τουλάχιστον 10 χαρακτήρες. Μετά την αλλαγή αποσυνδέονται όλες οι συσκευές σου." />
-          <button className={btn("default", "lg", "w-full")}>Αποθήκευση κωδικού</button>
+          <Submit className={btn("default", "lg", "w-full")}>Αποθήκευση κωδικού</Submit>
         </form>
       )}
     </AuthCard>

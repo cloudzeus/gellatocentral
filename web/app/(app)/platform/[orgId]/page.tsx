@@ -1,4 +1,5 @@
-import { CircleCheck, CircleDashed, Pencil, Plus } from "lucide-react";
+import { ProcessFlow } from "@/components/process-flow";
+import { Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -13,6 +14,7 @@ import { isBillable, monthlyCharge, PRICE_PER_DEVICE, PRICE_PER_STORE } from "@/
 import { setupSteps } from "@/lib/setup";
 import { addDevice, addPrinter, addStore, addUser, addWarehouse, issueCharge, issuePairCode, markChargePaid, removeMember, revokeDevice, saveOrgProfile, saveSubscription, saveViva, toggleActive, updateDevice } from "../actions";
 import { STATUS } from "../status";
+import { Submit } from "@/components/submit";
 
 const day = (d: Date) => d.toLocaleDateString("el-GR");
 const CONNECTION = { NETWORK: "Δίκτυο", BLUETOOTH: "Bluetooth", USB: "USB" } as const;
@@ -45,7 +47,7 @@ function Row({ title, meta, active, toggle, children }: { title: string; meta: s
         <p className="text-xs text-muted-foreground">{meta}</p>
       </div>
       {children}
-      <form action={toggle}><button className={btn("ghost", "sm")}>{active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</button></form>
+      <form action={toggle}><Submit className={btn("ghost", "sm")}>{active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form>
     </li>
   );
 }
@@ -93,7 +95,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const tillOptions: [string, string][] = [["", "Καμία — ζυγαριά εργαστηρίου"], ...org.stores.flatMap((s) => s.devices.filter((d) => d.active && DEVICE_KIND[d.kind].invoices).map((d): [string, string] => [d.id, `${d.name} · ${s.name}`]))];
   const hidden = <input type="hidden" name="orgId" value={org.id} />;
   const saved = (s: string) => q.saved === s;
-  const save = <button className={btn("default")}>Αποθήκευση</button>;
+  const save = <Submit className={btn("default")}>Αποθήκευση</Submit>;
 
   return (
     <Page section="Πλατφόρμα › Συνδρομητές" title={org.name} description={`ΑΦΜ ${org.vatNumber}`} actions={<Link href="/platform" className={btn("outline")}>Όλοι οι συνδρομητές</Link>}>
@@ -108,17 +110,10 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={doneCount}>
             <div className="h-full rounded-full bg-success" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
           </div>
-          <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {steps.map((s) => (
-              <li key={s.label}>
-                <a href={`#${s.fix}`} className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium hover:bg-secondary">
-                  {s.done ? <CircleCheck className="size-5 shrink-0 text-success" /> : <CircleDashed className="size-5 shrink-0 text-gold" />}
-                  <span className={s.done ? "text-muted-foreground" : ""}>{s.label}</span>
-                  {s.done ? null : <span className="ml-auto text-xs font-semibold text-primary">Ρύθμιση</span>}
-                </a>
-              </li>
-            ))}
-          </ul>
+          {/* η πορεία ως διάγραμμα: το πρώτο βήμα που λείπει είναι το «τώρα» */}
+          <div className="mt-4">
+            <ProcessFlow label="Αρχικοποίηση" steps={steps.map((st, i) => ({ id: st.fix, label: st.label, state: st.done ? "done" : i === steps.findIndex((x) => !x.done) ? "current" : "todo", href: `#${st.fix}`, action: st.done ? undefined : "Ρύθμιση" }))} />
+          </div>
         </Card>
 
         <Section
@@ -161,7 +156,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
           <div className="border-t border-border/70">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
               <p className="text-sm font-semibold">Χρεώσεις</p>
-              <form action={issueCharge.bind(null, org.id)}><button className={btn("outline", "sm")}>Έκδοση χρέωσης επόμενου μήνα ({euro(charge.totalCents)})</button></form>
+              <form action={issueCharge.bind(null, org.id)}><Submit className={btn("outline", "sm")}>Έκδοση χρέωσης επόμενου μήνα ({euro(charge.totalCents)})</Submit></form>
             </div>
             {sub?.charges.length ? (
               <ul className="divide-y divide-border/70 border-t border-border/70">
@@ -170,7 +165,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                     <span className="min-w-0 flex-1 tabular-nums">{day(c.periodStart)} – {day(c.periodEnd)} <span className="text-muted-foreground">· {c.stores} καταστ., {c.devices} ταμεία</span></span>
                     <b className="tabular-nums">{euro(c.amountCents)}</b>
                     {c.paidAt ? <Badge tone="success">Πληρώθηκε {day(c.paidAt)}</Badge> : (
-                      <form action={markChargePaid.bind(null, c.id)}><button className={btn("success", "sm")}>Πληρώθηκε</button></form>
+                      <form action={markChargePaid.bind(null, c.id)}><Submit className={btn("success", "sm")}>Πληρώθηκε</Submit></form>
                     )}
                   </li>
                 ))}
@@ -199,7 +194,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               <Field label="Όνομα" name="name" required minLength={2} maxLength={60} placeholder="π.χ. Κατάστημα Τήνου" />
               <Field label="Διεύθυνση" name="address" maxLength={120} hint="Τυπώνεται στην απόδειξη" />
               <Field label="Πηγή πληρωμών Viva" name="vivaSourceCode" maxLength={20} placeholder="προαιρετικό" />
-              <button className={btn("default")}>Προσθήκη καταστήματος</button>
+              <Submit className={btn("default")}>Προσθήκη καταστήματος</Submit>
             </form>
           </Modal>}
         >
@@ -214,7 +209,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             <form action={addWarehouse} className={form}>{hidden}
               <Field label="Όνομα" name="name" required minLength={2} maxLength={60} placeholder="π.χ. Κατάψυξη" />
               <Select label="Κατάστημα" name="storeId" options={storeOptions} />
-              <button className={btn("default")}>Προσθήκη αποθήκης</button>
+              <Submit className={btn("default")}>Προσθήκη αποθήκης</Submit>
             </form>
           </Modal>}
         >
@@ -234,7 +229,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               <Select label="Σύνδεση" name="connection" options={Object.entries(CONNECTION)} />
               <Field label="Διεύθυνση" name="address" maxLength={40} placeholder="192.168.1.50:9100" hint="IP για δίκτυο, MAC για Bluetooth, κενό για USB" />
               <Select label="Πλάτος χαρτιού" name="paperWidth" defaultValue="80" options={[["80", "80 mm"], ["58", "58 mm"]]} />
-              <button className={btn("default")}>Προσθήκη εκτυπωτή</button>
+              <Submit className={btn("default")}>Προσθήκη εκτυπωτή</Submit>
             </form>
           </Modal>}
         >
@@ -261,7 +256,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               <div data-for={FOR.scale}><Select label="Δεμένη με ταμείο" name="linkedDeviceId" options={tillOptions} /></div>
               <div data-for={FOR.network}><Field label="MAC συσκευής" name="macAddress" maxLength={17} placeholder="AA:BB:CC:DD:EE:FF" hint="Για την καταγραφή του υλικού" /></div>
               <div data-for={FOR.network}><Field label="Διεύθυνση Tailscale" name="tailscaleIp" maxLength={15} placeholder="100.x.y.z" hint="Αν οριστεί, η συσκευή γίνεται δεκτή μόνο από αυτήν" /></div>
-              <button className={btn("default")}>Προσθήκη συσκευής</button>
+              <Submit className={btn("default")}>Προσθήκη συσκευής</Submit>
             </form>
           </Modal>}
         >
@@ -306,8 +301,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                       ) : (
                         <span className="min-w-0 flex-1">{d.pairedAt ? <Badge tone="success">Πιστοποιημένη από {day(d.pairedAt)}</Badge> : <Badge tone="warning">Δεν έχει πιστοποιηθεί</Badge>}{kind.measures ? <span className="ml-2 text-muted-foreground">Μετά τη σύζευξη στέλνει μετρήσεις στο /api/devices/readings</span> : null}</span>
                       )}
-                      {me.can("setup.manage") ? <form action={issuePairCode.bind(null, org.id, d.id)}><button className={btn("outline", "sm")}>{d.pairedAt ? "Νέα σύζευξη" : "Κωδικός σύζευξης"}</button></form> : null}
-                      {d.pairedAt && me.can("setup.manage") ? <form action={revokeDevice.bind(null, org.id, d.id)}><button className={btn("destructive", "sm")}>Ανάκληση</button></form> : null}
+                      {me.can("setup.manage") ? <form action={issuePairCode.bind(null, org.id, d.id)}><Submit className={btn("outline", "sm")}>{d.pairedAt ? "Νέα σύζευξη" : "Κωδικός σύζευξης"}</Submit></form> : null}
+                      {d.pairedAt && me.can("setup.manage") ? <form action={revokeDevice.bind(null, org.id, d.id)}><Submit className={btn("destructive", "sm")}>Ανάκληση</Submit></form> : null}
                     </div>
                   )}
                 </Row>
@@ -325,7 +320,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               <Select label="Ρόλος" name="roleId" options={org.roles.map((r) => [r.id, r.name])} />
               <Select label="Κατάστημα" name="storeId" options={[["", "Όλα τα καταστήματα"], ...storeOptions]} />
               <Field label="Αρχικός κωδικός (προαιρετικό)" name="password" type="password" autoComplete="new-password" hint="Τουλάχιστον 10 χαρακτήρες, αν τον ορίσεις εσύ" />
-              <button className={btn("default")}>Προσθήκη χρήστη</button>
+              <Submit className={btn("default")}>Προσθήκη χρήστη</Submit>
             </form>
           </Modal>}
         >
@@ -338,7 +333,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                     <p className="text-xs text-muted-foreground">{m.user.email} · {m.store?.name ?? "Όλα τα καταστήματα"}</p>
                   </div>
                   <Badge tone={m.role.locked ? "success" : "neutral"}>{m.role.name}</Badge>
-                  <form action={removeMember.bind(null, org.id, m.id)}><button className={btn("ghost", "sm")}>Αφαίρεση πρόσβασης</button></form>
+                  <form action={removeMember.bind(null, org.id, m.id)}><Submit className={btn("ghost", "sm")}>Αφαίρεση πρόσβασης</Submit></form>
                 </li>
               ))}
             </ul>
