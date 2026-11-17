@@ -54,7 +54,10 @@ function PlanForm({ plan }: { plan?: Row }) {
         <Field label="Έως (ημέρες τον χρόνο)" name="pauseMaxDaysPerYear" type="number" required min={0} max={365} defaultValue={plan?.pauseMaxDaysPerYear ?? 240} hint="0 = το πακέτο δεν επιτρέπει παύση" />
         <p className="text-xs text-muted-foreground sm:col-span-2">Η έκπτωση δίνεται μόνο αν η παύση κρατήσει τουλάχιστον {MIN_PAUSE_DAYS} ημέρες, και μετρά ανά ημέρα</p>
       </fieldset>
-      <Submit className={`${btn("default")} sm:col-span-2 sm:justify-self-end`}>{plan ? "Αποθήκευση" : "Δημιουργία πακέτου"}</Submit>
+      {/* η φόρμα είναι μακριά: το κουμπί μένει πάντα ορατό στο κάτω μέρος του παραθύρου */}
+      <div className="sticky bottom-0 -mx-5 -mb-5 flex justify-end border-t border-border/70 bg-card px-5 py-3 sm:col-span-2">
+        <Submit className={btn("default")}>{plan ? "Αποθήκευση" : "Δημιουργία πακέτου"}</Submit>
+      </div>
     </form>
   );
 }
