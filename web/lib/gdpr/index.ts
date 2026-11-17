@@ -115,6 +115,7 @@ export async function completeErasure(id: string, actor: Actor) {
     if (user.platformRole === "SUPER_ADMIN" && (await db.user.count({ where: { platformRole: "SUPER_ADMIN", id: { not: user.id } } })) === 0) throw new GdprError("Είναι ο μόνος Super Admin της πλατφόρμας");
     await notify(req, "completed");
   }
+  const customer = req.subjectType === "customer" && req.subjectId ? await db.customer.findFirst({ where: { id: req.subjectId, orgId: req.orgId ?? "" } }) : null;
 
   // Αρχεία του υποκειμένου στο Bunny (φάκελος του πελάτη): πρώτα αυτά, γιατί δεν μπαίνουν σε συναλλαγή της βάσης
   const files = req.subjectId ? await db.storedFile.findMany({ where: { orgId: req.orgId, refType: req.subjectType, refId: req.subjectId } }) : [];
@@ -136,6 +137,11 @@ export async function completeErasure(id: string, actor: Actor) {
       await tx.user.delete({ where: { id: user.id } }); // μαζί φεύγουν συμμετοχές, συνεδρίες και σύνδεσμοι κωδικού
       counts.account = 1;
     }
+    if (customer) {
+      // shortcut: σήμερα τίποτα άλλο δεν δείχνει σε πελάτη. Όταν υπάρξουν παραστατικά χονδρικής, η εγγραφή θα ανωνυμοποιείται αντί να σβήνεται (τα παραστατικά τα κρατά ο νόμος).
+      await tx.customer.delete({ where: { id: customer.id } });
+      counts.customer = 1;
+    }
     await tx.erasureRequest.update({ where: { id }, data: { status: "COMPLETED", decidedById: actor?.id === user?.id ? null : (actor?.id ?? null), decidedAt: new Date(), subjectLabel: null, reason: null, summary: counts } });
     await logEvent({ orgId: req.orgId, type: "ERASURE_COMPLETED", actor: actor?.id === user?.id ? null : actor, subjectType: req.subjectType as SubjectType, subjectId: req.subjectId, detail: { requestId: id, ...counts } }, tx);
     return counts;
@@ -144,6 +150,20 @@ export async function completeErasure(id: string, actor: Actor) {
 }
 
 // ---- Αντίγραφο δεδομένων (δικαίωμα πρόσβασης και φορητότητας) ----
+
+/** Ό,τι κρατά η επιχείρηση για έναν πελάτη της, για να του το παραδώσει. */
+export async function exportCustomer(id: string, orgId: string, actor: Actor) {
+  const c = await db.customer.findFirst({ where: { id, orgId } });
+  if (!c) throw new GdprError("Ο πελάτης δεν βρέθηκε");
+  const [consents, files, requests] = await Promise.all([
+    consentsOf("customer", id),
+    db.storedFile.findMany({ where: { orgId, refType: "customer", refId: id }, select: { name: true, category: true, size: true, createdAt: true } }),
+    db.erasureRequest.findMany({ where: { orgId, subjectType: "customer", subjectId: id }, select: { requestedAt: true, status: true, dueAt: true, decidedAt: true } }),
+  ]);
+  await logEvent({ orgId, type: "EXPORT", actor, subjectType: "customer", subjectId: id, subjectLabel: [c.name, c.email].filter(Boolean).join(" · ") });
+  const details = { ...c, id: undefined, orgId: undefined }; // τα εσωτερικά αναγνωριστικά δεν αφορούν τον πελάτη
+  return { exportedAt: new Date().toISOString(), customer: details, consents: consents.map((x) => ({ purpose: PURPOSES[x.purpose as Purpose]?.label ?? x.purpose, version: x.version, granted: x.granted, at: x.at, source: x.source })), files, erasureRequests: requests };
+}
 
 export async function exportUser(userId: string) {
   const user = await db.user.findUnique({ where: { id: userId }, include: { memberships: { include: { org: true, role: true, store: true } } } });

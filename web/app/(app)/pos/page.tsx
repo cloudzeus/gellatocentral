@@ -24,7 +24,7 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
   const active = categories.find((c) => c.id === cat) ?? categories[0];
   const lines = draft?.lines ?? [];
   const total = lines.reduce((s, l) => s + l.quantity * l.unitPriceCents, 0);
-  const live = vivaConfigured();
+  const live = await vivaConfigured();
 
   return (
     <Page section="Ταμείο & τιμολόγηση" title="Ταμείο" description={`${device.name} · σειρά ${device.series} · επόμενη απόδειξη #${device.nextAa}`}>

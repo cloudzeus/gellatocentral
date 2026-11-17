@@ -96,6 +96,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const tillOptions: [string, string][] = [["", "Καμία — ζυγαριά εργαστηρίου"], ...org.stores.flatMap((s) => s.devices.filter((d) => d.active && DEVICE_KIND[d.kind].invoices).map((d): [string, string] => [d.id, `${d.name} · ${s.name}`]))];
   const hidden = <input type="hidden" name="orgId" value={org.id} />;
   const saved = (s: string) => q.saved === s;
+  const mailFrom = await mailDomain();
   const save = <Submit className={btn("default")}>Αποθήκευση</Submit>;
 
   return (
@@ -132,7 +133,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         >
           <Facts items={[
             ["Διεύθυνση εφαρμογής", org.slug && settings.baseDomain ? `${org.slug}.${settings.baseDomain}` : org.slug],
-            ["Αποστολέας email", org.slug ? `${org.slug}@${mailDomain() ?? "τομέας-email"}` : null],
+            ["Αποστολέας email", org.slug ? `${org.slug}@${mailFrom ?? "τομέας-email"}` : null],
             ["Email επικοινωνίας", org.contactEmail],
             ["Όνομα αποστολέα", org.emailFromName ?? org.name],
           ]} />

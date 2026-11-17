@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { settleCharge } from "@/lib/billing";
 import { db } from "@/lib/db";
-import { getTransaction, withVat } from "@/lib/viva/checkout";
+import { withVat } from "@/lib/pricing";
+import { getTransaction } from "@/lib/viva/checkout";
 
 // Εδώ γυρίζει ο πελάτης από τη Viva (Success URL της πηγής πληρωμών: <διεύθυνση εφαρμογής>/billing/paid).
 // Δεν εμπιστευόμαστε το URL: ρωτάμε τη Viva για τη συναλλαγή και ταιριάζουμε κωδικό εντολής και ποσό με τη χρέωση.

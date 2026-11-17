@@ -1,23 +1,24 @@
-// Αποστολή μέσω Mailgun. Κλειδιά στο .env: MAILGUN_API_KEY, MAILGUN_DOMAIN, MAILGUN_REGION (eu | us).
+// Αποστολή μέσω Mailgun. Κλειδί, τομέας και περιοχή ορίζονται στις Ρυθμίσεις της πλατφόρμας (lib/config.ts).
 // Ένα επαληθευμένο domain για όλη την πλατφόρμα· κάθε πελάτης στέλνει ως <slug>@domain με δικό του όνομα και Reply-To.
+import { setting, settings as readSettings } from "../config";
 import { db } from "../db";
 import type { Mail } from "./templates";
 
-export const mailConfigured = () => Boolean(process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN);
-export const mailDomain = () => process.env.MAILGUN_DOMAIN ?? null;
-const host = () => (process.env.MAILGUN_REGION === "us" ? "api.mailgun.net" : "api.eu.mailgun.net");
+const mailgun = () => readSettings("MAILGUN_API_KEY", "MAILGUN_DOMAIN", "MAILGUN_REGION");
+export const mailConfigured = async () => { const m = await mailgun(); return Boolean(m.MAILGUN_API_KEY && m.MAILGUN_DOMAIN); };
+export const mailDomain = async () => (await setting("MAILGUN_DOMAIN")) || null;
 
 /** Όνομα σε κεφαλίδα From: χωρίς εισαγωγικά και αλλαγές γραμμής (αλλιώς μπορεί να «σπάσει» η κεφαλίδα). */
 const headerName = (v: string) => v.replace(/["\r\n<>]/g, "").trim();
 
 export async function platformSettings() {
-  return (await db.platformSettings.findUnique({ where: { id: 1 } })) ?? { id: 1, brandName: "Gelato System", baseDomain: null, supportEmail: null, lastBackupCheckAt: null, lastRestoreDrillAt: null, bunnyZone: null, bunnyRegion: null, bunnyCdnUrl: null, legalVersion: null, termsUrl: null, privacyUrl: null };
+  return (await db.platformSettings.findUnique({ where: { id: 1 } })) ?? { id: 1, brandName: "Gelato System", baseDomain: null, supportEmail: null, lastBackupCheckAt: null, lastRestoreDrillAt: null, legalVersion: null, termsUrl: null, privacyUrl: null };
 }
 
 /** Διεύθυνση της εφαρμογής για έναν πελάτη: ο υποτομέας του αν υπάρχει, αλλιώς η γενική (APP_URL). */
 export async function appUrl(org?: { slug: string | null } | null) {
   const { baseDomain } = await platformSettings();
-  return org?.slug && baseDomain ? `https://${org.slug}.${baseDomain}` : (process.env.APP_URL ?? "http://localhost:3210");
+  return org?.slug && baseDomain ? `https://${org.slug}.${baseDomain}` : ((await setting("APP_URL")) || "http://localhost:3210");
 }
 
 type Sender = { id: string; name: string; slug: string | null; contactEmail: string | null; emailFromName: string | null };
@@ -33,15 +34,16 @@ export async function sendMail(input: { to: string; mail: Mail; template: string
   let status: "SENT" | "FAILED" | "SKIPPED" = "SKIPPED";
   let error: string | undefined;
 
-  if (mailConfigured()) {
-    const from = org ? `${headerName(org.emailFromName || org.name)} μέσω ${headerName(settings.brandName)} <${org.slug ?? "noreply"}@${mailDomain()}>` : `${headerName(settings.brandName)} <noreply@${mailDomain()}>`;
+  const mg = await mailgun();
+  if (mg.MAILGUN_API_KEY && mg.MAILGUN_DOMAIN) {
+    const from = org ? `${headerName(org.emailFromName || org.name)} μέσω ${headerName(settings.brandName)} <${org.slug ?? "noreply"}@${mg.MAILGUN_DOMAIN}>` : `${headerName(settings.brandName)} <noreply@${mg.MAILGUN_DOMAIN}>`;
     const form = new URLSearchParams({ from, to, subject: mail.subject, html: mail.html, text: mail.text });
     const replyTo = org?.contactEmail ?? settings.supportEmail;
     if (replyTo) form.set("h:Reply-To", replyTo);
     try {
-      const res = await fetch(`https://${host()}/v3/${mailDomain()}/messages`, {
+      const res = await fetch(`https://${mg.MAILGUN_REGION === "us" ? "api.mailgun.net" : "api.eu.mailgun.net"}/v3/${mg.MAILGUN_DOMAIN}/messages`, {
         method: "POST",
-        headers: { Authorization: `Basic ${Buffer.from(`api:${process.env.MAILGUN_API_KEY}`).toString("base64")}` },
+        headers: { Authorization: `Basic ${Buffer.from(`api:${mg.MAILGUN_API_KEY}`).toString("base64")}` },
         body: form,
         cache: "no-store",
       });

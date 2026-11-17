@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isBillable, monthlyCharge, PRICE_PER_DEVICE, PRICE_PER_STORE } from "./pricing.ts";
-import { withVat } from "./viva/checkout.ts";
+import { isBillable, monthlyCharge, PRICE_PER_DEVICE, PRICE_PER_STORE, withVat } from "./pricing.ts";
 
 test("χρέωση = καταστήματα + συσκευές", () => {
   assert.equal(monthlyCharge(2, 3).totalCents, 2 * PRICE_PER_STORE + 3 * PRICE_PER_DEVICE);

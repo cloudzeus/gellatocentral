@@ -46,7 +46,7 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
     { label: "Επιχειρήσεις", value: String(all.length), hint: `${all.filter((r) => r.o.subscription?.status === "TRIALING").length} σε δοκιμή` },
     { label: "Θέλουν αρχικοποίηση", value: String(all.filter((r) => r.missing).length), hint: "δεν μπορούν ακόμα να εκδώσουν απόδειξη" },
   ];
-  const isv = vivaConfigured();
+  const [isv, env] = await Promise.all([vivaConfigured(), vivaEnv()]);
 
   return (
     <Page section="Πλατφόρμα" title="Συνδρομητές" description="Οι επιχειρήσεις που χρησιμοποιούν το Gelato System και η ετοιμότητά τους" actions={
@@ -80,8 +80,8 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
           <h2 className="text-lg">Λογαριασμός Viva ISV</h2>
           <p className="text-sm text-muted-foreground">
             {isv
-              ? `Τα κλειδιά έχουν οριστεί · περιβάλλον ${vivaEnv()}. Με αυτά γίνονται οι πληρωμές και η τιμολόγηση όλων των επιχειρήσεων.`
-              : "Δεν έχουν οριστεί κλειδιά. Γράψε VIVA_ISV_CLIENT_ID και VIVA_ISV_CLIENT_SECRET στο αρχείο .env του server και ξεκίνα τον ξανά. Μέχρι τότε όλα τα ταμεία είναι σε δοκιμαστική λειτουργία."}
+              ? `Τα κλειδιά έχουν οριστεί · περιβάλλον ${env === "production" ? "παραγωγής" : "demo"}. Με αυτά γίνονται οι πληρωμές και η τιμολόγηση όλων των επιχειρήσεων.`
+              : "Δεν έχουν οριστεί κλειδιά. Ορίζονται στις Ρυθμίσεις & email › Viva ISV. Μέχρι τότε όλα τα ταμεία είναι σε δοκιμαστική λειτουργία."}
           </p>
           {q.viva === "ok" ? <p className="mt-1 text-sm font-semibold text-success">Η Viva δέχτηκε τα κλειδιά</p> : null}
           {q.viva === "fail" ? <p className="mt-1 text-sm font-semibold text-destructive">Η δοκιμή απέτυχε: {String(q.error ?? "")}</p> : null}

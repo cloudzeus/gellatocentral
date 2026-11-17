@@ -4,6 +4,7 @@ export const PERMISSIONS = [
   { key: "pos.use", group: "Ταμείο & τιμολόγηση", label: "Ταμείο", hint: "Έκδοση αποδείξεων" },
   { key: "receipts.view", group: "Ταμείο & τιμολόγηση", label: "Αποδείξεις", hint: "Προβολή και επανεκτύπωση" },
   { key: "devices.manage", group: "Ταμείο & τιμολόγηση", label: "Συσκευές", hint: "Προσθήκη και απενεργοποίηση ταμείων (αλλάζει τη χρέωση)" },
+  { key: "customers.manage", group: "Πελάτες & πωλήσεις", label: "Πελάτες", hint: "Καρτέλες πελατών, αρχεία και συναινέσεις τους" },
   { key: "billing.view", group: "Ρυθμίσεις", label: "Συνδρομή", hint: "Το κόστος της συνδρομής" },
   { key: "users.manage", group: "Ρυθμίσεις", label: "Χρήστες & ρόλοι", hint: "Προσκλήσεις, ρόλοι και δικαιώματα" },
   { key: "gdpr.manage", group: "Ρυθμίσεις", label: "GDPR & συναινέσεις", hint: "Συναινέσεις, αιτήματα διαγραφής και ημερολόγιο προσωπικών δεδομένων" },
@@ -14,13 +15,13 @@ export const ALL_PERMISSIONS = PERMISSIONS.map((p) => p.key) as Permission[];
 export const isPermission = (v: string): v is Permission => (ALL_PERMISSIONS as string[]).includes(v);
 
 /** Ποιο δικαίωμα θέλει κάθε σελίδα. Ό,τι δεν αναφέρεται (ενότητες υπό κατασκευή) θέλει τον πίνακα ελέγχου. */
-const PAGE: Record<string, Permission> = { "/pos": "pos.use", "/receipts": "receipts.view", "/devices": "devices.manage", "/billing": "billing.view", "/users": "users.manage", "/gdpr": "gdpr.manage" };
+const PAGE: Record<string, Permission> = { "/pos": "pos.use", "/receipts": "receipts.view", "/devices": "devices.manage", "/billing": "billing.view", "/users": "users.manage", "/gdpr": "gdpr.manage", "/customers": "customers.manage" };
 export const permissionFor = (path: string): Permission => PAGE[Object.keys(PAGE).find((p) => path === p || path.startsWith(`${p}/`)) ?? ""] ?? "dashboard.view";
 
 /** Οι τρεις ρόλοι που αποκτά κάθε νέα επιχείρηση. Ο «Επιχειρηματίας» είναι κλειδωμένος: έχει πάντα όλα τα δικαιώματα. */
 export const SYSTEM_ROLES: { name: string; permissions: Permission[]; locked: boolean }[] = [
   { name: "Επιχειρηματίας", permissions: ALL_PERMISSIONS, locked: true },
-  { name: "Manager", permissions: ["dashboard.view", "pos.use", "receipts.view", "devices.manage"], locked: false },
+  { name: "Manager", permissions: ["dashboard.view", "pos.use", "receipts.view", "devices.manage", "customers.manage"], locked: false },
   { name: "Υπάλληλος", permissions: ["pos.use", "receipts.view"], locked: false },
 ];
 

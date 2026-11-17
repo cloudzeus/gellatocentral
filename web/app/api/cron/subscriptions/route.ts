@@ -1,5 +1,6 @@
 // Ημερήσιος έλεγχος συνδρομών: υπενθύμιση 3 ημέρες πριν λήξει η δοκιμή και ειδοποίηση όταν λήξει η συνδρομή.
 // Καλείται από εξωτερικό χρονοδιακόπτη (π.χ. cron του Coolify) με `Authorization: Bearer $CRON_SECRET`.
+import { setting } from "@/lib/config";
 import { timingSafeEqual } from "node:crypto";
 import { db } from "@/lib/db";
 import { billingRecipients, platformSettings, sendMail } from "@/lib/mail/send";
@@ -7,7 +8,7 @@ import { templates } from "@/lib/mail/templates";
 import { BILLABLE_KINDS, monthlyCharge } from "@/lib/pricing";
 
 export async function POST(req: Request) {
-  const secret = process.env.CRON_SECRET ?? "";
+  const secret = await setting("CRON_SECRET");
   const given = req.headers.get("authorization")?.replace(/^Bearer /, "") ?? "";
   if (secret.length < 20 || given.length !== secret.length || !timingSafeEqual(Buffer.from(given), Buffer.from(secret)))
     return Response.json({ error: "unauthorized" }, { status: 401 });

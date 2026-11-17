@@ -81,6 +81,7 @@ model Organization {
   sales        Sale[]
   subscription Subscription?
   files        StoredFile[]
+  customers    Customer[]
 }
 
 model User {
@@ -130,7 +131,7 @@ model EmailLog {
   @@index([createdAt])
 }
 
-// Μία γραμμή (id = 1) με τις ρυθμίσεις της πλατφόρμας. Τα μυστικά κλειδιά μένουν στο .env.
+// Μία γραμμή (id = 1) με τα στοιχεία της πλατφόρμας. Οι ρυθμίσεις σύνδεσης (Viva, Mailgun, Bunny) ζουν στον πίνακα Setting.
 model PlatformSettings {
   id           Int     @id @default(1)
   brandName    String  @default("Gelato System")
@@ -139,10 +140,6 @@ model PlatformSettings {
   // Συνέχεια λειτουργίας: πότε επιβεβαιώθηκε τελευταία φορά ότι τα αντίγραφα υπάρχουν και ότι η επαναφορά δουλεύει
   lastBackupCheckAt  DateTime?
   lastRestoreDrillAt DateTime?
-  // Αποθήκευση αρχείων στο Bunny. Ο κωδικός της ζώνης ΔΕΝ μπαίνει εδώ: μένει στο περιβάλλον του server (BUNNY_STORAGE_KEY).
-  bunnyZone   String? // όνομα storage zone
-  bunnyRegion String? // κενό = Falkenstein· αλλιώς uk, ny, la, sg, se, br, jh, syd
-  bunnyCdnUrl String? // pull zone, π.χ. https://gelato.b-cdn.net
   // Νομικά κείμενα που αποδέχεται κάθε χρήστης. Και τα τρία μαζί ενεργοποιούν την υποχρεωτική αποδοχή· νέα έκδοση = νέα αποδοχή.
   legalVersion String? // π.χ. "2026-11"
   termsUrl     String?
@@ -497,4 +494,39 @@ model GdprEvent {
 
   @@index([orgId, at])
   @@index([subjectType, subjectId])
+}
+
+// Πελάτης μιας επιχείρησης (χονδρική ή τακτικός πελάτης). Προσωπικά δεδομένα: συναινέσεις, αρχεία και διαγραφή
+// περνούν από το κοινό σύστημα GDPR με subjectType = "customer" (lib/gdpr) και refType = "customer" (lib/storage).
+model Customer {
+  id               String   @id @default(cuid())
+  orgId            String
+  name             String // επωνυμία ή ονοματεπώνυμο
+  tradeName        String? // διακριτικός τίτλος
+  vatNumber        String? // ΑΦΜ
+  taxOffice        String? // ΔΟΥ
+  profession       String?
+  contactName      String? // υπεύθυνος επικοινωνίας
+  email            String?
+  phone            String?
+  address          String?
+  city             String?
+  postalCode       String?
+  paymentTermsDays Int? // ημέρες πίστωσης
+  notes            String?
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, vatNumber])
+  @@index([orgId, name])
+}
+
+// Ρύθμιση σύνδεσης της πλατφόρμας ως κλειδί → τιμή (βλ. lib/config.ts για τα κλειδιά). Περιέχει και μυστικά κλειδιά:
+// δεν επιστρέφονται ποτέ στον browser.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

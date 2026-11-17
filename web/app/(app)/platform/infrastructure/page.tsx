@@ -1,3 +1,4 @@
+import { settings } from "@/lib/config";
 import Image from "next/image";
 import { Checklist } from "@/components/checklist";
 import { Badge, Card, Page } from "@/components/ui";
@@ -32,14 +33,17 @@ export default async function InfrastructurePage() {
     { label: "Μέγεθος βάσης", value: mb < 1024 ? `${mb.toFixed(0)} MB` : `${(mb / 1024).toFixed(1)} GB`, hint: `${count.format(sales)} αποδείξεις · ${count.format(readings)} μετρήσεις`, ok: true },
     { label: "Φορτίο", value: `${count.format(orgs)} επιχειρήσεις`, hint: `${count.format(devices)} ενεργές συσκευές`, ok: true },
   ];
+  const [isvReady, checkoutReady, mailReady, conf] = await Promise.all([vivaConfigured(), checkoutConfigured(), mailConfigured(), settings("CRON_SECRET", "VIVA_ENV", "BUNNY_STORAGE_ZONE", "BUNNY_STORAGE_KEY")]);
   const config = [
-    { label: "Viva ISV (πληρωμές και τιμολόγηση πελατών)", done: vivaConfigured() },
-    { label: "Viva πλατφόρμας (είσπραξη συνδρομών)", done: checkoutConfigured() },
-    { label: "Mailgun (email)", done: mailConfigured() },
-    { label: "Μυστικό για τις προγραμματισμένες εργασίες (CRON_SECRET)", done: (process.env.CRON_SECRET ?? "").length >= 20 },
-    { label: "Έλεγχος διεύθυνσης Tailscale των συσκευών (TRUST_PROXY)", done: process.env.TRUST_PROXY === "1" },
-    { label: "Περιβάλλον παραγωγής της Viva", done: process.env.VIVA_ENV === "production" },
+    { label: "Viva ISV (πληρωμές και τιμολόγηση πελατών)", done: isvReady },
+    { label: "Viva πλατφόρμας (είσπραξη συνδρομών)", done: checkoutReady },
+    { label: "Mailgun (email)", done: mailReady },
+    { label: "Bunny (αποθήκευση αρχείων)", done: !!(conf.BUNNY_STORAGE_ZONE && conf.BUNNY_STORAGE_KEY) },
+    { label: "Μυστικό για τις προγραμματισμένες εργασίες", done: conf.CRON_SECRET.length >= 20 },
+    { label: "Έλεγχος διεύθυνσης Tailscale των συσκευών (TRUST_PROXY στο .env του server)", done: process.env.TRUST_PROXY === "1" },
+    { label: "Περιβάλλον παραγωγής της Viva", done: conf.VIVA_ENV === "production" },
   ];
+
 
   return (
     <Page section="Υποδομή & ασφάλεια" title="Υποδομή" description="Η κατάσταση του συστήματος τώρα και πώς μεγαλώνει χωρίς να ξαναχτιστεί">
@@ -55,7 +59,7 @@ export default async function InfrastructurePage() {
         </div>
 
         <Card>
-          <div className="border-b border-border/70 px-5 py-4"><h2 className="text-lg">Συνδέσεις αυτού του server</h2><p className="text-sm text-muted-foreground">Ορίζονται στο .env. Ό,τι λείπει δεν σταματά την εφαρμογή, απλώς η αντίστοιχη λειτουργία μένει ανενεργή.</p></div>
+          <div className="border-b border-border/70 px-5 py-4"><h2 className="text-lg">Συνδέσεις αυτού του server</h2><p className="text-sm text-muted-foreground">Ορίζονται στις Ρυθμίσεις & email. Ό,τι λείπει δεν σταματά την εφαρμογή, απλώς η αντίστοιχη λειτουργία μένει ανενεργή.</p></div>
           <ul className="divide-y divide-border/70">
             {config.map((c) => <li key={c.label} className="flex items-center gap-3 px-5 py-3"><span className="min-w-0 flex-1 font-medium">{c.label}</span><Badge tone={c.done ? "success" : "warning"}>{c.done ? "Ενεργό" : "Δεν έχει οριστεί"}</Badge></li>)}
           </ul>

@@ -4,20 +4,14 @@ import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
 import { db } from "@/lib/db";
-import { mailConfigured, mailDomain, platformSettings } from "@/lib/mail/send";
+import { platformSettings } from "@/lib/mail/send";
 import { samples, TEMPLATE_LABEL } from "@/lib/mail/templates";
 import { filterParam, listParams } from "@/lib/paging";
 import { PLATFORM_PERMISSIONS, PLATFORM_ROLES } from "@/lib/permissions";
-import { checkoutConfigured } from "@/lib/viva/checkout";
-import { REGIONS, storageConfig } from "@/lib/storage/bunny";
-import { addStaff, removeStaff, savePlatformSettings, saveLegalSettings, saveStorageSettings, sendTestMail, setStaffRole, testStorage } from "../actions";
+import { Connections } from "@/components/connections";
+import { addStaff, removeStaff, saveLegalSettings, savePlatformSettings, setStaffRole } from "../actions";
 import { Submit } from "@/components/submit";
 
-const TEST: Record<string, { ok: boolean; text: string }> = {
-  SENT: { ok: true, text: "Το δοκιμαστικό email στάλθηκε. Κοίταξε τα εισερχόμενά σου." },
-  SKIPPED: { ok: false, text: "Δεν στάλθηκε: δεν έχουν οριστεί τα κλειδιά του Mailgun." },
-  FAILED: { ok: false, text: "Το Mailgun απέρριψε την αποστολή. Δες το σφάλμα στο ιστορικό πιο κάτω." },
-};
 const STATUS = { SENT: { tone: "success", text: "Στάλθηκε" }, FAILED: { tone: "danger", text: "Απέτυχε" }, SKIPPED: { tone: "warning", text: "Δεν στάλθηκε" } } as const;
 
 export default async function PlatformSettingsPage({ searchParams }: PageProps<"/platform/settings">) {
@@ -36,41 +30,12 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
     db.emailLog.findMany({ where, orderBy: list.sort === "to" ? { to: list.dir } : { createdAt: list.sort === "when" ? list.dir : "desc" }, skip: list.skip, take: list.take, include: { org: true } }),
     db.emailLog.count({ where }),
   ]);
-  const storage = await storageConfig();
-  const ready = mailConfigured();
-  const test = typeof q.test === "string" ? TEST[q.test] : undefined;
   const previews = Object.entries(samples(settings)) as [keyof typeof TEMPLATE_LABEL, ReturnType<typeof samples>["test"]][];
 
   return (
-    <Page section="Πλατφόρμα" title="Ρυθμίσεις & email" description="Ισχύουν για όλη την πλατφόρμα και όλους τους πελάτες">
+    <Page section="Πλατφόρμα" title="Ρυθμίσεις & email" description="Όλες οι συνδέσεις και τα στοιχεία της πλατφόρμας σε ένα σημείο. Ισχύουν για όλους τους πελάτες">
       <div className="max-w-7xl space-y-4">
         {q.error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{String(q.error)}</p> : null}
-
-        <Card className="flex flex-wrap items-center gap-4 p-5">
-          {ready ? <CircleCheck className="size-6 shrink-0 text-success" /> : <CircleAlert className="size-6 shrink-0 text-gold" />}
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg">Mailgun</h2>
-            <p className="text-sm text-muted-foreground">
-              {ready
-                ? `Συνδεδεμένο · τομέας αποστολής ${mailDomain()} · περιοχή ${process.env.MAILGUN_REGION === "us" ? "ΗΠΑ" : "ΕΕ"}. Κάθε πελάτης στέλνει ως υποτομέας@${mailDomain()}, με το δικό του όνομα και email απαντήσεων.`
-                : "Δεν έχει συνδεθεί. Γράψε MAILGUN_API_KEY και MAILGUN_DOMAIN (και MAILGUN_REGION=eu ή us) στο .env του server και ξεκίνα τον ξανά. Μέχρι τότε τα email μόνο καταγράφονται, δεν φεύγουν."}
-            </p>
-            {test ? <p role="status" className={`mt-1 text-sm font-semibold ${test.ok ? "text-success" : "text-destructive"}`}>{test.text}</p> : null}
-          </div>
-          <form action={sendTestMail}><Submit className={btn("outline")}>Δοκιμαστικό email σε {admin.email}</Submit></form>
-        </Card>
-
-        <Card className="flex flex-wrap items-center gap-4 p-5">
-          {checkoutConfigured() ? <CircleCheck className="size-6 shrink-0 text-success" /> : <CircleAlert className="size-6 shrink-0 text-gold" />}
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg">Λογαριασμός Viva για τις συνδρομές</h2>
-            <p className="text-sm text-muted-foreground">
-              {checkoutConfigured()
-                ? `Συνδεδεμένος · περιβάλλον ${process.env.VIVA_ENV === "production" ? "παραγωγής" : "demo"}. Οι συνδρομητές πληρώνουν με κάρτα από τη σελίδα «Συνδρομή» και τα χρήματα πιστώνονται σε αυτόν τον λογαριασμό. Στην πηγή πληρωμών της Viva, το Success URL πρέπει να είναι η διεύθυνση της εφαρμογής + /billing/paid.`
-                : "Δεν έχει συνδεθεί. Γράψε VIVA_PLATFORM_CLIENT_ID και VIVA_PLATFORM_CLIENT_SECRET (Smart Checkout) στο .env του server. Μέχρι τότε οι χρεώσεις εξοφλούνται μόνο χειροκίνητα, από την καρτέλα του συνδρομητή."}
-            </p>
-          </div>
-        </Card>
 
         <Card>
           <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
@@ -91,32 +56,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
           </dl>
         </Card>
 
-        <Card id="storage" className="scroll-mt-28">
-          <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
-            {storage.ready ? <CircleCheck className="size-6 shrink-0 text-success" /> : <CircleAlert className="size-6 shrink-0 text-gold" />}
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg">Αποθήκευση αρχείων (Bunny) {q.saved === "storage" ? <span role="status" className="ml-2 text-sm font-semibold text-success">Αποθηκεύτηκε</span> : null}</h2>
-              <p className="text-sm text-muted-foreground">Φωτογραφίες, έγγραφα και αντίγραφα ασφαλείας. Κάθε πελάτης έχει δικό του φάκελο: orgs/&lt;πελάτης&gt;/…</p>
-            </div>
-            <form action={testStorage}><Submit className={btn("outline")}>Δοκιμή σύνδεσης</Submit></form>
-            <Modal label="Αλλαγή" title="Αποθήκευση αρχείων (Bunny)" description="Τα στοιχεία της storage zone και του pull zone από τον πίνακα του Bunny">
-              <form key={[storage.zone, storage.region, storage.cdn].join()} action={saveStorageSettings} className="grid gap-4 [&>button]:justify-self-end">
-                <Field label="Όνομα storage zone" name="bunnyZone" maxLength={60} defaultValue={settings.bunnyZone ?? ""} placeholder="gelato-files" hint="Bunny › Storage › η ζώνη σου › FTP & API Access › Username" />
-                <Select label="Περιοχή της ζώνης" name="bunnyRegion" defaultValue={settings.bunnyRegion ?? ""} options={REGIONS} />
-                <Field label="Διεύθυνση CDN (pull zone)" name="bunnyCdnUrl" maxLength={120} defaultValue={settings.bunnyCdnUrl ?? ""} placeholder="https://gelato.b-cdn.net" hint="Από εδώ σερβίρονται οι φωτογραφίες. Χωρίς αυτήν περνούν μέσα από την εφαρμογή, πιο αργά" />
-                <p className="rounded-lg bg-secondary px-3 py-2 text-sm text-muted-foreground">Ο κωδικός της ζώνης (FTP & API Access › Password) δεν γράφεται εδώ. Μπαίνει στο .env του server ως BUNNY_STORAGE_KEY, όπως όλα τα μυστικά κλειδιά.</p>
-                <Submit className={btn("default")}>Αποθήκευση</Submit>
-              </form>
-            </Modal>
-          </div>
-          {typeof q.storage === "string" ? <p role={q.storage === "ok" ? "status" : "alert"} className={`mx-5 mt-4 rounded-lg px-4 py-3 text-sm font-medium ${q.storage === "ok" ? "bg-success/10 text-success-ink" : "bg-destructive/10 text-destructive"}`}>{String(q.msg ?? "").slice(0, 200)}</p> : null}
-          <dl className="grid gap-x-6 gap-y-3 p-5 sm:grid-cols-4">
-            {[["Storage zone", storage.zone], ["Περιοχή", REGIONS.find(([r]) => r === storage.region)?.[1]], ["Διεύθυνση CDN", storage.cdn]].map(([l, v]) => (
-              <div key={l} className="min-w-0"><dt className="text-xs font-medium text-muted-foreground">{l}</dt><dd className="truncate font-semibold">{v || <span className="font-normal text-muted-foreground">Δεν έχει οριστεί</span>}</dd></div>
-            ))}
-            <div><dt className="text-xs font-medium text-muted-foreground">Κωδικός ζώνης (BUNNY_STORAGE_KEY)</dt><dd><Badge tone={storage.hasKey ? "success" : "warning"}>{storage.hasKey ? "Ορισμένος στον server" : "Λείπει από το .env"}</Badge></dd></div>
-          </dl>
-        </Card>
+        <Connections q={q} />
 
         <Card id="legal" className="scroll-mt-28">
           <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">

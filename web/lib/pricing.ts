@@ -15,3 +15,7 @@ export function monthlyCharge(stores: number, devices: number) {
   const devicesCents = devices * PRICE_PER_DEVICE;
   return { storesCents, devicesCents, totalCents: storesCents + devicesCents };
 }
+
+export const VAT_RATE = 24; // ΦΠΑ υπηρεσιών λογισμικού
+/** Οι χρεώσεις τηρούνται προ ΦΠΑ· ο πελάτης πληρώνει με ΦΠΑ. */
+export const withVat = (cents: number) => Math.round((cents * (100 + VAT_RATE)) / 100);

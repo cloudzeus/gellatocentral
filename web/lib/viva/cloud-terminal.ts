@@ -1,20 +1,25 @@
 // Viva Cloud Terminal API (σχήμα ISV). Πηγή: developer.viva.com/downloads/eft-pos-api.yml
 // Το ταμείο στέλνει αίτημα πώλησης στο τερματικό και μετά ρωτά για το αποτέλεσμα με το sessionId.
 // ΔΕΝ έχει δοκιμαστεί ακόμα απέναντι στο demo της Viva (χρειάζονται ISV κλειδιά).
+import { settings } from "../config";
 import { toVivaJson } from "./fiscal";
 
-const demo = process.env.VIVA_ENV !== "production";
-const ACCOUNTS = demo ? "https://demo-accounts.vivapayments.com" : "https://accounts.vivapayments.com";
-const API = demo ? "https://demo-api.vivapayments.com" : "https://api.vivapayments.com";
+/** Κλειδιά και διευθύνσεις για το περιβάλλον που έχει οριστεί στις Ρυθμίσεις. */
+async function isv() {
+  const c = await settings("VIVA_ENV", "VIVA_ISV_CLIENT_ID", "VIVA_ISV_CLIENT_SECRET");
+  const demo = c.VIVA_ENV !== "production";
+  return { demo, id: c.VIVA_ISV_CLIENT_ID, secret: c.VIVA_ISV_CLIENT_SECRET, accounts: demo ? "https://demo-accounts.vivapayments.com" : "https://accounts.vivapayments.com", api: demo ? "https://demo-api.vivapayments.com" : "https://api.vivapayments.com" };
+}
+export const vivaConfigured = async () => { const c = await isv(); return Boolean(c.id && c.secret); };
 
-export const vivaConfigured = () => Boolean(process.env.VIVA_ISV_CLIENT_ID && process.env.VIVA_ISV_CLIENT_SECRET);
-
-let token: { value: string; expiresAt: number } | undefined;
+// το token ισχύει για συγκεκριμένα κλειδιά: αν αλλάξουν από τις Ρυθμίσεις, ζητείται νέο
+let token: { value: string; expiresAt: number; for: string } | undefined;
 
 async function bearer(): Promise<string> {
-  if (token && token.expiresAt > Date.now() + 30_000) return token.value;
-  const basic = Buffer.from(`${process.env.VIVA_ISV_CLIENT_ID}:${process.env.VIVA_ISV_CLIENT_SECRET}`).toString("base64");
-  const res = await fetch(`${ACCOUNTS}/connect/token`, {
+  const c = await isv();
+  if (token && token.for === `${c.accounts}|${c.id}|${c.secret}` && token.expiresAt > Date.now() + 30_000) return token.value;
+  const basic = Buffer.from(`${c.id}:${c.secret}`).toString("base64");
+  const res = await fetch(`${c.accounts}/connect/token`, {
     method: "POST",
     headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
     body: "grant_type=client_credentials",
@@ -22,7 +27,7 @@ async function bearer(): Promise<string> {
   });
   if (!res.ok) throw new Error(`Viva token: HTTP ${res.status}`);
   const json = (await res.json()) as { access_token: string; expires_in: number };
-  token = { value: json.access_token, expiresAt: Date.now() + json.expires_in * 1000 };
+  token = { value: json.access_token, expiresAt: Date.now() + json.expires_in * 1000, for: `${c.accounts}|${c.id}|${c.secret}` };
   return token.value;
 }
 
@@ -35,7 +40,7 @@ export async function startSale(input: {
   terminalMerchantId: string;
   fiscalisationData: unknown;
 }) {
-  const res = await fetch(`${API}/ecr/isv/v1/transactions:sale`, {
+  const res = await fetch(`${(await isv()).api}/ecr/isv/v1/transactions:sale`, {
     method: "POST",
     headers: { Authorization: `Bearer ${await bearer()}`, "Content-Type": "application/json" },
     body: toVivaJson({
@@ -58,7 +63,7 @@ export async function startSale(input: {
 
 /** null = το τερματικό δεν έχει τελειώσει ακόμα (HTTP 202). */
 export async function getSession(sessionId: string): Promise<Record<string, unknown> | null> {
-  const res = await fetch(`${API}/ecr/isv/v1/sessions/${sessionId}`, {
+  const res = await fetch(`${(await isv()).api}/ecr/isv/v1/sessions/${sessionId}`, {
     headers: { Authorization: `Bearer ${await bearer()}` },
     cache: "no-store",
   });
@@ -69,8 +74,8 @@ export async function getSession(sessionId: string): Promise<Record<string, unkn
 
 /** Δοκιμή των κλειδιών ISV: ζητά token από τη Viva. Επιστρέφει null αν όλα καλά, αλλιώς το σφάλμα. */
 export async function testIsvCredentials(): Promise<string | null> {
-  if (!vivaConfigured()) return "Δεν έχουν οριστεί VIVA_ISV_CLIENT_ID / VIVA_ISV_CLIENT_SECRET";
+  if (!(await vivaConfigured())) return "Δεν έχουν οριστεί τα κλειδιά ISV στις Ρυθμίσεις";
   token = undefined;
   return bearer().then(() => null, (e: Error) => e.message);
 }
-export const vivaEnv = () => (demo ? "demo" : "production");
+export const vivaEnv = async () => ((await isv()).demo ? "demo" : "production");

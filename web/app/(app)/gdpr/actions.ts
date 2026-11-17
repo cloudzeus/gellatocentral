@@ -36,8 +36,9 @@ export async function openRequest(key: string, form: FormData) {
   // αν το email ανήκει σε χρήστη αυτού του επιπέδου, το αίτημα δένεται με τον λογαριασμό του
   const user = d.data.email ? await db.user.findUnique({ where: { email: d.data.email }, include: { memberships: true } }) : null;
   const mine = user && scopeOf(user) === scope ? user : null;
+  const customer = !mine && scope && d.data.email ? await db.customer.findFirst({ where: { orgId: scope, email: { equals: d.data.email, mode: "insensitive" } } }) : null;
   try {
-    await requestErasure({ orgId: scope, subjectType: mine ? "user" : "external", subjectId: mine?.id ?? null, name: mine?.name ?? d.data.name, email: d.data.email || null, reason: d.data.reason, actor });
+    await requestErasure({ orgId: scope, subjectType: mine ? "user" : customer ? "customer" : "external", subjectId: mine?.id ?? customer?.id ?? null, name: mine?.name ?? customer?.name ?? d.data.name, email: d.data.email || null, reason: d.data.reason, actor });
   } catch (e) {
     return back(scope, { error: say(e) });
   }

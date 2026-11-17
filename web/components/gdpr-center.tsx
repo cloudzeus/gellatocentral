@@ -16,7 +16,7 @@ const dayOnly = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeZone:
 const TABS = { requests: "Αιτήματα διαγραφής", consents: "Συναινέσεις", log: "Ημερολόγιο" } as const;
 const STATUS = { PENDING: { tone: "warning", text: "Ανοιχτό" }, COMPLETED: { tone: "success", text: "Ολοκληρώθηκε" }, REJECTED: { tone: "neutral", text: "Απορρίφθηκε" } } as const;
 const SOURCE: Record<string, string> = { activation: "Ενεργοποίηση λογαριασμού", self: "Ο ίδιος", admin: "Καταχώριση διαχειριστή" };
-const SUMMARY: Record<string, string> = { account: "λογαριασμός", files: "αρχεία", sessions: "συνεδρίες", memberships: "συμμετοχές", emails: "email στο ιστορικό", consents: "συναινέσεις (χωρίς IP)", uploads: "αναφορές σε ανεβάσματα" };
+const SUMMARY: Record<string, string> = { customer: "καρτέλα πελάτη", account: "λογαριασμός", files: "αρχεία", sessions: "συνεδρίες", memberships: "συμμετοχές", emails: "email στο ιστορικό", consents: "συναινέσεις (χωρίς IP)", uploads: "αναφορές σε ανεβάσματα" };
 
 export async function GdprCenter({ scope, base, sp }: { scope: string | null; base: string; sp: Record<string, string | string[] | undefined> }) {
   const key = scope ?? "platform";
@@ -112,7 +112,7 @@ async function Requests({ scope, sp }: Part) {
                     <div className="space-y-2 text-sm">
                       <p className="font-medium">Τι θα γίνει, και δεν αναιρείται:</p>
                       <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-                        {r.subjectType === "user" ? <><li>Σβήνεται ο λογαριασμός, οι συνεδρίες και οι συμμετοχές του</li><li>Το email του αφαιρείται από το ιστορικό αποστολών</li><li>Λαμβάνει ένα τελευταίο email ότι η διαγραφή έγινε</li></> : <li>Το αίτημα κλείνει ως ολοκληρωμένο. Βεβαιώσου πρώτα ότι τα στοιχεία του σβήστηκαν και από όσα συστήματα είναι εκτός εφαρμογής</li>}
+                        {r.subjectType === "user" ? <><li>Σβήνεται ο λογαριασμός, οι συνεδρίες και οι συμμετοχές του</li><li>Το email του αφαιρείται από το ιστορικό αποστολών</li><li>Λαμβάνει ένα τελευταίο email ότι η διαγραφή έγινε</li></> : r.subjectType === "customer" ? <li>Σβήνεται η καρτέλα του πελάτη με όλα τα στοιχεία του</li> : <li>Το αίτημα κλείνει ως ολοκληρωμένο. Βεβαιώσου πρώτα ότι τα στοιχεία του σβήστηκαν και από όσα συστήματα είναι εκτός εφαρμογής</li>}
                         <li>Σβήνονται τα αρχεία που είναι δεμένα μαζί του</li>
                         <li>Μένουν: τα φορολογικά παραστατικά (χωρίς στοιχεία του) και η απόδειξη ότι το αίτημα εκτελέστηκε</li>
                       </ul>
@@ -143,6 +143,7 @@ async function Consents({ scope, sp }: Part) {
   const bySubject = new Map<string, typeof rows>();
   for (const r of rows) bySubject.set(`${r.subjectType}:${r.subjectId}`, [...(bySubject.get(`${r.subjectType}:${r.subjectId}`) ?? []), r]);
   const users = new Map((await db.user.findMany({ where: { id: { in: rows.filter((r) => r.subjectType === "user").map((r) => r.subjectId) } }, select: { id: true, name: true, email: true } })).map((u) => [u.id, u]));
+  for (const c of scope ? await db.customer.findMany({ where: { orgId: scope, id: { in: rows.filter((r) => r.subjectType === "customer").map((r) => r.subjectId) } }, select: { id: true, name: true, email: true } }) : []) users.set(c.id, { id: c.id, name: c.name, email: c.email ?? "" });
   const current = [...bySubject.values()].flatMap((rs) => [...currentConsents(rs).values()])
     .map((c) => ({ c, who: users.get(c.subjectId) }))
     .filter(({ who }) => !list.q || `${who?.name} ${who?.email}`.toLowerCase().includes(list.q.toLowerCase()))

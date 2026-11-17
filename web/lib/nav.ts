@@ -45,7 +45,7 @@ export const NAV: { title: string; icon: LucideIcon; items: NavItem[] }[] = [
   {
     title: "Πελάτες & πωλήσεις", icon: Contact,
     items: [
-      { to: "/customers", label: "Πελάτες", icon: Contact },
+      { to: "/customers", label: "Πελάτες", icon: Contact, ready: true },
       { to: "/wholesale-orders", label: "Παραγγελίες", icon: ShoppingCart },
       { to: "/invoices", label: "Παραστατικά", icon: FileText },
       { to: "/vitrine", label: "Βιτρίνα", icon: MonitorSmartphone },

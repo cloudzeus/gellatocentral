@@ -5,7 +5,7 @@ import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { BILLABLE_KINDS, monthlyCharge, PRICE_PER_DEVICE, PRICE_PER_STORE } from "@/lib/pricing";
-import { VAT_RATE, withVat } from "@/lib/viva/checkout";
+import { VAT_RATE, withVat } from "@/lib/pricing";
 import { payCharge } from "./actions";
 import { Submit } from "@/components/submit";
 

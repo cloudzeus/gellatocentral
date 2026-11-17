@@ -2,7 +2,8 @@
 // Ενέργειες της κονσόλας πλατφόρμας: ο διαχειριστής ενεργεί για ΟΠΟΙΑΔΗΠΟΤΕ επιχείρηση (orgId από τη φόρμα).
 // Κάθε action ξεκινά με requirePlatform(δικαίωμα): οι server actions καλούνται και απευθείας, όχι μόνο από τη σελίδα.
 
-import { ping, REGIONS } from "@/lib/storage/bunny";
+import { type Group, GROUPS, saveGroup } from "@/lib/config";
+import { ping } from "@/lib/storage/bunny";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -337,19 +338,13 @@ export async function savePlatformSettings(form: FormData) {
   redirect("/platform/settings?saved=1");
 }
 
-export async function saveStorageSettings(form: FormData) {
+/** Αποθήκευση μιας ομάδας ρυθμίσεων σύνδεσης (Viva, Mailgun, Bunny, εφαρμογή). */
+export async function saveConnection(group: string, form: FormData) {
   await requirePlatform("settings.manage");
-  const d = read(
-    z.object({
-      bunnyZone: optional(60).refine((v) => !v || /^[a-z0-9-]+$/.test(v), "Το όνομα ζώνης έχει μόνο πεζά λατινικά, ψηφία και παύλες"),
-      bunnyRegion: optional(4).refine((v) => !v || REGIONS.some(([r]) => r === v), "Άγνωστη περιοχή"),
-      bunnyCdnUrl: optional(120).refine((v) => !v || /^https:\/\/[a-z0-9.-]+\.[a-z]{2,}\/?$/.test(v), "Η διεύθυνση CDN γράφεται ολόκληρη, π.χ. https://gelato.b-cdn.net"),
-    }),
-    form,
-    "/platform/settings",
-  );
-  await db.platformSettings.upsert({ where: { id: 1 }, update: d, create: { id: 1, ...d } });
-  redirect("/platform/settings?saved=storage#storage");
+  if (!(group in GROUPS)) redirect("/platform/settings");
+  const error = await saveGroup(group as Group, form);
+  revalidatePath("/platform", "layout");
+  redirect(error ? `/platform/settings?error=${encodeURIComponent(error)}#${group}` : `/platform/settings?saved=${group}#${group}`);
 }
 
 export async function saveLegalSettings(form: FormData) {
@@ -360,17 +355,19 @@ export async function saveLegalSettings(form: FormData) {
   redirect("/platform/settings?saved=legal#legal");
 }
 
-export async function testStorage() {
-  await requirePlatform("settings.manage");
-  const r = await ping();
-  redirect(`/platform/settings?storage=${r.ok ? "ok" : "fail"}&msg=${encodeURIComponent(r.text)}#storage`);
-}
-
-/** Στέλνει το δοκιμαστικό email στον ίδιο τον διαχειριστή που πάτησε το κουμπί. */
-export async function sendTestMail() {
+/** Δοκιμή μιας σύνδεσης με τις τιμές που ισχύουν τώρα. Το αποτέλεσμα φαίνεται στην κάρτα της. */
+export async function testConnection(group: string) {
   const admin = await requirePlatform("settings.manage");
-  const status = await sendMail({ to: admin.email, template: "test", mail: templates.test(await platformSettings(), { to: admin.email }) });
-  redirect(`/platform/settings?test=${status}`);
+  let r: { ok: boolean; text: string };
+  if (group === "bunny") r = await ping();
+  else if (group === "viva_isv") {
+    const error = await testIsvCredentials();
+    r = error ? { ok: false, text: `Η Viva δεν δέχτηκε τα κλειδιά: ${error}. Έλεγξε και το περιβάλλον (demo ή παραγωγή)` } : { ok: true, text: "Η Viva δέχτηκε τα κλειδιά ISV" };
+  } else if (group === "mailgun") {
+    const status = await sendMail({ to: admin.email, template: "test", mail: templates.test(await platformSettings(), { to: admin.email }) });
+    r = status === "SENT" ? { ok: true, text: `Το δοκιμαστικό email στάλθηκε στο ${admin.email}. Κοίταξε τα εισερχόμενά σου` } : { ok: false, text: status === "SKIPPED" ? "Δεν στάλθηκε: λείπει το κλειδί ή ο τομέας του Mailgun" : "Το Mailgun απέρριψε την αποστολή. Δες το σφάλμα στο ιστορικό email πιο κάτω" };
+  } else redirect("/platform/settings");
+  redirect(`/platform/settings?test=${group}&ok=${r.ok ? 1 : 0}&msg=${encodeURIComponent(r.text)}#${group}`);
 }
 
 // ---- Προσωπικό πλατφόρμας (Super Admin, Manager, Υπάλληλος εφαρμογής, Υπάλληλος υποστήριξης) ----

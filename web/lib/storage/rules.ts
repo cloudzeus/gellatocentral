@@ -15,6 +15,7 @@ export const CATEGORIES = {
   logo: { label: "Λογότυπο", public: true, types: IMAGES, maxBytes: 2 * MB, needs: "users.manage", platform: false, single: true },
   photo: { label: "Φωτογραφίες", public: true, types: IMAGES, maxBytes: 8 * MB, needs: "devices.manage", platform: false },
   document: { label: "Έγγραφα", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "users.manage", platform: false },
+  customer_document: { label: "Έγγραφα πελάτη", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "customers.manage", platform: false },
   backup: { label: "Αντίγραφα ασφαλείας", public: false, types: ["application/octet-stream"], maxBytes: 5 * 1024 * MB, needs: "users.manage", platform: true },
 } as const satisfies Record<string, { label: string; public: boolean; types: readonly string[]; maxBytes: number; needs: Permission; platform: boolean; /** κρατιέται μόνο το τελευταίο */ single?: boolean }>;
 export type Category = keyof typeof CATEGORIES;

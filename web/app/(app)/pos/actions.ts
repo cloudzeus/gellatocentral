@@ -52,7 +52,7 @@ export async function clearSale() {
 export async function pay(method: "CASH" | "CARD") {
   z.enum(["CASH", "CARD"]).parse(method);
   const ctx = await currentContext();
-  const live = vivaConfigured();
+  const live = await vivaConfigured();
   if (live && !(ctx.org.vivaMerchantId && ctx.device.vivaTerminalId))
     throw new Error("Λείπει ο κωδικός εμπόρου Viva ή το τερματικό της συσκευής.");
   const draft = await db.sale.findFirst({ where: { deviceId: ctx.device.id, status: "DRAFT" }, select: { id: true } });
