@@ -1,0 +1,77 @@
+// Κοινά στοιχεία, ίδια εμφάνιση με το Gelato System (κουμπιά, κάρτες, ετικέτες). Όλα server components.
+import type { ComponentProps, ReactNode } from "react";
+
+export const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
+
+const BTN =
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold tracking-tight cursor-pointer transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0";
+const VARIANT = {
+  default: "bg-primary text-primary-foreground shadow-[0_8px_20px_-12px_oklch(0.235_0.056_262.3/70%)] hover:bg-primary/90",
+  gold: "bg-gold text-accent-foreground hover:bg-gold-strong",
+  success: "bg-success text-success-foreground hover:bg-success/90",
+  destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+  outline: "border border-border bg-card shadow-xs hover:bg-secondary hover:text-secondary-foreground",
+  ghost: "hover:bg-secondary hover:text-secondary-foreground",
+};
+const SIZE = {
+  default: "h-8.5 px-3.5 pointer-coarse:min-h-11",
+  sm: "h-7 rounded-lg px-2.5 text-xs pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+  lg: "h-12 px-6 text-lg",
+};
+
+export const btn = (variant: keyof typeof VARIANT = "default", size: keyof typeof SIZE = "default", extra?: string) =>
+  cn(BTN, VARIANT[variant], SIZE[size], extra);
+
+export function Card({ className, ...p }: ComponentProps<"div">) {
+  return <div className={cn("min-w-0 rounded-2xl border border-border/70 bg-card text-card-foreground shadow-[var(--shadow-card)]", className)} {...p} />;
+}
+
+const TONE = {
+  neutral: "bg-secondary text-secondary-foreground",
+  success: "bg-success/15 text-success",
+  warning: "bg-gold/20 text-accent-foreground",
+  danger: "bg-destructive/15 text-destructive",
+};
+export function Badge({ tone = "neutral", children }: { tone?: keyof typeof TONE; children: ReactNode }) {
+  return <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold", TONE[tone])}>{children}</span>;
+}
+
+/** Κεφαλίδα σελίδας + περιεχόμενο, όπως το AppLayout του Gelato System. */
+export function Page({ section, title, description, actions, children }: { section: string; title: string; description?: string; actions?: ReactNode; children: ReactNode }) {
+  return (
+    <>
+      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 bg-background/70 px-4 py-3 backdrop-blur-xl backdrop-saturate-150 max-lg:pl-16 lg:px-8 print:hidden">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="text-xs font-medium text-muted-foreground lg:text-xs">{section} › {title}</p>
+          <h1 className="truncate text-xl leading-tight lg:text-2xl">{title}</h1>
+          {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        </div>
+        {actions}
+      </header>
+      <main className="flex-1 px-4 pt-6 pb-[calc(var(--bottom-nav-h,0px)+1.5rem)] lg:px-8 print:p-0">{children}</main>
+    </>
+  );
+}
+
+const FIELD = "h-8.5 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
+/** Πεδίο φόρμας με ορατή ετικέτα και προαιρετική βοήθεια από κάτω. */
+export function Field({ label, hint, ...p }: { label: string; hint?: string } & ComponentProps<"input">) {
+  return (
+    <label className="block min-w-0 space-y-1 text-sm font-semibold">
+      {label}{p.required ? <span className="text-destructive"> *</span> : null}
+      <input className={FIELD} {...p} />
+      {hint ? <span className="block text-xs font-normal text-muted-foreground">{hint}</span> : null}
+    </label>
+  );
+}
+export function Select({ label, options, ...p }: { label: string; options: [value: string, text: string][] } & ComponentProps<"select">) {
+  return (
+    <label className="block min-w-0 space-y-1 text-sm font-semibold">
+      {label}
+      <select className={FIELD} {...p}>{options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
+    </label>
+  );
+}
+
+/** Στοιχείο μενού γραμμής πίνακα (σύνδεσμος ή κουμπί φόρμας). */
+export const menuItem = "flex min-h-10 w-full cursor-pointer items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold hover:bg-secondary [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";

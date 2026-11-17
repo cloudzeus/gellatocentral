@@ -1,0 +1,63 @@
+import { Plus } from "lucide-react";
+import { Modal } from "@/components/modal";
+import { Badge, btn, Card, Page } from "@/components/ui";
+import { db } from "@/lib/db";
+import { DEVICE_KIND, FOR, KIND_OPTIONS, readingStatus } from "@/lib/devices";
+import { euro } from "@/lib/money";
+import { PRICE_PER_DEVICE } from "@/lib/pricing";
+import { currentOrg } from "@/lib/auth";
+import { addDevice, toggleDevice } from "./actions";
+
+const field = "h-8.5 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
+
+export default async function DevicesPage() {
+  const { org } = await currentOrg("devices.manage");
+  const stores = await db.store.findMany({ where: { orgId: org.id }, orderBy: { name: "asc" }, include: { devices: { orderBy: { createdAt: "asc" }, include: { readings: { orderBy: { at: "desc" }, take: 1 } } } } });
+  return (
+    <Page section="Ταμείο & τιμολόγηση" title="Συσκευές" description={`Ταμεία, οθόνες κουζίνας, ψυγεία, αυτόματοι πωλητές και ζυγαριές. Χρεώνονται μόνο τα ταμεία: ${euro(PRICE_PER_DEVICE)} τον μήνα.`}
+      actions={
+        <Modal label={<><Plus /> Νέα συσκευή</>} variant="gold" title="Νέα συσκευή" description={`Μόνο τα ταμεία χρεώνονται: ${euro(PRICE_PER_DEVICE)} τον μήνα το καθένα`}>
+          <form action={addDevice} data-by-kind className="grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end">
+            <label className="block space-y-1 text-sm font-semibold">Όνομα<input name="name" required minLength={2} maxLength={40} placeholder="π.χ. Ταμείο 2" className={field} /></label>
+            <label className="block space-y-1 text-sm font-semibold">Κατάστημα
+              <select name="storeId" className={field}>{stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+            </label>
+            <label className="block space-y-1 text-sm font-semibold">Είδος
+              <select name="kind" className={field}>{KIND_OPTIONS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+            </label>
+            <label data-for={FOR.invoicing} className="space-y-1 text-sm font-semibold">Σειρά αποδείξεων<input name="series" pattern="[A-Za-z0-9]{1,6}" placeholder="π.χ. A2" className={field} /></label>
+            <label data-for={FOR.invoicing} className="space-y-1 text-sm font-semibold">Τερματικό Viva (προαιρετικό)<input name="vivaTerminalId" maxLength={20} placeholder="π.χ. 16000010" className={field} /></label>
+            <label data-for={FOR.storage} className="space-y-1 text-sm font-semibold">Κάτω όριο θερμοκρασίας (°C)<input name="tempMin" inputMode="decimal" placeholder="π.χ. -25" className={field} /></label>
+            <label data-for={FOR.storage} className="space-y-1 text-sm font-semibold">Πάνω όριο θερμοκρασίας (°C)<input name="tempMax" inputMode="decimal" placeholder="π.χ. -15" className={field} /></label>
+            <button className={btn("default")}>Προσθήκη συσκευής</button>
+          </form>
+        </Modal>
+      }>
+        <div className="mx-auto max-w-4xl space-y-4">
+          {stores.map((s) => (
+            <Card key={s.id}>
+              <h2 className="border-b border-border/70 px-5 py-4 text-lg">{s.name}</h2>
+              <ul className="divide-y divide-border/70">
+                {s.devices.length === 0 ? <li className="px-5 py-6 text-muted-foreground">Κανένα ταμείο ακόμα σε αυτό το κατάστημα.</li> : null}
+                {s.devices.map((d) => {
+                  const kind = DEVICE_KIND[d.kind];
+                  const status = kind.measures ? readingStatus(d, d.readings[0]) : null;
+                  return (
+                    <li key={d.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold">{d.name}</p>
+                        <p className="text-xs text-muted-foreground">{[kind.label, kind.invoices && `σειρά ${d.series} · επόμενη #${d.nextAa}`, kind.invoices && (d.vivaTerminalId ? `τερματικό ${d.vivaTerminalId}` : "χωρίς τερματικό Viva"), kind.storage && (d.tempMin !== null || d.tempMax !== null) && `όρια ${d.tempMin ?? "…"} έως ${d.tempMax ?? "…"} °C`].filter(Boolean).join(" · ")}</p>
+                      </div>
+                      {status ? <Badge tone={status.tone}>{status.text}</Badge> : null}
+                      <Badge tone={d.active ? "success" : "neutral"}>{!d.active ? "Ανενεργή" : kind.invoices ? "Ενεργή — χρεώνεται" : "Ενεργή — χωρίς χρέωση"}</Badge>
+                      <form action={toggleDevice.bind(null, d.id)}><button className={btn("outline", "sm")}>{d.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</button></form>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Card>
+          ))}
+        </div>
+    </Page>
+  );
+}

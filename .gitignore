@@ -1,0 +1,12 @@
+node_modules
+.DS_Store
+.env
+.next/
+*.tsbuildinfo
+.planning/
+.agents/
+.windsurf/
+web/.claude/
+# Η παλιά πρόταση EPIC Hub μένει εκτός αυτού του repo
+docs/EPIC_Hub_*
+docs/proposal_build/

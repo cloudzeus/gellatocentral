@@ -1,0 +1,405 @@
+// Gelato System SaaS — πυρήνας πολυ-επιχειρησιακός + συνδρομή + ταμείο + ηλεκτρονική τιμολόγηση (Viva).
+// Κάθε πίνακας δεδομένων επιχείρησης έχει orgId. Ποσά πάντα σε λεπτά (Int).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PlatformRole {
+  SUPER_ADMIN
+  MANAGER
+  STAFF // υπάλληλος της εφαρμογής
+  SUPPORT // υπάλληλος υποστήριξης
+}
+
+enum DeviceKind {
+  POS_WEB // ταμείο σε browser — πληρωμή μέσω Viva Cloud Terminal API
+  POS_ANDROID // εφαρμογή Android — πληρωμή μέσω Viva inter-app
+  KITCHEN_DISPLAY // οθόνη κουζίνας/εργαστηρίου: δείχνει παραγγελίες, δεν εκδίδει παραστατικά και δεν χρεώνεται
+  FRIDGE // ψυγείο/καταψύκτης/βιτρίνα: είναι και αποθηκευτικός χώρος, στέλνει θερμοκρασίες
+  VENDING_MACHINE // αυτόματος πωλητής: είναι και αποθηκευτικός χώρος, στέλνει θερμοκρασίες
+  SCALE // ζυγαριά, δεμένη με ταμείο ή με το εργαστήριο (κατάστημα)
+}
+
+enum PrinterConnection {
+  NETWORK // IP:θύρα (Ethernet / Wi-Fi)
+  BLUETOOTH // διεύθυνση MAC
+  USB
+}
+
+enum SaleStatus {
+  DRAFT
+  AWAITING_PAYMENT
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+}
+
+enum FiscalStatus {
+  NOT_SENT // δοκιμαστική λειτουργία: δεν διαβιβάστηκε
+  PENDING // στάλθηκε στη Viva, περιμένουμε αποτέλεσμα
+  SIGNED // η Viva υπέγραψε και διαβίβασε στο myDATA
+  FAILED
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  vatNumber String   @unique // ΑΦΜ
+  // Viva: merchant κάτω από τον ISV λογαριασμό μας (isvDetails.terminalMerchantId)
+  vivaMerchantId String?
+  // Υποτομέας του πελάτη: <slug>.<baseDomain> για την εφαρμογή και <slug>@<mail domain> ως αποστολέας
+  slug          String?  @unique
+  contactEmail  String? // εδώ απαντούν οι παραλήπτες (Reply-To) και εδώ πάνε οι ειδοποιήσεις συνδρομής
+  emailFromName String? // όνομα αποστολέα· κενό = η επωνυμία
+  createdAt DateTime @default(now())
+  emails    EmailLog[]
+
+  stores       Store[]
+  warehouses   Warehouse[]
+  printers     Printer[]
+  members      Membership[]
+  roles        OrgRole[]
+  categories   Category[]
+  products     Product[]
+  sales        Sale[]
+  subscription Subscription?
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String
+  passwordHash String?
+  // Προσωπικό της πλατφόρμας: βλέπει την κονσόλα συνδρομητών, δεν ανήκει σε επιχείρηση. Κενό = χρήστης συνδρομητή.
+  platformRole PlatformRole?
+  failedLogins Int          @default(0)
+  lockedUntil  DateTime?
+  createdAt    DateTime     @default(now())
+  memberships  Membership[]
+  sessions     Session[]
+  resets       PasswordReset[]
+}
+
+// Σύνδεσμος ορισμού κωδικού: για «ξέχασα τον κωδικό» (1 ώρα) και για πρόσκληση νέου χρήστη (72 ώρες).
+model PasswordReset {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum EmailStatus {
+  SENT
+  FAILED
+  SKIPPED // δεν έχει οριστεί Mailgun: το email μόνο καταγράφηκε
+}
+
+model EmailLog {
+  id        String      @id @default(cuid())
+  orgId     String?
+  to        String
+  template  String
+  subject   String
+  status    EmailStatus
+  error     String?
+  // Μοναδικό κλειδί για email που πρέπει να φύγουν ΜΙΑ φορά (π.χ. υπενθύμιση λήξης μιας περιόδου)
+  dedupeKey String?     @unique
+  createdAt DateTime    @default(now())
+  org       Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
+
+// Μία γραμμή (id = 1) με τις ρυθμίσεις της πλατφόρμας. Τα μυστικά κλειδιά μένουν στο .env.
+model PlatformSettings {
+  id           Int     @id @default(1)
+  brandName    String  @default("Gelato System")
+  baseDomain   String? // π.χ. gelatosystem.app → aurora.gelatosystem.app
+  supportEmail String?
+  // Συνέχεια λειτουργίας: πότε επιβεβαιώθηκε τελευταία φορά ότι τα αντίγραφα υπάρχουν και ότι η επαναφορά δουλεύει
+  lastBackupCheckAt  DateTime?
+  lastRestoreDrillAt DateTime?
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique // sha256 του cookie· το ίδιο το token δεν αποθηκεύεται
+  userId    String
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Membership {
+  id     String @id @default(cuid())
+  orgId  String
+  userId String
+  roleId String
+  storeId String? // κενό = όλα τα καταστήματα· αλλιώς ο χρήστης δουλεύει μόνο σε αυτό
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store  Store?       @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  role   OrgRole      @relation(fields: [roleId], references: [id])
+
+  @@unique([orgId, userId])
+}
+
+// Ρόλος μιας επιχείρησης: όνομα + λίστα δικαιωμάτων (κλειδιά από lib/permissions.ts).
+model OrgRole {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  permissions String[]
+  system      Boolean  @default(false) // δημιουργήθηκε αυτόματα με την επιχείρηση
+  locked      Boolean  @default(false) // «Ιδιοκτήτης»: δεν αλλάζει και δεν διαγράφεται
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members     Membership[]
+
+  @@unique([orgId, name])
+}
+
+model Store {
+  id      String  @id @default(cuid())
+  orgId   String
+  name    String
+  address String?
+  // Viva: «πηγή πληρωμών» του καταστήματος, αν ο έμπορος έχει περισσότερα από ένα
+  vivaSourceCode String?
+  active  Boolean @default(true)
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  devices    Device[]
+  warehouses Warehouse[]
+  printers   Printer[]
+  sales      Sale[]
+  members    Membership[]
+
+  @@index([orgId])
+}
+
+// Συσκευή τιμολόγησης = μονάδα χρέωσης της συνδρομής. Κάθε συσκευή έχει δική της σειρά παραστατικών,
+// ώστε η αρίθμηση (ΑΑ) να μην έχει ποτέ κενά ή συγκρούσεις μεταξύ ταμείων.
+model Device {
+  id             String     @id @default(cuid())
+  orgId          String
+  storeId        String
+  name           String
+  kind           DeviceKind
+  series         String? // σειρά παραστατικών, π.χ. "A1"· κενή για συσκευές που δεν τιμολογούν
+  nextAa         Int        @default(1)
+  vivaTerminalId String? // το terminalId του τερματικού Viva που αντιστοιχεί στο ταμείο
+  apiTokenHash   String?    @unique // sha256 του κλειδιού της εφαρμογής Android (εκδίδεται στη σύζευξη)
+  // Σύζευξη: κωδικός μίας χρήσης που δίνει η κονσόλα και πληκτρολογείται στη συσκευή
+  pairCode          String?   @unique
+  pairCodeExpiresAt DateTime?
+  pairedAt          DateTime?
+  lastSeenAt        DateTime?
+  // Ταυτότητα υλικού: MAC της συσκευής (καταγραφή) και διεύθυνση Tailscale (100.x.y.z).
+  // Όταν υπάρχει tailscaleIp, η συσκευή γίνεται δεκτή ΜΟΝΟ από αυτή τη διεύθυνση.
+  macAddress        String?
+  tailscaleIp       String?
+  // Ψυγείο / αυτόματος πωλητής: ο αποθηκευτικός χώρος που αντιστοιχεί στη συσκευή και τα όρια θερμοκρασίας (°C)
+  warehouseId       String?  @unique
+  tempMin           Float?
+  tempMax           Float?
+  // Ζυγαριά: το ταμείο που εξυπηρετεί· κενό = ζυγαριά του εργαστηρίου/καταστήματος
+  linkedDeviceId    String?
+  warehouse         Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  linkedDevice      Device?    @relation("DeviceLink", fields: [linkedDeviceId], references: [id], onDelete: SetNull)
+  peripherals       Device[]   @relation("DeviceLink")
+  readings          Reading[]
+  printerId      String? // ο εκτυπωτής που τυπώνει τις αποδείξεις αυτού του ταμείου
+  active         Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  store          Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  printer        Printer?   @relation(fields: [printerId], references: [id], onDelete: SetNull)
+  sales          Sale[]
+
+  @@unique([orgId, series])
+  @@index([orgId, storeId])
+}
+
+model Warehouse {
+  id      String  @id @default(cuid())
+  orgId   String
+  storeId String
+  name    String
+  active  Boolean @default(true)
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  store   Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  device  Device? // όταν ο χώρος ΕΙΝΑΙ μια συσκευή (ψυγείο, αυτόματος πωλητής)
+
+  @@index([orgId, storeId])
+}
+
+enum ReadingKind {
+  TEMPERATURE // °C
+  WEIGHT // kg
+}
+
+// Μετρήσεις που στέλνουν οι συσκευές (θερμοκρασίες ψυγείων, ζυγίσεις).
+// shortcut: απλός πίνακας με ευρετήριο· όταν οι μετρήσεις γίνουν εκατομμύρια, γίνεται hypertable (TimescaleDB) με πολιτική διατήρησης.
+model Reading {
+  id       String      @id @default(cuid())
+  orgId    String
+  deviceId String
+  kind     ReadingKind
+  value    Float
+  at       DateTime    @default(now())
+  device   Device      @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, at])
+}
+
+// Θερμικός εκτυπωτής (ESC/POS). Τον χρησιμοποιεί η εφαρμογή Android· ο browser τυπώνει μέσω του συστήματος.
+model Printer {
+  id         String            @id @default(cuid())
+  orgId      String
+  storeId    String
+  name       String
+  connection PrinterConnection
+  address    String? // 192.168.1.50:9100 ή AA:BB:CC:DD:EE:FF· κενό για USB
+  paperWidth Int               @default(80) // mm: 58 ή 80
+  active     Boolean           @default(true)
+  org        Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  store      Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  devices    Device[]
+
+  @@index([orgId, storeId])
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  orgId    String
+  name     String
+  position Int       @default(0)
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@index([orgId])
+}
+
+model Product {
+  id         String   @id @default(cuid())
+  orgId      String
+  categoryId String
+  name       String
+  priceCents Int // τελική τιμή με ΦΠΑ
+  vatRate    Int      @default(13) // ποσοστό ΦΠΑ
+  active     Boolean  @default(true)
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  category   Category     @relation(fields: [categoryId], references: [id])
+  lines      SaleLine[]
+
+  @@index([orgId, categoryId])
+}
+
+model Sale {
+  id          String     @id @default(cuid())
+  orgId       String
+  storeId     String
+  deviceId    String
+  status      SaleStatus @default(DRAFT)
+  totalCents  Int        @default(0)
+  // Συμπληρώνονται στην έκδοση
+  series      String?
+  aa          Int?
+  issuedAt    DateTime?
+  createdAt   DateTime   @default(now())
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  store       Store        @relation(fields: [storeId], references: [id])
+  device      Device       @relation(fields: [deviceId], references: [id])
+  lines       SaleLine[]
+  payment     Payment?
+  fiscal      FiscalDocument?
+
+  @@unique([deviceId, series, aa])
+  @@index([orgId, status, issuedAt])
+  @@index([deviceId, status])
+}
+
+model SaleLine {
+  id             String @id @default(cuid())
+  saleId         String
+  productId      String
+  name           String // αντίγραφο ονόματος τη στιγμή της πώλησης
+  quantity       Int
+  unitPriceCents Int
+  vatRate        Int
+  sale           Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product        Product @relation(fields: [productId], references: [id])
+
+  @@unique([saleId, productId])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  saleId            String        @unique
+  method            PaymentMethod
+  amountCents       Int
+  vivaSessionId     String?       @unique
+  vivaTransactionId String?
+  success           Boolean       @default(false)
+  raw               Json? // η απάντηση της Viva όπως ήρθε
+  createdAt         DateTime      @default(now())
+  sale              Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+}
+
+model FiscalDocument {
+  id               String       @id @default(cuid())
+  saleId           String       @unique
+  docType          String       @default("11.1") // ΑΛΠ
+  receiptReference String       @unique // cbReceiptReference: με αυτό συσχετίζονται τα πιστωτικά
+  status           FiscalStatus
+  request          Json // το fiscalisationData που στείλαμε
+  response         Json? // ftState, ftSignatures, QR κ.λπ.
+  error            String?
+  createdAt        DateTime     @default(now())
+  sale             Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id               String             @id @default(cuid())
+  orgId            String             @unique
+  status           SubscriptionStatus @default(TRIALING)
+  currentPeriodEnd DateTime
+  org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  charges          SubscriptionCharge[]
+}
+
+// Μηνιαία χρέωση: «φωτογραφία» του πλήθους καταστημάτων και συσκευών εκείνη τη στιγμή.
+model SubscriptionCharge {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  periodStart    DateTime
+  periodEnd      DateTime
+  stores         Int
+  devices        Int
+  amountCents    Int // προ ΦΠΑ
+  paidAt         DateTime?
+  // Πληρωμή με κάρτα στον λογαριασμό Viva της πλατφόρμας (Smart Checkout)
+  vivaOrderCode     String? @unique
+  vivaTransactionId String?
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, periodStart])
+}

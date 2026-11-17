@@ -1,0 +1,7 @@
+/** Έλεγχος ελληνικού ΑΦΜ: 9 ψηφία, το τελευταίο είναι ψηφίο ελέγχου (mod 11). */
+export function validAfm(afm: string): boolean {
+  if (!/^\d{9}$/.test(afm) || afm === "000000000") return false;
+  let sum = 0;
+  for (let i = 0; i < 8; i++) sum += Number(afm[i]) * 2 ** (8 - i);
+  return (sum % 11) % 10 === Number(afm[8]);
+}

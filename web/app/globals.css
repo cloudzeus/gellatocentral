@@ -1,0 +1,466 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root and .dark blocks define the actual color values using oklch.
+ * All colors MUST use oklch format.
+ *
+ * To add a new semantic color:
+ * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-gold: var(--gold);
+  --color-gold-strong: var(--gold-strong);
+  --color-navy-soft: var(--navy-soft);
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  /* Ρευστή τυπογραφία: τα text-* του Tailwind δείχνουν στα --fs-* (scripts/fluid-type.mjs) */
+  /* Βάση 11,5px (πυκνή διαχειριστική οθόνη)· στο κινητό τα μικρά μεγέθη μεγαλώνουν κατά 1px μόνα τους */
+  --text-xs: var(--fs-10);
+  --text-sm: var(--fs-11-5);
+  --text-base: var(--fs-12-5);
+  --text-lg: var(--fs-14);
+  --text-xl: var(--fs-16);
+  --text-2xl: var(--fs-20);
+  --text-3xl: var(--fs-24);
+}
+
+:root {
+  --fs-10: clamp(0.625rem, 0.712rem - 0.1087vw, 0.6875rem);
+  --fs-11: clamp(0.6875rem, 0.7745rem - 0.1087vw, 0.75rem);
+  --fs-11-5: clamp(0.7188rem, 0.8057rem - 0.1087vw, 0.7813rem);
+  --fs-12: clamp(0.75rem, 0.837rem - 0.1087vw, 0.8125rem);
+  --fs-12-5: clamp(0.7813rem, 0.8682rem - 0.1087vw, 0.8438rem);
+  --fs-13: clamp(0.8125rem, 0.8995rem - 0.1087vw, 0.875rem);
+  --fs-14: clamp(0.875rem, 0.962rem - 0.1087vw, 0.9375rem);
+  --fs-15: clamp(0.9375rem, 1.0245rem - 0.1087vw, 1rem);
+  --fs-16: 1rem;
+  --fs-18: 1.125rem;
+  --fs-20: 1.25rem;
+  --fs-24: clamp(1.17rem, 1.0409rem + 0.5739vw, 1.5rem);
+  --fs-30: clamp(1.4625rem, 1.3011rem + 0.7174vw, 1.875rem);
+  --radius: 0.875rem;
+  --background: oklch(0.962 0.008 85);
+  --foreground: oklch(0.32 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.32 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.32 0 0);
+  --primary: oklch(0.245 0.055 264);
+  --primary-foreground: oklch(0.98 0.005 85);
+  --secondary: oklch(0.955 0 0);
+  --secondary-foreground: oklch(0.245 0.055 264);
+  --muted: oklch(0.955 0 0);
+  --muted-foreground: oklch(0.52 0.01 264);
+  --accent: oklch(0.635 0.072 84);
+  --accent-foreground: oklch(0.18 0.04 264);
+  --destructive: oklch(0.565 0.232 27.5);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.575 0.108 155);
+  --success-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.635 0.072 84);
+  --warning-foreground: oklch(0.18 0.04 264);
+  --gold: oklch(0.635 0.072 84);
+  --gold-strong: oklch(0.72 0.08 85);
+  --navy-soft: oklch(0.32 0.055 264);
+  --border: oklch(0.245 0.055 264 / 12%);
+  --input: oklch(0.245 0.055 264 / 18%);
+  --ring: oklch(0.635 0.072 84);
+  --chart-1: oklch(0.245 0.055 264);
+  --chart-2: oklch(0.635 0.072 84);
+  --chart-3: oklch(0.575 0.108 155);
+  --chart-4: oklch(0.565 0.232 27.5);
+  --chart-5: oklch(0.62 0.03 264);
+  --sidebar: oklch(0.245 0.055 264);
+  --sidebar-foreground: oklch(0.93 0.008 85);
+  --sidebar-primary: oklch(0.635 0.072 84);
+  --sidebar-primary-foreground: oklch(0.18 0.04 264);
+  --sidebar-accent: oklch(0.31 0.055 264);
+  --sidebar-accent-foreground: oklch(0.98 0.005 85);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.635 0.072 84);
+  --shadow-card: 0 1px 2px oklch(0.245 0.055 264 / 8%), 0 12px 32px -14px oklch(0.245 0.055 264 / 18%);
+  --shadow-pop: 0 1px 2px oklch(0.245 0.055 264 / 10%), 0 24px 56px -20px oklch(0.245 0.055 264 / 26%);
+  --gradient-surface: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--card) 92%, var(--background)) 0%,
+    var(--card) 100%
+  );
+  --gradient-gold: linear-gradient(135deg, var(--gold), var(--gold-strong));
+}
+
+
+.dark {
+  /* Εγγενή στοιχεία (ημερολόγιο, scrollbars, select) σε σκοτεινή εκδοχή */
+  color-scheme: dark;
+  --background: oklch(0.19 0.04 262);
+  --foreground: oklch(0.95 0.006 80);
+  --card: oklch(0.235 0.056 262.3);
+  --card-foreground: oklch(0.95 0.006 80);
+  --popover: oklch(0.235 0.056 262.3);
+  --popover-foreground: oklch(0.95 0.006 80);
+  --primary: oklch(0.647 0.08 82.9);
+  --primary-foreground: oklch(0.19 0.04 262);
+  --secondary: oklch(0.305 0.07 262.1);
+  --secondary-foreground: oklch(0.95 0.006 80);
+  --muted: oklch(0.305 0.07 262.1);
+  --muted-foreground: oklch(0.75 0.02 264);
+  --accent: oklch(0.647 0.08 82.9);
+  --accent-foreground: oklch(0.19 0.04 262);
+  --destructive: oklch(0.62 0.2 28);
+  --destructive-foreground: oklch(0.98 0.005 78.3);
+  --success: oklch(0.68 0.12 155);
+  --success-foreground: oklch(0.19 0.04 262);
+  --warning: oklch(0.8 0.14 75);
+  --warning-foreground: oklch(0.19 0.04 262);
+  --gold: oklch(0.647 0.08 82.9);
+  --gold-strong: oklch(0.72 0.08 83);
+  --navy-soft: oklch(0.305 0.07 262.1);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.647 0.08 82.9);
+  /*
+   * Στο σκοτεινό το --primary γίνεται χρυσό (= --accent). Στα γραφήματα η «navy» σειρά
+   * χρησιμοποιεί --chart-1 (φωτεινό = navy, σκοτεινό = ανοιχτό μπλε), ώστε να ξεχωρίζει από τη χρυσή.
+   */
+  --chart-1: oklch(0.74 0.075 264);
+  --chart-2: oklch(0.647 0.08 82.9);
+  --chart-3: oklch(0.68 0.12 155);
+  --chart-4: oklch(0.62 0.2 28);
+  --chart-5: oklch(0.75 0.02 264);
+  --sidebar: oklch(0.19 0.04 262);
+  --sidebar-foreground: oklch(0.93 0.01 80);
+  --sidebar-primary: oklch(0.647 0.08 82.9);
+  --sidebar-primary-foreground: oklch(0.19 0.04 262);
+  --sidebar-accent: oklch(0.305 0.07 262.1);
+  --sidebar-accent-foreground: oklch(0.98 0.005 78.3);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.647 0.08 82.9);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 30%), 0 12px 32px -12px oklch(0 0 0 / 45%);
+  --shadow-pop: 0 1px 2px oklch(0 0 0 / 35%), 0 20px 56px -18px oklch(0 0 0 / 60%);
+  --gradient-surface: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--card) 92%, oklch(1 0 0)) 0%,
+    var(--card) 100%
+  );
+  --gradient-gold: linear-gradient(135deg, var(--gold), var(--gold-strong));
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-size: var(--fs-11-5);
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    letter-spacing: 0.005em;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--gold) 30%, transparent);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--muted-foreground) 28%, transparent);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@utility card-soft {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+@utility surface-gradient {
+  background-image: var(--gradient-surface);
+}
+
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+
+@utility app-canvas {
+  background-color: var(--color-background);
+  background-image:
+    radial-gradient(60rem 40rem at 100% -10%, color-mix(in oklab, var(--gold) 12%, transparent), transparent 70%),
+    radial-gradient(50rem 35rem at -10% 0%, color-mix(in oklab, var(--primary) 10%, transparent), transparent 65%);
+  background-attachment: fixed;
+}
+
+@utility sidebar-surface {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--sidebar) 92%, oklch(1 0 0 / 6%)) 0%,
+    var(--sidebar) 45%,
+    color-mix(in oklab, var(--sidebar) 88%, var(--gold) 6%) 100%
+  );
+}
+
+@utility glass-panel {
+  background-color: color-mix(in oklab, var(--card) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+}
+
+@utility text-gradient-gold {
+  background-image: var(--gradient-gold);
+  background-clip: text;
+  color: transparent;
+}
+
+/*
+ * Κινητό / οθόνες αφής — κοινοί κανόνες διάταξης.
+ *
+ * 1) Στοιχεία grid σε στενές οθόνες: min-width 0, ώστε ένα φαρδύ περιεχόμενο (γράφημα, πίνακας,
+ *    μακριά λέξη) να μη «φουσκώνει» τη στήλη και να βγάζει τη σελίδα εκτός οθόνης. Οι πίνακες
+ *    κυλούν μέσα στην κάρτα τους. Μόνο κάτω από md: στο desktop τίποτα δεν αλλάζει.
+ *    (base layer: ένα ρητό min-w-* στη σελίδα υπερισχύει.)
+ */
+@layer base {
+  @media (max-width: 767.98px) {
+    .grid > * {
+      min-width: 0;
+    }
+  }
+}
+
+/*
+ * 2) iOS κάνει zoom σε πεδίο με γραμματοσειρά < 16px όταν παίρνει focus. Σε οθόνες αφής όλα τα
+ *    πεδία κειμένου έχουν 16px (εκτός layer: ισχύει και για πεδία με text-xs/text-sm).
+ */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: max(1rem, 1em);
+  }
+}
+
+/*
+ * 3) Οριζόντια κύλιση (πίνακες, καρτέλες): όταν υπάρχει κρυμμένο περιεχόμενο, η άκρη «σβήνει»
+ *    (data-scroll-start / data-scroll-end από το useScrollEdges). Ανεξάρτητο από το φόντο.
+ */
+@utility scroll-edges {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  &[data-scroll-end] {
+    mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent);
+  }
+  &[data-scroll-start] {
+    mask-image: linear-gradient(to right, transparent, black 2.5rem);
+  }
+  &[data-scroll-start][data-scroll-end] {
+    mask-image: linear-gradient(to right, transparent, black 2.5rem, black calc(100% - 2.5rem), transparent);
+  }
+}
+
+/*
+ * Κάτω μπάρα πλοήγησης κινητού (MobileBottomNav): όσο φαίνεται, --bottom-nav-h = ύψος + safe area
+ * και --bottom-safe = 0 (το safe area το καλύπτει η μπάρα). Οι σταθερές μπάρες ενεργειών των
+ * σελίδων (απογραφή, ανάλυση συνταγής, MRP) κάθονται από πάνω της· στο desktop και τα δύο λείπουν.
+ */
+@media (max-width: 767.98px) {
+  html[data-bottom-nav] {
+    --bottom-nav-h: calc(3.75rem + env(safe-area-inset-bottom));
+    --bottom-safe: 0px;
+  }
+}
+
+/* Πίνακας ως κάρτες σε κινητό (Table layout="cards") */
+@media (max-width: 767.98px) {
+  table.table-cards,
+  table.table-cards > tbody,
+  table.table-cards > tbody > tr,
+  table.table-cards > tbody > tr > td {
+    display: block;
+    width: 100%;
+  }
+  table.table-cards > thead {
+    display: none;
+  }
+  table.table-cards > tbody > tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.125rem 0.75rem;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  table.table-cards > tbody > tr > td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.125rem 0;
+    text-align: right;
+    min-width: 0;
+  }
+  table.table-cards > tbody > tr > td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    text-align: left;
+    font-size: var(--fs-10);
+    font-weight: 700;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+    color: var(--color-muted-foreground);
+  }
+  table.table-cards > tbody > tr > td[data-primary] {
+    order: -1;
+    justify-content: flex-start;
+    text-align: left;
+    font-size: 0.9375rem;
+    padding-bottom: 0.25rem;
+  }
+  /* Μισό πλάτος: ετικέτα πάνω από την τιμή, ώστε να χωράνε δύο ανά γραμμή */
+  table.table-cards > tbody > tr > td[data-half] {
+    width: calc(50% - 0.375rem);
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 0;
+    padding: 0.25rem 0;
+    text-align: left;
+  }
+  table.table-cards > tbody > tr > td[data-actions] {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    margin-top: 0.375rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed var(--color-border);
+  }
+  table.table-cards > tbody > tr > td[data-hide-mobile] {
+    display: none;
+  }
+}
+
+/*
+ * Πίνακες στο desktop (md+, class `table-desktop` — ο Table το βάζει μόνος του): κεφαλίδα που μένει
+ * ορατή κάτω από την κεφαλίδα της εφαρμογής (--app-header-h από το AppLayout) όταν ο πίνακας χωράει
+ * χωρίς οριζόντια κύλιση ([data-fits] στον περιέκτη), απαλές εναλλασσόμενες γραμμές και αριθμοί
+ * σε στοιχισμένα ψηφία στις δεξιές στήλες. Σε @layer base ώστε οποιαδήποτε κλάση γραμμής/κελιού
+ * (hover, επιλογή, χρώμα ομάδας) να υπερισχύει. Το κινητό (καρτέλες ή κύλιση) δεν αλλάζει.
+ */
+@layer base {
+  @media (min-width: 768px) {
+    [data-fits] > table.table-desktop > thead > tr > th {
+      position: sticky;
+      top: var(--app-header-h, 0px);
+      z-index: 10;
+      background-color: var(--color-card);
+      box-shadow: inset 0 -1px 0 var(--color-border);
+    }
+    table.table-desktop > tbody > tr:nth-child(even) {
+      background-color: color-mix(in oklab, var(--color-secondary) 38%, transparent);
+    }
+    table.table-desktop :is(th, td).text-right {
+      font-variant-numeric: tabular-nums;
+    }
+  }
+}
+
+/* Με ανοιχτό παράθυρο φόρμας η σελίδα από κάτω δεν κυλά: ποτέ δύο κάθετες μπάρες κύλισης μαζί. */
+html:has(dialog[open]) {
+  overflow: hidden;
+}
+
+/*
+ * Φόρμα συσκευής: κάθε πεδίο δηλώνει σε ποια είδη έχει νόημα (data-for="FRIDGE VENDING_MACHINE") και φαίνεται μόνο
+ * όταν είναι επιλεγμένο ένα από αυτά στο <select name="kind">. Χωρίς JavaScript. Ο server αγνοεί ούτως ή άλλως
+ * ό,τι δεν ταιριάζει στο είδος.
+ */
+form[data-by-kind] [data-for] {
+  display: none;
+}
+form[data-by-kind]:has(select[name="kind"] option[value="POS_WEB"]:checked) [data-for~="POS_WEB"],
+form[data-by-kind]:has(select[name="kind"] option[value="POS_ANDROID"]:checked) [data-for~="POS_ANDROID"],
+form[data-by-kind]:has(select[name="kind"] option[value="KITCHEN_DISPLAY"]:checked) [data-for~="KITCHEN_DISPLAY"],
+form[data-by-kind]:has(select[name="kind"] option[value="FRIDGE"]:checked) [data-for~="FRIDGE"],
+form[data-by-kind]:has(select[name="kind"] option[value="VENDING_MACHINE"]:checked) [data-for~="VENDING_MACHINE"],
+form[data-by-kind]:has(select[name="kind"] option[value="SCALE"]:checked) [data-for~="SCALE"] {
+  display: block;
+}

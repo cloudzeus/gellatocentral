@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Gelato System POS",
+    "slug": "gelato-system-pos",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#131F3B",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "app.gelatosystem.pos"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": "gelatosystem",
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}
