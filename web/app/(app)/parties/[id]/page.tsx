@@ -1,6 +1,7 @@
 import { Building2, CalendarClock, Check, Download, Landmark, Mail, MapPin, Pencil, Phone, Plus, Star, Trash2, Truck, UserMinus, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AddressField } from "@/components/address-field";
 import { ActivityForm } from "@/components/crm/activity-form";
 import { QuickActions } from "@/components/crm/quick-actions";
 import { Timeline } from "@/components/crm/timeline";
@@ -30,7 +31,7 @@ const SAVED: Record<string, string> = { "1": "Τα στοιχεία αποθηκ
 const sub = "grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end";
 const coordText = (lat: number | null, lng: number | null) => (lat != null && lng != null ? `${lat.toFixed(4).replace(".", ",")} · ${lng.toFixed(4).replace(".", ",")}` : null);
 const KIND_OPTIONS = Object.entries(ADDRESS_KINDS) as [string, string][];
-const TABS = { overview: "Επισκόπηση", contacts: "Επαφές", places: "Υποκαταστήματα", files: "Αρχεία", details: "Στοιχεία & τράπεζες" } as const;
+const TABS = { overview: "Επισκόπηση", contacts: "Επαφές", places: "Διευθύνσεις & χάρτης", files: "Αρχεία", details: "Στοιχεία & τράπεζες" } as const;
 type Tab = keyof typeof TABS;
 const INPUT = "h-9 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
 type Channel = { id: string; kind: string; value: string; label: string | null; isPrimary: boolean };
@@ -138,7 +139,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
       <Select label="Είδος" name="kind" defaultValue={a?.kind ?? "branch"} options={KIND_OPTIONS} />
       <Field label="Αριθμός εγκατάστασης" name="branchNo" type="number" min={1} max={9999} defaultValue={a?.branchNo ?? ""} hint="Μόνο για υποκατάστημα: όπως είναι δηλωμένο στην εφορία (η έδρα είναι 0)" />
       <Field label="Ονομασία" name="label" maxLength={80} defaultValue={a?.label ?? ""} placeholder="π.χ. Κατάστημα Γλυφάδας" />
-      <Field label="Διεύθυνση" name="street" required minLength={2} maxLength={200} defaultValue={a?.street ?? ""} />
+      <AddressField label="Διεύθυνση" name="street" required minLength={2} maxLength={200} defaultValue={a?.street ?? ""} />
       <div className="grid grid-cols-[7rem_1fr] gap-4"><Field label="Τ.Κ." name="postalCode" maxLength={10} defaultValue={a?.postalCode ?? ""} /><Field label="Πόλη" name="city" maxLength={80} defaultValue={a?.city ?? ""} /></div>
       <label className="block min-w-0 space-y-1 text-sm font-medium">Περιοχή<input name="region" list="address-regions" maxLength={80} defaultValue={a?.region ?? ""} className="h-9 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11" /><datalist id="address-regions">{refs.regions.map((r) => <option key={r} value={r} />)}</datalist></label>
       <Field label="Τηλέφωνο" name="phone" type="tel" maxLength={40} defaultValue={a?.phone ?? ""} />
@@ -256,6 +257,12 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                       })}
                     </ul>
                   ) : <p className="px-5 py-5 text-sm text-muted-foreground">Καμία επαφή ακόμα. <Link href={href("contacts")} className="font-semibold text-foreground underline underline-offset-2">Πρόσθεσε την πρώτη</Link></p>}
+                </Card>
+                <Card>
+                  <div className="flex items-center gap-3 border-b border-border px-5 py-3"><div className="min-w-0 flex-1"><h2 className="text-lg">Στον χάρτη</h2><p className="text-sm text-muted-foreground">{points.length ? `${points.length} από ${placeCount} σημεία έχουν θέση` : "Κανένα σημείο δεν έχει θέση ακόμα"}</p></div><Link href={href("places")} className={btn("ghost", "sm")}>Διευθύνσεις</Link></div>
+                  <div className="p-5">
+                    {points.length ? <PartyMap points={points} className="h-52" /> : !party.address ? <p className="text-sm text-muted-foreground">Συμπλήρωσε πρώτα τη διεύθυνση της έδρας στα <Link href={href("details")} className="font-semibold text-foreground underline underline-offset-2">Στοιχεία</Link>, ή βάλε εκεί την πινέζα με το χέρι</p> : scope.canEdit ? <form action={locateParty.bind(null, party.id)}><Submit className={btn("outline")}><MapPin /> Εύρεση της έδρας στον χάρτη</Submit></form> : <p className="text-sm text-muted-foreground">Η έδρα δεν έχει τοποθετηθεί στον χάρτη</p>}
+                  </div>
                 </Card>
                 <Card>
                   <div className="border-b border-border px-5 py-3"><h2 className="text-lg">Επικοινωνίες ανά μήνα</h2><p className="text-sm text-muted-foreground">{recent ? `${recent} το τελευταίο τρίμηνο` : "Καμία το τελευταίο τρίμηνο"} · κλήσεις, email, συναντήσεις</p></div>

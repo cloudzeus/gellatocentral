@@ -4,6 +4,7 @@
 import { CircleAlert, CircleCheck, Search } from "lucide-react";
 import { useRef, useState } from "react";
 import { PARTY_ROLES, type PartyRole } from "@/lib/parties";
+import { AddressField } from "./address-field";
 import { PartyMap } from "./party-map";
 import { Submit } from "./submit";
 import { btn, Field, Select } from "./ui";
@@ -70,7 +71,7 @@ export function PartyForm({ action, party, refs, defaultRole }: { action: (form:
       <Field label="Email" name="email" type="email" maxLength={160} defaultValue={v("email")} hint="Εδώ θα στέλνονται τα παραστατικά" />
       <Field label="Ιστοσελίδα" name="website" maxLength={160} defaultValue={v("website")} />
 
-      <Field label="Διεύθυνση έδρας" name="address" maxLength={200} defaultValue={v("address")} />
+      <AddressField label="Διεύθυνση έδρας" name="address" maxLength={200} defaultValue={v("address")} />
       <div className="grid grid-cols-[7rem_1fr] gap-4"><Field label="Τ.Κ." name="postalCode" maxLength={10} defaultValue={v("postalCode")} /><Field label="Πόλη" name="city" maxLength={80} defaultValue={v("city")} /></div>
       <label className="block min-w-0 space-y-1 text-sm font-medium">Περιοχή
         <input name="region" list="party-regions" maxLength={80} defaultValue={v("region")} className="h-9 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11" />

@@ -30,3 +30,41 @@ export async function geocode(parts: Parts): Promise<{ latitude: number; longitu
   }
   return null;
 }
+
+// ---- Προτάσεις διεύθυνσης όσο γράφει ο χρήστης ----
+// Το δημόσιο Nominatim απαγορεύει την αναζήτηση «όσο πληκτρολογείς»· για αυτό εδώ ρωτάμε το Photon (photon.komoot.io),
+// που είναι φτιαγμένο για αυτή τη χρήση πάνω στα ίδια δεδομένα OpenStreetMap.
+// shortcut: δημόσιο Photon (δίκαιη χρήση, χωρίς εγγύηση)· με πολλούς χρήστες θέλει δικό μας Photon ή πάροχο με σύμβαση.
+export type AddressSuggestion = { label: string; street: string; postalCode: string | null; city: string | null; region: string | null; countryCode: string | null; latitude: number; longitude: number };
+type Feature = { properties?: Record<string, string | undefined>; geometry?: { coordinates?: [number, number] } };
+const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ς/g, "σ");
+/** Η περιοχή της λίστας μας που ταιριάζει στο κείμενο του χάρτη («Αποκεντρωμένη Διοίκηση Αττικής» → «Αττική»). Μόνο αν είναι μία: αλλιώς κενό. */
+export function matchRegion(text: string, regions: readonly string[]): string | null {
+  const hay = fold(text).split(/[^\p{L}]+/u);
+  // ίδια λέξη σε άλλη πτώση («Αττικής» ~ «Αττική»)· όχι άλλη λέξη με ίδια αρχή («Θεσσαλονίκης» δεν είναι «Θεσσαλία»)
+  const same = (w: string) => hay.some((h) => h.startsWith(w.slice(0, -2)) && h.length <= w.length + 2);
+  const hits = regions.filter((r) => fold(r).split(/\s+/).filter((w) => w.length > 3).every(same));
+  return hits.length === 1 ? hits[0] : null;
+}
+/** Από την απάντηση του Photon κρατάμε μόνο όσα έχουν οδό: μια πρόταση «Αθήνα» δεν είναι διεύθυνση. */
+export function parseSuggestions(json: unknown, regions: readonly string[] = []): AddressSuggestion[] {
+  const out: AddressSuggestion[] = [];
+  for (const f of ((json as { features?: Feature[] })?.features ?? [])) {
+    const p = f.properties ?? {}, [longitude, latitude] = f.geometry?.coordinates ?? [];
+    const road = p.street ?? (p.type === "street" ? p.name : undefined);
+    if (!road || !Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+    const street = [road, p.housenumber].filter(Boolean).join(" ");
+    const postalCode = p.postcode?.replace(/\s+/g, "") ?? null, city = p.city ?? p.town ?? p.village ?? null;
+    const label = [street, [postalCode, city].filter(Boolean).join(" "), p.district && p.district !== city ? p.district : null].filter(Boolean).join(", ");
+    if (out.some((x) => x.label === label)) continue;
+    out.push({ label, street, postalCode, city, region: matchRegion(p.state ?? "", regions), countryCode: p.countrycode?.toUpperCase() ?? null, latitude: latitude!, longitude: longitude! });
+  }
+  return out;
+}
+export async function suggestAddresses(q: string, regions: readonly string[] = []): Promise<AddressSuggestion[]> {
+  const url = new URL("https://photon.komoot.io/api/");
+  // προτίμηση σε αποτελέσματα κοντά στην Ελλάδα, χωρίς να αποκλείονται διευθύνσεις άλλων χωρών
+  url.search = new URLSearchParams({ q, limit: "8", lat: "38.5", lon: "23.8" }).toString();
+  const res = await fetch(url, { headers: { "User-Agent": "GelatoSystem/1.0 (address lookup)" }, cache: "no-store", signal: AbortSignal.timeout(5000) }).catch(() => null);
+  return res?.ok ? parseSuggestions(await res.json().catch(() => null), regions).slice(0, 5) : [];
+}
