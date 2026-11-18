@@ -1,4 +1,4 @@
-import { CalendarClock, Eye, Mail, MapPin, PanelRight, Phone, Plus, Power, Star } from "lucide-react";
+import { CalendarClock, Eye, Mail, MapPin, PanelRight, Pencil, Phone, Plus, Power, Star, Trash2, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { ActivityForm } from "@/components/crm/activity-form";
 import { Drawer } from "@/components/crm/drawer";
@@ -9,15 +9,15 @@ import { Modal } from "@/components/modal";
 import { RoleBadges } from "@/components/party-bits";
 import { PartyForm } from "@/components/party-form";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, menuItem, Page } from "@/components/ui";
-import { ago, channelHref, contactTone, dueText, initials, showPhone, taskState } from "@/lib/crm";
+import { Badge, btn, Card, cn, Field, menuItem, Page } from "@/components/ui";
+import { ago, CHANNEL_LABELS, channelHref, contactTone, dueText, initials, showPhone, taskState } from "@/lib/crm";
 import { activityItem, partyGlance } from "@/lib/crm-data";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
 import { isPartyRole, PARTY_ROLES, type PartyRole } from "@/lib/parties";
 import { partyScope } from "@/lib/party-scope";
 import { partyRefs } from "@/lib/refs";
-import { logActivity, saveParty, toggleParty, touchActivity } from "./actions";
+import { deleteChannel, deleteContact, logActivity, primaryChannel, saveChannel, saveContact, saveParty, toggleParty, touchActivity } from "./actions";
 
 // Η λίστα συναλλασσομένων: της επιχείρησης του χρήστη ή, για το προσωπικό, της πλατφόρμας (ίδια σελίδα, άλλο πεδίο).
 export default async function PartiesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -46,19 +46,104 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
   ]);
   const roleKeys = Object.keys(PARTY_ROLES) as PartyRole[];
   const now = new Date();
-  const glance = await partyGlance(rows.map((r) => r.id));
+  const ids = rows.map((r) => r.id);
+  // μαζί με το glance έρχονται και τα τηλέφωνα/email της εταιρίας, για το modal «Επαφές και τηλέφωνα» κάθε γραμμής
+  const [glance, channels] = await Promise.all([partyGlance(ids), db.partyChannel.findMany({ where: { partyId: { in: ids } }, orderBy: [{ kind: "desc" }, { isPrimary: "desc" }, { id: "asc" }] })]);
+  const channelsOf = (id: string) => channels.filter((x) => x.partyId === id);
   // γρήγορη προβολή: ?peek=<id> πάνω στην ίδια λίστα, με τα ίδια φίλτρα
-  const here = (peek?: string) => { const u = new URLSearchParams(); for (const [k, v] of Object.entries(sp)) if (typeof v === "string" && k !== "peek" && k !== "error") u.set(k, v); if (peek) u.set("peek", peek); return `${scope.base}${u.size ? `?${u}` : ""}`; };
+  const here = (peek?: string) => { const u = new URLSearchParams(); for (const [k, v] of Object.entries(sp)) if (typeof v === "string" && k !== "peek" && k !== "error" && k !== "saved") u.set(k, v); if (peek) u.set("peek", peek); return `${scope.base}${u.size ? `?${u}` : ""}`; };
   const peek = typeof sp.peek === "string" ? await db.party.findFirst({ where: { id: sp.peek, orgId: scope.orgId }, include: { channels: { orderBy: [{ kind: "desc" }, { isPrimary: "desc" }] }, contacts: { where: { active: true }, orderBy: [{ isPrimary: "desc" }, { id: "asc" }], include: { person: { include: { channels: { orderBy: { isPrimary: "desc" } } } } } }, activities: { orderBy: { at: "desc" }, take: 60, include: { person: { select: { name: true } } } } } }) : null;
   const peekItems = peek?.activities.map(activityItem) ?? [];
   const peekTasks = peekItems.filter((i) => i.task && !i.task.doneAt).sort((a, b) => (a.task!.dueAt?.getTime() ?? Infinity) - (b.task!.dueAt?.getTime() ?? Infinity));
   const channelOf = (channels: { kind: string; value: string }[], kind: string) => channels.find((c) => c.kind === kind)?.value ?? null;
   const tab = (r: PartyRole | null) => { const q = new URLSearchParams(); if (r) q.set("role", r); return `${scope.base}${q.size ? `?${q}` : ""}`; };
 
+  // ---- Modal «Επαφές και τηλέφωνα» της γραμμής: ίδιες ενέργειες με την καρτέλα, χωρίς αναχώρηση από τη λίστα ----
+  const back = here(); // μετά την αποθήκευση ο server γυρνά εδώ, με τα ίδια φίλτρα
+  const INPUT = "h-9 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
+  type Channel = { id: string; kind: string; value: string; label: string | null; isPrimary: boolean };
+  const chip = (partyId: string, ch: Channel) => (
+    <span key={ch.id} className="inline-flex max-w-full items-center gap-1 rounded-lg border border-border bg-card py-0.5 pr-1 pl-2 text-sm">
+      <a href={channelHref(ch.kind, ch.value)} className="inline-flex min-h-7 min-w-0 items-center gap-1.5 font-medium underline-offset-2 hover:underline pointer-coarse:min-h-11">
+        {ch.kind === "email" ? <Mail className="size-3.5 shrink-0 text-muted-foreground" aria-hidden /> : <Phone className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />}
+        <span className="truncate">{ch.kind === "phone" ? showPhone(ch.value) : ch.value}</span>
+      </a>
+      {ch.label ? <span className="text-xs text-muted-foreground">{ch.label}</span> : null}
+      {ch.isPrimary ? <Star className="size-3.5 shrink-0 fill-gold text-gold" aria-label="Κύριο" /> : scope.canEdit ? <form action={primaryChannel.bind(null, partyId, ch.id)}><input type="hidden" name="back" value={back} /><Submit aria-label={`Ορισμός ως κύριου: ${ch.value}`} title="Ορισμός ως κύριου" className={btn("ghost", "sm", "w-7.5 px-0 text-muted-foreground")}><Star /></Submit></form> : null}
+      {scope.canEdit ? <form action={deleteChannel.bind(null, partyId, ch.id)}><input type="hidden" name="back" value={back} /><Submit aria-label={`Διαγραφή: ${ch.value}`} title="Διαγραφή" className={btn("ghost", "sm", "w-7.5 px-0 text-muted-foreground")}><Trash2 /></Submit></form> : null}
+    </span>
+  );
+  const channelForm = (partyId: string, personId?: string) => (
+    <form action={saveChannel.bind(null, partyId)} className="flex flex-wrap items-end gap-2">
+      <input type="hidden" name="back" value={back} />
+      {personId ? <input type="hidden" name="personId" value={personId} /> : null}
+      <label className="space-y-1 text-xs font-medium text-muted-foreground">Είδος<select name="kind" className={cn(INPUT, "w-32")}><option value="phone">Τηλέφωνο</option><option value="email">Email</option></select></label>
+      <label className="min-w-40 flex-1 space-y-1 text-xs font-medium text-muted-foreground">Αριθμός ή διεύθυνση<input name="value" required maxLength={160} className={INPUT} /></label>
+      <label className="space-y-1 text-xs font-medium text-muted-foreground">Ετικέτα<input name="label" list="channel-labels" maxLength={40} placeholder="π.χ. Κινητό" className={cn(INPUT, "w-36")} /></label>
+      <Submit className={btn("outline")}><Plus /> Προσθήκη</Submit>
+    </form>
+  );
+  const contactsModal = (c: (typeof rows)[number], g: ReturnType<typeof glance>) => (
+    <div className="space-y-5">
+      <section>
+        <h3 className="text-sm font-semibold">Τηλέφωνα και email της επιχείρησης</h3>
+        <div className="mt-2 flex flex-wrap gap-2">{channelsOf(c.id).length ? channelsOf(c.id).map((x) => chip(c.id, x)) : <span className="text-sm text-muted-foreground">Κανένα ακόμα</span>}</div>
+        {scope.canEdit ? <div className="mt-3">{channelForm(c.id)}</div> : null}
+      </section>
+      <section>
+        <h3 className="text-sm font-semibold">Επαφές</h3>
+        {g.contacts.length ? (
+          <ul className="mt-2 space-y-2">
+            {g.contacts.map((x) => (
+              <li key={x.id} className="rounded-lg border border-border/70 px-3 py-2.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-xs font-semibold text-muted-foreground" aria-hidden>{initials(x.person.name)}</span>
+                  <span className="min-w-0 flex-1"><b className="block truncate">{x.person.name}{x.isPrimary ? <Star className="ml-1 inline size-3.5 fill-gold text-gold" aria-label="Κύρια επαφή" /> : null}</b>{x.title ? <span className="block truncate text-xs text-muted-foreground">{x.title}</span> : null}</span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">{x.person.channels.length ? x.person.channels.map((ch) => chip(c.id, ch)) : <span className="text-sm text-muted-foreground">Χωρίς τηλέφωνο ή email</span>}</div>
+                {scope.canEdit ? (
+                  <details className="group mt-2">
+                    <summary className={cn(btn("ghost", "sm"), "inline-flex list-none [&::-webkit-details-marker]:hidden")}><Pencil /> <span className="group-open:hidden">Αλλαγή</span><span className="hidden group-open:inline">Κλείσιμο</span></summary>
+                    <div className="mt-3 space-y-4 rounded-lg bg-secondary/50 p-4">
+                      <form action={saveContact.bind(null, c.id, x.id)} className="grid gap-4 sm:grid-cols-2">
+                        <input type="hidden" name="back" value={back} />
+                        <input type="hidden" name="addressId" value={x.addressId ?? ""} />
+                        <Field label="Ονοματεπώνυμο" name="name" maxLength={120} required defaultValue={x.person.name} />
+                        <Field label="Ιδιότητα εδώ" name="title" maxLength={80} defaultValue={x.title ?? ""} placeholder="π.χ. Λογιστήριο" />
+                        <div className="sm:col-span-2"><Field label="Σημειώσεις" name="notes" maxLength={300} defaultValue={x.notes ?? ""} /></div>
+                        <Submit className={btn("default", "sm", "sm:col-span-2 sm:justify-self-end")}>Αποθήκευση</Submit>
+                      </form>
+                      <div className="space-y-2 border-t border-border pt-4"><p className="text-sm font-semibold">Νέο τηλέφωνο ή email: {x.person.name}</p>{channelForm(c.id, x.personId)}</div>
+                      <div className="border-t border-border pt-4"><form action={deleteContact.bind(null, c.id, x.id)}><input type="hidden" name="back" value={back} /><Submit className={btn("ghost", "sm", "text-destructive")}><Trash2 /> Αφαίρεση από εδώ</Submit></form></div>
+                    </div>
+                  </details>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : <p className="mt-2 text-sm text-muted-foreground">Καμία επαφή ακόμα</p>}
+        {scope.canEdit ? (
+          <form action={saveContact.bind(null, c.id, null)} className="mt-3 grid gap-4 rounded-lg border border-dashed border-border p-4 sm:grid-cols-2">
+            <input type="hidden" name="back" value={back} />
+            <input type="hidden" name="addressId" value="" />
+            <input type="hidden" name="notes" value="" />
+            <p className="text-sm font-semibold sm:col-span-2"><UserPlus className="mr-1 inline size-4" aria-hidden /> Νέα επαφή</p>
+            <Field label="Ονοματεπώνυμο" name="name" maxLength={120} required />
+            <Field label="Ιδιότητα εδώ" name="title" maxLength={80} placeholder="π.χ. Λογιστήριο" />
+            <Field label="Τηλέφωνο" name="phone" type="tel" maxLength={40} />
+            <Field label="Email" name="email" type="email" maxLength={160} />
+            <Submit className={btn("default", "sm", "sm:col-span-2 sm:justify-self-end")}>Προσθήκη</Submit>
+          </form>
+        ) : null}
+      </section>
+    </div>
+  );
+
   return (
     <Page section={scope.section} title="Συναλλασσόμενοι" description={scope.orgId ? "Όλοι όσοι συναλλάσσεσαι, μία φορά ο καθένας: πελάτες, προμηθευτές, franchisees, συνεργάτες" : "Οι συναλλασσόμενοι της πλατφόρμας: οι συνδρομητές ως πελάτες, οι προμηθευτές και οι συνεργάτες μας"}
       actions={scope.canEdit ? <Modal label={<><Plus /> Νέος συναλλασσόμενος</>} variant="default" title="Νέος συναλλασσόμενος" description="Γράψε το ΑΦΜ και πάτα «Εύρεση στοιχείων»: τα υπόλοιπα έρχονται από το μητρώο"><PartyForm action={saveParty.bind(null, null)} refs={refs} defaultRole={role ?? undefined} /></Modal> : null}>
       <div className="max-w-7xl space-y-4">
+        <datalist id="channel-labels">{CHANNEL_LABELS.map((l) => <option key={l} value={l} />)}</datalist>
         {typeof sp.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {sp.error.slice(0, 200)}</p> : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {roleKeys.slice(0, 3).map((r, i) => (
@@ -110,12 +195,12 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
                   last: g.last ? <Badge tone={tone}>{ago(g.last.at, now)}</Badge> : <span className="text-muted-foreground">Καμία ακόμα</span>,
                   next: g.next ? <div className="min-w-0"><span className="block truncate">{g.next.subject}</span><span className={cn("block text-xs", state === "overdue" ? "font-semibold text-destructive" : "text-muted-foreground")}>{dueText(g.next.dueAt, now)}</span></div> : <span className="text-muted-foreground">—</span>,
                 },
-                actions: scope.canEdit ? <QuickActions action={logActivity.bind(null, c.id)} name={c.name} phone={phone} email={email} contacts={g.contacts.map((x): [string, string] => [x.personId, x.person.name])} /> : null,
                 menu: (
                   <>
+                    {scope.canEdit ? <QuickActions key="log" menuItems action={logActivity.bind(null, c.id)} name={c.name} phone={phone} email={email} contacts={g.contacts.map((x): [string, string] => [x.personId, x.person.name])} /> : null}
                     <Link key="peek" href={here(c.id)} scroll={false} role="menuitem" className={menuItem}><PanelRight /> Γρήγορη προβολή</Link>
                     <Link key="open" href={`${scope.base}/${c.id}`} role="menuitem" className={menuItem}><Eye /> Άνοιγμα καρτέλας</Link>
-                    <Link key="contacts" href={`${scope.base}/${c.id}?tab=contacts`} role="menuitem" className={menuItem}><Phone /> Επαφές και τηλέφωνα</Link>
+                    <Modal key="contacts" menuItem label={<><Phone /> Επαφές και τηλέφωνα</>} title="Επαφές και τηλέφωνα" description={c.name}>{contactsModal(c, g)}</Modal>
                     {c.linkedOrg ? <Link key="org" href={`/platform/${c.linkedOrg.id}`} role="menuitem" className={menuItem}><Eye /> Σελίδα συνδρομητή</Link> : null}
                     {scope.canEdit ? <form key="toggle" action={toggleParty.bind(null, c.id)}><Submit role="menuitem" className={menuItem}><Power /> {c.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form> : null}
                   </>

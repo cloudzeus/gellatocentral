@@ -46,6 +46,10 @@ const editor = async (): Promise<PartyScope> => {
 };
 /** Ο συναλλασσόμενος, μόνο αν ανήκει στο αρχείο του χρήστη. */
 const owned = async (s: PartyScope, id: string) => (await db.party.findFirst({ where: { id, orgId: s.orgId } })) ?? redirect(s.base);
+/** Ασφαλής επιστροφή στη λίστα: δέχεται μόνο URL της λίστας του τρέχοντος πεδίου (όχι καρτέλας, όχι εξωτερικό). */
+const safeBack = (s: PartyScope, raw: unknown) => (typeof raw === "string" && (raw === s.base || raw.startsWith(`${s.base}?`)) ? raw : null);
+/** Ανακατεύθυνση με μήνυμα επιτυχίας, ακόμα και σε URL χωρίς παραμέτρους. */
+const saved = (url: string, key: string): never => redirect(`${url}${url.includes("?") ? "&" : "?"}saved=${key}`);
 /** Συντεταγμένες από τη φόρμα: και οι δύο ή καμία. Με κενά πεδία σβήνονται. */
 function coords(form: FormData, back: string) {
   const lat = String(form.get("latitude") ?? "").trim(), lng = String(form.get("longitude") ?? "").trim();
@@ -167,7 +171,8 @@ const ownedChannel = async (partyId: string, id: string) => db.partyChannel.find
 export async function saveChannel(partyId: string, form: FormData) {
   const s = await editor();
   const p = await owned(s, partyId);
-  const back = `${s.base}/${p.id}?tab=contacts`;
+  // από το modal της λίστας η φόρμα φέρει κρυφό `back`, αλλιώς γυρνάμε στην καρτέλα
+  const back = safeBack(s, form.get("back")) ?? `${s.base}/${p.id}?tab=contacts`;
   const kind = form.get("kind");
   if (!isChannelKind(kind)) return fail(back, "Διάλεξε τηλέφωνο ή email");
   const value = cleanChannel(kind, String(form.get("value") ?? ""));
@@ -184,17 +189,17 @@ export async function saveChannel(partyId: string, form: FormData) {
     await resyncPrimary(p.id);
   }
   revalidatePath(s.base, "layout");
-  redirect(`${back}&saved=channel`);
+  saved(back, "channel");
 }
-export async function deleteChannel(partyId: string, channelId: string) {
+export async function deleteChannel(partyId: string, channelId: string, form?: FormData) {
   const s = await editor();
   const p = await owned(s, partyId);
   const c = await ownedChannel(p.id, channelId);
   if (c) { await db.partyChannel.delete({ where: { id: c.id } }); if (c.partyId) await resyncPrimary(p.id); }
   revalidatePath(s.base, "layout");
-  redirect(`${s.base}/${p.id}?tab=contacts&saved=channel`);
+  saved(safeBack(s, form?.get("back")) ?? `${s.base}/${p.id}?tab=contacts`, "channel");
 }
-export async function primaryChannel(partyId: string, channelId: string) {
+export async function primaryChannel(partyId: string, channelId: string, form?: FormData) {
   const s = await editor();
   const p = await owned(s, partyId);
   const c = await ownedChannel(p.id, channelId);
@@ -203,7 +208,7 @@ export async function primaryChannel(partyId: string, channelId: string) {
     if (c.partyId) await resyncPrimary(p.id);
   }
   revalidatePath(s.base, "layout");
-  redirect(`${s.base}/${p.id}?tab=contacts&saved=channel`);
+  saved(safeBack(s, form?.get("back")) ?? `${s.base}/${p.id}?tab=contacts`, "channel");
 }
 
 // ---- Επαφές: πρόσωπα που δένουν με έναν ή περισσότερους συναλλασσόμενους ----
@@ -215,7 +220,7 @@ const syncContactName = async (partyId: string) => {
 export async function saveContact(partyId: string, contactId: string | null, form: FormData) {
   const s = await editor();
   const p = await owned(s, partyId);
-  const back = `${s.base}/${p.id}?tab=contacts`;
+  const back = safeBack(s, form.get("back")) ?? `${s.base}/${p.id}?tab=contacts`;
   const d = z.object({ name: z.string().trim().max(120), title: text(80), notes: text(300), addressId: text(60), personId: text(60).optional().transform((v) => v ?? null), phone: text(40).optional().transform((v) => v ?? null), email: text(160).optional().transform((v) => v ?? null) }).safeParse(Object.fromEntries(form));
   if (!d.success) return fail(back, d.error.issues[0].message);
   // η επαφή δένεται μόνο με διεύθυνση του ίδιου συναλλασσόμενου
@@ -242,10 +247,10 @@ export async function saveContact(partyId: string, contactId: string | null, for
     if (first) await syncContactName(p.id);
   }
   revalidatePath(s.base, "layout");
-  redirect(`${back}&saved=contact`);
+  saved(back, "contact");
 }
 /** Λύνει τη σχέση με αυτόν τον συναλλασσόμενο. Το πρόσωπο σβήνεται μόνο αν δεν έχει άλλη εταιρία ούτε ιστορικό. */
-export async function deleteContact(partyId: string, contactId: string) {
+export async function deleteContact(partyId: string, contactId: string, form?: FormData) {
   const s = await editor();
   const p = await owned(s, partyId);
   const c = await db.partyContact.findFirst({ where: { id: contactId, partyId: p.id } });
@@ -255,7 +260,7 @@ export async function deleteContact(partyId: string, contactId: string) {
     if (!links && !history) await db.person.delete({ where: { id: c.personId } });
   }
   revalidatePath(s.base, "layout");
-  redirect(`${s.base}/${p.id}?tab=contacts&saved=contact`);
+  saved(safeBack(s, form?.get("back")) ?? `${s.base}/${p.id}?tab=contacts`, "contact");
 }
 /** «Κύρια επαφή» (μία ανά συναλλασσόμενο) ή «δεν εργάζεται πλέον εδώ». */
 export async function flagContact(partyId: string, contactId: string, what: "primary" | "active") {

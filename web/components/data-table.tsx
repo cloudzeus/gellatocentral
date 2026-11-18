@@ -48,12 +48,11 @@ function RowMenu({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
       <button ref={button} type="button" aria-label={label} aria-haspopup="menu" aria-expanded={!!at} onClick={toggle} className={btn("ghost", "sm")}><MoreVertical /></button>
-      {at ? (
-        // κλείνει ΜΕΤΑ το πάτημα: αν έκλεινε αμέσως, η φόρμα του στοιχείου θα έφευγε από τη σελίδα πριν υποβληθεί
-        <div ref={panel} role="menu" onClick={() => setTimeout(() => setAt(null))} style={{ top: at.top, right: at.right }} className="fixed z-50 min-w-52 rounded-lg border border-border/70 bg-card p-1 text-left shadow-[var(--shadow-pop)]">
-          {children}
-        </div>
-      ) : null}
+      {/* το πάνελ μένει στο DOM και απλώς κρύβεται: παράθυρα (dialog) που ανοίγουν από επιλογές του δεν αποσυνδέονται όταν κλείνει το μενού.
+          Κλείνει ΜΕΤΑ το πάτημα: αν έκλεινε αμέσως, η φόρμα του στοιχείου θα έφευγε από τη σελίδα πριν υποβληθεί */}
+      <div ref={panel} role="menu" hidden={!at} onClick={() => setTimeout(() => setAt(null))} style={at ? { top: at.top, right: at.right } : undefined} className="fixed z-50 min-w-52 rounded-lg border border-border/70 bg-card p-1 text-left shadow-[var(--shadow-pop)]">
+        {children}
+      </div>
     </>
   );
 }
