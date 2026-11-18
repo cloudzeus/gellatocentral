@@ -87,6 +87,7 @@ model Organization {
   subscription Subscription?
   files        StoredFile[]
   parties      Party[]       @relation("OrgParties")
+  persons      Person[]
   asParty      Party?        @relation("OrgAsParty")
   tickets      Ticket[]
 }
@@ -564,6 +565,8 @@ model Party {
   linkedOrg        Organization? @relation("OrgAsParty", fields: [linkedOrgId], references: [id], onDelete: Cascade)
   addresses        PartyAddress[]
   contacts         PartyContact[]
+  channels         PartyChannel[]
+  activities       PartyActivity[]
   bankAccounts     PartyBankAccount[]
 
   @@unique([orgId, vatNumber])
@@ -590,24 +593,96 @@ model PartyAddress {
   notes       String?
   party       Party   @relation(fields: [partyId], references: [id], onDelete: Cascade)
   contacts    PartyContact[]
+  channels    PartyChannel[]
 
   @@unique([partyId, branchNo])
   @@index([partyId])
 }
 
+// Πρόσωπο επικοινωνίας, ανεξάρτητο από εταιρία (όπως στο SoftOne): ο ίδιος άνθρωπος, π.χ. ένας λογιστής,
+// δένει με πολλούς συναλλασσόμενους μέσω PartyContact και καταχωρείται μία φορά.
+model Person {
+  id        String   @id @default(cuid())
+  orgId     String? // σε ποιο αρχείο ανήκει: επιχείρησης, ή (κενό) της πλατφόρμας
+  name      String
+  notes     String?
+  createdAt DateTime @default(now())
+  org       Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  links     PartyContact[]
+  channels  PartyChannel[]
+  activities PartyActivity[]
+
+  @@index([orgId, name])
+}
+
+// Η σχέση προσώπου με συναλλασσόμενο: τι ιδιότητα έχει εκεί και σε ποιο υποκατάστημα βρίσκεται.
 model PartyContact {
-  id      String  @id @default(cuid())
-  partyId String
-  name    String
-  title   String? // ιδιότητα, π.χ. «Λογιστήριο»
+  id        String  @id @default(cuid())
+  partyId   String
+  personId  String
+  title     String? // ιδιότητα σε αυτή την εταιρία, π.χ. «Λογιστήριο»
   addressId String? // σε ποιο υποκατάστημα ή διεύθυνση βρίσκεται· κενό = στην έδρα
-  address PartyAddress? @relation(fields: [addressId], references: [id], onDelete: SetNull)
-  email   String?
-  phone   String?
-  notes   String?
-  party   Party   @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  isPrimary Boolean @default(false) // η κύρια επαφή της εταιρίας (μία)
+  active    Boolean @default(true) // false = δεν εργάζεται πλέον εδώ (το ιστορικό μένει)
+  notes     String?
+  address   PartyAddress? @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  person    Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
+  party     Party   @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@unique([partyId, personId])
+  @@index([personId])
+}
+
+// Τηλέφωνο ή email. Ανήκει είτε στην εταιρία (partyId, προαιρετικά σε υποκατάστημά της) είτε σε πρόσωπο (personId).
+// Το κύριο τηλέφωνο και email της εταιρίας αντιγράφονται και στο Party.phone / Party.email (παραστατικά, αναζήτηση).
+model PartyChannel {
+  id        String  @id @default(cuid())
+  partyId   String?
+  personId  String?
+  addressId String?
+  kind      String // phone | email (lib/crm.ts)
+  value     String
+  label     String? // π.χ. «Κινητό», «Τιμολόγια», «Παραγγελίες»
+  isPrimary Boolean @default(false)
+  party     Party?  @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  person    Person? @relation(fields: [personId], references: [id], onDelete: Cascade)
+  address   PartyAddress? @relation(fields: [addressId], references: [id], onDelete: SetNull)
 
   @@index([partyId])
+  @@index([personId])
+  @@index([value])
+}
+
+// Ενέργεια CRM (όπως το SOACTION του SoftOne): σημείωση, κλήση, email, συνάντηση ή εργασία πάνω σε συναλλασσόμενο.
+// Η τηλεφωνία, το ταχυδρομείο και η σάρωση παραστατικών θα γράφουν εδώ με source ≠ manual και externalId,
+// ώστε το ίδιο γεγονός να μην καταχωρηθεί δύο φορές.
+model PartyActivity {
+  id          String    @id @default(cuid())
+  orgId       String?
+  partyId     String
+  personId    String? // με ποιον έγινε
+  kind        String // note | call | email | meeting | task
+  direction   String? // in | out (κλήση, email)
+  subject     String?
+  body        String?
+  at          DateTime  @default(now()) // πότε έγινε
+  dueAt       DateTime? // εργασία: ως πότε
+  doneAt      DateTime? // εργασία: πότε ολοκληρώθηκε
+  durationMin Int?
+  pinned      Boolean   @default(false)
+  userId      String?
+  userName    String
+  source      String    @default("manual") // manual | telephony | mail | ocr
+  externalId  String? // αναγνωριστικό στο εξωτερικό σύστημα
+  refType     String? // με τι σχετίζεται: file, ticket, charge…
+  refId       String?
+  createdAt   DateTime  @default(now())
+  party       Party     @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  person      Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  @@unique([source, externalId])
+  @@index([partyId, at])
+  @@index([orgId, doneAt, dueAt])
 }
 
 model PartyBankAccount {

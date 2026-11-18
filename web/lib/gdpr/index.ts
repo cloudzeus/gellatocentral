@@ -143,7 +143,10 @@ export async function completeErasure(id: string, actor: Actor) {
     }
     if (customer) {
       // shortcut: σήμερα τίποτα άλλο δεν δείχνει σε πελάτη. Όταν υπάρξουν παραστατικά χονδρικής, η εγγραφή θα ανωνυμοποιείται αντί να σβήνεται (τα παραστατικά τα κρατά ο νόμος).
-      await tx.party.delete({ where: { id: customer.id } });
+      const people = (await tx.partyContact.findMany({ where: { partyId: customer.id }, select: { personId: true } })).map((x) => x.personId);
+      await tx.party.delete({ where: { id: customer.id } }); // μαζί φεύγουν τηλέφωνα, email, σχέσεις επαφών και ενέργειες CRM
+      // τα πρόσωπα που ήταν επαφές μόνο εδώ σβήνονται και αυτά· όσα δένουν και με άλλον συναλλασσόμενο μένουν
+      counts.contacts = (await tx.person.deleteMany({ where: { id: { in: people }, links: { none: {} } } })).count;
       counts.customer = 1;
     }
     await tx.erasureRequest.update({ where: { id }, data: { status: "COMPLETED", decidedById: actor?.id === user?.id ? null : (actor?.id ?? null), decidedAt: new Date(), subjectLabel: null, reason: null, summary: counts } });
@@ -157,8 +160,9 @@ export async function completeErasure(id: string, actor: Actor) {
 
 /** Ό,τι κρατά η επιχείρηση για έναν πελάτη της, για να του το παραδώσει. */
 export async function exportCustomer(id: string, orgId: string, actor: Actor) {
-  const c = await db.party.findFirst({ where: { id, orgId } });
-  if (!c) throw new GdprError("Ο πελάτης δεν βρέθηκε");
+  const full = await db.party.findFirst({ where: { id, orgId }, include: { channels: { select: { kind: true, value: true, label: true } }, contacts: { select: { title: true, person: { select: { name: true, channels: { select: { kind: true, value: true, label: true } } } } } }, activities: { orderBy: { at: "asc" }, select: { at: true, kind: true, direction: true, subject: true, body: true, dueAt: true, doneAt: true } } } });
+  if (!full) throw new GdprError("Ο πελάτης δεν βρέθηκε");
+  const { channels, contacts, activities, ...c } = full;
   const [consents, files, requests] = await Promise.all([
     consentsOf("customer", id),
     db.storedFile.findMany({ where: { orgId, refType: "customer", refId: id }, select: { name: true, category: true, size: true, createdAt: true } }),
@@ -166,7 +170,7 @@ export async function exportCustomer(id: string, orgId: string, actor: Actor) {
   ]);
   await logEvent({ orgId, type: "EXPORT", actor, subjectType: "customer", subjectId: id, subjectLabel: [c.name, c.email].filter(Boolean).join(" · ") });
   const details = { ...c, id: undefined, orgId: undefined }; // τα εσωτερικά αναγνωριστικά δεν αφορούν τον πελάτη
-  return { exportedAt: new Date().toISOString(), customer: details, consents: consents.map((x) => ({ purpose: PURPOSES[x.purpose as Purpose]?.label ?? x.purpose, version: x.version, granted: x.granted, at: x.at, source: x.source })), files, erasureRequests: requests };
+  return { exportedAt: new Date().toISOString(), customer: details, channels, contacts, activities, consents: consents.map((x) => ({ purpose: PURPOSES[x.purpose as Purpose]?.label ?? x.purpose, version: x.version, granted: x.granted, at: x.at, source: x.source })), files, erasureRequests: requests };
 }
 
 export async function exportUser(userId: string) {

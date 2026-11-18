@@ -11,7 +11,7 @@ import { useStored } from "@/lib/use-stored";
 import { btn, cn } from "./ui";
 
 export type Column = { key: string; label: string; numeric?: boolean; /** δεν κρύβεται (π.χ. η στήλη που ταυτοποιεί τη γραμμή) */ required?: boolean; /** ο server ξέρει να ταξινομήσει με αυτή τη στήλη (?sort=key) */ sortable?: boolean };
-export type Row = { id: string; cells: Record<string, ReactNode>; menu?: ReactNode };
+export type Row = { id: string; cells: Record<string, ReactNode>; menu?: ReactNode; /** γρήγορες ενέργειες με εικονίδια, πριν από το μενού: ο χρήστης δουλεύει χωρίς να φύγει από τη λίστα */ actions?: ReactNode };
 type Prefs = { widths: Record<string, number>; hidden: string[]; order?: string[] };
 const MIN = 72;
 
@@ -96,6 +96,9 @@ export function DataTable({ id, columns, rows, empty, listing }: { id: string; c
   const widths = drag ?? prefs.widths;
   const sized = visible.every((c) => widths[c.key]);
   const hasMenu = rows.some((r) => r.menu);
+  // με γρήγορες ενέργειες η τελευταία στήλη φαρδαίνει και μένει κολλημένη δεξιά: φαίνεται όσο κι αν κυλήσει ο πίνακας
+  const hasActions = rows.some((r) => r.actions);
+  const actionsWidth = hasActions ? 184 : 56;
 
   /** Τα πλάτη όλων των ορατών στηλών όπως φαίνονται τώρα: από εδώ και πέρα είναι σταθερά σε px. */
   const measure = () => Object.fromEntries(visible.map((c) => [c.key, widths[c.key] ?? table.current!.querySelector<HTMLElement>(`th[data-key="${c.key}"]`)!.offsetWidth]));
@@ -164,8 +167,8 @@ export function DataTable({ id, columns, rows, empty, listing }: { id: string; c
       </div>
 
       <div className="overflow-x-auto">
-        <table ref={table} className={cn("table-cards table-desktop text-sm", sized ? "md:table-fixed" : "w-full")} style={sized ? { width: visible.reduce((s, c) => s + widths[c.key], hasMenu ? 56 : 0), minWidth: "100%" } : undefined}>
-          {sized ? <colgroup>{visible.map((c) => <col key={c.key} style={{ width: widths[c.key] }} />)}{hasMenu ? <col style={{ width: 56 }} /> : null}</colgroup> : null}
+        <table ref={table} className={cn("table-cards table-desktop text-sm", sized ? "md:table-fixed" : "w-full")} style={sized ? { width: visible.reduce((s, c) => s + widths[c.key], hasMenu ? actionsWidth : 0), minWidth: "100%" } : undefined}>
+          {sized ? <colgroup>{visible.map((c) => <col key={c.key} style={{ width: widths[c.key] }} />)}{hasMenu ? <col style={{ width: actionsWidth }} /> : null}</colgroup> : null}
           <thead>
             <tr className="text-left text-xs text-muted-foreground">
               {visible.map((c) => (
@@ -196,7 +199,7 @@ export function DataTable({ id, columns, rows, empty, listing }: { id: string; c
                   />
                 </th>
               ))}
-              {hasMenu ? <th className="w-14 px-2 py-3"><span className="sr-only">Ενέργειες</span></th> : null}
+              {hasMenu ? <th style={{ width: actionsWidth }} className={cn("px-2 py-3", hasActions && "md:sticky md:right-0 md:bg-card")}><span className="sr-only">Ενέργειες</span></th> : null}
             </tr>
           </thead>
           <tbody>
@@ -207,7 +210,7 @@ export function DataTable({ id, columns, rows, empty, listing }: { id: string; c
                     {r.cells[c.key]}
                   </td>
                 ))}
-                {hasMenu ? <td data-actions className="px-2 py-1 text-right">{r.menu ? <RowMenu label="Ενέργειες γραμμής">{r.menu}</RowMenu> : null}</td> : null}
+                {hasMenu ? <td data-actions className={cn("px-2 py-1 text-right", hasActions && "md:sticky md:right-0 md:bg-card md:shadow-[-8px_0_8px_-8px_rgb(0_0_0/0.12)]")}><span className="inline-flex items-center justify-end gap-0.5"><span className="contents">{r.actions}</span>{r.menu ? <RowMenu label="Ενέργειες γραμμής">{r.menu}</RowMenu> : null}</span></td> : null}
               </tr>
             ))}
           </tbody>

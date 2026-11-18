@@ -20,7 +20,7 @@ export async function exportOrg(orgId: string) {
     db.membership.findMany({ where, select: { storeId: true, role: { select: { name: true } }, user: { select: { name: true, email: true, createdAt: true, lastLoginAt: true, disabledAt: true } } } }),
     db.category.findMany({ where }),
     db.product.findMany({ where }),
-    db.party.findMany({ where, include: { addresses: true, contacts: true, bankAccounts: true } }),
+    db.party.findMany({ where, include: { addresses: true, contacts: { include: { person: { include: { channels: true } } } }, channels: true, activities: true, bankAccounts: true } }),
     db.sale.findMany({ where, orderBy: { createdAt: "asc" }, include: { lines: true, payment: true, fiscal: true } }),
     db.storedFile.findMany({ where, select: { id: true, name: true, category: true, refType: true, refId: true, size: true, contentType: true, createdAt: true } }),
     db.ticket.findMany({ where, include: { messages: { where: { internal: false } } } }),
