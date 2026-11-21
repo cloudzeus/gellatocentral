@@ -4,7 +4,7 @@
 import type { Composition } from "@/lib/generated/prisma/client";
 import { ACIDITY_OPTIONS, ALLERGENS, COMPOSITION_GROUPS, PCT_FIELDS, pmToInput } from "@/lib/composition";
 import { Submit } from "@/components/submit";
-import { btn, Field, Select } from "@/components/ui";
+import { btn, Field, Select, TextareaField } from "@/components/ui";
 
 const CHECK = "flex items-center gap-2 rounded-lg border border-border/70 px-2.5 py-1.5 text-sm cursor-pointer hover:bg-secondary/60 has-checked:border-primary/50 has-checked:bg-primary/5";
 
@@ -46,6 +46,11 @@ export function CompositionForm({
           </div>
         </fieldset>
       ))}
+
+      <fieldset className="grid gap-3">
+        <legend className="text-sm font-semibold text-muted-foreground">Συστατικά</legend>
+        <TextareaField label="Συστατικά ετικέτας" name="ingredientsText" rows={3} defaultValue={c?.ingredientsText ?? ""} hint="Όπως αναγράφονται στην ετικέτα του προϊόντος" />
+      </fieldset>
 
       <fieldset className="grid gap-3">
         <legend className="text-sm font-semibold text-muted-foreground">Χαρακτηριστικά</legend>

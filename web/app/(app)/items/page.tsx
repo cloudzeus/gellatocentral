@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { Pencil, Plus } from "lucide-react";
+import { Eye, Pencil, Plus } from "lucide-react";
+import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, Field, Page, Select } from "@/components/ui";
+import { Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { filterParam, listParams } from "@/lib/paging";
 import { saveGenericItem, toggleGenericItem } from "./actions";
 
 // Γενικά είδη: αυτά που μπαίνουν στις συνταγές. Κάθε ένα δένει με συσκευασίες του κεντρικού
@@ -12,8 +14,21 @@ import { saveGenericItem, toggleGenericItem } from "./actions";
 export default async function ItemsPage({ searchParams }: PageProps<"/items">) {
   const { org, can } = await currentOrg("items.read");
   const q = await searchParams;
-  const [items, units, vatRates] = await Promise.all([
-    db.genericItem.findMany({ where: { orgId: org.id }, orderBy: { name: "asc" }, include: { baseUnit: true, vatRate: true, _count: { select: { mappings: true } } } }),
+  const list = listParams(q, 50, ["name", "unit", "vat", "mappings", "status"]);
+  const status = filterParam(q, "status", ["active", "hidden"]);
+  const where = {
+    orgId: org.id,
+    ...(status ? { active: status === "active" } : {}),
+    ...(list.q ? { name: { contains: list.q, mode: "insensitive" as const } } : {}),
+  };
+  const orderBy = list.sort === "unit" ? { baseUnit: { nameEL: list.dir } }
+    : list.sort === "vat" ? { vatRate: { rate: list.dir } }
+      : list.sort === "mappings" ? { mappings: { _count: list.dir } }
+        : list.sort === "status" ? { active: list.dir }
+          : { name: list.dir };
+  const [items, total, units, vatRates] = await Promise.all([
+    db.genericItem.findMany({ where, orderBy, skip: list.skip, take: list.take, include: { baseUnit: true, vatRate: true, _count: { select: { mappings: true } } } }),
+    db.genericItem.count({ where }),
     db.unit.findMany({ where: { active: true }, orderBy: [{ dimension: "asc" }, { toBase: "asc" }] }),
     db.vatRate.findMany({ where: { active: true }, orderBy: { rate: "desc" } }),
   ]);
@@ -24,7 +39,7 @@ export default async function ItemsPage({ searchParams }: PageProps<"/items">) {
       <Field label="Όνομα είδους" name="name" required minLength={2} maxLength={80} defaultValue={g?.name} hint="Γενικά, όπως θα μπαίνει στη συνταγή: «γάλα φρέσκο», «ζάχαρη άχνη»" />
       <Select label="Μονάδα κατανάλωσης" name="baseUnitId" defaultValue={g?.baseUnitId ?? units.find((u) => u.code === "g")?.id} options={units.map((u): [string, string] => [u.id, `${u.nameEL} (${u.code})`])} />
       <Select label="ΦΠΑ αγοράς" name="vatRateId" defaultValue={g?.vatRateId ?? ""} options={[["", "— χωρίς προεπιλογή —"], ...vatRates.map((v): [string, string] => [v.id, `${v.name} ${v.rate}%`])]} />
-      <Submit className={btn("default")}>{g ? "Αποθήκευση" : "Προσθήκη"}</Submit>
+      <Submit pendingText="Αποθήκευση…" className={btn("default")}>{g ? "Αποθήκευση" : "Προσθήκη"}</Submit>
     </form>
   );
 
@@ -34,31 +49,63 @@ export default async function ItemsPage({ searchParams }: PageProps<"/items">) {
       <div className="grid max-w-5xl gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
         {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Τα είδη ενημερώθηκαν</p> : null}
-        {items.length === 0 ? (
-          <Card className="p-8 text-center text-sm text-muted-foreground">Κανένα γενικό είδος ακόμα. Ξεκίνα με «Νέο είδος» και μετά σύνδεσέ το με συσκευασίες από τον κεντρικό κατάλογο</Card>
-        ) : (
-          <Card className="overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead><tr className="text-left text-xs text-muted-foreground"><th className="px-5 py-2 font-semibold">Είδος</th><th className="px-3 py-2 font-semibold">Μονάδα</th><th className="px-3 py-2 font-semibold">ΦΠΑ αγοράς</th><th className="px-3 py-2 font-semibold">Συσκευασίες</th><th className="px-3 py-2 font-semibold">Κατάσταση</th><th className="px-5 py-2" /></tr></thead>
-              <tbody>
-                {items.map((g) => (
-                  <tr key={g.id} className={cn("border-t border-border/70", g.active ? "" : "text-muted-foreground")}>
-                    <td className="px-5 py-2 font-medium"><Link href={`/items/${g.id}`} className="hover:underline">{g.name}</Link></td>
-                    <td className="px-3 py-2">{g.baseUnit.nameEL} ({g.baseUnit.code})</td>
-                    <td className="px-3 py-2">{g.vatRate ? `${g.vatRate.name} ${g.vatRate.rate}%` : "—"}</td>
-                    <td className="px-3 py-2">{g._count.mappings ? `${g._count.mappings} συνδεδεμένες` : "καμία"}</td>
-                    <td className="px-3 py-2">{g.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>}</td>
-                    <td className="px-5 py-1.5">
-                      <span className="flex justify-end gap-1">
-                        {can("items.edit") ? <><Modal label={<><Pencil /> Αλλαγή</>} size="sm" title={g.name}>{itemForm(g)}</Modal><form action={toggleGenericItem.bind(null, g.id)}><Submit className={btn("ghost", "sm")}>{g.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit></form></> : null}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-        )}
+        <Card>
+          <DataTable
+            id="items"
+            listing={{
+              ...list,
+              total,
+              placeholder: "Όνομα είδους…",
+              filters: [{ key: "status", label: "Κατάσταση", value: status, options: [["active", "Ενεργά"], ["hidden", "Κρυφά"]] }],
+            }}
+            empty="Κανένα γενικό είδος ακόμα. Ξεκίνα με «Νέο είδος» και μετά σύνδεσέ το με συσκευασίες από τον κεντρικό κατάλογο"
+            columns={[
+              { key: "name", label: "Είδος", required: true, sortable: true },
+              { key: "unit", label: "Μονάδα", sortable: true },
+              { key: "vat", label: "ΦΠΑ αγοράς", sortable: true },
+              { key: "mappings", label: "Συσκευασίες", sortable: true },
+              { key: "status", label: "Κατάσταση", sortable: true },
+            ]}
+            rows={items.map((g) => ({
+              id: g.id,
+              cells: {
+                name: <Link href={`/items/${g.id}`} className="font-semibold underline-offset-2 hover:underline">{g.name}</Link>,
+                unit: `${g.baseUnit.nameEL} (${g.baseUnit.code})`,
+                vat: g.vatRate ? `${g.vatRate.name} ${g.vatRate.rate}%` : "—",
+                mappings: g._count.mappings ? `${g._count.mappings} συνδεδεμένες` : "καμία",
+                status: g.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>,
+              },
+              details: {
+                label: g.name,
+                view: (
+                  <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                    <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <div><dt className="text-xs text-muted-foreground">Μονάδα</dt><dd className="font-medium">{g.baseUnit.nameEL} ({g.baseUnit.code})</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">ΦΠΑ αγοράς</dt><dd className="font-medium">{g.vatRate ? `${g.vatRate.name} ${g.vatRate.rate}%` : "Χωρίς προεπιλογή"}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Συσκευασίες</dt><dd className="font-medium">{g._count.mappings}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Κατάσταση</dt><dd>{g.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>}</dd></div>
+                    </dl>
+                    <Link href={`/items/${g.id}`} className={btn("outline", "sm")}><Eye /> Πλήρης καρτέλα</Link>
+                  </div>
+                ),
+                edit: can("items.edit") ? itemForm(g) : undefined,
+              },
+              menu: (
+                <>
+                  <Link href={`/items/${g.id}`} role="menuitem" className={menuItem}><Eye /> Καρτέλα είδους</Link>
+                  {can("items.edit") ? (
+                    <>
+                      <Modal menuItem label={<><Pencil /> Αλλαγή</>} size="sm" title={g.name}>{itemForm(g)}</Modal>
+                      <form action={toggleGenericItem.bind(null, g.id)}>
+                        <Submit className={menuItem}>{g.active ? "Απόκρυψη" : "Εμφάνιση ξανά"}</Submit>
+                      </form>
+                    </>
+                  ) : null}
+                </>
+              ),
+            }))}
+          />
+        </Card>
         <p className="text-xs text-muted-foreground">Η μονάδα κατανάλωσης ορίζει πώς μετράται το είδος στις συνταγές· οι συσκευασίες «σπάνε» αυτόματα σε αυτή τη μονάδα</p>
       </div>
     </Page>

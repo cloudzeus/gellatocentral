@@ -7,21 +7,30 @@ import { requirePlatform } from "@/lib/auth";
 import { compositionFromRow } from "@/lib/composition";
 import { db } from "@/lib/db";
 import { materialLactose, materialPac, materialPod, materialTotalSolids } from "@/lib/recipe-analysis";
-import { saveComposition } from "../actions";
+import { saveComposition, toggleTradeItem } from "../actions";
+import { Submit } from "@/components/submit";
+import { ItemForm } from "../item-form";
 
-// Καρτέλα είδους του κεντρικού καταλόγου: η τεχνική σύστασή του (% ανά 100 g) που κληρονομούν
-// οι συνδρομητές με το mapping, και σύνοψη των υπολογισμένων τιμών για έλεγχο πριν την αποθήκευση.
+// Καρτέλα είδους του κεντρικού καταλόγου: στοιχεία και φωτογραφία, η τεχνική σύστασή του (% ανά 100 g)
+// που κληρονομούν οι συνδρομητές με το mapping, και σύνοψη των υπολογισμένων τιμών για έλεγχο.
 export default async function CatalogItemPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requirePlatform("settings.edit");
   const { id } = await params;
   const q = await searchParams;
-  const item = await db.tradeItem.findFirst({
-    where: { id, orgId: null },
-    include: { brand: { include: { manufacturer: true } }, category: true, contentUnit: true, composition: true },
-  });
+  const [item, categories, brands, units] = await Promise.all([
+    db.tradeItem.findFirst({
+      where: { id, orgId: null },
+      include: { brand: { include: { manufacturer: true } }, category: true, contentUnit: true, composition: true },
+    }),
+    db.tradeCategory.findMany({ orderBy: [{ position: "asc" }, { name: "asc" }], include: { children: { orderBy: { name: "asc" } } }, where: { parentId: null, active: true } }),
+    db.brand.findMany({ orderBy: { name: "asc" }, include: { manufacturer: true } }),
+    db.unit.findMany({ where: { active: true }, orderBy: [{ dimension: "asc" }, { toBase: "asc" }] }),
+  ]);
   if (!item) notFound();
   const c = item.composition;
   const summary = c ? compositionFromRow(c as unknown as Record<string, unknown>) : null;
+  const categoryOptions: [string, string][] = categories.flatMap((x): [string, string][] => [[x.id, x.name], ...x.children.map((ch): [string, string] => [ch.id, `${x.name} › ${ch.name}`])]);
+  const brandOptions: [string, string][] = brands.map((b): [string, string] => [b.id, `${b.manufacturer.name} · ${b.name}`]);
 
   return (
     <Page
@@ -36,7 +45,24 @@ export default async function CatalogItemPage({ params, searchParams }: { params
     >
       <div className="grid max-w-5xl gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Η σύσταση αποθηκεύτηκε</p> : null}
+        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Αποθηκεύτηκε</p> : null}
+
+        <Card>
+          <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg">Στοιχεία είδους</h2>
+              <p className="text-sm text-muted-foreground">Όνομα, EAN, brand, συσκευασία και φωτογραφία — κοινά για όλους τους συνδρομητές</p>
+            </div>
+            {item.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>}
+            <form action={toggleTradeItem.bind(null, item.id)}>
+              <input type="hidden" name="returnTo" value="item" />
+              <Submit className={btn("outline", "sm")}>{item.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit>
+            </form>
+          </div>
+          <div className="px-5 py-5">
+            <ItemForm item={item} categoryOptions={categoryOptions} brandOptions={brandOptions} units={units} />
+          </div>
+        </Card>
 
         {summary ? (
           <Card>
@@ -66,7 +92,7 @@ export default async function CatalogItemPage({ params, searchParams }: { params
           </Card>
         ) : null}
 
-        <Card>
+        <Card id="composition" className="scroll-mt-28">
           <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
             <div className="min-w-0 flex-1">
               <h2 className="text-lg">Σύσταση (% ανά 100 g)</h2>

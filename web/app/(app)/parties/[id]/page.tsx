@@ -396,7 +396,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                 <h2 className="text-lg">Στοιχεία {party.vatCheckedAt ? <Badge tone="success">Επιβεβαιώθηκαν από το μητρώο {day.format(party.vatCheckedAt)}</Badge> : null}</h2>
                 <p className="text-sm text-muted-foreground">{missing.length ? `Για τιμολόγιο λείπουν: ${missing.join(", ")}` : "Τα στοιχεία τιμολόγησης είναι πλήρη"}</p>
               </div>
-              {scope.canEdit ? <Modal label={<><Pencil /> Αλλαγή</>} title="Στοιχεία συναλλασσόμενου"><PartyForm action={saveParty.bind(null, party.id)} party={party} refs={refs} geo={{ breadcrumb: crumbs.get("hq"), cityId: party.cityId, city: party.city, areaId: party.areaId, areaName: party.geoArea?.name ?? null, regionText: party.region }} /></Modal> : null}
+              {scope.canEdit ? <Modal wide label={<><Pencil /> Αλλαγή</>} title="Στοιχεία συναλλασσόμενου"><PartyForm action={saveParty.bind(null, party.id)} party={party} refs={refs} geo={{ breadcrumb: crumbs.get("hq"), cityId: party.cityId, city: party.city, areaId: party.areaId, areaName: party.geoArea?.name ?? null, regionText: party.region }} /></Modal> : null}
             </div>
             <dl className="grid gap-x-6 gap-y-3 p-5 sm:grid-cols-2 xl:grid-cols-3">
               {facts.map(([l, v]) => <div key={l} className="min-w-0"><dt className="text-xs font-medium text-muted-foreground">{l}</dt><dd className="font-semibold break-words">{v ?? <span className="font-normal text-muted-foreground">Δεν έχει συμπληρωθεί</span>}</dd></div>)}

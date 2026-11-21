@@ -51,6 +51,52 @@ export function parseQuantity(quantity: string | undefined): { qty: number; unit
   return { qty: base, unitCode: MASS.has(m[3]) ? "g" : "ml" };
 }
 
+// Ετικέτες αλλεργιογόνων του OFF → τα 14 κλειδιά του Καν. (ΕΕ) 1169/2011 (lib/composition.ts)
+const ALLERGEN_TAG_MAP: Record<string, string> = {
+  gluten: "gluten",
+  crustaceans: "crustaceans",
+  eggs: "eggs",
+  fish: "fish",
+  peanuts: "peanuts",
+  soybeans: "soy",
+  soy: "soy",
+  milk: "milk",
+  nuts: "nuts",
+  celery: "celery",
+  mustard: "mustard",
+  "sesame-seeds": "sesame",
+  sesame: "sesame",
+  "sulphur-dioxide-and-sulphites": "sulphites",
+  sulphites: "sulphites",
+  lupin: "lupin",
+  molluscs: "molluscs",
+};
+
+/** Λίστα ετικετών OFF («en:milk,en:sesame-seeds») → δικά μας κλειδιά, χωρίς διπλότυπα/άγνωστα. */
+export function mapAllergenTags(tags: string | undefined): string[] {
+  const out = new Set<string>();
+  for (const t of (tags ?? "").split(",")) {
+    const key = ALLERGEN_TAG_MAP[t.trim().replace(/^[a-z]{2}:/, "")];
+    if (key) out.add(key);
+  }
+  return [...out];
+}
+
+/** Θρεπτικό του OFF (g ανά 100 g, «3.5») → χιλιοστά της μονάδας για τη βάση· κενό/άκυρο → null. */
+export function nutrimentToPm(value: string | undefined): number | null {
+  const s = (value ?? "").trim().replace(",", ".");
+  if (!s) return null;
+  const v = Number(s);
+  if (!Number.isFinite(v) || v < 0 || v > 100) return null;
+  return Math.round(v * 1000);
+}
+
+/** Κείμενο συστατικών: προτιμάται η ελληνική έκδοση· κόψιμο κενών, έως 4000 χαρακτήρες. */
+export function cleanIngredients(row: OffRow): string | null {
+  const text = (row.ingredients_text_el || row.ingredients_text || "").replace(/\s+/g, " ").trim();
+  return text.length >= 3 ? text.slice(0, 4000) : null;
+}
+
 export type OffMapped = {
   ean: string;
   name: string;
@@ -59,6 +105,15 @@ export type OffMapped = {
   contentQty: number;
   unitCode: "g" | "ml" | "pcs";
   imageUrl: string | null;
+  ingredientsText: string | null;
+  allergensContains: string[];
+  allergensTraces: string[];
+  fatPm: number | null;
+  sucrosePm: number | null; // τα «σάκχαρα» της ετικέτας καταχωρούνται ως ζάχαρη (προσέγγιση)
+  otherProteinPm: number | null; // οι πρωτεΐνες δεν διακρίνονται σε γάλακτος/λοιπές
+  saltPm: number | null;
+  fiberPm: number | null;
+  alcoholPm: number | null;
 };
 
 /** Γραμμή TSV → δεδομένα TradeItem, ή null αν δεν πληροί τα ελάχιστα (Ελλάδα, EAN, όνομα).
@@ -77,5 +132,14 @@ export function mapOffRow(row: OffRow): OffMapped | null {
     contentQty: qty.qty,
     unitCode: qty.unitCode,
     imageUrl: row.image_front_url || row.image_url || null,
+    ingredientsText: cleanIngredients(row),
+    allergensContains: mapAllergenTags(row.allergens_tags),
+    allergensTraces: mapAllergenTags(row.traces_tags),
+    fatPm: nutrimentToPm(row.fat_100g),
+    sucrosePm: nutrimentToPm(row.sugars_100g),
+    otherProteinPm: nutrimentToPm(row.proteins_100g),
+    saltPm: nutrimentToPm(row.salt_100g),
+    fiberPm: nutrimentToPm(row.fiber_100g),
+    alcoholPm: nutrimentToPm(row.alcohol_100g),
   };
 }

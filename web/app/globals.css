@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -457,4 +458,32 @@ form[data-by-kind]:has(select[name="kind"] option[value="FRIDGE"]:checked) [data
 form[data-by-kind]:has(select[name="kind"] option[value="VENDING_MACHINE"]:checked) [data-for~="VENDING_MACHINE"],
 form[data-by-kind]:has(select[name="kind"] option[value="SCALE"]:checked) [data-for~="SCALE"] {
   display: block;
+}
+
+
+/* Αόριστη, πραγματική αναμονή διεργασίας: κινείται μόνο με transform και σέβεται το reduced motion. */
+@keyframes process-progress {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(410%); }
+}
+.process-indicator {
+  animation: process-progress 1.15s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .process-indicator {
+    width: 100%;
+    animation: none;
+    opacity: 0.65;
+  }
+}
+
+/* Η αναπτυγμένη γραμμή ενός DataTable μένει ενιαίο πάνελ και στην κάρτα κινητού. */
+@media (max-width: 767.98px) {
+  table.table-cards > tbody > tr.table-expansion,
+  table.table-cards > tbody > tr.table-expansion > td {
+    display: block;
+    width: 100%;
+    padding: 0;
+    text-align: left;
+  }
 }

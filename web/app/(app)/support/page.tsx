@@ -1,10 +1,10 @@
-import { Plus } from "lucide-react";
+import { Eye, Plus } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
 import { TicketSubject } from "@/components/ticket-subject";
-import { Badge, btn, Card, Page, Select } from "@/components/ui";
+import { Badge, btn, Card, menuItem, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -75,6 +75,7 @@ export default async function SupportPage({ searchParams }: PageProps<"/support"
                   last: last ? `${last.authorKind === "support" ? `${last.authorName} από την υποστήριξη` : last.authorKind === "system" ? "Ενημέρωση" : last.authorName} · ${when.format(last.createdAt)}` : "—",
                   by: t.openedByName,
                 },
+                menu: <Link href={`/support/${t.id}`} role="menuitem" className={menuItem}><Eye /> Άνοιγμα αιτήματος</Link>,
               };
             })}
           />

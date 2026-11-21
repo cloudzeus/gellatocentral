@@ -14,7 +14,11 @@ import { mapOffRow, type OffMapped } from "../lib/off-import";
 import { cdnUrl, put, storageConfigured } from "../lib/storage/bunny";
 
 const OFF_URL = "https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz";
-const FIELDS = ["code", "product_name", "generic_name", "brands", "packaging", "quantity", "countries_tags", "image_front_url", "image_url"] as const;
+const FIELDS = [
+  "code", "product_name", "generic_name", "brands", "packaging", "quantity", "countries_tags", "image_front_url", "image_url",
+  "ingredients_text_el", "ingredients_text", "allergens_tags", "traces_tags",
+  "fat_100g", "sugars_100g", "proteins_100g", "salt_100g", "fiber_100g", "alcohol_100g",
+] as const;
 
 const args = process.argv.slice(2);
 const opt = (name: string) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : null; };
@@ -57,6 +61,25 @@ async function main() {
   const imagesReady = WITH_IMAGES && (await storageConfigured());
   if (WITH_IMAGES && !imagesReady) console.warn("Το Bunny δεν έχει ρυθμιστεί — οι φωτογραφίες παραλείπονται");
 
+  /** Σύσταση από τη γραμμή OFF — null αν δεν έφερε τίποτα χρήσιμο (ούτε συστατικά, ούτε αλλεργιογόνα, ούτε θρεπτικά). */
+  const compositionData = (m: OffMapped) => {
+    const has =
+      m.ingredientsText || m.allergensContains.length || m.allergensTraces.length ||
+      [m.fatPm, m.sucrosePm, m.otherProteinPm, m.saltPm, m.fiberPm, m.alcoholPm].some((v) => v != null);
+    if (!has) return null;
+    return {
+      ingredientsText: m.ingredientsText,
+      allergensContains: m.allergensContains,
+      allergensTraces: m.allergensTraces,
+      fatPm: m.fatPm,
+      sucrosePm: m.sucrosePm,
+      otherProteinPm: m.otherProteinPm,
+      saltPm: m.saltPm,
+      fiberPm: m.fiberPm,
+      alcoholPm: m.alcoholPm,
+    };
+  };
+
   const brandIds = new Map<string, string>(); // όνομα (πεζά) → brandId
   const brandId = async (name: string) => {
     const key = name.toLowerCase();
@@ -70,7 +93,7 @@ async function main() {
   };
 
   let header: string[] | null = null;
-  let scanned = 0, matched = 0, created = 0, updated = 0, imagesOk = 0, imagesFailed = 0;
+  let scanned = 0, matched = 0, created = 0, updated = 0, imagesOk = 0, imagesFailed = 0, withComposition = 0;
   let buffer: OffMapped[] = [];
 
   const flush = async () => {
@@ -80,14 +103,19 @@ async function main() {
     for (const m of buffer) if (!seen.has(m.ean)) seen.set(m.ean, m);
     const batch = [...seen.values()];
     buffer = [];
-    const existing = new Map((await db.tradeItem.findMany({ where: { orgId: null, ean: { in: batch.map((m) => m.ean) } }, select: { id: true, ean: true, imageUrl: true } })).map((t) => [t.ean, t]));
+    const existing = new Map(
+      (await db.tradeItem.findMany({
+        where: { orgId: null, ean: { in: batch.map((m) => m.ean) } },
+        select: { id: true, ean: true, imageUrl: true, composition: { select: { id: true } } },
+      })).map((t) => [t.ean, t]),
+    );
 
     const toCreate = batch.filter((m) => !existing.has(m.ean));
     for (let i = 0; i < toCreate.length; i += 500) {
       const slice = toCreate.slice(i, i + 500);
       // το brandId θέλει upsert, οπότε δημιουργία ανά γραμμή αλλά σε πακέτα των 500
       for (const m of slice) {
-        await db.tradeItem.create({
+        const item = await db.tradeItem.create({
           data: {
             orgId: null,
             ean: m.ean,
@@ -98,6 +126,8 @@ async function main() {
             brandId: m.brand ? await brandId(m.brand) : null,
           },
         });
+        const comp = compositionData(m);
+        if (comp) { await db.composition.create({ data: { orgId: null, tradeItemId: item.id, ...comp } }); withComposition++; }
       }
       created += slice.length;
     }
@@ -115,6 +145,11 @@ async function main() {
         // το brand δεν μηδενίζεται ποτέ από εισαγωγή — μόνο συμπληρώνεται
         data: { name: m.name, packaging: m.packaging, contentQty: m.contentQty, contentUnitId: units.get(m.unitCode)!, ...(m.brand ? { brandId: await brandId(m.brand) } : {}), imageUrl },
       });
+      // σύσταση μόνο όπου λείπει — χειροκίνητες εγγραφές δεν πειράζονται
+      if (!cur.composition) {
+        const comp = compositionData(m);
+        if (comp) { await db.composition.create({ data: { orgId: null, tradeItemId: cur.id, ...comp } }); withComposition++; }
+      }
       updated++;
     }
     // φωτογραφίες για νέες εγγραφές
@@ -148,7 +183,7 @@ async function main() {
     if (matched >= LIMIT) break;
   }
   await flush();
-  console.log(`Έτοιμο: ${scanned.toLocaleString("el-GR")} γραμμές · ${matched.toLocaleString("el-GR")} Ελλάδας · ${created} νέα · ${updated} ενημερώθηκαν${WITH_IMAGES ? ` · φωτογραφίες: ${imagesOk} ok, ${imagesFailed} απέτυχαν` : ""}`);
+  console.log(`Έτοιμο: ${scanned.toLocaleString("el-GR")} γραμμές · ${matched.toLocaleString("el-GR")} Ελλάδας · ${created} νέα · ${updated} ενημερώθηκαν · ${withComposition} με σύσταση${WITH_IMAGES ? ` · φωτογραφίες: ${imagesOk} ok, ${imagesFailed} απέτυχαν` : ""}`);
   console.log("Υπενθύμιση ODbL: ο κατάλογος αναγράφει «Περιέχει δεδομένα από Open Food Facts».");
 }
 

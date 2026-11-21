@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { Eye } from "lucide-react";
 import { DataTable } from "@/components/data-table";
-import { Badge, Card, cn, Page } from "@/components/ui";
+import { Badge, Card, cn, menuItem, Page } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -88,6 +89,7 @@ export default async function QueuePage({ searchParams }: PageProps<"/platform/s
                   clock: <Badge tone={c.tone}>{c.text}</Badge>,
                   who: t.assigneeName ?? <span className="text-muted-foreground">—</span>,
                 },
+                menu: <Link href={`/platform/support/${t.id}`} role="menuitem" className={menuItem}><Eye /> Άνοιγμα αιτήματος</Link>,
               };
             })}
           />

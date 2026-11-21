@@ -44,6 +44,7 @@ test("compositionFromForm: πλήρης κύκλος με σημαίες και 
   form.append("allergensContains", "nuts");
   form.append("allergensContains", "αλλιώς"); // άγνωστο κλειδί αγνοείται
   form.set("allergensTraces", "sesame");
+  form.set("ingredientsText", "  νερό, ζάχαρη  ");
   const r = compositionFromForm(form);
   assert.ok("data" in r);
   assert.equal(r.data.fatPm, 3500);
@@ -56,6 +57,7 @@ test("compositionFromForm: πλήρης κύκλος με σημαίες και 
   assert.equal(r.data.isVegetarian, false); // τα checkboxes χωρίς tick δεν στέλνονται
   assert.deepEqual(r.data.allergensContains, ["milk", "nuts"]);
   assert.deepEqual(r.data.allergensTraces, ["sesame"]);
+  assert.equal(r.data.ingredientsText, "νερό, ζάχαρη");
 });
 
 test("compositionFromForm: σφάλματα με κατανοητό μήνυμα", () => {

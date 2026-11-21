@@ -1,86 +1,123 @@
 import { FolderPlus, Pencil, Plus } from "lucide-react";
+import { DataTable } from "@/components/data-table";
+import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, Field, Page, Select } from "@/components/ui";
+import { Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
+import { filterParam, listParams } from "@/lib/paging";
 import { saveCategory, saveProduct, toggleProduct } from "./actions";
 
-// Ο κατάλογος του ταμείου: κατηγορίες με τα προϊόντα τους, τιμή με ΦΠΑ και συντελεστής από τους κοινούς της πλατφόρμας.
+// Ο κατάλογος του ταμείου: server-side φίλτρα και προσαρμόσιμες στήλες, με την επεξεργασία μέσα στη γραμμή.
 export default async function ProductsPage({ searchParams }: PageProps<"/products">) {
   const { org, can } = await currentOrg("products.read");
   const q = await searchParams;
+  const list = listParams(q, 50, ["name", "category", "price", "vat", "status"]);
   const [categories, vatRates] = await Promise.all([
-    db.category.findMany({ where: { orgId: org.id }, orderBy: [{ position: "asc" }, { name: "asc" }], include: { products: { orderBy: { name: "asc" }, include: { vatRate: true } } } }),
+    db.category.findMany({ where: { orgId: org.id }, orderBy: [{ position: "asc" }, { name: "asc" }] }),
     db.vatRate.findMany({ where: { active: true }, orderBy: { rate: "desc" } }),
+  ]);
+  const category = filterParam(q, "category", categories.map((c) => c.id));
+  const status = filterParam(q, "status", ["active", "hidden"]);
+  const where = {
+    orgId: org.id,
+    ...(category ? { categoryId: category } : {}),
+    ...(status ? { active: status === "active" } : {}),
+    ...(list.q ? { OR: [{ name: { contains: list.q, mode: "insensitive" as const } }, { category: { name: { contains: list.q, mode: "insensitive" as const } } }] } : {}),
+  };
+  const direction = list.sort ? list.dir : "asc";
+  const orderBy = list.sort === "category" ? [{ category: { position: direction } }, { category: { name: direction } }]
+    : list.sort === "price" ? { priceCents: direction }
+      : list.sort === "vat" ? { vatRate: { rate: direction } }
+        : list.sort === "status" ? { active: direction }
+          : { name: direction };
+  const [products, total] = await Promise.all([
+    db.product.findMany({ where, orderBy, skip: list.skip, take: list.take, include: { category: true, vatRate: true } }),
+    db.product.count({ where }),
   ]);
   const fallbackRate = vatRates.find((v) => v.rate === 13) ?? vatRates[0];
 
   const categoryForm = (c?: (typeof categories)[number]) => (
-    <form key={c?.name ?? "new"} action={saveCategory} className="grid gap-4 [&>button]:justify-self-end">
+    <form key={c?.id ?? "new"} action={saveCategory} className="grid gap-4 [&>button]:justify-self-end">
       <input type="hidden" name="categoryId" value={c?.id ?? ""} />
       <Field label="Όνομα κατηγορίας" name="name" required minLength={2} maxLength={40} defaultValue={c?.name} hint="π.χ. Παγωτό, Γλυκά, Καφές" />
-      <Submit className={btn("default")}>{c ? "Αποθήκευση" : "Προσθήκη"}</Submit>
+      <FormPending label="Αποθήκευση κατηγορίας…" />
+      <Submit pendingText="Αποθήκευση…" className={btn("default")}>{c ? "Αποθήκευση" : "Προσθήκη"}</Submit>
     </form>
   );
 
-  const productForm = (categoryId: string, p?: (typeof categories)[number]["products"][number]) => {
-    // οι ενεργοί συντελεστές· σε επεξεργασία μπαίνει και ο τρέχων, ακόμα κι αν έχει κρυφτεί
+  const productForm = (p?: (typeof products)[number]) => {
     const options = p && !vatRates.some((v) => v.id === p.vatRateId) ? [...vatRates, p.vatRate] : vatRates;
     return (
-      <form key={p ? `${p.name}-${p.priceCents}` : `new-${categoryId}`} action={saveProduct} className="grid gap-4 [&>button]:justify-self-end">
+      <form key={p?.id ?? "new"} action={saveProduct} className="grid gap-4 [&>button]:justify-self-end">
         <input type="hidden" name="productId" value={p?.id ?? ""} />
-        <input type="hidden" name="categoryId" value={categoryId} />
         <Field label="Όνομα" name="name" required minLength={2} maxLength={60} defaultValue={p?.name} hint="Όπως θα εμφανίζεται στο ταμείο και την απόδειξη" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Select label="Κατηγορία" name="categoryId" required defaultValue={p?.categoryId ?? categories[0]?.id} options={categories.map((c): [string, string] => [c.id, c.name])} />
+          <Select label="Συντελεστής ΦΠΑ" name="vatRateId" defaultValue={p?.vatRateId ?? fallbackRate?.id} options={options.map((v): [string, string] => [v.id, `${v.name} ${v.rate}%`])} />
+        </div>
         <Field label="Τιμή με ΦΠΑ (€)" name="price" required inputMode="decimal" defaultValue={p ? (p.priceCents / 100).toFixed(2).replace(".", ",") : ""} hint="π.χ. 4,50 — η τελική τιμή που πληρώνει ο πελάτης" />
-        <Select label="Συντελεστής ΦΠΑ" name="vatRateId" defaultValue={p?.vatRateId ?? fallbackRate?.id} options={options.map((v): [string, string] => [v.id, `${v.name} ${v.rate}%`])} />
-        <Submit className={btn("default")}>{p ? "Αποθήκευση" : "Προσθήκη"}</Submit>
+        <FormPending label="Αποθήκευση προϊόντος…" />
+        <Submit pendingText="Αποθήκευση…" className={btn("default")}>{p ? "Αποθήκευση" : "Προσθήκη"}</Submit>
       </form>
     );
   };
 
   return (
     <Page section="Συνταγολόγιο" title="Προϊόντα" description="Ο κατάλογος του ταμείου: τιμές με ΦΠΑ και συντελεστής ανά προϊόν. Τα κρυμμένα δεν εμφανίζονται στο ταμείο"
-      actions={can("products.add") ? <Modal label={<><FolderPlus /> Νέα κατηγορία</>} size="sm" title="Νέα κατηγορία">{categoryForm()}</Modal> : null}>
-      <div className="grid max-w-5xl gap-4">
+      actions={can("products.add") ? <span className="flex flex-wrap gap-2"><Modal label={<><FolderPlus /> Νέα κατηγορία</>} size="sm" title="Νέα κατηγορία">{categoryForm()}</Modal>{categories.length ? <Modal wide label={<><Plus /> Νέο προϊόν</>} size="sm" title="Νέο προϊόν">{productForm()}</Modal> : null}</span> : null}>
+      <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
         {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Ο κατάλογος ενημερώθηκε</p> : null}
-        {categories.length === 0 ? (
-          <Card className="p-8 text-center text-sm text-muted-foreground">Καμία κατηγορία ακόμα. Ξεκίνα με «Νέα κατηγορία» και μετά πρόσθεσε τα προϊόντα της</Card>
-        ) : null}
-        {categories.map((c) => (
-          <Card key={c.id}>
-            <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
-              <div className="min-w-0 flex-1"><h2 className="text-lg">{c.name}</h2><p className="text-sm text-muted-foreground">{c.products.length ? `${c.products.filter((p) => p.active).length} ενεργά από ${c.products.length}` : "Χωρίς προϊόντα"}</p></div>
-              {can("products.edit") ? <Modal label={<><Pencil /> Μετονομασία</>} size="sm" title={`Κατηγορία: ${c.name}`}>{categoryForm(c)}</Modal> : null}
-              {can("products.add") ? <Modal label={<><Plus /> Νέο προϊόν</>} size="sm" title={`Νέο προϊόν: ${c.name}`}>{productForm(c.id)}</Modal> : null}
+        <Card>
+          <DataTable
+            id="products"
+            listing={{ ...list, total, placeholder: "Προϊόν ή κατηγορία…", filters: [
+              { key: "category", label: "Κατηγορία", value: category, options: categories.map((c): [string, string] => [c.id, c.name]) },
+              { key: "status", label: "Κατάσταση", value: status, options: [["active", "Ενεργά"], ["hidden", "Κρυφά"]] },
+            ] }}
+            empty={categories.length ? "Κανένα προϊόν ακόμα. Πρόσθεσε το πρώτο με «Νέο προϊόν»" : "Καμία κατηγορία ακόμα. Ξεκίνα με «Νέα κατηγορία»"}
+            columns={[
+              { key: "name", label: "Προϊόν", required: true, sortable: true },
+              { key: "category", label: "Κατηγορία", sortable: true },
+              { key: "price", label: "Τιμή", numeric: true, sortable: true },
+              { key: "vat", label: "ΦΠΑ", sortable: true },
+              { key: "status", label: "Κατάσταση", sortable: true },
+            ]}
+            rows={products.map((p) => ({
+              id: p.id,
+              cells: {
+                name: <span className="font-semibold">{p.name}</span>,
+                category: p.category.name,
+                price: euro(p.priceCents),
+                vat: `${p.vatRate.name} ${p.vatRate.rate}%`,
+                status: p.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>,
+              },
+              details: {
+                label: p.name,
+                view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div><dt className="text-xs text-muted-foreground">Κατηγορία</dt><dd className="font-medium">{p.category.name}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Τιμή με ΦΠΑ</dt><dd className="font-medium tabular-nums">{euro(p.priceCents)}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Συντελεστής</dt><dd className="font-medium">{p.vatRate.name} {p.vatRate.rate}%</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Εμφάνιση στο ταμείο</dt><dd className="font-medium">{p.active ? "Ενεργό" : "Κρυφό"}</dd></div>
+                </dl>,
+                edit: can("products.edit") ? productForm(p) : undefined,
+              },
+              menu: can("products.edit") ? <form action={toggleProduct.bind(null, p.id)}><Submit className={menuItem}>{p.active ? "Απόκρυψη από το ταμείο" : "Εμφάνιση ξανά"}</Submit></form> : undefined,
+            }))}
+          />
+        </Card>
+        {categories.length ? (
+          <Card className="p-4">
+            <h2 className="text-sm font-semibold">Κατηγορίες</h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {categories.map((c) => can("products.edit") ? <Modal key={c.id} label={<><Pencil /> {c.name}</>} size="sm" title={`Κατηγορία: ${c.name}`}>{categoryForm(c)}</Modal> : <Badge key={c.id}>{c.name}</Badge>)}
             </div>
-            {c.products.length ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="text-left text-xs text-muted-foreground"><th className="px-5 py-2 font-semibold">Όνομα</th><th className="px-3 py-2 text-right font-semibold">Τιμή</th><th className="px-3 py-2 font-semibold">ΦΠΑ</th><th className="px-3 py-2 font-semibold">Κατάσταση</th><th className="px-5 py-2" /></tr></thead>
-                  <tbody>
-                    {c.products.map((p) => (
-                      <tr key={p.id} className={cn("border-t border-border/70", p.active ? "" : "text-muted-foreground")}>
-                        <td className="px-5 py-2 font-medium">{p.name}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{euro(p.priceCents)}</td>
-                        <td className="px-3 py-2">{p.vatRate.name} {p.vatRate.rate}%</td>
-                        <td className="px-3 py-2">{p.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>}</td>
-                        <td className="px-5 py-1.5">
-                          <span className="flex justify-end gap-1">
-                            {can("products.edit") ? <><Modal label={<><Pencil /> Αλλαγή</>} size="sm" title={p.name}>{productForm(c.id, p)}</Modal><form action={toggleProduct.bind(null, p.id)}><Submit className={btn("ghost", "sm")}>{p.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit></form></> : null}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : <p className="px-5 py-6 text-sm text-muted-foreground">Κανένα προϊόν σε αυτή την κατηγορία ακόμα</p>}
           </Card>
-        ))}
-        <p className="text-xs text-muted-foreground">Ένα προϊόν δεν σβήνεται, μόνο κρύβεται από το ταμείο: οι αποδείξεις που έχουν εκδοθεί κρατούν τη τιμή και τον ΦΠΑ της στιγμής τους</p>
+        ) : null}
+        <p className="text-xs text-muted-foreground">Ένα προϊόν δεν σβήνεται, μόνο κρύβεται από το ταμείο: οι αποδείξεις που έχουν εκδοθεί κρατούν την τιμή και τον ΦΠΑ της στιγμής τους</p>
       </div>
     </Page>
   );

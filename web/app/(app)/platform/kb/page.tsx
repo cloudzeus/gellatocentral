@@ -1,9 +1,9 @@
-import { Plus, Sparkles } from "lucide-react";
+import { Eye, Plus, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, Field, Page, Select } from "@/components/ui";
+import { Badge, btn, Card, cn, Field, menuItem, Page, Select } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -113,6 +113,7 @@ export default async function KbPage({ searchParams }: PageProps<"/platform/kb">
                   views: a.views,
                   updated: `${a.updatedByName ?? a.authorName} · ${day.format(a.updatedAt)}`,
                 },
+                menu: <Link href={`/platform/kb/${a.id}`} role="menuitem" className={menuItem}><Eye /> Άνοιγμα άρθρου</Link>,
               };
             })}
           />

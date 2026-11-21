@@ -1,7 +1,7 @@
 // Tests για την αντιστοίχιση Open Food Facts → κεντρικός κατάλογος (lib/off-import.ts).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cleanEan, cleanName, isGreece, mapOffRow, parseQuantity, pickBrand, pickPackaging } from "./off-import.ts";
+import { cleanEan, cleanIngredients, cleanName, isGreece, mapAllergenTags, mapOffRow, nutrimentToPm, parseQuantity, pickBrand, pickPackaging } from "./off-import.ts";
 
 test("μόνο προϊόντα Ελλάδας", () => {
   assert.equal(isGreece({ countries_tags: "en:greece" }), true);
@@ -61,6 +61,15 @@ test("πλήρης γραμμή: Ελλάδα + EAN + όνομα + ποσότη�
     contentQty: 1000,
     unitCode: "ml",
     imageUrl: "https://images.openfoodfacts.org/x/front.jpg",
+    ingredientsText: null,
+    allergensContains: [],
+    allergensTraces: [],
+    fatPm: null,
+    sucrosePm: null,
+    otherProteinPm: null,
+    saltPm: null,
+    fiberPm: null,
+    alcoholPm: null,
   });
   assert.equal(mapOffRow({ ...row, countries_tags: "en:france" }), null);
   assert.equal(mapOffRow({ ...row, code: "abc" }), null);
@@ -68,4 +77,54 @@ test("πλήρης γραμμή: Ελλάδα + EAN + όνομα + ποσότη�
   const noQty = mapOffRow({ ...row, quantity: "" });
   assert.equal(noQty?.unitCode, "pcs");
   assert.equal(noQty?.contentQty, 1);
+});
+
+test("συστατικά: προτιμάται η ελληνική έκδοση, κόψιμο κενών", () => {
+  assert.equal(cleanIngredients({ ingredients_text_el: "  Γάλα,   ζάχαρη " }), "Γάλα, ζάχαρη");
+  assert.equal(cleanIngredients({ ingredients_text_el: "", ingredients_text: "milk, sugar" }), "milk, sugar");
+  assert.equal(cleanIngredients({ ingredients_text: "αβ" }), null); // πολύ κοντό — θόρυβος
+  assert.equal(cleanIngredients({}), null);
+});
+
+test("αλλεργιογόνα: μετάφραση ετικετών OFF στα 14 της ΕΕ", () => {
+  assert.deepEqual(mapAllergenTags("en:milk,en:eggs,en:unknown-thing"), ["milk", "eggs"]);
+  assert.deepEqual(mapAllergenTags("en:soybeans,fr:soy"), ["soy"]); // συγχώνευση συνωνύμων
+  assert.deepEqual(mapAllergenTags("en:sesame-seeds"), ["sesame"]);
+  assert.deepEqual(mapAllergenTags("en:sulphur-dioxide-and-sulphites"), ["sulphites"]);
+  assert.deepEqual(mapAllergenTags(""), []);
+  assert.deepEqual(mapAllergenTags(undefined), []);
+});
+
+test("θρεπτικά: g/100 g → χιλιοστά της μονάδας", () => {
+  assert.equal(nutrimentToPm("8.5"), 8500);
+  assert.equal(nutrimentToPm("20,2"), 20200);
+  assert.equal(nutrimentToPm("0.12"), 120);
+  assert.equal(nutrimentToPm(""), null);
+  assert.equal(nutrimentToPm("abc"), null);
+  assert.equal(nutrimentToPm("150"), null); // εκτός ορίου — θόρυβος του OFF
+});
+
+test("πλήρης γραμμή με συστατικά και θρεπτικά", () => {
+  const m = mapOffRow({
+    code: "5201234567890",
+    product_name: "Παγωτό βανίλια",
+    countries_tags: "en:greece",
+    quantity: "500 ml",
+    ingredients_text_el: "Γάλα, ζάχαρη, κρέμα γάλακτος",
+    allergens_tags: "en:milk,en:eggs",
+    traces_tags: "en:nuts, en:sesame-seeds",
+    fat_100g: "8.5",
+    sugars_100g: "20.2",
+    proteins_100g: "3.1",
+    salt_100g: "0.12",
+  });
+  assert.equal(m?.ingredientsText, "Γάλα, ζάχαρη, κρέμα γάλακτος");
+  assert.deepEqual(m?.allergensContains, ["milk", "eggs"]);
+  assert.deepEqual(m?.allergensTraces, ["nuts", "sesame"]);
+  assert.equal(m?.fatPm, 8500);
+  assert.equal(m?.sucrosePm, 20200);
+  assert.equal(m?.otherProteinPm, 3100);
+  assert.equal(m?.saltPm, 120);
+  assert.equal(m?.fiberPm, null);
+  assert.equal(m?.alcoholPm, null);
 });

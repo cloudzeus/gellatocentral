@@ -99,15 +99,26 @@ export async function saveTradeItem(form: FormData) {
     contentQty,
     contentUnitId: unit.id,
   };
-  if (d.data.itemId) await db.tradeItem.updateMany({ where: { id: d.data.itemId, orgId: null }, data });
-  else await db.tradeItem.create({ data: { ...data, orgId: null } });
+  if (d.data.itemId) {
+    await db.tradeItem.updateMany({ where: { id: d.data.itemId, orgId: null }, data });
+    // η επεξεργασία γίνεται στην καρτέλα του είδους — εκεί γυρνάμε
+    revalidatePath(`/platform/catalog/${d.data.itemId}`);
+    revalidatePath("/platform/catalog");
+    redirect(`/platform/catalog/${d.data.itemId}?saved=1`);
+  }
+  await db.tradeItem.create({ data: { ...data, orgId: null } });
   back("saved=1");
 }
 
-export async function toggleTradeItem(itemId: string) {
+export async function toggleTradeItem(itemId: string, form: FormData) {
   await requirePlatform("settings.edit");
   const t = await db.tradeItem.findFirst({ where: { id: id.parse(itemId), orgId: null } });
   if (t) await db.tradeItem.update({ where: { id: t.id }, data: { active: !t.active } });
+  // από την καρτέλα είδους γυρνάμε εκεί, αλλιώς στη λίστα
+  if (form.get("returnTo") === "item" && t) {
+    revalidatePath(`/platform/catalog/${t.id}`);
+    redirect(`/platform/catalog/${t.id}?saved=1`);
+  }
   back("saved=1");
 }
 
@@ -126,4 +137,44 @@ export async function saveComposition(form: FormData) {
   if ("error" in r) return itemBack(`error=${encodeURIComponent(r.error)}`);
   await db.composition.upsert({ where: { tradeItemId }, create: { ...r.data, orgId: null, tradeItemId }, update: r.data });
   itemBack("saved=1");
+}
+
+const dupBack = (q: string): never => {
+  revalidatePath("/platform/catalog/duplicates");
+  revalidatePath("/platform/catalog");
+  redirect(`/platform/catalog/duplicates?${q}`);
+};
+const dupFail = (msg: string): never => dupBack(`error=${encodeURIComponent(msg)}`);
+
+/**
+ * Συγχώνευση διπλότυπων κατασκευαστών (π.χ. «Μεβγαλ»/«ΜΕΒΓΑΛ» από την εισαγωγή OFF):
+ * τα brands και τα είδη τους περνούν στον κρατούμενο και οι υπόλοιποι σβήνονται.
+ * Όταν ο κρατούμενος έχει ήδη brand με το ίδιο όνομα, τα είδη μετακινούνται σε αυτό
+ * και το διπλό brand σβήνεται — η μοναδικότητα [manufacturerId, name] δεν κινδυνεύει.
+ */
+export async function mergeManufacturers(form: FormData) {
+  await requirePlatform("settings.edit");
+  const keepId = String(form.get("keepId") ?? "");
+  const members = [...new Set(form.getAll("memberId").map(String))];
+  const dropIds = members.filter((x) => x && x !== keepId);
+  if (!keepId || !dropIds.length) return dupFail("Διάλεξε ποιος κατασκευαστής κρατιέται");
+  const keep = await db.manufacturer.findUnique({ where: { id: keepId } });
+  if (!keep) return dupFail("Άγνωστος κατασκευαστής");
+  const drops = await db.manufacturer.findMany({ where: { id: { in: dropIds } }, include: { brands: true } });
+  if (drops.length !== dropIds.length) return dupFail("Κάποιος κατασκευαστής ενώπιον συγχωνεύτηκε — ανανέωσε τη σελίδα");
+  await db.$transaction(async (tx) => {
+    for (const drop of drops) {
+      for (const brand of drop.brands) {
+        const twin = await tx.brand.findFirst({ where: { manufacturerId: keep.id, name: { equals: brand.name, mode: "insensitive" } } });
+        if (twin) {
+          await tx.tradeItem.updateMany({ where: { brandId: brand.id }, data: { brandId: twin.id } });
+          await tx.brand.delete({ where: { id: brand.id } });
+        } else {
+          await tx.brand.update({ where: { id: brand.id }, data: { manufacturerId: keep.id } });
+        }
+      }
+      await tx.manufacturer.delete({ where: { id: drop.id } });
+    }
+  });
+  dupBack(`saved=${drops.length}`);
 }

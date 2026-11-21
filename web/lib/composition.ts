@@ -130,7 +130,7 @@ export const COMPOSITION_GROUPS: { title: string; fields: { key: PctKey | "gluco
 export function compositionCopyData(row: Record<string, unknown>): Record<string, unknown> {
   const data: Record<string, unknown> = {};
   for (const col of Object.values(PCT_FIELDS)) data[col] = row[col] ?? null;
-  for (const k of ["glucoseDe", "acidityLevel", "containsStarch", "containsCocoa", "allergensContains", "allergensTraces", "isVegan", "isVegetarian", "isSugarFree", "isGlutenFree", "isLactoseFree", "containsAlcohol"])
+  for (const k of ["glucoseDe", "acidityLevel", "containsStarch", "containsCocoa", "allergensContains", "allergensTraces", "ingredientsText", "isVegan", "isVegetarian", "isSugarFree", "isGlutenFree", "isLactoseFree", "containsAlcohol"])
     data[k] = row[k];
   return data;
 }
@@ -166,5 +166,7 @@ export function compositionFromForm(form: FormData): { data: Record<string, unkn
   const pick = (name: string) => form.getAll(name).map(String).filter((a) => ALLERGEN_LABEL[a]);
   data.allergensContains = pick("allergensContains");
   data.allergensTraces = pick("allergensTraces");
+  const ingredients = String(form.get("ingredientsText") ?? "").trim();
+  data.ingredientsText = ingredients ? ingredients.slice(0, 4000) : null;
   return { data };
 }

@@ -1,31 +1,46 @@
 import { Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { FlaskConical } from "lucide-react";
-import { BarcodeField } from "@/components/barcode-field";
-import { Files } from "@/components/files";
+import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, Field, Page, Select } from "@/components/ui";
+import { Badge, btn, Card, cn, Field, menuItem, Page, Select } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { saveBrand, saveManufacturer, saveTradeCategory, saveTradeItem, toggleTradeCategory, toggleTradeItem } from "./actions";
+import { filterParam, listParams } from "@/lib/paging";
+import { saveBrand, saveManufacturer, saveTradeCategory, toggleTradeCategory, toggleTradeItem } from "./actions";
+import { ItemForm } from "./item-form";
 
 // Ο κεντρικός κατάλογος εμπορικών ειδών: κατηγορίες, κατασκευαστές/brands και είδη με EAN, συσκευασία και φωτογραφία.
 // Τα βρίσκουν όλοι οι συνδρομητές με σάρωση ή αναζήτηση — δεν τα ξανακαταχωρούν (docs/analysis/PROCUREMENT-DESIGN.md).
+// Ο κατάλογος μεγαλώνει από την εισαγωγή Open Food Facts: η λίστα δουλεύει με αναζήτηση και σελιδοποίηση στον
+// server (DataTable), και η επεξεργασία γίνεται στην καρτέλα του είδους — ποτέ φόρμες ανά γραμμή στη λίστα.
 export default async function CatalogPage({ searchParams }: PageProps<"/platform/catalog">) {
   await requirePlatform("settings.read");
   const q = await searchParams;
-  const term = typeof q.q === "string" ? q.q.trim() : "";
-  // Ο κατάλογος μεγαλώνει από την εισαγωγή Open Food Facts — η λίστα φιλτράρεται και κόβεται, δεν φορτώνεται όλη.
-  const itemWhere = { orgId: null, ...(term ? { OR: [{ name: { contains: term, mode: "insensitive" as const } }, { ean: { contains: term } }] } : {}) };
-  const [categories, manufacturers, items, itemsTotal, units] = await Promise.all([
+  const list = listParams(q, 50, ["name", "ean"]);
+  const status = filterParam(q, "status", ["active", "hidden"]);
+  const like = { contains: list.q, mode: "insensitive" as const };
+  const itemWhere = {
+    orgId: null,
+    ...(status ? { active: status === "active" } : {}),
+    ...(list.q ? { OR: [{ name: like }, { ean: { contains: list.q } }] } : {}),
+  };
+  const [categories, brands, items, itemsTotal, units] = await Promise.all([
     db.tradeCategory.findMany({ orderBy: [{ position: "asc" }, { name: "asc" }], include: { children: { orderBy: { name: "asc" } } }, where: { parentId: null } }),
-    db.manufacturer.findMany({ orderBy: { name: "asc" }, include: { brands: { orderBy: { name: "asc" } } } }),
-    db.tradeItem.findMany({ where: itemWhere, orderBy: { name: "asc" }, take: 200, include: { brand: { include: { manufacturer: true } }, category: true, contentUnit: true, composition: { select: { id: true } } } }),
-    db.tradeItem.count({ where: { orgId: null } }),
+    // οι επιλογές brand της φόρμας: επίπεδη λίστα με τον κατασκευαστή (όχι όλο το δέντρο)
+    db.brand.findMany({ orderBy: { name: "asc" }, include: { manufacturer: true } }),
+    db.tradeItem.findMany({
+      where: itemWhere,
+      orderBy: list.sort === "ean" ? { ean: list.dir } : { name: list.dir },
+      skip: list.skip,
+      take: list.take,
+      include: { brand: { include: { manufacturer: true } }, category: true, contentUnit: true, composition: { select: { id: true } } },
+    }),
+    db.tradeItem.count({ where: itemWhere }),
     db.unit.findMany({ where: { active: true }, orderBy: [{ dimension: "asc" }, { toBase: "asc" }] }),
   ]);
-  const brandOptions: [string, string][] = manufacturers.flatMap((m): [string, string][] => m.brands.map((b): [string, string] => [b.id, `${m.name} · ${b.name}`]));
+  const brandOptions: [string, string][] = brands.map((b): [string, string] => [b.id, `${b.manufacturer.name} · ${b.name}`]);
   const categoryOptions: [string, string][] = categories.flatMap((c): [string, string][] => [[c.id, c.name], ...c.children.map((ch): [string, string] => [ch.id, `${c.name} › ${ch.name}`])]);
 
   const categoryForm = (c?: { id: string; name: string; parentId: string | null }) => (
@@ -37,82 +52,69 @@ export default async function CatalogPage({ searchParams }: PageProps<"/platform
     </form>
   );
 
-  const brandForm = () => (
-    <form action={saveBrand} className="grid gap-4 [&>button]:justify-self-end">
-      <Select label="Κατασκευαστής" name="manufacturerId" required options={manufacturers.map((m): [string, string] => [m.id, m.name])} />
-      <Field label="Brand" name="name" required minLength={2} maxLength={80} hint="π.χ. ΤΩΝ 150" />
-      <Submit className={btn("default")}>Προσθήκη</Submit>
-    </form>
-  );
-
-  const itemForm = (t?: (typeof items)[number]) => (
-    <form key={t?.id ?? "new"} action={saveTradeItem} className="grid gap-4 [&>button]:justify-self-end">
-      <input type="hidden" name="itemId" value={t?.id ?? ""} />
-      <Field label="Όνομα" name="name" required minLength={2} maxLength={80} defaultValue={t?.name} hint="π.χ. Γάλα φρέσκο 1,5% 1L" />
-      <BarcodeField label="EAN / GTIN" name="ean" defaultValue={t?.ean ?? ""} hint="Σάρωση ή 8–14 ψηφία — μοναδικό στον κεντρικό κατάλογο" />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Select label="Κατηγορία" name="categoryId" defaultValue={t?.categoryId ?? ""} options={[["", "—"] as [string, string], ...categoryOptions]} />
-        <Select label="Brand" name="brandId" defaultValue={t?.brandId ?? ""} options={[["", "—"], ...brandOptions]} />
-      </div>
-      <Field label="Συσκευασία" name="packaging" maxLength={80} defaultValue={t?.packaging ?? ""} hint="π.χ. χαρτοκιβώτιο, πλαστικό μπουκάλι" />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Περιεχόμενο" name="contentAmount" required inputMode="decimal" defaultValue={t ? String(t.contentQty / t.contentUnit.toBase).replace(".", ",") : ""} hint="Στη μονάδα δίπλα, π.χ. 1,5" />
-        <Select label="Μονάδα" name="contentUnitId" defaultValue={t?.contentUnitId ?? ""} options={units.map((u): [string, string] => [u.id, u.nameEL])} />
-      </div>
-      <Field label="Οικογένεια" name="familyCode" maxLength={40} defaultValue={t?.familyCode ?? ""} hint="π.χ. DELTA-GA-1.5 — ομαδοποιεί το ίδιο είδος σε 1L, 1,5L…" />
-      <Submit className={btn("default")}>{t ? "Αποθήκευση" : "Προσθήκη"}</Submit>
-      {t ? (
-        <div className="border-t border-border/70 pt-4">
-          <p className="mb-2 text-sm font-medium">Φωτογραφία</p>
-          <Files orgId={null} category="trade_item" refType="tradeItem" refId={t.id} empty="Καμία φωτογραφία ακόμα" />
-        </div>
-      ) : null}
-    </form>
-  );
-
   return (
-    <Page section="Common Tables" title="Κατάλογος ειδών" description="Τα συσκευασμένα είδη που βρίσκουν όλοι οι συνδρομητές με EAN ή όνομα, με brand, συσκευασία και φωτογραφία">
-      <div className="grid max-w-5xl gap-4">
+    <Page section="Common Tables" title="Κατάλογος ειδών" description="Τα συσκευασμένα είδη που βρίσκουν όλοι οι συνδρομητές με EAN ή όνομα, με brand, συσκευασία και φωτογραφία"
+      actions={
+        <Modal label={<><Plus /> Νέο είδος</>} variant="default" size="sm" title="Νέο είδος καταλόγου">
+          <ItemForm categoryOptions={categoryOptions} brandOptions={brandOptions} units={units} />
+        </Modal>
+      }>
+      <div className="grid max-w-6xl gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
         {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Ο κατάλογος ενημερώθηκε</p> : null}
 
         <Card>
-          <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
-            <div className="min-w-0 flex-1"><h2 className="text-lg">Είδη</h2><p className="text-sm text-muted-foreground">{itemsTotal ? `${itemsTotal.toLocaleString("el-GR")} στον κατάλογο${term ? ` · ${items.length} για «${term}»` : itemsTotal > items.length ? ` · εμφανίζονται ${items.length}` : ""}` : "Κανένα είδος ακόμα"}</p></div>
-            <form className="flex gap-1">
-              <input name="q" defaultValue={term} placeholder="Όνομα ή EAN…" className="h-7.5 w-48 rounded-lg border border-input bg-card px-2.5 text-xs" />
-              <Submit className={btn("outline", "sm")}>Αναζήτηση</Submit>
-            </form>
-            <Modal label={<><Plus /> Νέο είδος</>} size="sm" title="Νέο είδος καταλόγου">{itemForm()}</Modal>
-          </div>
-          {items.length ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs text-muted-foreground"><th className="px-5 py-2 font-semibold">Όνομα</th><th className="px-3 py-2 font-semibold">EAN</th><th className="px-3 py-2 font-semibold">Κατηγορία</th><th className="px-3 py-2 font-semibold">Brand</th><th className="px-3 py-2 text-right font-semibold">Περιεχόμενο</th><th className="px-3 py-2 font-semibold">Κατάσταση</th><th className="px-5 py-2" /></tr></thead>
-                <tbody>
-                  {items.map((t) => (
-                    <tr key={t.id} className={cn("border-t border-border/70", t.active ? "" : "text-muted-foreground")}>
-                      <td className="px-5 py-2 font-medium">
-                        <span className="flex items-center gap-2">
-                          {t.imageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element -- έρχεται από το CDN του Bunny, όχι από τον optimizer του Next
-                            <img src={t.imageUrl} alt="" className="size-8 shrink-0 rounded-md border border-border/60 object-cover" loading="lazy" />
-                          ) : null}
-                          <span>{t.name}{t.packaging ? <span className="block text-xs font-normal text-muted-foreground">{t.packaging}</span> : null}</span>
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 tabular-nums">{t.ean ?? "—"}</td>
-                      <td className="px-3 py-2">{t.category ? (t.category.parentId ? "— " : "") + t.category.name : "—"}</td>
-                      <td className="px-3 py-2">{t.brand ? `${t.brand.manufacturer.name} · ${t.brand.name}` : "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{(t.contentQty / t.contentUnit.toBase).toLocaleString("el-GR")} {t.contentUnit.code}</td>
-                      <td className="px-3 py-2">{t.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>}</td>
-                      <td className="px-5 py-1.5"><span className="flex justify-end gap-1"><Link href={`/platform/catalog/${t.id}`} className={btn("ghost", "sm")}><FlaskConical /> {t.composition ? "Σύσταση ✓" : "Σύσταση"}</Link><Modal label={<><Pencil /> Αλλαγή</>} size="sm" title={t.name}>{itemForm(t)}</Modal><form action={toggleTradeItem.bind(null, t.id)}><Submit className={btn("ghost", "sm")}>{t.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit></form></span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : <p className="px-5 py-6 text-sm text-muted-foreground">Κανένα είδος ακόμα. Πρόσθεσε το πρώτο με «Νέο είδος» — βοηθά να έχουν μπει κατηγορίες και brands</p>}
+          <DataTable
+            id="catalog"
+            listing={{
+              ...list,
+              total: itemsTotal,
+              placeholder: "Όνομα ή EAN…",
+              filters: [{ key: "status", label: "Κατάσταση", value: status, options: [["active", "Ενεργά"], ["hidden", "Κρυφά"]] }],
+            }}
+            empty="Κανένα είδος δεν ταιριάζει. Δοκίμασε άλλη αναζήτηση ή πρόσθεσε είδος με «Νέο είδος»"
+            columns={[
+              { key: "name", label: "Όνομα", required: true, sortable: true },
+              { key: "ean", label: "EAN", sortable: true },
+              { key: "category", label: "Κατηγορία" },
+              { key: "brand", label: "Brand" },
+              { key: "content", label: "Περιεχόμενο", numeric: true },
+              { key: "status", label: "Κατάσταση" },
+            ]}
+            rows={items.map((t) => ({
+              id: t.id,
+              cells: {
+                name: (
+                  <>
+                    <span className="flex items-center gap-2">
+                      {t.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- έρχεται από το CDN του Bunny, όχι από τον optimizer του Next
+                        <img src={t.imageUrl} alt="" className="size-8 shrink-0 rounded-md border border-border/60 object-cover" loading="lazy" />
+                      ) : null}
+                      <span>
+                        <Link href={`/platform/catalog/${t.id}`} className="font-semibold underline-offset-2 hover:underline">{t.name}</Link>
+                        {t.packaging ? <span className="block text-xs text-muted-foreground">{t.packaging}</span> : null}
+                      </span>
+                    </span>
+                  </>
+                ),
+                ean: <span className="tabular-nums">{t.ean ?? "—"}</span>,
+                category: t.category ? (t.category.parentId ? "— " : "") + t.category.name : "—",
+                brand: t.brand ? `${t.brand.manufacturer.name} · ${t.brand.name}` : "—",
+                content: <span className="tabular-nums">{(t.contentQty / t.contentUnit.toBase).toLocaleString("el-GR")} {t.contentUnit.code}</span>,
+                status: t.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>,
+              },
+              menu: (
+                <>
+                  <Link href={`/platform/catalog/${t.id}`} role="menuitem" className={menuItem}><Pencil /> Άνοιγμα και αλλαγή</Link>
+                  <Link href={`/platform/catalog/${t.id}#composition`} role="menuitem" className={menuItem}><FlaskConical /> Σύσταση{t.composition ? " ✓" : ""}</Link>
+                  <form action={toggleTradeItem.bind(null, t.id)}>
+                    <Submit className={menuItem}>{t.active ? "Απόκρυψη από τους συνδρομητές" : "Εμφάνιση ξανά"}</Submit>
+                  </form>
+                </>
+              ),
+            }))}
+          />
         </Card>
 
         <Card>
@@ -146,30 +148,7 @@ export default async function CatalogPage({ searchParams }: PageProps<"/platform
           ) : <p className="px-5 py-6 text-sm text-muted-foreground">Καμία κατηγορία ακόμα</p>}
         </Card>
 
-        <Card>
-          <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
-            <div className="min-w-0 flex-1"><h2 className="text-lg">Κατασκευαστές & brands</h2><p className="text-sm text-muted-foreground">{manufacturers.length ? `${manufacturers.length} κατασκευαστές, ${manufacturers.reduce((n, m) => n + m.brands.length, 0)} brands` : "Κανένας κατασκευαστής ακόμα"}</p></div>
-            <div className="flex gap-1">
-              <Modal label={<><Plus /> Κατασκευαστής</>} size="sm" title="Νέος κατασκευαστής">
-                <form action={saveManufacturer} className="grid gap-4 [&>button]:justify-self-end">
-                  <Field label="Όνομα" name="name" required minLength={2} maxLength={80} hint="π.χ. ΔΕΛΤΑ, ΦΑΓΕ" />
-                  <Submit className={btn("default")}>Προσθήκη</Submit>
-                </form>
-              </Modal>
-              {manufacturers.length ? <Modal label={<><Plus /> Brand</>} size="sm" title="Νέο brand">{brandForm()}</Modal> : null}
-            </div>
-          </div>
-          {manufacturers.length ? (
-            <ul className="divide-y divide-border/70">
-              {manufacturers.map((m) => (
-                <li key={m.id} className="px-5 py-3">
-                  <span className="font-medium">{m.name}</span>
-                  {m.brands.length ? <span className="ml-2 text-sm text-muted-foreground">{m.brands.map((b) => b.name).join(", ")}</span> : <span className="ml-2 text-sm text-muted-foreground">χωρίς brands</span>}
-                </li>
-              ))}
-            </ul>
-          ) : <p className="px-5 py-6 text-sm text-muted-foreground">Κανένας κατασκευαστής ακόμα</p>}
-        </Card>
+        <ManufacturersCard mq={typeof q.mq === "string" ? q.mq.trim() : ""} />
 
         <p className="px-1 text-xs text-muted-foreground">
           Περιέχει δεδομένα από{" "}
@@ -180,5 +159,60 @@ export default async function CatalogPage({ searchParams }: PageProps<"/platform
         </p>
       </div>
     </Page>
+  );
+}
+
+/**
+ * Κατασκευαστές & brands. Μετά την εισαγωγή OFF είναι χιλιάδες, οπότε δεν φορτώνονται όλοι:
+ * αναζήτηση στον server (?mq=) και το πολύ 50 αποτελέσματα· χωρίς όρο φαίνονται μόνο οι πρώτοι αλφαβητικά.
+ */
+async function ManufacturersCard({ mq }: { mq: string }) {
+  const where = mq ? { name: { contains: mq, mode: "insensitive" as const } } : {};
+  const [manufacturers, total] = await Promise.all([
+    db.manufacturer.findMany({ where, orderBy: { name: "asc" }, take: 50, include: { brands: { orderBy: { name: "asc" }, take: 12 } } }),
+    db.manufacturer.count({ where }),
+  ]);
+
+  const brandForm = () => (
+    <form action={saveBrand} className="grid gap-4 [&>button]:justify-self-end">
+      <Select label="Κατασκευαστής" name="manufacturerId" required options={manufacturers.map((m): [string, string] => [m.id, m.name])} />
+      <Field label="Brand" name="name" required minLength={2} maxLength={80} hint="π.χ. ΤΩΝ 150" />
+      <Submit className={btn("default")}>Προσθήκη</Submit>
+    </form>
+  );
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg">Κατασκευαστές & brands</h2>
+          <p className="text-sm text-muted-foreground">
+            {total ? `${total.toLocaleString("el-GR")} κατασκευαστές${total > manufacturers.length ? ` · εμφανίζονται ${manufacturers.length}` : ""}` : "Κανένας κατασκευαστής ακόμα"}
+          </p>
+        </div>
+        <form className="flex gap-1">
+          <input name="mq" defaultValue={mq} placeholder="Όνομα κατασκευαστή…" className="h-7.5 w-44 rounded-lg border border-input bg-card px-2.5 text-xs" />
+          <Submit className={btn("outline", "sm")}>Αναζήτηση</Submit>
+        </form>
+        <Link href="/platform/catalog/duplicates" className={btn("outline", "sm")}>Διπλότυπα</Link>
+        <Modal label={<><Plus /> Κατασκευαστής</>} size="sm" title="Νέος κατασκευαστής">
+          <form action={saveManufacturer} className="grid gap-4 [&>button]:justify-self-end">
+            <Field label="Όνομα" name="name" required minLength={2} maxLength={80} hint="π.χ. ΔΕΛΤΑ, ΦΑΓΕ" />
+            <Submit className={btn("default")}>Προσθήκη</Submit>
+          </form>
+        </Modal>
+        {manufacturers.length ? <Modal label={<><Plus /> Brand</>} size="sm" title="Νέο brand">{brandForm()}</Modal> : null}
+      </div>
+      {manufacturers.length ? (
+        <ul className="divide-y divide-border/70">
+          {manufacturers.map((m) => (
+            <li key={m.id} className="px-5 py-3">
+              <span className="font-medium">{m.name}</span>
+              {m.brands.length ? <span className="ml-2 text-sm text-muted-foreground">{m.brands.map((b) => b.name).join(", ")}</span> : <span className="ml-2 text-sm text-muted-foreground">χωρίς brands</span>}
+            </li>
+          ))}
+        </ul>
+      ) : <p className="px-5 py-6 text-sm text-muted-foreground">{mq ? `Κανένας κατασκευαστής για «${mq}»` : "Κανένας κατασκευαστής ακόμα"}</p>}
+    </Card>
   );
 }
