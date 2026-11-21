@@ -10,6 +10,7 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Migrations/αλλαγές schema: απευθείας Postgres (5432). Η εφαρμογή τρέχει μέσω PgBouncer (DATABASE_URL).
+    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
   },
 });

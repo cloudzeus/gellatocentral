@@ -1,0 +1,17 @@
+# Ό,τι δεν πρέπει να μπει στο build context της εικόνας
+node_modules
+.next
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
+docs
+scripts
+.reference
+.planning
+.agents
+.claude
+.windsurf
+Dockerfile
+.dockerignore
