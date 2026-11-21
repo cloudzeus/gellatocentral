@@ -1,6 +1,8 @@
 # Ό,τι δεν πρέπει να μπει στο build context της εικόνας
 node_modules
 .next
+# Ο prisma client έρχεται από το στάδιο deps (generate στο postinstall), όχι από τον τοπικό δίσκο
+lib/generated
 .env
 .env.*
 !.env.example

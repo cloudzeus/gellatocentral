@@ -13,6 +13,8 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 RUN apk add --no-cache openssl
 COPY --from=deps /app/node_modules ./node_modules
+# Ο prisma client παράχθηκε στο postinstall του deps (gitignored, δεν υπάρχει στο clone)
+COPY --from=deps /app/lib/generated ./lib/generated
 COPY . .
 # Το build δεν ακουμπά βάση· η μεταβλητή υπάρχει μόνο για να φορτώσει καθαρά το prisma config.
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build" \
