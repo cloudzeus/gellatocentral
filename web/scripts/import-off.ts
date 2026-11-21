@@ -11,12 +11,13 @@ import { createGunzip } from "node:zlib";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
 import { mapOffRow, type OffMapped } from "../lib/off-import";
+import { normalizeManufacturerName } from "../lib/manufacturer";
 import { cdnUrl, put, storageConfigured } from "../lib/storage/bunny";
 
 const OFF_URL = "https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz";
 const FIELDS = [
   "code", "product_name", "generic_name", "brands", "packaging", "quantity", "countries_tags", "image_front_url", "image_url",
-  "ingredients_text_el", "ingredients_text", "allergens_tags", "traces_tags",
+  "ingredients_text", "allergens", "traces_tags",
   "fat_100g", "sugars_100g", "proteins_100g", "salt_100g", "fiber_100g", "alcohol_100g",
 ] as const;
 
@@ -86,14 +87,15 @@ async function main() {
     const cached = brandIds.get(key);
     if (cached) return cached;
     // Το OFF δεν ξεχωρίζει κατασκευαστή από brand — ο κατασκευαστής παίρνει το όνομα του brand
-    const manufacturer = await db.manufacturer.upsert({ where: { name }, update: {}, create: { name } });
+    const manufacturerName = normalizeManufacturerName(name);
+    const manufacturer = await db.manufacturer.upsert({ where: { name: manufacturerName }, update: {}, create: { name: manufacturerName } });
     const brand = await db.brand.upsert({ where: { manufacturerId_name: { manufacturerId: manufacturer.id, name } }, update: {}, create: { manufacturerId: manufacturer.id, name } });
     brandIds.set(key, brand.id);
     return brand.id;
   };
 
   let header: string[] | null = null;
-  let scanned = 0, matched = 0, created = 0, updated = 0, imagesOk = 0, imagesFailed = 0, withComposition = 0;
+  let scanned = 0, matched = 0, created = 0, updated = 0, imagesOk = 0, imagesFailed = 0, withComposition = 0, withAllergens = 0;
   let buffer: OffMapped[] = [];
 
   const flush = async () => {
@@ -106,7 +108,7 @@ async function main() {
     const existing = new Map(
       (await db.tradeItem.findMany({
         where: { orgId: null, ean: { in: batch.map((m) => m.ean) } },
-        select: { id: true, ean: true, imageUrl: true, composition: { select: { id: true } } },
+        select: { id: true, ean: true, imageUrl: true, composition: { select: { id: true, allergensContains: true, allergensTraces: true } } },
       })).map((t) => [t.ean, t]),
     );
 
@@ -149,6 +151,12 @@ async function main() {
       if (!cur.composition) {
         const comp = compositionData(m);
         if (comp) { await db.composition.create({ data: { orgId: null, tradeItemId: cur.id, ...comp } }); withComposition++; }
+      } else {
+        // συμπλήρωση αλλεργιογόνων/ιχνών μόνο όπου η σύσταση δεν έχει τίποτα ακόμα
+        const fill: { allergensContains?: string[]; allergensTraces?: string[] } = {};
+        if (!cur.composition.allergensContains.length && m.allergensContains.length) fill.allergensContains = m.allergensContains;
+        if (!cur.composition.allergensTraces.length && m.allergensTraces.length) fill.allergensTraces = m.allergensTraces;
+        if (Object.keys(fill).length) { await db.composition.update({ where: { id: cur.composition.id }, data: fill }); withAllergens++; }
       }
       updated++;
     }
@@ -183,7 +191,7 @@ async function main() {
     if (matched >= LIMIT) break;
   }
   await flush();
-  console.log(`Έτοιμο: ${scanned.toLocaleString("el-GR")} γραμμές · ${matched.toLocaleString("el-GR")} Ελλάδας · ${created} νέα · ${updated} ενημερώθηκαν · ${withComposition} με σύσταση${WITH_IMAGES ? ` · φωτογραφίες: ${imagesOk} ok, ${imagesFailed} απέτυχαν` : ""}`);
+  console.log(`Έτοιμο: ${scanned.toLocaleString("el-GR")} γραμμές · ${matched.toLocaleString("el-GR")} Ελλάδας · ${created} νέα · ${updated} ενημερώθηκαν · ${withComposition} με σύσταση · ${withAllergens} με αλλεργιογόνα${WITH_IMAGES ? ` · φωτογραφίες: ${imagesOk} ok, ${imagesFailed} απέτυχαν` : ""}`);
   console.log("Υπενθύμιση ODbL: ο κατάλογος αναγράφει «Περιέχει δεδομένα από Open Food Facts».");
 }
 

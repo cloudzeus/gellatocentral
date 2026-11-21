@@ -111,7 +111,7 @@ test("πλήρης γραμμή με συστατικά και θρεπτικά"
     countries_tags: "en:greece",
     quantity: "500 ml",
     ingredients_text_el: "Γάλα, ζάχαρη, κρέμα γάλακτος",
-    allergens_tags: "en:milk,en:eggs",
+    allergens: "en:milk,en:eggs",
     traces_tags: "en:nuts, en:sesame-seeds",
     fat_100g: "8.5",
     sugars_100g: "20.2",

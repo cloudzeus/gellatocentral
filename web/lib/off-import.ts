@@ -133,8 +133,9 @@ export function mapOffRow(row: OffRow): OffMapped | null {
     unitCode: qty.unitCode,
     imageUrl: row.image_front_url || row.image_url || null,
     ingredientsText: cleanIngredients(row),
-    allergensContains: mapAllergenTags(row.allergens_tags),
-    allergensTraces: mapAllergenTags(row.traces_tags),
+    // στο ημερήσιο export η στήλη λέγεται «allergens» (tags με πρόθεμα γλώσσας)· δέχομαι και το παλιό όνομα
+    allergensContains: mapAllergenTags(row.allergens_tags || row.allergens),
+    allergensTraces: mapAllergenTags(row.traces_tags || row.traces),
     fatPm: nutrimentToPm(row.fat_100g),
     sucrosePm: nutrimentToPm(row.sugars_100g),
     otherProteinPm: nutrimentToPm(row.proteins_100g),
