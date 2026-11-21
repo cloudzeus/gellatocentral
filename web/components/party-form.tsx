@@ -5,19 +5,22 @@ import { CircleAlert, CircleCheck, Search } from "lucide-react";
 import { useRef, useState } from "react";
 import { PARTY_ROLES, type PartyRole } from "@/lib/parties";
 import { AddressField } from "./address-field";
+import { GeoCascade, type GeoCascadeInitial } from "./geo-fields";
 import { PartyMap } from "./party-map";
 import { Submit } from "./submit";
 import { btn, Field, Select } from "./ui";
 
-export type PartyValues = { id: string; roles: string[]; name: string; tradeName: string | null; countryCode: string; vatNumber: string | null; taxOffice: string | null; profession: string | null; contactName: string | null; email: string | null; phone: string | null; website: string | null; address: string | null; city: string | null; postalCode: string | null; region: string | null; latitude: number | null; longitude: number | null; paymentTermsDays: number | null; paymentMethod: string | null; notes: string | null };
-export type PartyRefs = { countries: [string, string][]; regions: string[]; methods: [string, string][]; terms: [string, string][] };
+export type PartyValues = { id: string; roles: string[]; name: string; tradeName: string | null; countryCode: string; vatNumber: string | null; taxOffice: string | null; profession: string | null; contactName: string | null; email: string | null; phone: string | null; website: string | null; address: string | null; city: string | null; postalCode: string | null; region: string | null; latitude: number | null; longitude: number | null; paymentTermsDays: number | null; paymentMethodId: string | null; notes: string | null };
+export type PartyRefs = { countries: [string, string][]; methods: [string, string][]; terms: [string, string][] };
 type Lookup = { ok: boolean; message: string | null; source: string | null; fields: Record<string, string>; consultationNumber: string | null; cached?: boolean };
 
-export function PartyForm({ action, party, refs, defaultRole }: { action: (form: FormData) => Promise<void>; party?: PartyValues; refs: PartyRefs; defaultRole?: PartyRole }) {
+export function PartyForm({ action, party, refs, geo, defaultRole }: { action: (form: FormData) => Promise<void>; party?: PartyValues; refs: PartyRefs; geo?: GeoCascadeInitial; defaultRole?: PartyRole }) {
   const form = useRef<HTMLFormElement>(null);
   const [busy, setBusy] = useState(false);
   const [found, setFound] = useState<Lookup | null>(null);
   const [checkedFor, setCheckedFor] = useState("");
+  // η χώρα κρατιέται σε state: για Ελλάδα τα γεωγραφικά πεδία είναι ο Καλλικράτης, αλλιώς ελεύθερο κείμενο
+  const [country, setCountry] = useState(party?.countryCode ?? "GR");
   const v = (k: keyof PartyValues) => String(party?.[k] ?? "");
   const coord = (n: number | null | undefined) => (n == null ? "" : String(n).replace(".", ","));
   const el = (name: string) => form.current?.elements.namedItem(name) as HTMLInputElement | null;
@@ -38,7 +41,7 @@ export function PartyForm({ action, party, refs, defaultRole }: { action: (form:
     <form ref={form} key={party ? JSON.stringify(party) : "new"} action={action} className="grid gap-4 sm:grid-cols-2">
       <input type="hidden" name="vatCheckedFor" value={checkedFor} />
       <div className="grid gap-4 sm:col-span-2 sm:grid-cols-[11rem_1fr_auto] sm:items-end">
-        <Select label="Χώρα" name="countryCode" defaultValue={v("countryCode") || "GR"} options={refs.countries} />
+        <Select label="Χώρα" name="countryCode" value={country} onChange={(e) => setCountry(e.target.value)} options={refs.countries} />
         <Field label="ΑΦΜ" name="vatNumber" maxLength={20} defaultValue={v("vatNumber")} autoComplete="off" hint="Ελληνικό: 9 ψηφία. Ιδιώτης χωρίς ΑΦΜ: άφησέ το κενό" />
         <button type="button" onClick={lookup} disabled={busy} aria-busy={busy || undefined} className={`${btn("outline")} sm:mb-5`}><Search /> {busy ? "Αναζήτηση…" : "Εύρεση στοιχείων"}</button>
       </div>
@@ -72,12 +75,9 @@ export function PartyForm({ action, party, refs, defaultRole }: { action: (form:
       <Field label="Ιστοσελίδα" name="website" maxLength={160} defaultValue={v("website")} />
 
       <AddressField label="Διεύθυνση έδρας" name="address" maxLength={200} defaultValue={v("address")} />
-      <div className="grid grid-cols-[7rem_1fr] gap-4"><Field label="Τ.Κ." name="postalCode" maxLength={10} defaultValue={v("postalCode")} /><Field label="Πόλη" name="city" maxLength={80} defaultValue={v("city")} /></div>
-      <label className="block min-w-0 space-y-1 text-sm font-medium">Περιοχή
-        <input name="region" list="party-regions" maxLength={80} defaultValue={v("region")} className="h-9 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11" />
-        <datalist id="party-regions">{refs.regions.map((r) => <option key={r} value={r} />)}</datalist>
-        <span className="block text-xs font-normal text-muted-foreground">Για αναφορές και φίλτρα ανά περιοχή</span>
-      </label>
+      <Field label="Τ.Κ." name="postalCode" maxLength={10} defaultValue={v("postalCode")} />
+      {/* αλληλοεξαρτώμενα γεωγραφικά: Περιφέρεια → Νομός → Δήμος → Πόλη → Περιοχή, με προτάσεις από τον χάρτη */}
+      <GeoCascade country={country} initial={geo} />
       <div className="grid grid-cols-2 gap-4"><Field label="Γεωγρ. πλάτος" name="latitude" inputMode="decimal" defaultValue={coord(party?.latitude)} placeholder="37,9838" /><Field label="Γεωγρ. μήκος" name="longitude" inputMode="decimal" defaultValue={coord(party?.longitude)} placeholder="23,7275" /></div>
       <details className="sm:col-span-2">
         <summary className="cursor-pointer text-sm font-semibold">Τοποθέτηση στον χάρτη</summary>
@@ -86,7 +86,7 @@ export function PartyForm({ action, party, refs, defaultRole }: { action: (form:
       </details>
 
       <Select label="Όροι πληρωμής" name="paymentTermsDays" defaultValue={v("paymentTermsDays")} options={[["", "Δεν έχουν οριστεί"], ...refs.terms]} />
-      <Select label="Τρόπος πληρωμής" name="paymentMethod" defaultValue={v("paymentMethod")} options={[["", "Δεν έχει οριστεί"], ...refs.methods]} />
+      <Select label="Τρόπος πληρωμής" name="paymentMethodId" defaultValue={v("paymentMethodId")} options={[["", "Δεν έχει οριστεί"], ...refs.methods]} />
       <div className="sm:col-span-2"><Field label="Σημειώσεις" name="notes" maxLength={1000} defaultValue={v("notes")} /></div>
       {/* η φόρμα είναι μακριά: το κουμπί μένει πάντα ορατό στο κάτω μέρος του παραθύρου */}
       <div className="sticky bottom-0 -mx-5 -mb-5 flex justify-end border-t border-border/70 bg-card px-5 py-3 sm:col-span-2">

@@ -11,7 +11,7 @@ type Ctx = { org: { id: string; vatNumber: string }; device: { id: string; serie
  * `live` = η πληρωμή/σήμανση θα γίνει στη Viva· ο ΑΑ «καίγεται» μόνο στο completeSale.
  * Αλλιώς (δοκιμαστική λειτουργία) η πώληση ολοκληρώνεται αμέσως, χωρίς διαβίβαση.
  */
-export async function issueSale(ctx: Ctx, saleId: string, method: "CASH" | "CARD", live: boolean) {
+export async function issueSale(ctx: Ctx, saleId: string, methodId: string, live: boolean) {
   return db.$transaction(async (tx) => {
     // Κλείδωμα της συσκευής: δύο ταυτόχρονες πληρωμές δεν πρέπει να πάρουν τον ίδιο ΑΑ.
     const [{ nextAa }] = await tx.$queryRaw<{ nextAa: number }[]>`SELECT "nextAa" FROM "Device" WHERE id = ${ctx.device.id} FOR UPDATE`;
@@ -20,15 +20,27 @@ export async function issueSale(ctx: Ctx, saleId: string, method: "CASH" | "CARD
     const sale = await tx.sale.findFirst({ where: { id: saleId, deviceId: ctx.device.id, status: "DRAFT" }, include: { lines: true } });
     if (!sale || sale.lines.length === 0) return null;
 
+    // Ο τρόπος πληρωμής από την κοινή λίστα: μόνο ενεργός, για ταμείο, με φορολογική αντιστοίχιση
+    const method = await tx.paymentMethod.findFirst({ where: { id: methodId, active: true, posEnabled: true } });
+    if (!method?.payItemCase) throw new Error("Ο τρόπος πληρωμής δεν είναι διαθέσιμος στο ταμείο.");
+
     const reference = randomUUID(); // νέο σε κάθε προσπάθεια: η Viva επιστρέφει το παλιό αποτέλεσμα σε ίδιο sessionId
     const issuedAt = new Date();
-    const receipt = buildReceipt({ merchantVat: ctx.org.vatNumber, series: ctx.device.series, aa: nextAa, reference, moment: issuedAt, method, lines: sale.lines });
+    const receipt = buildReceipt({
+      merchantVat: ctx.org.vatNumber,
+      series: ctx.device.series,
+      aa: nextAa,
+      reference,
+      moment: issuedAt,
+      payItem: { description: method.name, payItemCase: method.payItemCase },
+      lines: sale.lines,
+    });
 
     // προηγούμενη αποτυχημένη προσπάθεια της ίδιας πώλησης
     await tx.payment.deleteMany({ where: { saleId: sale.id } });
     await tx.fiscalDocument.deleteMany({ where: { saleId: sale.id } });
-    await tx.payment.create({ data: { saleId: sale.id, method, amountCents: receipt.totalCents, vivaSessionId: live ? reference : null, success: !live } });
-    await tx.fiscalDocument.create({ data: { saleId: sale.id, receiptReference: reference, status: live ? "PENDING" : "NOT_SENT", request: JSON.parse(toVivaJson(receipt.data)) } });
+    await tx.payment.create({ data: { saleId: sale.id, methodId: method.id, amountCents: receipt.totalCents, vivaSessionId: live ? reference : null, success: !live } });
+    await tx.fiscalDocument.create({ data: { saleId: sale.id, orgId: ctx.org.id, receiptReference: reference, status: live ? "PENDING" : "NOT_SENT", request: JSON.parse(toVivaJson(receipt.data)) } });
     await tx.sale.update({
       where: { id: sale.id },
       data: { status: live ? "AWAITING_PAYMENT" : "COMPLETED", totalCents: receipt.totalCents, series: ctx.device.series, aa: nextAa, issuedAt },

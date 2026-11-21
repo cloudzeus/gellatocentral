@@ -21,14 +21,14 @@ async function draftSale(tx: Prisma.TransactionClient, ctx: Awaited<ReturnType<t
 export async function addLine(productId: string) {
   const ctx = await currentContext();
   // το προϊόν πρέπει να ανήκει στην επιχείρηση του χρήστη
-  const product = await db.product.findFirst({ where: { id: id.parse(productId), orgId: ctx.org.id, active: true } });
+  const product = await db.product.findFirst({ where: { id: id.parse(productId), orgId: ctx.org.id, active: true }, include: { vatRate: true } });
   if (!product) return;
   await db.$transaction(async (tx) => {
     const sale = await draftSale(tx, ctx);
     await tx.saleLine.upsert({
       where: { saleId_productId: { saleId: sale.id, productId: product.id } },
       update: { quantity: { increment: 1 } },
-      create: { saleId: sale.id, productId: product.id, name: product.name, quantity: 1, unitPriceCents: product.priceCents, vatRate: product.vatRate },
+      create: { saleId: sale.id, productId: product.id, name: product.name, quantity: 1, unitPriceCents: product.priceCents, vatRate: product.vatRate.rate },
     });
   });
   revalidatePath("/pos");
@@ -49,14 +49,15 @@ export async function clearSale() {
   revalidatePath("/pos");
 }
 
-export async function pay(method: "CASH" | "CARD") {
-  z.enum(["CASH", "CARD"]).parse(method);
+export async function pay(methodId: string) {
+  // τα id των seeded τρόπων είναι σταθερά («pm_cash»…), όχι cuid — γι' αυτό γενικός έλεγχος
+  z.string().min(1).max(40).parse(methodId);
   const ctx = await currentContext();
   const live = await vivaConfigured();
   if (live && !(ctx.org.vivaMerchantId && ctx.device.vivaTerminalId))
     throw new Error("Λείπει ο κωδικός εμπόρου Viva ή το τερματικό της συσκευής.");
   const draft = await db.sale.findFirst({ where: { deviceId: ctx.device.id, status: "DRAFT" }, select: { id: true } });
-  const started = draft && (await issueSale(ctx, draft.id, method, live));
+  const started = draft && (await issueSale(ctx, draft.id, methodId, live));
   if (!started) return;
 
   if (live) {

@@ -14,14 +14,17 @@ import { validAfm } from "@/lib/afm";
 import { logAccess } from "@/lib/access-log";
 import { requirePlatform } from "@/lib/auth";
 import { permissionDiff } from "@/lib/access";
-import { canGrant, isPlatformPermission, PLATFORM_PERMISSIONS, PLATFORM_ROLES, platformPermissionsOf, type PlatformRoleKey, staffPermissions, staffRoleLabel, SYSTEM_ROLES } from "@/lib/permissions";
+import { canGrant, isPermission, isPlatformPermission, normalize, normalizePlatform, permissionLabel as orgPermLabel, PLATFORM_PERMISSIONS, PLATFORM_ROLES, platformPermissionsOf, type PlatformRoleKey, staffPermissions, staffRoleLabel, SYSTEM_ROLES } from "@/lib/permissions";
 import { savePlatformRoles, storedPlatformRoles } from "@/lib/platform-roles";
 import { hashPassword } from "@/lib/password";
 import { settleCharge } from "@/lib/billing";
 import { DEVICE_KIND } from "@/lib/devices";
+import { assertWarehouseAllowedForStore, attachWarehouse, WAREHOUSE_ERROR_MESSAGE, WarehouseError } from "@/lib/warehouses";
 import { isRefList, REF_LISTS } from "@/lib/refs";
 import { isModule } from "@/lib/modules";
 import { db } from "@/lib/db";
+import { ensureGeoArea, validGeoIds } from "@/lib/geo";
+import { cleanCoords } from "@/lib/parties";
 import { appUrl, billingRecipients, platformSettings, sendMail } from "@/lib/mail/send";
 import { templates } from "@/lib/mail/templates";
 import { closingChecks, deleteOrgForever } from "@/lib/org-close";
@@ -57,7 +60,7 @@ const done = (orgId: string, section: string): never => {
 const ownStore = (orgId: string, storeId: string) => db.store.findFirst({ where: { id: storeId, orgId } });
 
 export async function createOrganization(form: FormData) {
-  await requirePlatform("orgs.create");
+  await requirePlatform("orgs.add");
   const d = read(
     z.object({
       name,
@@ -92,7 +95,8 @@ export async function createOrganization(form: FormData) {
     });
     const at = { orgId: org.id, storeId: org.stores[0].id };
     await tx.orgRole.createMany({ data: SYSTEM_ROLES.map((r) => ({ orgId: org.id, system: true, ...r })) });
-    await tx.warehouse.create({ data: { ...at, name: "Κεντρική αποθήκη" } });
+    // κεντρική αποθήκη της επιχείρησης: δεμένη ως προεπιλογή στο πρώτο κατάστημα, έτοιμη να καλύψει κι άλλα
+    await tx.warehouse.create({ data: { orgId: org.id, code: "CENTRAL", name: "Κεντρική αποθήκη", stores: { create: { storeId: org.stores[0].id, isDefault: true, priority: 10 } } } });
     await tx.device.create({ data: { ...at, name: "Ταμείο 1", kind: "POS_WEB", series: "A1" } });
     return org;
   });
@@ -106,7 +110,7 @@ export async function createOrganization(form: FormData) {
 
 export async function saveSubscription(form: FormData) {
   const orgId = id.parse(form.get("orgId"));
-  const admin = await requirePlatform("billing.manage");
+  const admin = await requirePlatform("billing.edit");
   const d = read(z.object({ status: z.enum(["TRIALING", "ACTIVE", "PAST_DUE", "CANCELLED"]), currentPeriodEnd: z.coerce.date(), planId: z.string().max(60).optional() }), form, `/platform/${orgId}`);
   const plan = d.planId ? await db.plan.findUnique({ where: { id: d.planId } }) : null;
   const before = await db.subscription.findUnique({ where: { orgId }, include: { plan: true } });
@@ -127,7 +131,7 @@ export async function saveSubscription(form: FormData) {
 
 /** Εκδίδει τη χρέωση του επόμενου μήνα από το πακέτο: καταστήματα και συσκευές ΑΥΤΗΣ της στιγμής, μείον την έκπτωση παύσης. */
 export async function issueCharge(orgId: string) {
-  await requirePlatform("billing.manage");
+  await requirePlatform("billing.edit");
   const next = await nextCharge(id.parse(orgId));
   if (!next) redirect(`/platform/${orgId}?error=${encodeURIComponent("Δεν υπάρχει συνδρομή")}`);
   const { sub, plan, periodStart, periodEnd, calc, stores, devices } = next;
@@ -155,14 +159,14 @@ export async function issueCharge(orgId: string) {
 
 /** Σημειώνει τη χρέωση πληρωμένη και προχωρά τη λήξη της συνδρομής στο τέλος της περιόδου της. */
 export async function markChargePaid(chargeId: string) {
-  await requirePlatform("billing.manage");
+  await requirePlatform("billing.edit");
   const charge = await settleCharge(id.parse(chargeId));
   if (!charge) return;
   done(charge.subscription.orgId, "subscription");
 }
 
 export async function saveViva(form: FormData) {
-  await requirePlatform("setup.manage");
+  await requirePlatform("setup.edit");
   const orgId = id.parse(form.get("orgId"));
   const d = read(z.object({ vivaMerchantId: optional(60).refine((v) => !v || /^[0-9a-f-]{36}$/i.test(v), "Ο κωδικός εμπόρου Viva είναι UUID (36 χαρακτήρες)") }), form, `/platform/${orgId}`);
   await db.organization.update({ where: { id: orgId }, data: d });
@@ -170,23 +174,51 @@ export async function saveViva(form: FormData) {
 }
 
 export async function addStore(form: FormData) {
-  await requirePlatform("setup.manage");
+  await requirePlatform("setup.edit");
   const orgId = id.parse(form.get("orgId"));
-  const d = read(z.object({ name, address: optional(120), vivaSourceCode: optional(20) }), form, `/platform/${orgId}`);
-  await db.store.create({ data: { orgId, ...d } });
+  const back = `/platform/${orgId}`;
+  const { areaName, regionCode, cityId, areaId, ...d } = read(
+    z.object({
+      name,
+      address: optional(120),
+      vivaSourceCode: optional(20),
+      city: optional(80),
+      postalCode: optional(10),
+      region: optional(80),
+      // Γεωγραφία αναφοράς (Geo*) από τα αλληλοεξαρτώμενα πεδία — επιβεβαιώνονται παρακάτω
+      regionCode: optional(10),
+      cityId: optional(30),
+      areaId: optional(30),
+      areaName: optional(80),
+    }),
+    form,
+    back,
+  );
+  const geo = await validGeoIds({ regionCode, cityId, areaId, cityText: d.city, regionText: d.region });
+  const linkedAreaId = geo.areaId ?? (await ensureGeoArea(geo.cityId, areaName, { postalCode: d.postalCode, source: "manual" }));
+  // οι συντεταγμένες έρχονται κρυφές από την επιλογή διεύθυνσης· και οι δύο ή καμία
+  const point = cleanCoords(String(form.get("latitude") ?? ""), String(form.get("longitude") ?? "")) ?? { latitude: null, longitude: null };
+  await db.store.create({ data: { orgId, ...d, ...point, regionCode: geo.regionCode, cityId: geo.cityId, areaId: linkedAreaId, ...(point.latitude != null ? { geocodedAt: new Date() } : {}) } });
   done(orgId, "stores");
 }
 
 export async function addWarehouse(form: FormData) {
-  await requirePlatform("setup.manage");
+  await requirePlatform("setup.edit");
   const orgId = id.parse(form.get("orgId"));
-  const d = read(z.object({ name, storeId: id }), form, `/platform/${orgId}`);
-  if (await ownStore(orgId, d.storeId)) await db.warehouse.create({ data: { orgId, ...d } });
+  const d = read(z.object({ name, code: optional(20).refine((v) => !v || /^[A-Z0-9-]{1,20}$/.test(v), "Ο κωδικός είναι 1–20 κεφαλαία λατινικά, αριθμοί ή παύλες"), storeId: optional(40) }), form, `/platform/${orgId}`);
+  if (d.storeId && !(await ownStore(orgId, d.storeId))) d.storeId = null;
+  if (d.code && (await db.warehouse.findFirst({ where: { orgId, code: d.code } })))
+    redirect(`/platform/${orgId}?error=${encodeURIComponent(`Ο κωδικός ${d.code} χρησιμοποιείται ήδη σε αποθήκη`)}#warehouses`);
+  await db.$transaction(async (tx) => {
+    const warehouse = await tx.warehouse.create({ data: { orgId, name: d.name, code: d.code } });
+    // αν δόθηκε κατάστημα, η αποθήκη δένεται αμέσως (προεπιλογή μόνο αν δεν υπάρχει άλλη)
+    if (d.storeId) await attachWarehouse(tx, { orgId, storeId: d.storeId, warehouseId: warehouse.id });
+  });
   done(orgId, "warehouses");
 }
 
 export async function addPrinter(form: FormData) {
-  await requirePlatform("setup.manage");
+  await requirePlatform("setup.edit");
   const orgId = id.parse(form.get("orgId"));
   const d = read(
     z
@@ -216,7 +248,7 @@ const limits = (v: { tempMin: number | null; tempMax: number | null }) => v.temp
 const ownTill = async (orgId: string, deviceId: string | null) => (deviceId && (await db.device.findFirst({ where: { id: deviceId, orgId, kind: { in: ["POS_WEB", "POS_ANDROID"] } } })) ? deviceId : null);
 
 export async function addDevice(form: FormData) {
-  await requirePlatform("setup.manage");
+  await requirePlatform("setup.edit");
   const orgId = id.parse(form.get("orgId"));
   const d = read(
     z
@@ -234,7 +266,9 @@ export async function addDevice(form: FormData) {
     redirect(`/platform/${orgId}?error=${encodeURIComponent(`Η σειρά ${d.series} χρησιμοποιείται ήδη από άλλο ταμείο`)}#devices`);
   await db.$transaction(async (tx) => {
     // ψυγείο και αυτόματος πωλητής είναι και αποθηκευτικοί χώροι: ο χώρος δημιουργείται μαζί με τη συσκευή
-    const warehouse = DEVICE_KIND[d.kind].storage ? await tx.warehouse.create({ data: { orgId, storeId: d.storeId, name: d.name } }) : null;
+    // και δένεται στο κατάστημά της (προεπιλογή μόνο αν το κατάστημα δεν έχει ήδη)
+    const warehouse = DEVICE_KIND[d.kind].storage ? await tx.warehouse.create({ data: { orgId, name: d.name } }) : null;
+    if (warehouse) await attachWarehouse(tx, { orgId, storeId: d.storeId, warehouseId: warehouse.id });
     await tx.device.create({ data: { orgId, ...d, linkedDeviceId, warehouseId: warehouse?.id } });
   });
   done(orgId, "devices");
@@ -242,17 +276,28 @@ export async function addDevice(form: FormData) {
 
 /** Αλλαγή ρυθμίσεων σε υπάρχουσα συσκευή (είδος και σειρά δεν αλλάζουν ποτέ: θα έσπαγε η αρίθμηση). */
 export async function updateDevice(form: FormData) {
-  await requirePlatform("setup.manage");
+  await requirePlatform("setup.edit");
   const orgId = id.parse(form.get("orgId"));
-  const d = read(z.object({ deviceId: id, vivaTerminalId: optional(20), printerId: optional(40), linkedDeviceId: optional(40), tempMin: temperature, tempMax: temperature, ...identity }).refine(limits, "Το κάτω όριο θερμοκρασίας πρέπει να είναι μικρότερο από το πάνω"), form, `/platform/${orgId}`);
+  const d = read(z.object({ deviceId: id, vivaTerminalId: optional(20), printerId: optional(40), linkedDeviceId: optional(40), defaultWarehouseId: optional(40), tempMin: temperature, tempMax: temperature, ...identity }).refine(limits, "Το κάτω όριο θερμοκρασίας πρέπει να είναι μικρότερο από το πάνω"), form, `/platform/${orgId}`);
   const device = await db.device.findFirst({ where: { id: d.deviceId, orgId } });
   if (!device) return;
   if (d.printerId && !(await db.printer.findFirst({ where: { id: d.printerId, orgId } }))) d.printerId = null;
+  // η προεπιλεγμένη αποθήκη του ταμείου πρέπει να επιτρέπεται στο κατάστημά του
+  let defaultWarehouseId: string | null = null;
+  if (DEVICE_KIND[device.kind].invoices && d.defaultWarehouseId) {
+    try {
+      await assertWarehouseAllowedForStore(db, { orgId, storeId: device.storeId, warehouseId: d.defaultWarehouseId });
+      defaultWarehouseId = d.defaultWarehouseId;
+    } catch (e) {
+      const message = e instanceof WarehouseError ? WAREHOUSE_ERROR_MESSAGE[e.code] : "Η αποθήκη δεν επιτρέπεται στο κατάστημα";
+      redirect(`/platform/${orgId}?error=${encodeURIComponent(message)}#devices`);
+    }
+  }
   // γράφονται μόνο αυτά τα πεδία· είδος και σειρά μένουν όπως είναι
   const v = forKind({ ...d, kind: device.kind, linkedDeviceId: await ownTill(orgId, d.linkedDeviceId === device.id ? null : d.linkedDeviceId) });
   await db.device.update({
     where: { id: device.id },
-    data: { vivaTerminalId: v.vivaTerminalId, printerId: v.printerId, linkedDeviceId: v.linkedDeviceId, tempMin: v.tempMin, tempMax: v.tempMax, macAddress: v.macAddress, tailscaleIp: v.tailscaleIp },
+    data: { vivaTerminalId: v.vivaTerminalId, printerId: v.printerId, linkedDeviceId: v.linkedDeviceId, tempMin: v.tempMin, tempMax: v.tempMax, macAddress: v.macAddress, tailscaleIp: v.tailscaleIp, ...(DEVICE_KIND[device.kind].invoices ? { defaultWarehouseId } : {}) },
   });
   done(orgId, "devices");
 }
@@ -261,7 +306,7 @@ export async function updateDevice(form: FormData) {
 
 /** Ο αριθμός RustDesk μιας συσκευής, όπως τον δείχνει το πρόγραμμα στη συσκευή. Κενό = αφαίρεση. */
 export async function setRemoteId(orgId: string, deviceId: string, form: FormData) {
-  await requirePlatform("setup.manage");
+  await requirePlatform("setup.edit");
   const raw = String(form.get("remoteId") ?? "").trim();
   const remoteId = raw ? cleanRemoteId(raw) : null;
   if (raw && !remoteId) redirect(`/platform/${id.parse(orgId)}?error=${encodeURIComponent("Ο αριθμός RustDesk έχει 6 έως 32 ψηφία ή λατινικά γράμματα")}#devices`);
@@ -283,7 +328,7 @@ export async function startRemote(orgId: string, deviceId: string, form: FormDat
 const TABLES = { stores: "store", warehouses: "warehouse", printers: "printer", devices: "device" } as const;
 /** Ενεργοποίηση/απενεργοποίηση. Τίποτα δεν διαγράφεται: οι αποδείξεις δείχνουν σε καταστήματα και ταμεία. */
 export async function toggleActive(orgId: string, section: keyof typeof TABLES, rowId: string) {
-  await requirePlatform("setup.manage");
+  await requirePlatform("setup.edit");
   id.parse(orgId);
   id.parse(rowId);
   const where = { id: rowId, orgId };
@@ -295,7 +340,7 @@ export async function toggleActive(orgId: string, section: keyof typeof TABLES, 
 }
 
 export async function checkViva() {
-  await requirePlatform("settings.manage");
+  await requirePlatform("settings.edit");
   const error = await testIsvCredentials();
   redirect(`/platform?viva=${error ? `fail&error=${encodeURIComponent(error)}` : "ok"}`);
 }
@@ -305,7 +350,7 @@ const PAIR_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // χωρίς 0/O/1/I 
 
 /** Κωδικός σύζευξης μίας χρήσης (15′). Τον πληκτρολογεί ο τεχνικός στην εφαρμογή της συσκευής. */
 export async function issuePairCode(orgId: string, deviceId: string) {
-  await requirePlatform("setup.manage");
+  await requirePlatform("setup.edit");
   const pairCode = Array.from({ length: 8 }, () => PAIR_ALPHABET[randomInt(PAIR_ALPHABET.length)]).join("");
   await db.device.updateMany({
     where: { id: id.parse(deviceId), orgId: id.parse(orgId), kind: { not: "POS_WEB" } },
@@ -316,14 +361,14 @@ export async function issuePairCode(orgId: string, deviceId: string) {
 
 /** Ανάκληση: το κλειδί της συσκευής παύει να ισχύει αμέσως (χαμένη/κλεμμένη συσκευή). */
 export async function revokeDevice(orgId: string, deviceId: string) {
-  await requirePlatform("setup.manage");
+  await requirePlatform("setup.edit");
   await db.device.updateMany({ where: { id: id.parse(deviceId), orgId: id.parse(orgId) }, data: { apiTokenHash: null, pairCode: null, pairCodeExpiresAt: null, pairedAt: null } });
   done(orgId, "devices");
 }
 
 // ---- Χρήστες και ρόλοι ----
 export async function addUser(form: FormData) {
-  const admin = await requirePlatform("users.manage");
+  const admin = await requirePlatform("users.add");
   const orgId = id.parse(form.get("orgId"));
   const d = read(
     z.object({
@@ -342,7 +387,10 @@ export async function addUser(form: FormData) {
   if (await db.user.findUnique({ where: { email: d.email } }))
     redirect(`/platform/${orgId}?error=${encodeURIComponent("Υπάρχει ήδη χρήστης με αυτό το email")}#users`);
   const user = await db.user.create({
-    data: { name: d.name, email: d.email, passwordHash: d.password ? hashPassword(d.password) : null, memberships: { create: { orgId, roleId: role.id, storeId: d.storeId } } },
+    data: {
+      name: d.name, email: d.email, passwordHash: d.password ? hashPassword(d.password) : null,
+      memberships: { create: { orgId, roleId: role.id, ...(d.storeId ? { stores: { create: { storeId: d.storeId } } } : {}) } },
+    },
   });
   // Χωρίς αρχικό κωδικό: ο χρήστης τον ορίζει μόνος του από τον σύνδεσμο της πρόσκλησης (72 ώρες)
   if (!d.password) {
@@ -356,7 +404,7 @@ export async function addUser(form: FormData) {
 
 /** Αφαίρεση πρόσβασης: σβήνει τη συμμετοχή και τις ανοιχτές συνεδρίες του χρήστη. */
 export async function removeMember(orgId: string, membershipId: string) {
-  const admin = await requirePlatform("users.manage");
+  const admin = await requirePlatform("users.delete");
   const m = await db.membership.findFirst({ where: { id: id.parse(membershipId), orgId: id.parse(orgId) }, include: { user: true, role: true } });
   if (m) {
     await db.$transaction([db.membership.delete({ where: { id: m.id } }), db.session.deleteMany({ where: { userId: m.userId } })]);
@@ -367,7 +415,7 @@ export async function removeMember(orgId: string, membershipId: string) {
 
 // ---- Στοιχεία επικοινωνίας και email ανά πελάτη ----
 export async function saveOrgProfile(form: FormData) {
-  await requirePlatform("setup.manage");
+  await requirePlatform("setup.edit");
   const orgId = id.parse(form.get("orgId"));
   const d = read(z.object({ name, slug, contactEmail: email, emailFromName: optional(60) }), form, `/platform/${orgId}`);
   if (await db.organization.findFirst({ where: { slug: d.slug, NOT: { id: orgId } } }))
@@ -378,7 +426,7 @@ export async function saveOrgProfile(form: FormData) {
 
 // ---- Ρυθμίσεις πλατφόρμας ----
 export async function savePlatformSettings(form: FormData) {
-  await requirePlatform("settings.manage");
+  await requirePlatform("settings.edit");
   const d = read(
     z.object({
       brandName: name,
@@ -395,7 +443,7 @@ export async function savePlatformSettings(form: FormData) {
 
 /** Αποθήκευση μιας ομάδας ρυθμίσεων σύνδεσης (Viva, Mailgun, Bunny, εφαρμογή). */
 export async function saveConnection(group: string, form: FormData) {
-  await requirePlatform("settings.manage");
+  await requirePlatform("settings.edit");
   if (!(group in GROUPS)) redirect("/platform/settings");
   const error = await saveGroup(group as Group, form);
   revalidatePath("/platform", "layout");
@@ -403,7 +451,7 @@ export async function saveConnection(group: string, form: FormData) {
 }
 
 export async function saveLegalSettings(form: FormData) {
-  await requirePlatform("settings.manage");
+  await requirePlatform("settings.edit");
   const link = (label: string) => optional(300).refine((v) => !v || /^https:\/\/\S+$/.test(v), `${label}: γράψε ολόκληρη διεύθυνση που αρχίζει με https://`);
   const d = read(z.object({ legalVersion: optional(20), termsUrl: link("Όροι χρήσης"), privacyUrl: link("Πολιτική απορρήτου") }), form, "/platform/settings");
   await db.platformSettings.upsert({ where: { id: 1 }, update: d, create: { id: 1, ...d } });
@@ -412,7 +460,7 @@ export async function saveLegalSettings(form: FormData) {
 
 /** Δοκιμή μιας σύνδεσης με τις τιμές που ισχύουν τώρα. Το αποτέλεσμα φαίνεται στην κάρτα της. */
 export async function testConnection(group: string) {
-  const admin = await requirePlatform("settings.manage");
+  const admin = await requirePlatform("settings.edit");
   let r: { ok: boolean; text: string };
   if (group === "bunny") r = await ping();
   else if (group === "openrouter") r = await pingAi();
@@ -446,7 +494,7 @@ const staffDone = (): never => {
 };
 // Σε κάθε αλλαγή ελέγχεται ότι μένει τουλάχιστον ένας Super Admin, αλλιώς κανείς δεν θα μπορούσε να ξαναδώσει ρόλους.
 export async function addStaff(form: FormData) {
-  const admin = await requirePlatform("staff.manage");
+  const admin = await requirePlatform("staff.add");
   const d = read(z.object({ name, email, platformRole }), form, "/platform/staff");
   if (await db.user.findUnique({ where: { email: d.email } })) staffFail("Υπάρχει ήδη χρήστης με αυτό το email");
   const picked = await pickStaffRole(d.platformRole, staffPermissions(admin));
@@ -459,7 +507,7 @@ export async function addStaff(form: FormData) {
 }
 
 export async function setStaffRole(form: FormData) {
-  const admin = await requirePlatform("staff.manage");
+  const admin = await requirePlatform("staff.edit");
   const d = read(z.object({ userId: id, platformRole }), form, "/platform/staff");
   const before = await db.user.findFirst({ where: { id: d.userId, platformRole: { not: null } }, include: { staffRole: true } });
   if (before && !canGrant(staffPermissions(admin), staffPermissions(before))) staffFail(`Ο ρόλος του χρήστη «${before.name}» έχει δικαιώματα που δεν έχεις εσύ`);
@@ -479,7 +527,7 @@ export async function setStaffRole(form: FormData) {
 
 /** Αφαιρεί την πρόσβαση στην κονσόλα και αποσυνδέει τον χρήστη. */
 export async function removeStaff(userId: string) {
-  const admin = await requirePlatform("staff.manage");
+  const admin = await requirePlatform("staff.delete");
   const gone = await db.user.findFirst({ where: { id: id.parse(userId), platformRole: { not: null } } });
   try {
     await db.$transaction(async (tx) => {
@@ -497,7 +545,7 @@ export async function removeStaff(userId: string) {
 
 /** Απενεργοποίηση μέλους προσωπικού: δεν συνδέεται, μένει στη λίστα με τον ρόλο του. */
 export async function setStaffActive(userId: string, active: boolean) {
-  const admin = await requirePlatform("staff.manage");
+  const admin = await requirePlatform("staff.edit");
   const target = await db.user.findFirst({ where: { id: id.parse(userId), platformRole: { not: null } }, include: { staffRole: true } });
   if (!target?.platformRole) return;
   if (target.id === admin.id) staffFail("Δεν μπορείς να απενεργοποιήσεις τον εαυτό σου");
@@ -518,7 +566,7 @@ export async function setStaffActive(userId: string, active: boolean) {
 
 /** Τα δικαιώματα ενός ρόλου προσωπικού. Ο Super Admin δεν αλλάζει· κανείς δεν δίνει δικαίωμα που δεν έχει ο ίδιος. */
 export async function savePlatformRole(form: FormData) {
-  const admin = await requirePlatform("staff.manage");
+  const admin = await requirePlatform("staff.edit");
   const role = String(form.get("role")) as PlatformRoleKey;
   if (!(role in PLATFORM_ROLES) || role === "SUPER_ADMIN") staffFail("Αυτός ο ρόλος δεν αλλάζει");
   const mine = staffPermissions(admin);
@@ -532,7 +580,7 @@ export async function savePlatformRole(form: FormData) {
 
 /** Δικός σας ρόλος προσωπικού: νέος ή αλλαγή ονόματος και δικαιωμάτων. */
 export async function saveStaffRole(form: FormData) {
-  const admin = await requirePlatform("staff.manage");
+  const admin = await requirePlatform("staff.edit");
   const d = read(z.object({ roleId: z.string().max(60), name }), form, "/platform/staff");
   const mine = staffPermissions(admin);
   const wanted = form.getAll("permissions").filter(isPlatformPermission);
@@ -555,7 +603,7 @@ export async function saveStaffRole(form: FormData) {
 }
 
 export async function deleteStaffRole(roleId: string) {
-  const admin = await requirePlatform("staff.manage");
+  const admin = await requirePlatform("staff.delete");
   const role = await db.staffRole.findUnique({ where: { id: id.parse(roleId) }, include: { _count: { select: { users: true } } } });
   if (!role) return;
   if (role._count.users) staffFail(`Ο ρόλος «${role.name}» έχει ${role._count.users} άτομα. Άλλαξέ τους ρόλο πρώτα`);
@@ -564,9 +612,88 @@ export async function deleteStaffRole(roleId: string) {
   staffDone();
 }
 
+// ---- Ομάδες προσωπικού: προσθετικά δικαιώματα πάνω στον ρόλο (ένωση, ποτέ αφαίρεση) ----
+export async function saveStaffGroup(form: FormData) {
+  const admin = await requirePlatform("staff.edit");
+  const d = read(z.object({ groupId: z.string().max(60), name }), form, "/platform/staff");
+  const mine = staffPermissions(admin);
+  const wanted = normalizePlatform(form.getAll("permissions").map(String).filter(isPlatformPermission));
+  if (!canGrant(mine, wanted)) staffFail("Δεν μπορείς να δώσεις σε ομάδα δικαιώματα που δεν έχεις εσύ");
+  const clash = await db.staffGroup.findFirst({ where: { name: d.name, NOT: { id: d.groupId || undefined } } });
+  if (clash) staffFail(`Υπάρχει ήδη ομάδα «${d.name}»`);
+  if (!d.groupId) {
+    await db.staffGroup.create({ data: { name: d.name, permissions: wanted } });
+    await logAccess({ orgId: null, actorName: admin.name, action: "group.created", target: d.name, detail: permissionDiff([], wanted, permLabel) });
+    return staffDone();
+  }
+  const group = await db.staffGroup.findUnique({ where: { id: d.groupId } });
+  if (!group) return staffFail("Άγνωστη ομάδα");
+  if (!canGrant(mine, group.permissions)) staffFail(`Η ομάδα «${group.name}» έχει δικαιώματα που δεν έχεις εσύ`);
+  await db.staffGroup.update({ where: { id: group.id }, data: { name: d.name, permissions: wanted } });
+  await logAccess({ orgId: null, actorName: admin.name, action: "group.changed", target: d.name, detail: permissionDiff(group.permissions, wanted, permLabel) });
+  staffDone();
+}
+
+export async function deleteStaffGroup(groupId: string) {
+  const admin = await requirePlatform("staff.delete");
+  const group = await db.staffGroup.findUnique({ where: { id: id.parse(groupId) } });
+  if (!group) return;
+  await db.staffGroup.delete({ where: { id: group.id } }); // οι συνδέσεις μελών φεύγουν μαζί (Cascade)
+  await logAccess({ orgId: null, actorName: admin.name, action: "group.deleted", target: group.name });
+  staffDone();
+}
+
+/** Σε ποιες ομάδες ανήκει ένα μέλος. Οι ομάδες προσθέτουν δικαιώματα· δεν αφαιρούν ποτέ. */
+export async function setStaffGroups(form: FormData) {
+  const admin = await requirePlatform("staff.edit");
+  const d = read(z.object({ userId: id }), form, "/platform/staff");
+  const target = await db.user.findFirst({ where: { id: d.userId, platformRole: { not: null } } });
+  if (!target) return staffFail("Άγνωστος χρήστης");
+  if (!canGrant(staffPermissions(admin), staffPermissions(target))) return staffFail(`Ο ρόλος του χρήστη «${target.name}» έχει δικαιώματα που δεν έχεις εσύ`);
+  const groupIds = form.getAll("groupIds").map(String).filter((g) => g.length <= 60);
+  const valid = (await db.staffGroup.findMany({ where: { id: { in: groupIds } }, select: { id: true } })).map((g) => g.id);
+  await db.$transaction([
+    db.staffGroupMember.deleteMany({ where: { userId: d.userId } }),
+    db.staffGroupMember.createMany({ data: valid.map((groupId) => ({ userId: d.userId, groupId })) }),
+  ]);
+  await logAccess({ orgId: null, actorName: admin.name, action: "user.groups", target: target.name });
+  staffDone();
+}
+
+// ---- Πρόσβαση προσωπικού σε δεδομένα συνδρομητή: ολόκληρη η επιχείρηση ή ένα κατάστημά της ----
+// Τα δικαιώματα εδώ είναι της πλευράς της επιχείρησης (parties.read, receipts.read…), όχι της κονσόλας.
+export async function addStaffAccess(form: FormData) {
+  const admin = await requirePlatform("staff.edit");
+  const d = read(z.object({ userId: id, target: z.string().min(1).max(130) }), form, "/platform/staff");
+  const target = await db.user.findFirst({ where: { id: d.userId, platformRole: { not: null } } });
+  if (!target) return staffFail("Άγνωστος χρήστης");
+  const [orgId, storeId] = d.target.split(":");
+  const org = await db.organization.findUnique({ where: { id: orgId ?? "" }, select: { id: true, name: true } });
+  if (!org) return staffFail("Άγνωστη επιχείρηση");
+  const store = storeId ? await db.store.findFirst({ where: { id: storeId, orgId: org.id }, select: { id: true, name: true } }) : null;
+  if (storeId && !store) return staffFail("Άγνωστο κατάστημα");
+  const permissions = normalize(form.getAll("permissions").map(String).filter(isPermission));
+  if (!permissions.length) return staffFail("Διάλεξε τουλάχιστον ένα δικαίωμα");
+  // μία γραμμή ανά (χρήστη, επιχείρηση, κατάστημα): η ίδια παραχώρηση ξαναγράφεται
+  const existing = await db.staffStoreAccess.findFirst({ where: { userId: d.userId, orgId: org.id, storeId: store?.id ?? null } });
+  if (existing) await db.staffStoreAccess.update({ where: { id: existing.id }, data: { permissions } });
+  else await db.staffStoreAccess.create({ data: { userId: d.userId, orgId: org.id, storeId: store?.id ?? null, permissions } });
+  await logAccess({ orgId: null, actorName: admin.name, action: "staff.access", target: target.name, detail: `${org.name} · ${store ? store.name : "όλα τα καταστήματα"}: ${permissions.map(orgPermLabel).join(", ")}` });
+  staffDone();
+}
+
+export async function removeStaffAccess(accessId: string) {
+  const admin = await requirePlatform("staff.delete");
+  const access = await db.staffStoreAccess.findUnique({ where: { id: id.parse(accessId) }, include: { user: true, org: true, store: true } });
+  if (!access) return;
+  await db.staffStoreAccess.delete({ where: { id: access.id } });
+  await logAccess({ orgId: null, actorName: admin.name, action: "staff.access_removed", target: access.user.name, detail: `${access.org.name} · ${access.store?.name ?? "όλα τα καταστήματα"}` });
+  staffDone();
+}
+
 // ---- Συνέχεια λειτουργίας: καταγραφή ότι ο έλεγχος έγινε σήμερα ----
 export async function recordContinuityCheck(what: "backup" | "drill") {
-  await requirePlatform("settings.manage");
+  await requirePlatform("settings.edit");
   const data = z.enum(["backup", "drill"]).parse(what) === "backup" ? { lastBackupCheckAt: new Date() } : { lastRestoreDrillAt: new Date() };
   await db.platformSettings.upsert({ where: { id: 1 }, update: data, create: { id: 1, ...data } });
   revalidatePath("/platform/continuity");
@@ -583,7 +710,7 @@ const plansBack = (q: string): never => {
 const cents = (v: FormDataEntryValue | null) => Math.round(Number(String(v ?? "0").replace(",", ".")) * 100);
 
 export async function savePlan(form: FormData) {
-  const admin = await requirePlatform("billing.manage");
+  const admin = await requirePlatform("billing.edit");
   const planId = String(form.get("planId") ?? "");
   const d = z.object({ name, description: z.string().trim().max(200), pausePercent: z.coerce.number().int().min(0).max(100), pauseMaxDaysPerYear: z.coerce.number().int().min(0).max(365) }).safeParse(Object.fromEntries(form));
   if (!d.success) return plansBack(`error=${encodeURIComponent(d.error.issues[0].message)}`);
@@ -603,7 +730,7 @@ export async function savePlan(form: FormData) {
 
 /** Ανενεργό πακέτο: δεν δίνεται σε νέους πελάτες· όσοι το έχουν το κρατούν. Το προεπιλεγμένο δεν απενεργοποιείται. */
 export async function togglePlan(planId: string) {
-  await requirePlatform("billing.manage");
+  await requirePlatform("billing.edit");
   const plan = await db.plan.findUnique({ where: { id: planKey.parse(planId) } });
   if (!plan) return;
   if (plan.isDefault && plan.active) return plansBack(`error=${encodeURIComponent("Το προεπιλεγμένο πακέτο δεν απενεργοποιείται. Όρισε πρώτα άλλο ως προεπιλογή")}`);
@@ -612,7 +739,7 @@ export async function togglePlan(planId: string) {
 }
 
 export async function setDefaultPlan(planId: string) {
-  await requirePlatform("billing.manage");
+  await requirePlatform("billing.edit");
   const plan = await db.plan.findFirst({ where: { id: planKey.parse(planId), active: true } });
   if (!plan) return;
   await db.$transaction([db.plan.updateMany({ data: { isDefault: false } }), db.plan.update({ where: { id: plan.id }, data: { isDefault: true } })]);
@@ -620,7 +747,7 @@ export async function setDefaultPlan(planId: string) {
 }
 
 export async function deletePlan(planId: string) {
-  await requirePlatform("billing.manage");
+  await requirePlatform("billing.edit");
   const plan = await db.plan.findUnique({ where: { id: planKey.parse(planId) }, include: { _count: { select: { subscriptions: true } } } });
   if (!plan) return;
   if (plan.isDefault || plan._count.subscriptions) return plansBack(`error=${encodeURIComponent(plan.isDefault ? "Το προεπιλεγμένο πακέτο δεν διαγράφεται" : `Το πακέτο «${plan.name}» το έχουν ${plan._count.subscriptions} πελάτες. Απενεργοποίησέ το`)}`);
@@ -637,7 +764,7 @@ const kick = (orgId: string) => db.session.deleteMany({ where: { user: { members
 
 /** Αναστολή: το ταμείο και οι ενότητες κλείνουν αμέσως· μένουν αποδείξεις, συνδρομή και υποστήριξη. Τίποτα δεν σβήνεται. */
 export async function suspendOrg(form: FormData) {
-  const admin = await requirePlatform("billing.manage");
+  const admin = await requirePlatform("orgs.edit");
   const orgId = id.parse(form.get("orgId"));
   const reason = z.string().trim().min(5, "Γράψε τον λόγο της αναστολής (τον βλέπει ο πελάτης)").max(300).safeParse(form.get("reason"));
   if (!reason.success) return lifeBack(orgId, `error=${encodeURIComponent(reason.error.issues[0].message)}`);
@@ -647,7 +774,7 @@ export async function suspendOrg(form: FormData) {
 }
 
 export async function resumeOrg(orgId: string) {
-  const admin = await requirePlatform("billing.manage");
+  const admin = await requirePlatform("orgs.edit");
   const org = await db.organization.update({ where: { id: id.parse(orgId) }, data: { suspendedAt: null, suspendedReason: null } });
   await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "org.resumed", target: org.name });
   lifeBack(orgId, "saved=lifecycle");
@@ -655,7 +782,7 @@ export async function resumeOrg(orgId: string) {
 
 /** Έναρξη κλεισίματος: περιορισμένη λειτουργία και προθεσμία για εξαγωγή δεδομένων. Αναιρείται μέχρι την οριστική διαγραφή. */
 export async function startClosing(form: FormData) {
-  const admin = await requirePlatform("orgs.create");
+  const admin = await requirePlatform("orgs.edit");
   const orgId = id.parse(form.get("orgId"));
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) return;
@@ -668,7 +795,7 @@ export async function startClosing(form: FormData) {
 }
 
 export async function cancelClosing(orgId: string) {
-  const admin = await requirePlatform("orgs.create");
+  const admin = await requirePlatform("orgs.edit");
   const org = await db.organization.update({ where: { id: id.parse(orgId) }, data: { closingAt: null, deleteAfter: null } });
   await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "org.closing_cancelled", target: org.name, detail: "Η συνδρομή μένει ακυρωμένη: όρισέ την ξανά από την κάρτα Συνδρομή" });
   lifeBack(orgId, "saved=lifecycle");
@@ -676,7 +803,7 @@ export async function cancelClosing(orgId: string) {
 
 /** Οριστική διαγραφή: μόνο Super Admin, μόνο μετά την προθεσμία, και με το ΑΦΜ γραμμένο για επιβεβαίωση. ΔΕΝ αναιρείται. */
 export async function deleteOrg(form: FormData) {
-  const admin = await requirePlatform("settings.manage");
+  const admin = await requirePlatform("orgs.delete");
   const orgId = id.parse(form.get("orgId"));
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) return;
@@ -705,13 +832,12 @@ const refsBack = (list: string, q: string): never => {
   redirect(`/platform/refs?list=${list}&${q}`);
 };
 export async function saveRef(form: FormData) {
-  await requirePlatform("settings.manage");
+  await requirePlatform("settings.edit");
   const list = form.get("list");
   if (!isRefList(list)) redirect("/platform/refs");
   const d = z.object({ refId: z.string().max(80), code: z.string().trim().min(1, "Γράψε κωδικό").max(20), label: z.string().trim().min(1, "Γράψε περιγραφή").max(120), value: z.string().trim().transform((v) => (v === "" ? null : Number(v))).refine((v) => v === null || Number.isInteger(v), "Η τιμή είναι ακέραιος αριθμός") }).safeParse(Object.fromEntries(form));
   if (!d.success) return refsBack(list, `error=${encodeURIComponent(d.error.issues[0].message)}`);
-  const code = list === "country" ? d.data.code.toUpperCase() : d.data.code;
-  if (list === "country" && !/^[A-Z]{2}$/.test(code)) return refsBack(list, `error=${encodeURIComponent("Ο κωδικός χώρας έχει δύο λατινικά γράμματα, π.χ. GR")}`);
+  const code = d.data.code;
   if (await db.refItem.findFirst({ where: { list, code, NOT: { id: d.data.refId || undefined } } })) return refsBack(list, `error=${encodeURIComponent(`Υπάρχει ήδη τιμή με κωδικό «${code}» στη λίστα «${REF_LISTS[list].label}»`)}`);
   const data = { code, label: d.data.label, value: d.data.value };
   if (d.data.refId) await db.refItem.updateMany({ where: { id: d.data.refId, list }, data });
@@ -720,9 +846,125 @@ export async function saveRef(form: FormData) {
 }
 /** Τιμή που μπορεί να χρησιμοποιείται δεν σβήνεται: κρύβεται από τις νέες καταχωρίσεις και ξαναεμφανίζεται με ένα κλικ. */
 export async function toggleRef(refId: string) {
-  await requirePlatform("settings.manage");
+  await requirePlatform("settings.edit");
   const r = await db.refItem.findUnique({ where: { id: refId } });
   if (!r) return;
   await db.refItem.update({ where: { id: r.id }, data: { active: !r.active } });
   refsBack(r.list, "saved=1");
+}
+
+// ---- Συντελεστές ΦΠΑ (κοινοί για όλους τους συνδρομητές) ----
+const vatBack = (q: string): never => {
+  revalidatePath("/", "layout");
+  redirect(`/platform/vat-rates?${q}`);
+};
+export async function saveVatRate(form: FormData) {
+  await requirePlatform("settings.edit");
+  const d = z
+    .object({
+      rateId: z.string().max(80),
+      name: z.string().trim().min(1, "Γράψε όνομα").max(40),
+      rate: z.string().trim().transform(Number).refine((v) => Number.isInteger(v) && v >= 0 && v <= 99, "Το ποσοστό είναι ακέραιος 0–99"),
+    })
+    .safeParse(Object.fromEntries(form));
+  if (!d.success) return vatBack(`error=${encodeURIComponent(d.error.issues[0].message)}`);
+  if (await db.vatRate.findFirst({ where: { name: d.data.name, NOT: { id: d.data.rateId || undefined } } })) return vatBack(`error=${encodeURIComponent(`Υπάρχει ήδη συντελεστής με όνομα «${d.data.name}»`)}`);
+  if (await db.vatRate.findFirst({ where: { rate: d.data.rate, NOT: { id: d.data.rateId || undefined } } })) return vatBack(`error=${encodeURIComponent(`Υπάρχει ήδη συντελεστής ${d.data.rate}%`)}`);
+  if (d.data.rateId) {
+    // ποσοστό που το χρησιμοποιούν προϊόντα δεν αλλάζει: θα άλλαζε σιωπηρά ο ΦΠΑ τους
+    const used = await db.product.count({ where: { vatRateId: d.data.rateId } });
+    await db.vatRate.update({ where: { id: d.data.rateId }, data: { name: d.data.name, ...(used ? {} : { rate: d.data.rate }) } });
+  } else {
+    await db.vatRate.create({ data: { name: d.data.name, rate: d.data.rate } });
+  }
+  vatBack("saved=1");
+}
+/** Συντελεστής που μπορεί να χρησιμοποιείται δεν σβήνεται: κρύβεται από τις νέες καταχωρίσεις. */
+export async function toggleVatRate(rateId: string) {
+  await requirePlatform("settings.edit");
+  const r = await db.vatRate.findUnique({ where: { id: rateId } });
+  if (!r) return;
+  await db.vatRate.update({ where: { id: r.id }, data: { active: !r.active } });
+  vatBack("saved=1");
+}
+
+// ---- Τρόποι πληρωμής (κοινοί για όλη την πλατφόρμα· προεπιλογή όσοι υποστηρίζει η Viva) ----
+const pmBack = (q: string): never => {
+  revalidatePath("/", "layout");
+  redirect(`/platform/payment-methods?${q}`);
+};
+const intOrEmpty = (max: number, message: string) => z.string().trim().transform((v) => (v === "" ? null : Number(v))).refine((v) => v === null || (Number.isInteger(v) && v >= 0 && v <= max), message);
+
+export async function savePaymentMethod(form: FormData) {
+  await requirePlatform("settings.edit");
+  const d = z
+    .object({
+      methodId: z.string().max(40),
+      code: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{2,30}$/, "Ο κωδικός είναι 2–30 μικρά λατινικά, αριθμοί ή κάτω παύλα, π.χ. gift_card"),
+      name: z.string().trim().min(1, "Γράψε όνομα").max(60),
+      provider: z.enum(["VIVA_TERMINAL", "VIVA_CHECKOUT", "MANUAL"]),
+      ledgerKind: z.enum(["CASH", "CARD_CLEARING", "BANK", "CREDIT"]),
+      vivaMethodId: intOrEmpty(999, "Το MethodId της Viva είναι ακέραιος, π.χ. 0 ή 29"),
+      vivaPosMethod: optional(30),
+      payItemCase: intOrEmpty(255, "Το φορολογικό case είναι ακέραιος 0–255 (1 μετρητά, 5 κάρτα)"),
+      myDataCode: z.string().trim().transform((v) => (v === "" ? null : Number(v))).refine((v) => v === null || (Number.isInteger(v) && v >= 1 && v <= 7), "Ο κωδικός myDATA είναι από 1 έως 7"),
+      sort: z.string().trim().transform((v) => (v === "" ? 100 : Number(v))).refine((v) => Number.isInteger(v) && v >= 0 && v <= 9999, "Η σειρά είναι ακέραιος"),
+    })
+    .safeParse(Object.fromEntries(form));
+  if (!d.success) return pmBack(`error=${encodeURIComponent(d.error.issues[0].message)}`);
+  const posEnabled = form.get("posEnabled") === "on";
+  const givesChange = form.get("givesChange") === "on";
+  if (posEnabled && d.data.payItemCase === null) return pmBack(`error=${encodeURIComponent("Για να εμφανίζεται στο ταμείο χρειάζεται φορολογικό case (π.χ. 1 ή 5)")}`);
+  const { methodId, code, ...fields } = d.data;
+  if (methodId) {
+    const existing = await db.paymentMethod.findUnique({ where: { id: methodId } });
+    if (!existing) return pmBack("error=");
+    // system: κλειδωμένες οι αντιστοιχίσεις (Viva/φορολογική/λογιστική) — αλλάζουν μόνο όνομα και συμπεριφορά στο ταμείο
+    await db.paymentMethod.update({ where: { id: existing.id }, data: existing.system ? { name: fields.name, sort: fields.sort, posEnabled, givesChange } : { ...fields, posEnabled, givesChange } });
+  } else {
+    if (await db.paymentMethod.findUnique({ where: { code } })) return pmBack(`error=${encodeURIComponent(`Υπάρχει ήδη τρόπος πληρωμής με κωδικό «${code}»`)}`);
+    await db.paymentMethod.create({ data: { ...fields, code, posEnabled, givesChange } });
+  }
+  pmBack("saved=1");
+}
+/** Ο τρόπος δεν σβήνεται ποτέ: κρύβεται από ταμείο και φόρμες, ώστε το ιστορικό δεν μένει με κενό. */
+export async function togglePaymentMethod(methodId: string) {
+  await requirePlatform("settings.edit");
+  const m = await db.paymentMethod.findUnique({ where: { id: z.string().min(1).max(40).parse(methodId) } });
+  if (!m) return;
+  await db.paymentMethod.update({ where: { id: m.id }, data: { active: !m.active } });
+  pmBack("saved=1");
+}
+
+// ---- Τύποι παραστατικών (Common Tables) ----
+const dtBack = (q: string): never => {
+  revalidatePath("/", "layout");
+  redirect(`/platform/document-types?${q}`);
+};
+
+/** Οι τύποι τους ορίζει η ΑΑΔΕ: αλλάζουν μόνο τίτλος, ο κωδικός της Viva και η σειρά. */
+export async function saveDocumentType(form: FormData) {
+  await requirePlatform("settings.edit");
+  const d = z
+    .object({
+      typeId: z.string().min(1).max(40),
+      title: z.string().trim().min(1, "Γράψε τίτλο").max(120),
+      receiptCase: z.string().trim().regex(/^(\d{15,20})?$/, "Το ftReceiptCase είναι δεκαδικός Int64 από τα δείγματα της Viva (ή κενό)"),
+      sort: z.string().trim().transform((v) => (v === "" ? 0 : Number(v))).refine((v) => Number.isInteger(v) && v >= 0 && v <= 9999, "Η σειρά είναι ακέραιος"),
+    })
+    .safeParse(Object.fromEntries(form));
+  if (!d.success) return dtBack(`error=${encodeURIComponent(d.error.issues[0].message)}`);
+  const t = await db.documentType.findUnique({ where: { id: d.data.typeId } });
+  if (!t) return dtBack("error=");
+  await db.documentType.update({ where: { id: t.id }, data: { title: d.data.title, receiptCase: d.data.receiptCase || null, sort: d.data.sort } });
+  dtBack("saved=1");
+}
+
+/** Ο τύπος δεν σβήνεται: κρύβεται, ώστε τα εκδοθέντα παραστατικά δεν μένουν με κενό. */
+export async function toggleDocumentType(typeId: string) {
+  await requirePlatform("settings.edit");
+  const t = await db.documentType.findUnique({ where: { id: z.string().min(1).max(40).parse(typeId) } });
+  if (!t) return;
+  await db.documentType.update({ where: { id: t.id }, data: { active: !t.active } });
+  dtBack("saved=1");
 }

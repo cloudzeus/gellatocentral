@@ -25,7 +25,7 @@ async function snapshot() {
 }
 
 export default async function InfrastructurePage() {
-  await requirePlatform("settings.manage");
+  await requirePlatform("settings.read");
   const { ms, size, orgs, devices, readings, sales } = await snapshot();
   const mb = Number(size) / 1024 / 1024;
   const tiles = [

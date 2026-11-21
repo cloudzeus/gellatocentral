@@ -4,15 +4,16 @@
 
 // 0x4752_2000_0000_0000 — «GR» + έκδοση 2000. Τα ft…Case στέλνονται ως δεκαδικό Int64,
 // γι' αυτό BigInt: ξεπερνούν το Number.MAX_SAFE_INTEGER.
-const GR = 0x4752_2000_0000_0000n;
+export const GR = 0x4752_2000_0000_0000n;
 const RECEIPT_POS = GR + 0x0001n; // απόδειξη λιανικής POS
-const PAY = { CASH: GR + 0x01n, CARD: GR + 0x05n } as const;
+// Το τελευταίο byte του ftPayItemCase (0x01 μετρητά, 0x05 κάρτα…) δεν είναι πλέον hardcoded:
+// αποθηκεύεται ανά τρόπο πληρωμής (PaymentMethod.payItemCase) και έρχεται εδώ έτοιμο.
 
 // Τελευταίο ψηφίο του ftChargeItemCase = κατηγορία ΦΠΑ, προτελευταίο = είδος (1 = αγαθό).
 // 24% → 3 (κανονικός), 13/6/17/9% → 1 (μειωμένος· το ποσοστό το δίνει το vatRate), 4% → 4, 0% → 7.
 // shortcut: καλύπτει μόνο αγαθά με τους συνήθεις συντελεστές· υπηρεσίες/απαλλαγές θέλουν τα δικά τους
 // δείγματα της Viva πριν προστεθούν.
-function chargeCase(vatRate: number): bigint {
+export function chargeCase(vatRate: number): bigint {
   const v = vatRate === 24 ? 3n : vatRate === 4 ? 4n : vatRate === 0 ? 7n : [13, 6, 17, 9].includes(vatRate) ? 1n : null;
   if (v === null) throw new RangeError(`Μη υποστηριζόμενος συντελεστής ΦΠΑ: ${vatRate}%`);
   return GR + 0x10n + v;
@@ -25,6 +26,8 @@ export function hashAmount(cents: number): string {
 }
 
 export type FiscalLine = { name: string; quantity: number; unitPriceCents: number; vatRate: number };
+// Πώς πληρώθηκε η απόδειξη: η ετικέτα και το φορολογικό case του τρόπου πληρωμής (από το PaymentMethod).
+export type PayItem = { description: string; payItemCase: number };
 
 export function buildReceipt(input: {
   merchantVat: string;
@@ -32,7 +35,7 @@ export function buildReceipt(input: {
   aa: number;
   reference: string;
   moment: Date;
-  method: keyof typeof PAY;
+  payItem: PayItem;
   lines: FiscalLine[];
 }) {
   if (input.lines.length === 0) throw new RangeError("Απόδειξη χωρίς γραμμές");
@@ -74,9 +77,9 @@ export function buildReceipt(input: {
       cbPayItems: [
         {
           position: 1,
-          description: input.method === "CASH" ? "Μετρητά" : "Κάρτα",
+          description: input.payItem.description,
           amount: total,
-          ftPayItemCase: PAY[input.method],
+          ftPayItemCase: GR + BigInt(input.payItem.payItemCase),
           currencyCode: "978",
           moment,
         },

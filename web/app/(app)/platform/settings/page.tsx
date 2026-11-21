@@ -14,7 +14,7 @@ import { Submit } from "@/components/submit";
 const STATUS = { SENT: { tone: "success", text: "Στάλθηκε" }, FAILED: { tone: "danger", text: "Απέτυχε" }, SKIPPED: { tone: "warning", text: "Δεν στάλθηκε" } } as const;
 
 export default async function PlatformSettingsPage({ searchParams }: PageProps<"/platform/settings">) {
-  await requirePlatform("settings.manage");
+  await requirePlatform("settings.read");
   const q = await searchParams;
   const list = listParams(q, 15, ["to", "when"]);
   const status = filterParam(q, "status", ["SENT", "FAILED", "SKIPPED"]);

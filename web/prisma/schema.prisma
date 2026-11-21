@@ -39,9 +39,19 @@ enum SaleStatus {
   CANCELLED
 }
 
-enum PaymentMethod {
+// Πώς εκτελείται μια πληρωμή: στο τερματικό Viva, στο Smart Checkout της Viva, ή εκτός συστήματος (χειροκίνητα)
+enum PaymentProvider {
+  VIVA_TERMINAL
+  VIVA_CHECKOUT
+  MANUAL
+}
+
+// Λογιστική κατηγορία του ποσού (πρότυπο SoftOne): ταμείο, διακανονισμός καρτών, τράπεζα ή απαίτηση
+enum PaymentLedger {
   CASH
-  CARD
+  CARD_CLEARING
+  BANK
+  CREDIT
 }
 
 enum FiscalStatus {
@@ -59,57 +69,78 @@ enum SubscriptionStatus {
 }
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  vatNumber String   @unique // ΑΦΜ
+  id              String     @id @default(cuid())
+  name            String
+  vatNumber       String     @unique // ΑΦΜ
   // Viva: merchant κάτω από τον ISV λογαριασμό μας (isvDetails.terminalMerchantId)
-  vivaMerchantId String?
+  vivaMerchantId  String?
+  // Κλειδίδια myDATA (ΑΑΔΕ) για λήψη εισερχόμενων τιμολογίων (RequestMyIncome) — τα ορίζει η πλατφόρμα
+  aadeUserId      String?
+  aadeSubKey      String?
   // Υποτομέας του πελάτη: <slug>.<baseDomain> για την εφαρμογή και <slug>@<mail domain> ως αποστολέας
-  slug          String?  @unique
-  contactEmail  String? // εδώ απαντούν οι παραλήπτες (Reply-To) και εδώ πάνε οι ειδοποιήσεις συνδρομής
-  emailFromName String? // όνομα αποστολέα· κενό = η επωνυμία
+  slug            String?    @unique
+  contactEmail    String? // εδώ απαντούν οι παραλήπτες (Reply-To) και εδώ πάνε οι ειδοποιήσεις συνδρομής
+  emailFromName   String? // όνομα αποστολέα· κενό = η επωνυμία
   // Αναστολή από την πλατφόρμα και κλείσιμο επιχείρησης (lib/org-state.ts)
   suspendedAt     DateTime?
   suspendedReason String?
   closingAt       DateTime? // ξεκίνησε το κλείσιμο: περιορισμένη λειτουργία και εξαγωγή δεδομένων
   deleteAfter     DateTime? // από αυτή την ημέρα επιτρέπεται η οριστική διαγραφή
-  createdAt DateTime @default(now())
-  emails    EmailLog[]
+  createdAt       DateTime   @default(now())
+  emails          EmailLog[]
 
-  stores       Store[]
-  warehouses   Warehouse[]
-  printers     Printer[]
-  members      Membership[]
-  roles        OrgRole[]
-  categories   Category[]
-  products     Product[]
-  sales        Sale[]
-  subscription Subscription?
-  files        StoredFile[]
-  parties      Party[]       @relation("OrgParties")
-  persons      Person[]
-  asParty      Party?        @relation("OrgAsParty")
-  tickets      Ticket[]
+  stores               Store[]
+  warehouses           Warehouse[]
+  printers             Printer[]
+  members              Membership[]
+  roles                OrgRole[]
+  groups               OrgGroup[]
+  staffAccesses        StaffStoreAccess[]
+  categories           Category[]
+  products             Product[]
+  sales                Sale[]
+  subscription         Subscription?
+  files                StoredFile[]
+  parties              Party[]               @relation("OrgParties")
+  persons              Person[]
+  asParty              Party?                @relation("OrgAsParty")
+  tradeItems           TradeItem[] // «ιδιωτικά» εμπορικά είδη της επιχείρησης (δεν υπάρχουν στον κεντρικό κατάλογο)
+  genericItems         GenericItem[]
+  itemMappings         ItemMapping[]
+  supplierItems        SupplierItem[]
+  purchaseDocs         PurchaseDoc[]
+  stockLots            StockLot[]
+  usageEvents          UsageEvent[]
+  tickets              Ticket[]
+  documentSeries       DocumentSeries[]
+  fiscalDocuments      FiscalDocument[]
+  compositions         Composition[]
+  recipes              Recipe[]
+  recipeItems          RecipeItem[]
+  productionBatches    ProductionBatch[]
+  productionBatchItems ProductionBatchItem[]
 }
 
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  name         String
-  passwordHash String?
+  id            String             @id @default(cuid())
+  email         String             @unique
+  name          String
+  passwordHash  String?
   // Προσωπικό της πλατφόρμας: βλέπει την κονσόλα συνδρομητών, δεν ανήκει σε επιχείρηση. Κενό = χρήστης συνδρομητή.
-  platformRole PlatformRole?
-  failedLogins Int          @default(0)
-  lockedUntil  DateTime?
+  platformRole  PlatformRole?
+  failedLogins  Int                @default(0)
+  lockedUntil   DateTime?
   // Δικός σας ρόλος προσωπικού (φτιαγμένος από την οθόνη). Όταν υπάρχει, τα δικαιώματα έρχονται από αυτόν και το platformRole μένει STAFF.
-  staffRoleId  String?
-  staffRole    StaffRole?   @relation(fields: [staffRoleId], references: [id], onDelete: Restrict)
-  disabledAt   DateTime? // απενεργοποιημένος: δεν συνδέεται, αλλά μένει στο ιστορικό
-  lastLoginAt  DateTime?
-  createdAt    DateTime     @default(now())
-  memberships  Membership[]
-  sessions     Session[]
-  resets       PasswordReset[]
+  staffRoleId   String?
+  staffRole     StaffRole?         @relation(fields: [staffRoleId], references: [id], onDelete: Restrict)
+  disabledAt    DateTime? // απενεργοποιημένος: δεν συνδέεται, αλλά μένει στο ιστορικό
+  lastLoginAt   DateTime?
+  createdAt     DateTime           @default(now())
+  memberships   Membership[]
+  sessions      Session[]
+  resets        PasswordReset[]
+  staffGroups   StaffGroupMember[]
+  storeAccesses StaffStoreAccess[]
 }
 
 // Σύνδεσμος ορισμού κωδικού: για «ξέχασα τον κωδικό» (1 ώρα) και για πρόσκληση νέου χρήστη (72 ώρες).
@@ -129,7 +160,7 @@ enum EmailStatus {
 }
 
 model EmailLog {
-  id        String      @id @default(cuid())
+  id        String        @id @default(cuid())
   orgId     String?
   to        String
   template  String
@@ -137,8 +168,8 @@ model EmailLog {
   status    EmailStatus
   error     String?
   // Μοναδικό κλειδί για email που πρέπει να φύγουν ΜΙΑ φορά (π.χ. υπενθύμιση λήξης μιας περιόδου)
-  dedupeKey String?     @unique
-  createdAt DateTime    @default(now())
+  dedupeKey String?       @unique
+  createdAt DateTime      @default(now())
   org       Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
@@ -146,17 +177,17 @@ model EmailLog {
 
 // Μία γραμμή (id = 1) με τα στοιχεία της πλατφόρμας. Οι ρυθμίσεις σύνδεσης (Viva, Mailgun, Bunny) ζουν στον πίνακα Setting.
 model PlatformSettings {
-  id           Int     @id @default(1)
-  brandName    String  @default("Gelato System")
-  baseDomain   String? // π.χ. gelatosystem.app → aurora.gelatosystem.app
-  supportEmail String?
+  id                 Int       @id @default(1)
+  brandName          String    @default("Gelato System")
+  baseDomain         String? // π.χ. gelatosystem.app → aurora.gelatosystem.app
+  supportEmail       String?
   // Συνέχεια λειτουργίας: πότε επιβεβαιώθηκε τελευταία φορά ότι τα αντίγραφα υπάρχουν και ότι η επαναφορά δουλεύει
   lastBackupCheckAt  DateTime?
   lastRestoreDrillAt DateTime?
   // Νομικά κείμενα που αποδέχεται κάθε χρήστης. Και τα τρία μαζί ενεργοποιούν την υποχρεωτική αποδοχή· νέα έκδοση = νέα αποδοχή.
-  legalVersion String? // π.χ. "2026-11"
-  termsUrl     String?
-  privacyUrl   String?
+  legalVersion       String? // π.χ. "2026-11"
+  termsUrl           String?
+  privacyUrl         String?
 }
 
 model Session {
@@ -172,27 +203,61 @@ model Session {
 }
 
 model Membership {
-  id     String @id @default(cuid())
+  id     String            @id @default(cuid())
   orgId  String
   userId String
   roleId String
-  storeId String? // κενό = όλα τα καταστήματα· αλλιώς ο χρήστης δουλεύει μόνο σε αυτό
-  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  store  Store?       @relation(fields: [storeId], references: [id], onDelete: SetNull)
-  role   OrgRole      @relation(fields: [roleId], references: [id])
+  org    Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   OrgRole           @relation(fields: [roleId], references: [id])
+  // Πολλαπλά καταστήματα και ομάδες· τα δικαιώματα του μέλους είναι η ΕΝΩΣΗ ρόλου + ομάδων
+  stores MembershipStore[]
+  groups MembershipGroup[]
 
   @@unique([orgId, userId])
 }
 
-// Ρόλος μιας επιχείρησης: όνομα + λίστα δικαιωμάτων (κλειδιά από lib/permissions.ts).
-model OrgRole {
-  id          String   @id @default(cuid())
+// Ομάδα χρηστών μιας επιχείρησης: όνομα + δικαιώματα (κλειδιά area.action από lib/permissions.ts).
+// Προσθετική μόνο: ό,τι δίνει η ομάδα προστίθεται στον ρόλο· δεν υπάρχει αφαίρεση.
+model OrgGroup {
+  id          String            @id @default(cuid())
   orgId       String
   name        String
   permissions String[]
-  system      Boolean  @default(false) // δημιουργήθηκε αυτόματα με την επιχείρηση
-  locked      Boolean  @default(false) // «Ιδιοκτήτης»: δεν αλλάζει και δεν διαγράφεται
+  createdAt   DateTime          @default(now())
+  org         Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members     MembershipGroup[]
+
+  @@unique([orgId, name])
+}
+
+// Σε ποια καταστήματα δουλεύει το μέλος. Καμία γραμμή = όλα τα καταστήματα της επιχείρησης.
+model MembershipStore {
+  membershipId String
+  storeId      String
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  store        Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([membershipId, storeId])
+}
+
+model MembershipGroup {
+  membershipId String
+  groupId      String
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  group        OrgGroup   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([membershipId, groupId])
+}
+
+// Ρόλος μιας επιχείρησης: όνομα + λίστα δικαιωμάτων (κλειδιά από lib/permissions.ts).
+model OrgRole {
+  id          String       @id @default(cuid())
+  orgId       String
+  name        String
+  permissions String[]
+  system      Boolean      @default(false) // δημιουργήθηκε αυτόματα με την επιχείρηση
+  locked      Boolean      @default(false) // «Ιδιοκτήτης»: δεν αλλάζει και δεν διαγράφεται
   org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   members     Membership[]
 
@@ -200,26 +265,37 @@ model OrgRole {
 }
 
 model Store {
-  id      String  @id @default(cuid())
-  orgId   String
-  name    String
-  address String?
+  id               String             @id @default(cuid())
+  orgId            String
+  name             String
+  address          String?
   // Viva: «πηγή πληρωμών» του καταστήματος, αν ο έμπορος έχει περισσότερα από ένα
-  vivaSourceCode String?
+  vivaSourceCode   String?
   // Γεωγραφικά του καταστήματος: για χάρτη, αποστάσεις από πελάτες και αναφορές ανά περιοχή
-  city       String?
-  postalCode String?
-  region     String?
-  latitude   Float?
-  longitude  Float?
-  active  Boolean @default(true)
-  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  devices    Device[]
-  warehouses Warehouse[]
-  printers   Printer[]
-  sales      Sale[]
-  members    Membership[]
-  pauses     StorePause[]
+  city             String?
+  postalCode       String?
+  region           String?
+  latitude         Float?
+  longitude        Float?
+  // Σύνδεση με τη γεωγραφία αναφοράς (Geo*): το πιο αναλυτικό επίπεδο Καλλικράτη που ταιριάζει (συνήθως ο Δήμος),
+  // η πόλη και η περιοχή. Τα πεδία-κείμενο παραπάνω μένουν ως «φωτογραφία» για εκτυπώσεις και αναζήτηση.
+  regionCode       String?
+  geoRegion        GeoRegion?         @relation(fields: [regionCode], references: [code], onDelete: SetNull)
+  cityId           String?
+  geoCity          GeoCity?           @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  areaId           String?
+  geoArea          GeoArea?           @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  geocodedAt       DateTime? // πότε βρέθηκαν οι συντεταγμένες από την υπηρεσία χάρτη
+  active           Boolean            @default(true)
+  org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  devices          Device[]
+  warehouses       StoreWarehouse[] // ποιες αποθήκες εξυπηρετούν το κατάστημα και ποια είναι η προεπιλογή του
+  printers         Printer[]
+  sales            Sale[]
+  membershipStores MembershipStore[]
+  staffAccesses    StaffStoreAccess[]
+  pauses           StorePause[]
+  documentSeries   DocumentSeries[]
 
   @@index([orgId])
 }
@@ -227,58 +303,195 @@ model Store {
 // Συσκευή τιμολόγησης = μονάδα χρέωσης της συνδρομής. Κάθε συσκευή έχει δική της σειρά παραστατικών,
 // ώστε η αρίθμηση (ΑΑ) να μην έχει ποτέ κενά ή συγκρούσεις μεταξύ ταμείων.
 model Device {
-  id             String     @id @default(cuid())
-  orgId          String
-  storeId        String
-  name           String
-  kind           DeviceKind
-  series         String? // σειρά παραστατικών, π.χ. "A1"· κενή για συσκευές που δεν τιμολογούν
-  nextAa         Int        @default(1)
-  vivaTerminalId String? // το terminalId του τερματικού Viva που αντιστοιχεί στο ταμείο
-  apiTokenHash   String?    @unique // sha256 του κλειδιού της εφαρμογής Android (εκδίδεται στη σύζευξη)
+  id                 String         @id @default(cuid())
+  orgId              String
+  storeId            String
+  name               String
+  kind               DeviceKind
+  series             String? // σειρά παραστατικών, π.χ. "A1"· κενή για συσκευές που δεν τιμολογούν
+  nextAa             Int            @default(1)
+  vivaTerminalId     String? // το terminalId του τερματικού Viva που αντιστοιχεί στο ταμείο
+  apiTokenHash       String?        @unique // sha256 του κλειδιού της εφαρμογής Android (εκδίδεται στη σύζευξη)
   // Σύζευξη: κωδικός μίας χρήσης που δίνει η κονσόλα και πληκτρολογείται στη συσκευή
-  pairCode          String?   @unique
-  pairCodeExpiresAt DateTime?
-  pairedAt          DateTime?
-  lastSeenAt        DateTime?
+  pairCode           String?        @unique
+  pairCodeExpiresAt  DateTime?
+  pairedAt           DateTime?
+  lastSeenAt         DateTime?
   // Ταυτότητα υλικού: MAC της συσκευής (καταγραφή) και διεύθυνση Tailscale (100.x.y.z).
   // Όταν υπάρχει tailscaleIp, η συσκευή γίνεται δεκτή ΜΟΝΟ από αυτή τη διεύθυνση.
-  macAddress        String?
-  tailscaleIp       String?
-  remoteId       String? // αριθμός RustDesk της συσκευής, για απομακρυσμένη υποστήριξη
-  remoteAccesses RemoteAccess[]
+  macAddress         String?
+  tailscaleIp        String?
+  remoteId           String? // αριθμός RustDesk της συσκευής, για απομακρυσμένη υποστήριξη
+  remoteAccesses     RemoteAccess[]
   // Ψυγείο / αυτόματος πωλητής: ο αποθηκευτικός χώρος που αντιστοιχεί στη συσκευή και τα όρια θερμοκρασίας (°C)
-  warehouseId       String?  @unique
-  tempMin           Float?
-  tempMax           Float?
+  warehouseId        String?        @unique
+  tempMin            Float?
+  tempMax            Float?
+  // Προεπιλεγμένη αποθήκη του ταμείου (η «σειρά παραστατικών» της εφαρμογής): υπερισχύει της προεπιλογής
+  // του καταστήματος όταν η πώληση δεν δίνει ρητά αποθήκη. Πρέπει να επιτρέπεται στο κατάστημα (StoreWarehouse).
+  defaultWarehouseId String?
   // Ζυγαριά: το ταμείο που εξυπηρετεί· κενό = ζυγαριά του εργαστηρίου/καταστήματος
-  linkedDeviceId    String?
-  warehouse         Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
-  linkedDevice      Device?    @relation("DeviceLink", fields: [linkedDeviceId], references: [id], onDelete: SetNull)
-  peripherals       Device[]   @relation("DeviceLink")
-  readings          Reading[]
-  printerId      String? // ο εκτυπωτής που τυπώνει τις αποδείξεις αυτού του ταμείου
-  active         Boolean    @default(true)
-  createdAt      DateTime   @default(now())
-  store          Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  printer        Printer?   @relation(fields: [printerId], references: [id], onDelete: SetNull)
-  sales          Sale[]
+  linkedDeviceId     String?
+  warehouse          Warehouse?     @relation("DeviceWarehouse", fields: [warehouseId], references: [id], onDelete: SetNull)
+  defaultWarehouse   Warehouse?     @relation("DeviceDefaultWarehouse", fields: [defaultWarehouseId], references: [id], onDelete: SetNull)
+  linkedDevice       Device?        @relation("DeviceLink", fields: [linkedDeviceId], references: [id], onDelete: SetNull)
+  peripherals        Device[]       @relation("DeviceLink")
+  readings           Reading[]
+  printerId          String? // ο εκτυπωτής που τυπώνει τις αποδείξεις αυτού του ταμείου
+  active             Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  store              Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  printer            Printer?       @relation(fields: [printerId], references: [id], onDelete: SetNull)
+  sales              Sale[]
 
   @@unique([orgId, series])
   @@index([orgId, storeId])
 }
 
 model Warehouse {
-  id      String  @id @default(cuid())
-  orgId   String
-  storeId String
-  name    String
-  active  Boolean @default(true)
-  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  store   Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  device  Device? // όταν ο χώρος ΕΙΝΑΙ μια συσκευή (ψυγείο, αυτόματος πωλητής)
+  id                String            @id @default(cuid())
+  orgId             String
+  // Κωδικός ανά επιχείρηση (π.χ. CENTRAL)· προαιρετικός, βοηθά σε αναφορές και εντάξεις
+  code              String?
+  name              String
+  active            Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  org               Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  device            Device?           @relation("DeviceWarehouse") // όταν ο χώρος ΕΙΝΑΙ μια συσκευή (ψυγείο, αυτόματος πωλητής)
+  // Το απόθεμα ανήκει στην αποθήκη, όχι στο κατάστημα. Ποια καταστήματα εξυπηρετεί (και ποια είναι
+  // η προεπιλογή του καθενός) λέει το StoreWarehouse — έτσι μία κεντρική αποθήκη καλύπτει πολλά καταστήματα.
+  stores            StoreWarehouse[]
+  movements         StockMovement[]
+  lots              StockLot[]
+  purchases         PurchaseDoc[]
+  productionBatches ProductionBatch[]
+  deviceDefaults    Device[]          @relation("DeviceDefaultWarehouse")
 
-  @@index([orgId, storeId])
+  @@unique([orgId, code])
+  @@index([orgId])
+}
+
+// Σύνδεση καταστήματος με αποθήκη: ποιες αποθήκες επιτρέπονται στο κατάστημα, με ποια σειρά,
+// και ποια είναι η προεπιλογή του (μία ανά κατάστημα — επιβάλλεται στο lib/warehouses.ts).
+model StoreWarehouse {
+  storeId     String
+  warehouseId String
+  isDefault   Boolean   @default(false)
+  priority    Int       @default(100) // μικρότερο = προτιμότερο, όταν δεν υπάρχει προεπιλογή
+  createdAt   DateTime  @default(now())
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@id([storeId, warehouseId])
+  @@index([warehouseId])
+}
+
+// Κάθε κίνηση αποθέματος. Μόνο προσθήκες· το τρέχον απόθεμα είναι το άθροισμα ανά αποθήκη.
+// Η γραμμή κρατά πάντα το ΤΕΛΙΚΟ warehouseId (βλ. resolveWarehouseId) — ποτέ δεν συμπεραίνεται από το κατάστημα.
+// documentId/lineId: το παραστατικό που την προκάλεσε (πώληση ή PurchaseDoc/PurchaseLine)· κενά σε χειροκίνητες διορθώσεις.
+model StockMovement {
+  id            String    @id @default(cuid())
+  orgId         String
+  storeId       String? // πώληση: το κατάστημα· αγορά/διόρθωση: κενό (η κίνηση είναι της αποθήκης)
+  warehouseId   String
+  documentId    String?
+  lineId        String?
+  quantity      Int // θετικό = είσοδος, αρνητικό = έξοδος — σε βασική μονάδα του genericItemId
+  genericItemId String? // σε ποιο γενικό είδος ανήκει η ποσότητα (αγορές/διορθώσεις· οι παλιές πωλήσεις δεν έχουν)
+  lotId         String? // η παρτίδα (StockLot) — κενό για είδη χωρίς παρτίδες
+  source        String    @default("sale") // sale | purchase | production | manual (διόρθωση)
+  note          String? // αιτιολογία διόρθωσης («σπασίματα», «μέτρηση απογραφής»…)
+  createdByName String? // ποιος την έκανε (audit στις χειροκίνητες διορθώσεις)
+  occurredAt    DateTime  @default(now())
+  warehouse     Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  lot           StockLot? @relation(fields: [lotId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, warehouseId, occurredAt])
+  @@index([orgId, storeId, occurredAt])
+  @@index([orgId, genericItemId, occurredAt])
+  @@index([lotId])
+}
+
+// Παρτίδα γενικού είδους σε αποθήκη: από πού ήρθε, πότε λήγει (ιχνηλασιμότητα, Καν. 178/2002 αρ. 18).
+// Η μοναδικότητα «χωρίς παρτίδα» (batchNumber κενό) επιβάλλεται με partial index στο migration.
+model StockLot {
+  id              String                @id @default(cuid())
+  orgId           String
+  genericItemId   String
+  warehouseId     String
+  batchNumber     String? // AI(10) του GS1 ή χειροκίνητη
+  expiresAt       DateTime? // AI(17) — η βάση της FEFO πρότασης
+  documentId      String? // το τιμολόγιο αγοράς (PurchaseDoc) που την έφερε
+  createdAt       DateTime              @default(now())
+  org             Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  genericItem     GenericItem           @relation(fields: [genericItemId], references: [id], onDelete: Cascade)
+  warehouse       Warehouse             @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  document        PurchaseDoc?          @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  movements       StockMovement[]
+  productionItems ProductionBatchItem[]
+
+  @@unique([orgId, genericItemId, warehouseId, batchNumber])
+  @@index([orgId, expiresAt])
+}
+
+enum PurchaseStatus {
+  DRAFT // καταχωρείται / αντιστοιχίζεται — δεν έχει ακουμπήσει το απόθεμα
+  POSTED // αποδεκτό: γράφτηκαν κινήσεις αποθέματος, παρτίδες και τυχόν νέες τιμές
+  CANCELLED
+}
+
+// Τιμολόγιο αγοράς από προμηθευτή (χειροκίνητο/σκαναρισμένο τώρα, μηχανογραφημένο από myDATA αργότερα).
+// Δεν είναι FiscalDocument: εκείνο είναι τα παραστατικά που ΕΚΔΙΔΟΥΜΕ εμείς.
+model PurchaseDoc {
+  id            String         @id @default(cuid())
+  orgId         String
+  supplierId    String
+  warehouseId   String // πού θα μπει το απόθεμα της παραλαβής
+  number        String? // ο αριθμός τιμολογίου του προμηθευτή
+  issuedAt      DateTime? // ημερομηνία έκδοσης
+  status        PurchaseStatus @default(DRAFT)
+  note          String?
+  mydataMark    String? // μοναδικός αριθμός καταχώρισης myDATA (dedupe στη μηχανογραφημένη λήψη)
+  createdByName String
+  createdAt     DateTime       @default(now())
+  org           Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  supplier      Party          @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  warehouse     Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  lines         PurchaseLine[]
+  lots          StockLot[]
+
+  @@unique([orgId, mydataMark])
+  @@index([orgId, supplierId, createdAt])
+}
+
+// Γραμμή τιμολογίου αγοράς: όπως ήρθε από τον προμηθευτή + η αντιστοίχισή της (lib/purchases.ts).
+model PurchaseLine {
+  id             String        @id @default(cuid())
+  orgId          String
+  documentId     String
+  supplierCode   String? // ο κωδικός του προμηθευτή όπως τυπώθηκε
+  ean            String? // EAN/GTIN της συσκευασίας (σάρωση ή πεδίο του παραστατικού)
+  description    String // η περιγραφή όπως ήρθε από τον προμηθευτή
+  quantity       Int // σε μονάδα παραστατικού (π.χ. κιβώτια) — βλ. packQty του SupplierItem
+  unitPriceCents Int // τιμή μονάδας παραστατικού, προ ΦΠΑ, σε λεπτά
+  // Ιχνηλασιμότητα: από GS1 σάρωση ή χειροκίνητα — τροφοδοτούν το StockLot της παραλαβής
+  batchNumber    String?
+  expiresAt      DateTime?
+  // Έλεγχος παραλαβής HACCP (Καν. 852/2004 αρ. 5, οδηγοί ΕΦΕΤ)
+  receiptTempC   Float? // °C κατά την παραλαβή (ευπαθή/ψυγόμενα)
+  receiptIssue   String? // π.χ. «σχισμένη συσκευασία»· κενό = χωρίς πρόβλημα
+  // Η αντιστοίχιση (μέθοδος στο matchNote)
+  supplierItemId String?
+  tradeItemId    String?
+  genericItemId  String? // τελικό: πού «πέφτει» το απόθεμα
+  matchNote      String? // code | ean | manual — πώς βρέθηκε (για μάθηση/έλεγχο)
+  document       PurchaseDoc   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  supplierItem   SupplierItem? @relation(fields: [supplierItemId], references: [id], onDelete: SetNull)
+  tradeItem      TradeItem?    @relation(fields: [tradeItemId], references: [id], onDelete: SetNull)
+  genericItem    GenericItem?  @relation(fields: [genericItemId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, documentId])
+  @@index([orgId, supplierCode])
 }
 
 enum ReadingKind {
@@ -318,10 +531,10 @@ model Printer {
 }
 
 model Category {
-  id       String    @id @default(cuid())
+  id       String       @id @default(cuid())
   orgId    String
   name     String
-  position Int       @default(0)
+  position Int          @default(0)
   org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   products Product[]
 
@@ -329,38 +542,40 @@ model Category {
 }
 
 model Product {
-  id         String   @id @default(cuid())
+  id         String       @id @default(cuid())
   orgId      String
   categoryId String
+  vatRateId  String
   name       String
   priceCents Int // τελική τιμή με ΦΠΑ
-  vatRate    Int      @default(13) // ποσοστό ΦΠΑ
-  active     Boolean  @default(true)
+  active     Boolean      @default(true)
   org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   category   Category     @relation(fields: [categoryId], references: [id])
+  vatRate    VatRate      @relation(fields: [vatRateId], references: [id])
   lines      SaleLine[]
+  recipes    Recipe[]
 
   @@index([orgId, categoryId])
 }
 
 model Sale {
-  id          String     @id @default(cuid())
-  orgId       String
-  storeId     String
-  deviceId    String
-  status      SaleStatus @default(DRAFT)
-  totalCents  Int        @default(0)
+  id         String          @id @default(cuid())
+  orgId      String
+  storeId    String
+  deviceId   String
+  status     SaleStatus      @default(DRAFT)
+  totalCents Int             @default(0)
   // Συμπληρώνονται στην έκδοση
-  series      String?
-  aa          Int?
-  issuedAt    DateTime?
-  createdAt   DateTime   @default(now())
-  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  store       Store        @relation(fields: [storeId], references: [id])
-  device      Device       @relation(fields: [deviceId], references: [id])
-  lines       SaleLine[]
-  payment     Payment?
-  fiscal      FiscalDocument?
+  series     String?
+  aa         Int?
+  issuedAt   DateTime?
+  createdAt  DateTime        @default(now())
+  org        Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  store      Store           @relation(fields: [storeId], references: [id])
+  device     Device          @relation(fields: [deviceId], references: [id])
+  lines      SaleLine[]
+  payment    Payment?
+  fiscal     FiscalDocument?
 
   @@unique([deviceId, series, aa])
   @@index([orgId, status, issuedAt])
@@ -368,7 +583,7 @@ model Sale {
 }
 
 model SaleLine {
-  id             String @id @default(cuid())
+  id             String  @id @default(cuid())
   saleId         String
   productId      String
   name           String // αντίγραφο ονόματος τη στιγμή της πώλησης
@@ -384,7 +599,7 @@ model SaleLine {
 model Payment {
   id                String        @id @default(cuid())
   saleId            String        @unique
-  method            PaymentMethod
+  methodId          String // ο τρόπος πληρωμής από την κοινή λίστα της πλατφόρμας
   amountCents       Int
   vivaSessionId     String?       @unique
   vivaTransactionId String?
@@ -392,49 +607,98 @@ model Payment {
   raw               Json? // η απάντηση της Viva όπως ήρθε
   createdAt         DateTime      @default(now())
   sale              Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  method            PaymentMethod @relation(fields: [methodId], references: [id], onDelete: Restrict)
 }
 
+// Κοινός πίνακας τύπων παραστατικών myDATA (επίπεδο πλατφόρμας, όπως VatRate/PaymentMethod).
+// Οι φορολογικοί κανόνες (πρόσημο, συναλλασσόμενος, συσχέτιση) είναι τεκμηρίωση: σπέρνονται
+// από migration και δεν αλλάζουν από οθόνη· διαχειρίσιμα είναι μόνο τίτλος, receiptCase, active.
+// receiptCase κενό = ο τύπος δεν εκδίδεται ακόμη (χρειάζεται επαληθευμένο δείγμα από τη Viva).
+model DocumentType {
+  id           String   @id @default(cuid())
+  code         String   @unique // κωδικός myDATA, π.χ. "11.1"
+  title        String
+  sign         Int // 1 χρεωστικό, -1 πιστωτικό
+  retail       Boolean // 11.x — μη αντικριζόμενο λιανικής
+  needsParty   Boolean // απαιτεί συναλλασσόμενο με ΑΦΜ
+  needsRelated Boolean // συσχετιζόμενο πιστωτικό: απαιτεί το αρχικό παραστατικό
+  receiptCase  String? // ftReceiptCase της Viva (δεκαδικό Int64 ως κείμενο: ξεπερνά το Number)
+  active       Boolean  @default(true)
+  sort         Int      @default(0)
+  createdAt    DateTime @default(now())
+}
+
+// Σειρά αρίθμησης παραστατικών εκτός ταμείου (τιμολόγια, πιστωτικά, δελτία αποστολής).
+// Οι αποδείξεις POS αριθμούνται από τη συσκευή (Device.series/nextAa)· εδώ οι υπόλοιποι τύποι,
+// ξεχωριστά ανά τύπο και χαρακτήρα σειράς, όπως απαιτεί η ΑΑΔΕ (lib/documents/series.ts).
+model DocumentSeries {
+  id        String           @id @default(cuid())
+  orgId     String
+  storeId   String?
+  docType   String // κωδικός myDATA: "1.1", "2.1", "5.1", "11.4"…
+  code      String // ο χαρακτήρας σειράς, π.χ. "ΤΙΜ-Α"
+  nextAa    Int              @default(1)
+  org       Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  store     Store?           @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  documents FiscalDocument[]
+
+  @@unique([orgId, docType, code])
+}
+
+// Φορολογικό παραστατικό διαβίβασης: απόδειξη POS (με Sale) ή τιμολόγιο/πιστωτικό/δελτίο
+// (με Party). Ο τύπος και οι κανόνες του στο lib/documents/types.ts.
 model FiscalDocument {
-  id               String       @id @default(cuid())
-  saleId           String       @unique
-  docType          String       @default("11.1") // ΑΛΠ
-  receiptReference String       @unique // cbReceiptReference: με αυτό συσχετίζονται τα πιστωτικά
+  id               String           @id @default(cuid())
+  orgId            String
+  saleId           String?          @unique // κενό σε τιμολόγια χονδρικής/συνδρομών: δεν προέρχονται από ταμείο
+  partyId          String? // ο συναλλασσόμενος για αντικριζόμενα (1.x, 2.x, 5.x) και απλοποιημένο (11.3)
+  seriesId         String? // κενή για αποδείξεις POS: η σειρά τους είναι της συσκευής
+  docType          String           @default("11.1") // κωδικός myDATA
+  relatedId        String? // 5.1/11.4: το αρχικό παραστατικό που πιστώνεται (συσχετιζόμενο)
+  receiptReference String           @unique // cbReceiptReference: με αυτό συσχετίζονται τα πιστωτικά
   status           FiscalStatus
   request          Json // το fiscalisationData που στείλαμε
   response         Json? // ftState, ftSignatures, QR κ.λπ.
   error            String?
-  createdAt        DateTime     @default(now())
-  sale             Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  createdAt        DateTime         @default(now())
+  org              Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  sale             Sale?            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  party            Party?           @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  series           DocumentSeries?  @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  related          FiscalDocument?  @relation("DocumentCredit", fields: [relatedId], references: [id], onDelete: SetNull)
+  creditedBy       FiscalDocument[] @relation("DocumentCredit")
+
+  @@index([orgId, docType, createdAt])
 }
 
 model Subscription {
-  id               String             @id @default(cuid())
-  orgId            String             @unique
-  status           SubscriptionStatus @default(TRIALING)
+  id               String               @id @default(cuid())
+  orgId            String               @unique
+  status           SubscriptionStatus   @default(TRIALING)
   currentPeriodEnd DateTime
   planId           String? // κενό = το προεπιλεγμένο πακέτο
-  creditCents      Int                @default(0) // πιστωτικό υπόλοιπο (έκπτωση παύσης που ξεπέρασε τη χρέωση ενός μήνα)
-  plan             Plan?              @relation(fields: [planId], references: [id], onDelete: Restrict)
-  org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  creditCents      Int                  @default(0) // πιστωτικό υπόλοιπο (έκπτωση παύσης που ξεπέρασε τη χρέωση ενός μήνα)
+  plan             Plan?                @relation(fields: [planId], references: [id], onDelete: Restrict)
+  org              Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
   charges          SubscriptionCharge[]
 }
 
 // Μηνιαία χρέωση: «φωτογραφία» του πλήθους καταστημάτων και συσκευών εκείνη τη στιγμή.
 model SubscriptionCharge {
-  id             String       @id @default(cuid())
-  subscriptionId String
-  periodStart    DateTime
-  periodEnd      DateTime
-  stores         Int
-  devices        Int
-  amountCents    Int // προ ΦΠΑ
-  lines          Json? // ανάλυση ανά κατάστημα: πλήρης τιμή, ημέρες παύσης, έκπτωση (lib/plans.ts)
-  planName       String?
-  paidAt         DateTime?
+  id                String       @id @default(cuid())
+  subscriptionId    String
+  periodStart       DateTime
+  periodEnd         DateTime
+  stores            Int
+  devices           Int
+  amountCents       Int // προ ΦΠΑ
+  lines             Json? // ανάλυση ανά κατάστημα: πλήρης τιμή, ημέρες παύσης, έκπτωση (lib/plans.ts)
+  planName          String?
+  paidAt            DateTime?
   // Πληρωμή με κάρτα στον λογαριασμό Viva της πλατφόρμας (Smart Checkout)
-  vivaOrderCode     String? @unique
+  vivaOrderCode     String?      @unique
   vivaTransactionId String?
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  subscription      Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@unique([subscriptionId, periodStart])
 }
@@ -442,18 +706,18 @@ model SubscriptionCharge {
 // Αρχείο αποθηκευμένο στο Bunny. Η βάση κρατά μόνο πού βρίσκεται και σε τι ανήκει· τα bytes ζουν στο Bunny,
 // στον φάκελο του πελάτη (orgs/<orgId>/…) ή της πλατφόρμας (platform/…). Βλ. lib/storage.
 model StoredFile {
-  id           String   @id @default(cuid())
+  id           String        @id @default(cuid())
   orgId        String? // κενό = αρχείο της πλατφόρμας (π.χ. αντίγραφο ασφαλείας)
   category     String // κλειδί του CATEGORIES (lib/storage/rules.ts)
   refType      String? // σε τι ανήκει, π.χ. "product"· μαζί με το refId δένει το αρχείο σε οποιαδήποτε εγγραφή
   refId        String?
-  path         String   @unique // διαδρομή μέσα στη ζώνη του Bunny
+  path         String        @unique // διαδρομή μέσα στη ζώνη του Bunny
   name         String // το όνομα που έδωσε ο χρήστης
   contentType  String
   size         Int
   public       Boolean // true = σερβίρεται από το CDN· false = μόνο μέσα από την εφαρμογή
   uploadedById String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime      @default(now())
   org          Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId, category, refType, refId])
@@ -532,13 +796,13 @@ model GdprEvent {
 // orgId = η επιχείρηση που τον έχει στο αρχείο της· orgId κενό = συναλλασσόμενος της πλατφόρμας (οι συνδρομητές της,
 // οι προμηθευτές και οι συνεργάτες της). Ένας συναλλασσόμενος έχει έναν ή περισσότερους ρόλους (lib/parties.ts).
 model Party {
-  id               String   @id @default(cuid())
+  id               String             @id @default(cuid())
   orgId            String?
   roles            String[] // customer, supplier, franchisee, partner…
   name             String // επωνυμία ή ονοματεπώνυμο
   tradeName        String? // διακριτικός τίτλος
   vatNumber        String? // ΑΦΜ (χωρίς πρόθεμα χώρας)
-  countryCode      String   @default("GR") // ISO 3166-1 alpha-2· για ΑΦΜ άλλης χώρας της ΕΕ ο έλεγχος γίνεται στο VIES
+  countryCode      String             @default("GR") // ISO 3166-1 alpha-2· για ΑΦΜ άλλης χώρας της ΕΕ ο έλεγχος γίνεται στο VIES
   taxOffice        String? // ΔΟΥ
   profession       String? // δραστηριότητα
   contactName      String? // υπεύθυνος επικοινωνίας (ο κύριος· οι υπόλοιποι στο PartyContact)
@@ -552,29 +816,42 @@ model Party {
   region           String?
   latitude         Float?
   longitude        Float?
+  // Σύνδεση με τη γεωγραφία αναφοράς (Geo*): Δήμος/Νομός Καλλικράτη, πόλη και περιοχή από τις κοινές λίστες.
+  // Τα city/region κείμενο μένουν ως «φωτογραφία» για παραστατικά και αναζήτηση· η αλήθεια είναι οι κωδικοί.
+  regionCode       String?
+  geoRegion        GeoRegion?         @relation(fields: [regionCode], references: [code], onDelete: SetNull)
+  cityId           String?
+  geoCity          GeoCity?           @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  areaId           String?
+  geoArea          GeoArea?           @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  geocodedAt       DateTime? // πότε βρέθηκαν οι συντεταγμένες από την υπηρεσία χάρτη
   paymentTermsDays Int? // ημέρες πίστωσης
-  paymentMethod    String? // κωδικός από τη λίστα αναφοράς paymentMethod
+  paymentMethodId  String? // προεπιλεγμένος τρόπος πληρωμής, από την κοινή λίστα της πλατφόρμας
+  paymentMethod    PaymentMethod?     @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
   notes            String?
-  active           Boolean  @default(true)
+  active           Boolean            @default(true)
   // Συναλλασσόμενος της πλατφόρμας που ΕΙΝΑΙ συνδρομητής: δένει με την επιχείρησή του
-  linkedOrgId      String?  @unique
+  linkedOrgId      String?            @unique
   vatCheckedAt     DateTime? // πότε επιβεβαιώθηκαν τα στοιχεία από ΑΑΔΕ ή VIES
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  org              Organization? @relation("OrgParties", fields: [orgId], references: [id], onDelete: Cascade)
-  linkedOrg        Organization? @relation("OrgAsParty", fields: [linkedOrgId], references: [id], onDelete: Cascade)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  org              Organization?      @relation("OrgParties", fields: [orgId], references: [id], onDelete: Cascade)
+  linkedOrg        Organization?      @relation("OrgAsParty", fields: [linkedOrgId], references: [id], onDelete: Cascade)
   addresses        PartyAddress[]
   contacts         PartyContact[]
   channels         PartyChannel[]
   activities       PartyActivity[]
   bankAccounts     PartyBankAccount[]
+  fiscalDocuments  FiscalDocument[]
+  supplierItems    SupplierItem[] // τα είδη που πουλά ως προμηθευτής
+  purchaseDocs     PurchaseDoc[] // τα τιμολόγια αγοράς από αυτόν
 
   @@unique([orgId, vatNumber])
   @@index([orgId, name])
 }
 
 model PartyAddress {
-  id          String  @id @default(cuid())
+  id          String         @id @default(cuid())
   partyId     String
   kind        String // branch, delivery, billing, other (lib/parties.ts)
   // Υποκατάστημα: ο αριθμός εγκατάστασης όπως είναι δηλωμένος στην εφορία (η έδρα είναι 0 και ζει στο Party)·
@@ -586,12 +863,20 @@ model PartyAddress {
   street      String
   city        String?
   postalCode  String?
-  countryCode String  @default("GR")
+  countryCode String         @default("GR")
   region      String? // νομός ή περιφέρεια
   latitude    Float?
   longitude   Float?
+  // Γεωγραφία αναφοράς (Geo*), όπως στο Party
+  regionCode  String?
+  geoRegion   GeoRegion?     @relation(fields: [regionCode], references: [code], onDelete: SetNull)
+  cityId      String?
+  geoCity     GeoCity?       @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  areaId      String?
+  geoArea     GeoArea?       @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  geocodedAt  DateTime?
   notes       String?
-  party       Party   @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  party       Party          @relation(fields: [partyId], references: [id], onDelete: Cascade)
   contacts    PartyContact[]
   channels    PartyChannel[]
 
@@ -602,14 +887,14 @@ model PartyAddress {
 // Πρόσωπο επικοινωνίας, ανεξάρτητο από εταιρία (όπως στο SoftOne): ο ίδιος άνθρωπος, π.χ. ένας λογιστής,
 // δένει με πολλούς συναλλασσόμενους μέσω PartyContact και καταχωρείται μία φορά.
 model Person {
-  id        String   @id @default(cuid())
-  orgId     String? // σε ποιο αρχείο ανήκει: επιχείρησης, ή (κενό) της πλατφόρμας
-  name      String
-  notes     String?
-  createdAt DateTime @default(now())
-  org       Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  links     PartyContact[]
-  channels  PartyChannel[]
+  id         String          @id @default(cuid())
+  orgId      String? // σε ποιο αρχείο ανήκει: επιχείρησης, ή (κενό) της πλατφόρμας
+  name       String
+  notes      String?
+  createdAt  DateTime        @default(now())
+  org        Organization?   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  links      PartyContact[]
+  channels   PartyChannel[]
   activities PartyActivity[]
 
   @@index([orgId, name])
@@ -617,17 +902,17 @@ model Person {
 
 // Η σχέση προσώπου με συναλλασσόμενο: τι ιδιότητα έχει εκεί και σε ποιο υποκατάστημα βρίσκεται.
 model PartyContact {
-  id        String  @id @default(cuid())
+  id        String        @id @default(cuid())
   partyId   String
   personId  String
   title     String? // ιδιότητα σε αυτή την εταιρία, π.χ. «Λογιστήριο»
   addressId String? // σε ποιο υποκατάστημα ή διεύθυνση βρίσκεται· κενό = στην έδρα
-  isPrimary Boolean @default(false) // η κύρια επαφή της εταιρίας (μία)
-  active    Boolean @default(true) // false = δεν εργάζεται πλέον εδώ (το ιστορικό μένει)
+  isPrimary Boolean       @default(false) // η κύρια επαφή της εταιρίας (μία)
+  active    Boolean       @default(true) // false = δεν εργάζεται πλέον εδώ (το ιστορικό μένει)
   notes     String?
   address   PartyAddress? @relation(fields: [addressId], references: [id], onDelete: SetNull)
-  person    Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
-  party     Party   @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  person    Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+  party     Party         @relation(fields: [partyId], references: [id], onDelete: Cascade)
 
   @@unique([partyId, personId])
   @@index([personId])
@@ -636,16 +921,16 @@ model PartyContact {
 // Τηλέφωνο ή email. Ανήκει είτε στην εταιρία (partyId, προαιρετικά σε υποκατάστημά της) είτε σε πρόσωπο (personId).
 // Το κύριο τηλέφωνο και email της εταιρίας αντιγράφονται και στο Party.phone / Party.email (παραστατικά, αναζήτηση).
 model PartyChannel {
-  id        String  @id @default(cuid())
+  id        String        @id @default(cuid())
   partyId   String?
   personId  String?
   addressId String?
   kind      String // phone | email (lib/crm.ts)
   value     String
   label     String? // π.χ. «Κινητό», «Τιμολόγια», «Παραγγελίες»
-  isPrimary Boolean @default(false)
-  party     Party?  @relation(fields: [partyId], references: [id], onDelete: Cascade)
-  person    Person? @relation(fields: [personId], references: [id], onDelete: Cascade)
+  isPrimary Boolean       @default(false)
+  party     Party?        @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  person    Person?       @relation(fields: [personId], references: [id], onDelete: Cascade)
   address   PartyAddress? @relation(fields: [addressId], references: [id], onDelete: SetNull)
 
   @@index([partyId])
@@ -697,14 +982,335 @@ model PartyBankAccount {
   @@unique([partyId, iban])
 }
 
-// Λίστες αναφοράς, κοινές για όλους: χώρες, ΔΟΥ, τρόποι και όροι πληρωμής, κατηγορίες ΦΠΑ, μονάδες μέτρησης.
+// ---- Γεωγραφία: κοινές λίστες αναφοράς για όλους τους πελάτες (χωρίς orgId) ----
+// Χώρες ISO 3166, δέντρο Καλλικράτη (Περιφέρεια → Νομός/Π.Ε. → Δήμος), πόλεις/οικισμοί και περιοχές.
+// Πηγές και ανανέωση: prisma/geo/build.py (επίσημο κωδικολόγιο Καλλικράτη + GeoNames). Λογική: lib/geo.
+
+model GeoCountry {
+  code   String    @id // ISO 3166-1 alpha-2 («GR») — ίδιο με Party.countryCode, PartyAddress.countryCode κ.λπ.
+  iso3   String? // alpha-3 («GRC»)
+  nameEL String
+  nameEN String
+  isEu   Boolean   @default(false) // μέλος ΕΕ: το ΑΦΜ ελέγχεται στο VIES
+  active Boolean   @default(true)
+  cities GeoCity[]
+
+  @@index([active, nameEL])
+}
+
+// Δέντρο Καλλικράτη, τρία επίπεδα: 3=Περιφέρεια («09»), 4=Περιφερειακή Ενότητα/νομός («0905»), 5=Δήμος («9205»).
+// Οι κωδικοί είναι οι επίσημοι (ΕΕΤΑΑ)· οι κωδικοί Δήμων συμφωνούν με το GeoNames admin3, γι' αυτό και όλοι οι
+// κόμβοι έχουν συντεταγμένες (κέντρο). Σχεδιασμός σύμφωνα με το Region του damask (level/parentCode/path).
+model GeoRegion {
+  code         String         @id
+  level        Int
+  nameEL       String // τονωμένο, για εμφάνιση («Δήμος Πεντέλης», «Νομός Δράμας»)
+  nameOfficial String? // επίσημο κωδικολόγιο, κεφαλαία άτονα («ΠΕΝΤΕΛΗΣ») — αντιστοίχιση με ΑΑΔΕ/ΓΕΜΗ
+  parentCode   String?
+  parent       GeoRegion?     @relation("GeoTree", fields: [parentCode], references: [code], onDelete: SetNull)
+  children     GeoRegion[]    @relation("GeoTree")
+  path         String? // «09>0905>9205»: οι απόγονοι βρίσκονται με startsWith
+  latitude     Float?
+  longitude    Float?
+  active       Boolean        @default(true)
+  cities       GeoCity[]
+  parties      Party[]
+  addresses    PartyAddress[]
+  stores       Store[]
+
+  @@index([parentCode])
+  @@index([level, active, nameEL])
+  @@index([path])
+}
+
+// Πόλη/οικισμός: seed από GeoNames (id = geonameid) με τονωμένο όνομα και συντεταγμένες, δεμένη με τον Δήμο της.
+// Όσες προκύψουν αργότερα από geocoding παίρνουν id «g-…» και όσες γραφτούν με το χέρι «m-…».
+model GeoCity {
+  id               String         @id
+  name             String
+  nameEn           String?
+  countryCode      String         @default("GR")
+  country          GeoCountry     @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+  municipalityCode String?
+  municipality     GeoRegion?     @relation(fields: [municipalityCode], references: [code], onDelete: SetNull)
+  latitude         Float?
+  longitude        Float?
+  population       Int            @default(0) // κατάταξη στις προτάσεις
+  source           String         @default("geonames") // geonames | geocode | manual
+  active           Boolean        @default(true)
+  areas            GeoArea[]
+  parties          Party[]
+  addresses        PartyAddress[]
+  stores           Store[]
+
+  @@unique([countryCode, municipalityCode, name])
+  @@index([name])
+  @@index([municipalityCode, population])
+}
+
+// Περιοχή μέσα σε πόλη («Κολωνάκι»). Δεν υπάρχει επίσημη λίστα: μπαίνει από προτάσεις geocoding ή από τον
+// χρήστη και μένει κοινή για όλους, ώστε η επόμενη φόρμα στην ίδια πόλη να την προτείνει.
+model GeoArea {
+  id         String         @id @default(cuid())
+  cityId     String
+  city       GeoCity        @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  name       String
+  postalCode String?
+  latitude   Float?
+  longitude  Float?
+  source     String         @default("manual") // geocode | manual
+  parties    Party[]
+  addresses  PartyAddress[]
+  stores     Store[]
+
+  @@unique([cityId, name])
+}
+
+// Συντελεστές ΦΠΑ, κοινοί για όλες τις επιχειρήσεις: τους ορίζει η πλατφόρμα,
+// προϊόντα και υπηρεσίες διαλέγουν έναν από αυτούς.
+model VatRate {
+  id       String        @id @default(cuid())
+  name     String        @unique // π.χ. «Κανονικός», «Μειωμένος», «Υπερμειωμένος»
+  rate     Int // ποσοστό επί τοις εκατό, π.χ. 24 — ίδια κλίμακα με το αντίγραφο SaleLine.vatRate· μοναδικές τιμές τις εγγυάται η οθόνη πλατφόρμας
+  active   Boolean       @default(true)
+  products Product[]
+  generics GenericItem[] // γενικά είδη με αυτόν τον συντελεστή (αγορές)
+
+  @@index([active])
+}
+
+// ---- Προμήθειες (docs/analysis/PROCUREMENT-DESIGN.md): μονάδες, κεντρικός κατάλογος εμπορικών ειδών ----
+
+// Μονάδα μέτρησης, κοινή για όλες τις επιχειρήσεις (seeded από migration — πηγή αλήθειας για μετατροπές).
+// Η μετατροπή γίνεται μόνο μέσα στην ίδια διάσταση· η βασική μονάδα ανά διάσταση είναι mg / ml / τεμάχιο,
+// και όλες οι ποσότητες αποθηκεύονται σε αυτήν ως ακέραιοι (όπως τα χρήματα σε λεπτά).
+model Unit {
+  id        String        @id @default(cuid())
+  code      String        @unique // "kg", "g", "l", "ml", "pcs"…
+  nameEL    String // «κιλό», «γραμμάριο», «τεμάχιο»…
+  dimension String // mass | volume | count — αλλιώτικες διαστάσεις δεν μετατρέπονται μεταξύ τους
+  toBase    Int // πόσες βασικές μονάδες είναι η μία· π.χ. g: 1000 (1 g = 1000 mg), kg: 1_000_000, pcs: 1
+  active    Boolean       @default(true)
+  items     TradeItem[]
+  generics  GenericItem[] // γενικά είδη που μετριούνται σε αυτή τη μονάδα
+
+  @@index([dimension, active])
+}
+
+// Κατασκευαστής/βιομηχανία (επίπεδο πλατφόρμας). Το brand μπορεί να είναι και ίδιο με τον κατασκευαστή.
+model Manufacturer {
+  id     String  @id @default(cuid())
+  name   String  @unique // «ΦΑΓΕ», «ΔΕΛΤΑ»…
+  brands Brand[]
+}
+
+model Brand {
+  id             String       @id @default(cuid())
+  manufacturerId String
+  name           String // «ΤΩΝ 150», «ΑΓΓΕΛΑΚΗΣ»…
+  manufacturer   Manufacturer @relation(fields: [manufacturerId], references: [id], onDelete: Restrict)
+  items          TradeItem[]
+
+  @@unique([manufacturerId, name])
+}
+
+// Κατηγορία κεντρικού καταλόγου ειδών (δέντρο: «Γαλακτοκομικά» → «Γάλατα»). Κοινή για όλους — την ορίζει η πλατφόρμα.
+model TradeCategory {
+  id       String          @id @default(cuid())
+  parentId String?
+  name     String
+  position Int             @default(0)
+  active   Boolean         @default(true)
+  parent   TradeCategory?  @relation("TradeCatTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children TradeCategory[] @relation("TradeCatTree")
+  items    TradeItem[]
+
+  @@unique([parentId, name])
+}
+
+// Συσκευασμένο είδος εμπορίου. orgId κενό = κεντρικός κατάλογος της πλατφόρμας (οι συνδρομητές δεν τα
+// ξανακαταχωρούν)· orgId συμπληρωμένο = «ιδιωτικό» είδος συνδρομητή (π.χ. χύμα από μικρό παραγωγό).
+// Η συσκευασία ΔΕΝ είναι μονάδα: το περιεχόμενο δηλώνεται σε βασική μονάδα (contentQty/contentUnit).
+model TradeItem {
+  id            String         @id @default(cuid())
+  orgId         String?
+  categoryId    String?
+  brandId       String?
+  ean           String? // EAN-13/GTIN· στον κεντρικό κατάλογο μοναδικό (partial index στο migration)
+  name          String // «Γάλα φρέσκο 1,5% 1L»
+  packaging     String? // περιγραφή συσκευασίας: «χαρτοκιβώτιο», «πλαστικό μπουκάλι»…
+  contentQty    Int // περιεχόμενο σε βασική μονάδα: 1 L → 1000 (ml), 25 kg → 25_000_000 (mg)
+  contentUnitId String // η μονάδα κατανάλωσης του περιεχομένου
+  familyCode    String? // ομαδοποίηση ποικιλιών συσκευασίας ίδιου είδους («DELTA-GA-1.5»: 1L, 1,5L…)
+  imageUrl      String? // φωτογραφία: διαδρομή στο Bunny («catalog/off/<ean>.jpg») ή πλήρες CDN URL
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  org           Organization?  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  category      TradeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  brand         Brand?         @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  contentUnit   Unit           @relation(fields: [contentUnitId], references: [id], onDelete: Restrict)
+  composition   Composition?
+  mappings      ItemMapping[]
+  supplierItems SupplierItem[]
+  purchaseLines PurchaseLine[]
+
+  @@unique([orgId, ean])
+  @@index([orgId, name])
+  @@index([categoryId])
+}
+
+// Γενικό είδος του συνδρομητή («γάλα φρέσκο», «ζάχαρη άχνη») — αυτό που μπαίνει στις συνταγές.
+// Η βασική του μονάδα είναι η μονάδα κατανάλωσης· οι ποσότητες κρατιούνται πάντα σε αυτήν (Int, βλ. Unit).
+model GenericItem {
+  id                String                @id @default(cuid())
+  orgId             String
+  name              String
+  baseUnitId        String
+  vatRateId         String? // συντελεστής ΦΠΑ αγοράς (προεπιλογή στις αγορές/συμφωνίες)
+  // Μέσο σταθμισμένο κόστος σε εκατοστά του λεπτού ανά βασική μονάδα — γράφεται στην αποδοχή τιμολογίου
+  avgCostHundredths Int                   @default(0)
+  trackStock        Boolean               @default(true) // false = κοστολογείται χωρίς απόθεμα (π.χ. νερό βρύσης)
+  gramsPerPiece     Int? // για είδη σε τεμάχια: βάρος τεμαχίου σε g (π.χ. αυγό 55)
+  active            Boolean               @default(true)
+  createdAt         DateTime              @default(now())
+  org               Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  baseUnit          Unit                  @relation(fields: [baseUnitId], references: [id], onDelete: Restrict)
+  vatRate           VatRate?              @relation(fields: [vatRateId], references: [id], onDelete: SetNull)
+  composition       Composition?
+  mappings          ItemMapping[]
+  lots              StockLot[]
+  purchaseLines     PurchaseLine[]
+  recipeItems       RecipeItem[]
+  productionItems   ProductionBatchItem[]
+
+  @@unique([orgId, name])
+  @@index([orgId, active])
+}
+
+// Αντιστοίχιση γενικού είδους ↔ εμπορικού είδους: «το γάλα μου είναι αυτή η συσκευασία».
+// Ένα εμπορικό είδος αντιστοιχεί σε ΤΟ ΠΟΛΥ ένα γενικό ανά επιχείρηση (το αντίστροφο επιτρέπεται:
+// πολλά εμπορικά — διαφορετικές συσκευασίες/προμηθευτές — τροφοδοτούν το ίδιο γενικό).
+model ItemMapping {
+  id            String       @id @default(cuid())
+  orgId         String
+  genericItemId String
+  tradeItemId   String
+  createdAt     DateTime     @default(now())
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  genericItem   GenericItem  @relation(fields: [genericItemId], references: [id], onDelete: Cascade)
+  tradeItem     TradeItem    @relation(fields: [tradeItemId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, tradeItemId])
+  @@index([orgId, genericItemId])
+}
+
+// Είδος προμηθευτή: πώς πουλά ο συγκεκριμένος προμηθευτής ένα εμπορικό είδος — δικός του κωδικός,
+// barcode συσκευασίας/κιβωτίου και πολλαπλότητα συσκευασίας. Πολλοί προμηθευτές μπορεί να πουλάνε
+// το ίδιο TradeItem· ο κωδικός προμηθευτή (όταν υπάρχει) είναι μοναδικός ανά προμηθευτή.
+model SupplierItem {
+  id            String              @id @default(cuid())
+  orgId         String
+  supplierId    String
+  tradeItemId   String
+  supplierCode  String? // ο κωδικός είδους στον τιμοκατάλογο/τιμολόγιο του προμηθευτή
+  barcode       String? // EAN/GTIN όπως το σαρώνει ο χρήστης (μπορεί να είναι κιβωτίου, όχι της μονάδας)
+  packQty       Int                 @default(1) // πόσες συσκευασίες TradeItem έχει η μονάδα παραγγελίας του προμηθευτή
+  active        Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  org           Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  supplier      Party               @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  tradeItem     TradeItem           @relation(fields: [tradeItemId], references: [id], onDelete: Restrict)
+  prices        SupplierItemPrice[]
+  purchaseLines PurchaseLine[]
+
+  @@unique([orgId, supplierId, supplierCode])
+  @@index([orgId, tradeItemId])
+  @@index([orgId, barcode])
+}
+
+// Γεγονός χρήσης επί πληρωμή υπηρεσίας (pay-as-you-go): OCR τιμολογίων σήμερα, αύριο SMS/χάρτες κ.λπ.
+// Η χρέωση του συνδρομητή βγαίνει από costUsd × ισοτιμία × (1 + markup του UsagePrice) — βλ. lib/usage.ts.
+model UsageEvent {
+  id            String       @id @default(cuid())
+  orgId         String
+  service       String // κλειδί υπηρεσίας: «ocr», μελλοντικά «sms», «maps»…
+  units         Int          @default(1) // πόσες μονάδες καταναλώθηκαν (π.χ. έγγραφα)
+  costUsd       Float        @default(0) // το κόστος που χρεώθηκε η πλατφόρμα στον πάροχο
+  chargeCents   Int          @default(0) // η χρέωση του συνδρομητή σε λεπτά EUR (με το markup)
+  detail        Json? // μοντέλο, tokens, purchaseDocId, ok/error — ανά υπηρεσία
+  createdByName String
+  createdAt     DateTime     @default(now())
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, service, createdAt])
+}
+
+// Τιμολογιακή πολιτική μιας pay-as-you-go υπηρεσίας — την ορίζει ο κεντρικός διαχειριστής (μία γραμμή ανά service).
+// Το markup εφαρμόζεται πάνω στο πραγματικό κόστος του παρόχου· ανενεργή υπηρεσία = δεν επιτρέπεται η χρήση.
+model UsagePrice {
+  service       String  @id // «ocr»
+  label         String // «Ανάγνωση τιμολογίου (OCR)»
+  unitLabel     String // «ανά έγγραφο» — πώς μετράει η χρέωση
+  markupPercent Int     @default(30)
+  active        Boolean @default(true)
+}
+
+// Τιμή αγοράς με όρους. Η «κανονική» τιμή είναι η γραμμή χωρίς όρους·
+// η ειδική συμφωνία είναι γραμμή με minPackQty ή/και διάστημα ισχύος.
+// Μόνο προσθήκες (ιστορικό)· η τρέχουσα είναι η πιο «συγκεκριμένη» που ισχύει (lib/pricing.ts).
+model SupplierItemPrice {
+  id             String       @id @default(cuid())
+  supplierItemId String
+  priceCents     Int // τιμή ανά συσκευασία TradeItem (όχι ανά μονάδα παραγγελίας), πάντα προ ΦΠΑ, σε λεπτά
+  minPackQty     Int? // ελάχιστη ποσότητα συσκευασιών παραγγελίας για να ισχύσει
+  validFrom      DateTime     @default(now())
+  validTo        DateTime?
+  note           String? // «Συμφωνία έκθεσης 2026», «προσφορά Νοεμβρίου»
+  createdByName  String
+  createdAt      DateTime     @default(now())
+  supplierItem   SupplierItem @relation(fields: [supplierItemId], references: [id], onDelete: Cascade)
+
+  @@index([supplierItemId, validFrom])
+}
+
+// Τρόποι πληρωμής, κοινοί για όλη την πλατφόρμα (χωρίς orgId). Προεπιλογή: όσοι υποστηρίζει η Viva·
+// ο κεντρικός διαχειριστής προσθέτει και άλλους. Τα system είναι seeded και δεν διαγράφονται·
+// κλειδωμένα code και αντιστοιχίσεις, αλλάζει μόνο το active και η εμφάνιση στο ταμείο.
+model PaymentMethod {
+  id            String          @id @default(cuid())
+  code          String          @unique // σταθερό κλειδί: "cash", "card", "iris"… — δεν αλλάζει ποτέ
+  name          String // η ετικέτα που βλέπει ο χρήστης
+  provider      PaymentProvider
+  // Αντιστοιχίσεις της Viva: MethodId του Smart Checkout (preselect) και paymentMethod των terminal APIs
+  vivaMethodId  Int?
+  vivaPosMethod String?
+  // Φορολογική αντιστοίχιση: το τελευταίο byte του ftPayItemCase (0x01 μετρητά, 0x05 κάρτα· βλ. lib/viva/fiscal).
+  // Κενό = ο τρόπος δεν εκδίδει απόδειξη λιανικής (π.χ. B2B πληρωμή)· τέτοιος δεν μπαίνει στο ταμείο.
+  payItemCase   Int?
+  myDataCode    Int? // τρόπος πληρωμής myDATA 1–7, για B2B παραστατικά και αναφορές
+  ledgerKind    PaymentLedger // πού «πέφτει» το ποσό λογιστικά
+  // Συμπεριφορά στο ταμείο
+  posEnabled    Boolean         @default(false)
+  givesChange   Boolean         @default(false) // επιτρέπει ρέστα (μόνο μετρητά)
+  system        Boolean         @default(false)
+  active        Boolean         @default(true)
+  sort          Int             @default(0)
+  payments      Payment[]
+  parties       Party[]
+
+  @@index([active, posEnabled, sort])
+}
+
+// Λίστες αναφοράς, κοινές για όλους: ΔΟΥ, όροι πληρωμής, μονάδες μέτρησης.
+// (Χώρες και γεωγραφία ζουν στα Geo* μοντέλα παραπάνω· οι συντελεστές ΦΠΑ στο VatRate,
+// οι τρόποι πληρωμής στο PaymentMethod.)
 // Τις ορίζει μία φορά η πλατφόρμα· οι επιχειρήσεις διαλέγουν από αυτές.
 model RefItem {
   id     String  @id @default(cuid())
-  list   String // country, taxOffice, paymentMethod, paymentTerm, vatCategory, unit
+  list   String // taxOffice, paymentTerm, unit
   code   String
   label  String
-  value  Int? // αριθμητική τιμή όπου έχει νόημα: ημέρες πίστωσης, ποσοστό ΦΠΑ ×100
+  value  Int? // αριθμητική τιμή όπου έχει νόημα: ημέρες πίστωσης
   sort   Int     @default(0)
   active Boolean @default(true)
 
@@ -752,13 +1358,13 @@ enum TicketPriority {
 }
 
 model Ticket {
-  id              String         @id @default(cuid())
-  number          Int            @unique @default(autoincrement()) // ο αριθμός που βλέπουν όλοι: #1042
+  id              String          @id @default(cuid())
+  number          Int             @unique @default(autoincrement()) // ο αριθμός που βλέπουν όλοι: #1042
   orgId           String
   subject         String
   category        String // κλειδί του CATEGORIES (lib/support/rules.ts)
   priority        TicketPriority
-  status          TicketStatus   @default(NEW)
+  status          TicketStatus    @default(NEW)
   deviceId        String? // η συσκευή που αφορά, αν αφορά κάποια
   openedById      String?
   openedByName    String
@@ -767,9 +1373,9 @@ model Ticket {
   firstResponseAt DateTime?
   resolvedAt      DateTime?
   rating          Int? // 1–5, από τον πελάτη όταν λυθεί
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  org             Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  org             Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
   messages        TicketMessage[]
 
   @@index([orgId, status])
@@ -799,21 +1405,21 @@ enum KbStatus {
 }
 
 model KbArticle {
-  id             String     @id @default(cuid())
+  id             String      @id @default(cuid())
   title          String
   body           String // απλό κείμενο: παράγραφοι, «- » για λίστα, «1. » για βήματα, «## » για υπότιτλο
   category       String // κλειδί του CATEGORIES (lib/support/rules.ts)
-  internal       Boolean    @default(false) // true = μόνο για την υποστήριξη
-  status         KbStatus   @default(DRAFT)
+  internal       Boolean     @default(false) // true = μόνο για την υποστήριξη
+  status         KbStatus    @default(DRAFT)
   sourceTicketId String? // το αίτημα από το οποίο προέκυψε, αν προέκυψε από αίτημα
   authorName     String
   updatedByName  String?
   publishedAt    DateTime?
-  views          Int        @default(0)
-  helpfulYes     Int        @default(0)
-  helpfulNo      Int        @default(0)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  views          Int         @default(0)
+  helpfulYes     Int         @default(0)
+  helpfulNo      Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
   versions       KbVersion[]
 
   @@index([status, internal])
@@ -835,16 +1441,16 @@ model KbVersion {
 // ---- Μνήμη του agent (RAG). Κάθε κομμάτι κειμένου έχει το διάνυσμά του (pgvector) για αναζήτηση με νόημα.
 // orgId = null → κοινή γνώση (άρθρα)· orgId = πελάτης → ανακτάται ΜΟΝΟ σε αιτήματα του ίδιου πελάτη (λυμένα αιτήματά του).
 model KbChunk {
-  id         String   @id @default(cuid())
+  id         String                 @id @default(cuid())
   sourceType String // article | ticket
   sourceId   String
   orgId      String?
-  internal   Boolean  @default(false) // εσωτερικό άρθρο: μόνο όταν ο agent βοηθά υπάλληλο
+  internal   Boolean                @default(false) // εσωτερικό άρθρο: μόνο όταν ο agent βοηθά υπάλληλο
   title      String
   content    String
   model      String // το μοντέλο embeddings που έβγαλε το διάνυσμα· η αναζήτηση συγκρίνει μόνο ίδια μοντέλα
   embedding  Unsupported("vector")?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime               @default(now())
 
   @@index([sourceType, sourceId])
   @@index([orgId])
@@ -893,22 +1499,56 @@ model StaffRole {
   users       User[]
 }
 
+// Ομάδα προσωπικού πλατφόρμας: προσθετικά δικαιώματα κονσόλας πάνω στον ρόλο (ένωση, ποτέ αφαίρεση).
+model StaffGroup {
+  id          String             @id @default(cuid())
+  name        String             @unique
+  permissions String[]
+  createdAt   DateTime           @default(now())
+  members     StaffGroupMember[]
+}
+
+model StaffGroupMember {
+  userId  String
+  groupId String
+  user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group   StaffGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([userId, groupId])
+}
+
+// Πρόσβαση υπαλλήλου της πλατφόρμας σε δεδομένα συνδρομητή: σε ολόκληρη την επιχείρηση (storeId κενό)
+// ή σε ένα κατάστημά της, με δικαιώματα της πλευράς της επιχείρησης (area.action του καταλόγου συνδρομητή).
+model StaffStoreAccess {
+  id          String       @id @default(cuid())
+  userId      String
+  orgId       String
+  storeId     String? // κενό = όλα τα καταστήματα της επιχείρησης
+  permissions String[]
+  createdAt   DateTime     @default(now())
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  store       Store?       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([userId, orgId])
+}
+
 // Πακέτο συνδρομής: ποιες ενότητες ανοίγει και πόσο κοστίζει κάθε κατάστημα και κάθε είδος συσκευής (λεπτά, προ ΦΠΑ, τον μήνα).
 model Plan {
-  id            String   @id @default(cuid())
-  name          String   @unique
-  description   String?
-  active        Boolean  @default(true) // ανενεργό: δεν δίνεται σε νέους πελάτες, όσοι το έχουν το κρατούν
-  isDefault     Boolean  @default(false)
-  modules       String[] // κλειδιά από lib/modules.ts
-  storeCents    Int
-  devicePrices  Json // { POS_WEB: 1500, FRIDGE: 0, … } ανά DeviceKind
+  id                  String         @id @default(cuid())
+  name                String         @unique
+  description         String?
+  active              Boolean        @default(true) // ανενεργό: δεν δίνεται σε νέους πελάτες, όσοι το έχουν το κρατούν
+  isDefault           Boolean        @default(false)
+  modules             String[] // κλειδιά από lib/modules.ts
+  storeCents          Int
+  devicePrices        Json // { POS_WEB: 1500, FRIDGE: 0, … } ανά DeviceKind
   // Εποχιακή παύση καταστήματος
-  pausePercent        Int      @default(30) // τι ποσοστό της τιμής πληρώνει το κατάστημα όσο είναι σε παύση
+  pausePercent        Int            @default(30) // τι ποσοστό της τιμής πληρώνει το κατάστημα όσο είναι σε παύση
   pausedModules       String[] // ενότητες που μένουν ανοιχτές στην παύση
-  pauseMaxDaysPerYear Int      @default(240)
-  createdAt     DateTime @default(now())
-  subscriptions Subscription[]
+  pauseMaxDaysPerYear Int            @default(240)
+  createdAt           DateTime       @default(now())
+  subscriptions       Subscription[]
 }
 
 // Περίοδος παύσης ενός καταστήματος (εποχιακό). Η έκπτωση δίνεται μόνο αν κρατήσει 30+ ημέρες.
@@ -950,4 +1590,129 @@ model VatCheck {
 
   @@index([vat, createdAt])
   @@index([orgId, createdAt])
+}
+
+// Τεχνική σύσταση είδους ανά 100 g, για την ανάλυση συνταγών (lib/recipe-analysis.ts).
+// Στον κεντρικό κατάλογο κρέμεται στο TradeItem (orgId = null, τη συντηρεί η πλατφόρμα)·
+// για «ιδιωτικό» είδος χωρίς TradeItem, στο GenericItem του συνδρομητή. Ακριβώς ένα από τα δύο.
+// Όλα τα ποσοστά σε χιλιοστά της εκατοστιαίας μονάδας (3,5% → 3500) — Int, όπως τα λεπτά στα χρήματα.
+model Composition {
+  id                    String        @id @default(cuid())
+  orgId                 String? // null = κεντρικός κατάλογος
+  tradeItemId           String?       @unique
+  genericItemId         String?       @unique
+  fatPm                 Int? // λιπαρά
+  msnfPm                Int? // στερεά γάλακτος άνευ λίπους
+  sucrosePm             Int?
+  dextrosePm            Int?
+  glucoseSyrupPm        Int?
+  glucoseDe             Int? // δεξτροζοϊσοδύναμο του σιροπιού γλυκόζης (ακέραιος, π.χ. 38)
+  invertSugarPm         Int?
+  fructosePm            Int?
+  lactosePm             Int? // ρητή λακτόζη· αλλιώς εκτίμηση από MSNF (βλ. materialLactose)
+  cocoaNonfatPm         Int? // απολιπασμένο κακάο
+  stabilizerPm          Int?
+  emulsifierPm          Int?
+  saltPm                Int?
+  alcoholPm             Int? // αλκοολικός τίτλος ετικέτας (% vol)
+  otherSolidsPm         Int?
+  proteinAvailablePm    Int? // διαθέσιμες πρωτεΐνες γάλακτος
+  otherProteinPm        Int? // άλλες πρωτεΐνες (αυγό, ξηροί καρποί, φυτικές)
+  fiberPm               Int?
+  pacOverridePm         Int? // χειροκίνητο PAC ανά 100 g — υπερισχύει του υπολογισμού
+  podOverridePm         Int? // χειροκίνητο POD ανά 100 g
+  totalSolidsOverridePm Int? // χειροκίνητα ολικά στερεά
+  acidityLevel          String? // none | high | very_high (οδηγεί τον AFP)
+  containsStarch        Boolean       @default(false)
+  containsCocoa         Boolean       @default(false)
+  allergensContains     String[]      @default([]) // περιέχει αλλεργιογόνα (κλειδιά καταλόγου)
+  allergensTraces       String[]      @default([]) // ίχνη
+  isVegan               Boolean       @default(false)
+  isVegetarian          Boolean       @default(true)
+  isSugarFree           Boolean       @default(false)
+  isGlutenFree          Boolean       @default(true)
+  isLactoseFree         Boolean       @default(true)
+  containsAlcohol       Boolean       @default(false)
+  updatedAt             DateTime      @updatedAt
+  org                   Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  tradeItem             TradeItem?    @relation(fields: [tradeItemId], references: [id], onDelete: Cascade)
+  genericItem           GenericItem?  @relation(fields: [genericItemId], references: [id], onDelete: Cascade)
+}
+
+// Συνταγή παγωτού του συνδρομητή (βάση/γεύση). Οι γραμμές είναι πάντα σε γραμμάρια.
+model Recipe {
+  id                String            @id @default(cuid())
+  orgId             String
+  name              String
+  type              String            @default("cream") // κλειδί των RECIPE_TYPES (lib/recipe-analysis.ts)
+  batchGrams        Int               @default(5000) // τυπικό μέγεθος δόσης για κοστολόγηση/παραγωγή
+  productId         String? // το προϊόν βιτρίνας που πουλάει η γεύση — κλείνει το «ένα βήμα μπροστά» της ιχνηλασιμότητας
+  notes             String?
+  active            Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  org               Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product           Product?          @relation(fields: [productId], references: [id], onDelete: SetNull)
+  items             RecipeItem[]
+  productionBatches ProductionBatch[]
+
+  @@unique([orgId, name])
+  @@index([orgId, productId])
+}
+
+model RecipeItem {
+  id            String       @id @default(cuid())
+  orgId         String
+  recipeId      String
+  genericItemId String
+  grams         Int // ποσότητα σε γραμμάρια — η μετατροπή σε βασική μονάδα γίνεται στην παραγωγή
+  sortOrder     Int          @default(0)
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  recipe        Recipe       @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  genericItem   GenericItem  @relation(fields: [genericItemId], references: [id], onDelete: Restrict)
+
+  @@index([recipeId])
+  @@index([orgId, genericItemId])
+}
+
+// Παρτίδα παραγωγής: μία δόση συνταγής που κλείνει ΑΤΟΜΙΚΑ (μία συναλλαγή) — FEFO κατανάλωση
+// υλικών από StockLot (αρνητικές κινήσεις με lotId) και ιχνηλασιμότητα: ποια παρτίδα υλικού μπήκε.
+model ProductionBatch {
+  id             String                @id @default(cuid())
+  orgId          String
+  recipeId       String
+  warehouseId    String // από ποια αποθήκη τράβηξε τα υλικά
+  batchNumber    String // αριθμός παρτίδας του παραγόμενου: YYYYMMDD-N
+  quantityGrams  Int // παράχθηκε (g)
+  costHundredths Int                   @default(0) // συνολικό κόστος δόσης σε εκατοστά λεπτού
+  note           String?
+  producedAt     DateTime              @default(now())
+  createdByName  String?
+  createdAt      DateTime              @default(now())
+  org            Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  recipe         Recipe                @relation(fields: [recipeId], references: [id], onDelete: Restrict)
+  warehouse      Warehouse             @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  items          ProductionBatchItem[]
+
+  @@unique([orgId, batchNumber])
+  @@index([orgId, producedAt])
+}
+
+// Γραμμή παραγωγής: πόσο καταναλώθηκε από ποιο είδος και από ποια παρτίδα του (FEFO).
+// lotId κενό μόνο για είδη trackStock=false (κοστολογούνται χωρίς απόθεμα).
+model ProductionBatchItem {
+  id             String          @id @default(cuid())
+  orgId          String
+  batchId        String
+  genericItemId  String
+  grams          Int // η αναλογούσα ποσότητα της συνταγής (g)
+  quantity       Int // κατανάλωση σε βασικές μονάδες (mg/ml/τεμ)
+  lotId          String?
+  costHundredths Int             @default(0)
+  org            Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  batch          ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  genericItem    GenericItem     @relation(fields: [genericItemId], references: [id], onDelete: Restrict)
+  lot            StockLot?       @relation(fields: [lotId], references: [id], onDelete: SetNull)
+
+  @@index([batchId])
+  @@index([orgId, genericItemId])
 }

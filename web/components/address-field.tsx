@@ -18,8 +18,17 @@ export function AddressField({ label, hint, ...p }: { label: string; hint?: stri
   useEffect(() => {
     if (q.trim().length < 4) return;
     const stop = new AbortController();
-    // περιμένουμε να σταματήσει να γράφει: ένα αίτημα ανά παύση, όχι ανά γράμμα
-    const t = setTimeout(() => fetch(`/api/address-suggest?q=${encodeURIComponent(q.trim())}`, { signal: stop.signal }).then((r) => (r.ok ? r.json() : [])).then((rows: AddressSuggestion[]) => { setItems(rows); setActive(0); setOpen(true); }).catch(() => {}), 350);
+    // περιμένουμε να σταματήσει να γράφει: ένα αίτημα ανά παύση, όχι ανά γράμμα.
+    // Στέλνουμε και την πόλη που έχει διαλέξει στη φόρμα (GeoCascade), για να προηγούνται οι δρόμοι εκείνης.
+    const t = setTimeout(() => {
+      const form = input.current?.form;
+      const params = new URLSearchParams({ q: q.trim() });
+      const city = form?.elements.namedItem("city");
+      const cityId = form?.elements.namedItem("cityId");
+      if (city instanceof HTMLInputElement && city.value.trim()) params.set("city", city.value.trim());
+      if (cityId instanceof HTMLInputElement && cityId.value) params.set("cityId", cityId.value);
+      fetch(`/api/address-suggest?${params}`, { signal: stop.signal }).then((r) => (r.ok ? r.json() : [])).then((rows: AddressSuggestion[]) => { setItems(rows); setActive(0); setOpen(true); }).catch(() => {});
+    }, 350);
     return () => { clearTimeout(t); stop.abort(); };
   }, [q]);
 
@@ -29,6 +38,8 @@ export function AddressField({ label, hint, ...p }: { label: string; hint?: stri
     if (input.current) input.current.value = s.street;
     set("postalCode", s.postalCode); set("city", s.city); set("region", s.region); set("countryCode", s.countryCode);
     set("latitude", s.latitude.toFixed(6).replace(".", ",")); set("longitude", s.longitude.toFixed(6).replace(".", ","));
+    // η φόρμα γεωγραφίας (GeoCascade) ακούει το γεγονός και γεμίζει Περιφέρεια → Νομό → Δήμο → Πόλη → Περιοχή
+    form?.dispatchEvent(new CustomEvent("geo:suggest", { detail: s, bubbles: true }));
     setOpen(false); setItems([]);
     setFilled(`Συμπληρώθηκαν Τ.Κ., πόλη${s.region ? ", περιοχή" : ""} και θέση στον χάρτη. Έλεγξέ τα`);
   }

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup — Καρτέλα παρτίδας: διόρθωση υπολοίπου</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          background: "#f7f7f5", card: "#ffffff", border: "#e4e4e0",
+          primary: "#2563eb", muted: "#6b7280", success: "#15803d",
+          gold: "#b45309", destructive: "#dc2626", secondary: "#f0f0ed",
+        },
+      },
+    },
+  };
+</script>
+<style>body { font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif; }</style>
+</head>
+<body class="bg-background text-neutral-900 antialiased">
+
+<!-- ═══ Κεφαλίδα σελίδας (όπως Page του kit) ═══ -->
+<header class="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 bg-background/70 px-4 py-3 backdrop-blur-xl lg:px-8">
+  <div class="min-w-0 flex-1 space-y-0.5">
+    <p class="text-xs font-medium text-muted">Παραγωγή › Παρτίδα L-100 — Γάλα πλήρες 3,5%</p>
+    <h1 class="truncate text-2xl leading-tight font-semibold">Παρτίδα L-100 — Γάλα πλήρες 3,5%</h1>
+    <p class="text-sm text-muted">Κεντρική αποθήκη · Γαλακτοκομική ΑΕ · τιμολόγιο Τ-55</p>
+  </div>
+  <a class="inline-flex h-7.5 items-center gap-2 rounded-lg border border-border bg-card px-2.5 text-xs font-medium shadow-sm hover:bg-secondary">← Ιχνηλασιμότητα</a>
+  <!-- ΝΕΟ κουμπί -->
+  <a class="inline-flex h-7.5 items-center gap-2 rounded-lg border border-border bg-card px-2.5 text-xs font-medium shadow-sm hover:bg-secondary ring-2 ring-primary/50">⚖ Διόρθωση υπολοίπου <span class="rounded bg-primary px-1 text-[10px] text-white">ΝΕΟ</span></a>
+</header>
+
+<main class="mx-auto grid max-w-5xl gap-4 px-4 pt-6 pb-10 lg:px-8">
+
+  <!-- μπάνερ επιτυχίας μετά τη διόρθωση -->
+  <p class="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success">Η διόρθωση καταχωρήθηκε</p>
+
+  <!-- προειδοποίηση λήξης (υπάρχουσα) -->
+  <p class="flex items-center gap-2 rounded-lg bg-gold/10 px-4 py-3 text-sm font-medium text-gold">⚠ Λήγει σε 12 ημέρες — η FEFO την προτεραιοποιεί στις παραγωγές.</p>
+
+  <!-- μετρητές (υπάρχοντες) -->
+  <div class="rounded-xl border border-border bg-card shadow-sm">
+    <dl class="grid grid-cols-2 gap-x-6 gap-y-3 px-5 py-4 text-sm sm:grid-cols-4">
+      <div><dt class="text-xs text-muted">Είσοδος</dt><dd class="font-medium tabular-nums">40 kg</dd></div>
+      <div><dt class="text-xs text-muted">Καταναλώθηκε</dt><dd class="font-medium tabular-nums">22,5 kg</dd></div>
+      <div><dt class="text-xs text-muted">Υπόλοιπο</dt><dd class="font-medium tabular-nums text-primary">17,5 kg</dd></div>
+      <div><dt class="text-xs text-muted">Λήξη</dt><dd class="font-medium">3 Δεκ 2026 <span class="text-xs text-muted">(12 ημ.)</span></dd></div>
+    </dl>
+  </div>
+
+  <!-- γράφημα ροής (υπάρχον, placeholder) -->
+  <div class="rounded-xl border border-border bg-card shadow-sm">
+    <div class="border-b border-border/70 px-5 py-4">
+      <h2 class="text-lg font-semibold">Διαδρομή παρτίδας</h2>
+      <p class="text-sm text-muted">Από τον προμηθευτή έως τις παραγωγές</p>
+    </div>
+    <div class="flex h-44 items-center justify-center gap-3 text-sm text-muted">
+      <span class="rounded-xl border border-border border-l-4 border-l-primary bg-card px-3 py-2 shadow-sm">Γαλακτοκομική ΑΕ</span> →
+      <span class="rounded-xl border border-border border-l-4 border-l-primary bg-card px-3 py-2 shadow-sm">Τιμολόγιο Τ-55</span> →
+      <span class="rounded-xl border border-border border-l-4 border-l-primary bg-card px-3 py-2 shadow-sm">Παρτίδα L-100</span> →
+      <span class="rounded-xl border border-border border-l-4 border-l-primary bg-card px-3 py-2 shadow-sm">Παραγωγή 20261121-1</span>
+    </div>
+  </div>
+
+  <!-- πού καταναλώθηκε (υπάρχων πίνακας) -->
+  <div class="rounded-xl border border-border bg-card shadow-sm">
+    <div class="border-b border-border/70 px-5 py-4">
+      <h2 class="text-lg font-semibold">Πού καταναλώθηκε</h2>
+      <p class="text-sm text-muted">2 αναλώσεις σε παραγωγές — σε ανάκληση, αυτές οι παρτίδες αποσύρονται</p>
+    </div>
+    <table class="w-full text-sm">
+      <thead><tr class="text-left text-xs text-muted">
+        <th class="px-5 py-2 font-semibold">Παρτίδα παραγωγής</th><th class="px-3 py-2 font-semibold">Συνταγή</th>
+        <th class="px-3 py-2 font-semibold">Ημερομηνία</th><th class="px-3 py-2 text-right font-semibold">Παράχθηκε</th>
+        <th class="px-5 py-2 text-right font-semibold">Από αυτή την παρτίδα</th></tr></thead>
+      <tbody>
+        <tr class="border-t border-border/70"><td class="px-5 py-2 font-medium text-primary underline">20261121-1</td><td class="px-3 py-2">Σοκολάτα</td><td class="px-3 py-2">21 Νοε 2026</td><td class="px-3 py-2 text-right tabular-nums">10 kg</td><td class="px-5 py-2 text-right tabular-nums">12,5 kg</td></tr>
+        <tr class="border-t border-border/70"><td class="px-5 py-2 font-medium text-primary underline">20261120-2</td><td class="px-3 py-2">Βανίλια Μαδαγασκάρης</td><td class="px-3 py-2">20 Νοε 2026</td><td class="px-3 py-2 text-right tabular-nums">8 kg</td><td class="px-5 py-2 text-right tabular-nums">10 kg</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══ ΝΕΟ: κινήσεις παρτίδας με audit ═══ -->
+  <div class="rounded-xl border-2 border-primary/40 bg-card shadow-sm">
+    <div class="border-b border-border/70 px-5 py-4">
+      <h2 class="text-lg font-semibold">Κινήσεις παρτίδας <span class="ml-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-white">ΝΕΟ</span></h2>
+      <p class="text-sm text-muted">Κάθε είσοδος, κατανάλωση και διόρθωση — με αιτιολογία και χρήστη</p>
+    </div>
+    <table class="w-full text-sm">
+      <thead><tr class="text-left text-xs text-muted">
+        <th class="px-5 py-2 font-semibold">Ημερομηνία</th><th class="px-3 py-2 font-semibold">Τύπος</th>
+        <th class="px-3 py-2 text-right font-semibold">Ποσότητα</th><th class="px-3 py-2 font-semibold">Αιτιολογία</th>
+        <th class="px-5 py-2 font-semibold">Χρήστης</th></tr></thead>
+      <tbody>
+        <tr class="border-t border-border/70 bg-gold/5">
+          <td class="px-5 py-2 tabular-nums">21/11/2026 09:40</td>
+          <td class="px-3 py-2"><span class="rounded-md bg-gold/15 px-2 py-0.5 text-xs font-semibold text-gold">Διόρθωση</span></td>
+          <td class="px-3 py-2 text-right tabular-nums font-medium text-destructive">−500 g</td>
+          <td class="px-3 py-2">Σπάσιμο συσκευασίας — χύθηκε κατά το άνοιγμα</td>
+          <td class="px-5 py-2">Γιάννης Κ.</td>
+        </tr>
+        <tr class="border-t border-border/70">
+          <td class="px-5 py-2 tabular-nums">21/11/2026 08:15</td>
+          <td class="px-3 py-2"><span class="rounded-md bg-secondary px-2 py-0.5 text-xs font-semibold">Παραγωγή</span></td>
+          <td class="px-3 py-2 text-right tabular-nums font-medium text-destructive">−12,5 kg</td>
+          <td class="px-3 py-2 text-muted">—</td>
+          <td class="px-5 py-2">Γιάννης Κ.</td>
+        </tr>
+        <tr class="border-t border-border/70">
+          <td class="px-5 py-2 tabular-nums">18/11/2026 10:02</td>
+          <td class="px-3 py-2"><span class="rounded-md bg-success/10 px-2 py-0.5 text-xs font-semibold text-success">Αγορά</span></td>
+          <td class="px-3 py-2 text-right tabular-nums font-medium text-success">+40 kg</td>
+          <td class="px-3 py-2 text-muted">Τιμολόγιο Τ-55</td>
+          <td class="px-5 py-2">Μαρία Π.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="px-1 text-xs text-muted">Καν. 178/2002 αρ. 18 — ένα βήμα πίσω: προμηθευτής «Γαλακτοκομική ΑΕ» · ένα βήμα μπροστά: οι παραγωγές που την κατανάλωσαν.</p>
+</main>
+
+<!-- ═══ ΝΕΟ: modal διόρθωσης (ανοικτό για το mockup) ═══ -->
+<div class="fixed inset-0 z-40 grid place-items-center bg-black/40 p-4">
+  <div class="w-full max-w-md rounded-xl border-2 border-primary/40 bg-card shadow-2xl">
+    <div class="border-b border-border/70 px-5 py-4">
+      <h2 class="text-lg font-semibold">Διόρθωση: Γάλα πλήρες 3,5% (L-100) <span class="ml-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-white">ΝΕΟ</span></h2>
+    </div>
+    <div class="grid gap-4 px-5 py-4">
+      <p class="rounded-lg bg-secondary px-3 py-2 text-sm">Τρέχον υπόλοιπο: <strong class="tabular-nums">17,5 kg</strong> — η διόρθωση γράφεται ως κίνηση με αιτιολογία και το όνομά σου.</p>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label class="block space-y-1 text-sm font-medium">Κατεύθυνση
+          <select class="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm">
+            <option>Προσθήκη (βρέθηκε παραπάνω)</option>
+            <option selected>Αφαίρεση (απώλεια / μέτρηση)</option>
+          </select>
+        </label>
+        <label class="block space-y-1 text-sm font-medium">Ποσότητα (g) <span class="text-destructive">*</span>
+          <input class="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm tabular-nums" value="500" inputmode="numeric" />
+          <span class="block text-xs font-normal text-muted">Θετικός ακέραιος — η αφαίρεση δεν ξεπερνά το υπόλοιπο</span>
+        </label>
+      </div>
+      <label class="block space-y-1 text-sm font-medium">Αιτιολογία <span class="text-destructive">*</span>
+        <input class="h-9 w-full rounded-lg border border-border bg-card px-2.5 text-sm" value="Σπάσιμο συσκευασίας — χύθηκε κατά το άνοιγμα" />
+      </label>
+      <div class="flex justify-end gap-2">
+        <a class="inline-flex h-9 items-center rounded-lg border border-border bg-card px-3.5 text-sm font-medium hover:bg-secondary">Άκυρο</a>
+        <a class="inline-flex h-9 items-center rounded-lg bg-primary px-3.5 text-sm font-medium text-white hover:bg-primary/90">Καταχώριση διόρθωσης</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

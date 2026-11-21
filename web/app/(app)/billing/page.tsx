@@ -20,12 +20,16 @@ const SAVED: Record<string, string> = { paused: "Το κατάστημα μπή�
 const deviceText = (kinds: string[]) => Object.entries(kinds.reduce<Record<string, number>>((a, k) => ({ ...a, [k]: (a[k] ?? 0) + 1 }), {})).map(([k, n]) => `${n} × ${DEVICE_KIND[k as keyof typeof DEVICE_KIND]?.label ?? k}`).join(", ") || "χωρίς συσκευές";
 
 export default async function BillingPage({ searchParams }: PageProps<"/billing">) {
-  const { org, permissions } = await currentOrg("billing.view");
+  const { org, permissions } = await currentOrg("billing.read");
   const q = await searchParams;
   const now = new Date();
   const [plan, stores, sub] = await Promise.all([planOf(org.id), billableStores(org.id), db.subscription.findUnique({ where: { orgId: org.id }, include: { charges: { orderBy: { periodStart: "desc" }, take: 12 } } })]);
   const preview = monthlyPreview(plan, stores.map((s) => ({ ...s, paused: !!s.paused })));
   const saving = preview.fullCents - preview.totalCents;
+  // κατανάλωση pay-as-you-go υπηρεσιών του τρέχοντος μήνα (OCR κ.ά.) — τη βλέπει ο συνδρομητής εδώ
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const usage = await db.usageEvent.groupBy({ by: ["service"], where: { orgId: org.id, createdAt: { gte: monthStart } }, _sum: { units: true, chargeCents: true } });
+  const usageLabels = usage.length ? new Map((await db.usagePrice.findMany({ where: { service: { in: usage.map((u) => u.service) } } })).map((p) => [p.service, p])) : new Map();
   const canPause = permissions.includes("stores.pause");
   const open = sub?.charges.filter((x) => !x.paidAt) ?? [];
   const closes = plan.modules.filter((m) => !plan.pausedModules.includes(m)).map((m) => MODULES[m as ModuleKey]?.label).filter(Boolean);
@@ -142,6 +146,27 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
             </ul>
           ) : null}
         </Card>
+
+        {usage.length ? (
+          <Card>
+            <div className="border-b border-border/70 px-5 py-4">
+              <h2 className="text-lg">Υπηρεσίες ανά χρήση — τρέχων μήνας</h2>
+              <p className="text-sm text-muted-foreground">Pay-as-you-go: χρεώνεσαι μόνο όσα χρησιμοποίησες. Μπαίνουν στον επόμενο λογαριασμό συνδρομής, προ ΦΠΑ</p>
+            </div>
+            <ul className="divide-y divide-border/70">
+              {usage.map((u) => {
+                const p = usageLabels.get(u.service);
+                return (
+                  <li key={u.service} className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
+                    <span className="min-w-0 flex-1 font-medium">{p?.label ?? u.service}</span>
+                    <span className="text-muted-foreground tabular-nums">{u._sum.units ?? 0} {p?.unitLabel ?? ""}</span>
+                    <b className="tabular-nums">{euro(u._sum.chargeCents ?? 0)}</b>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        ) : null}
       </div>
     </Page>
   );

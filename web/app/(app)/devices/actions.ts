@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { DEVICE_KIND } from "@/lib/devices";
+import { attachWarehouse } from "@/lib/warehouses";
 import { currentOrg } from "@/lib/auth";
 
 const temperature = z.string().trim().max(8).default("").transform((v) => (v === "" ? null : Number(v.replace(",", ".")))).refine((v) => v === null || (Number.isFinite(v) && Math.abs(v) <= 100));
@@ -26,7 +27,7 @@ const input = z
   });
 
 export async function addDevice(form: FormData) {
-  const { org } = await currentOrg("devices.manage");
+  const { org } = await currentOrg("devices.add");
   const parsed = input.safeParse(Object.fromEntries(form));
   if (!parsed.success) return; // η φόρμα έχει ήδη ελέγξει τα πεδία· εδώ φτάνει μόνο πειραγμένο αίτημα ή ελλιπές ταμείο
   const data = parsed.data;
@@ -34,8 +35,10 @@ export async function addDevice(form: FormData) {
   if (!(await db.store.findFirst({ where: { id: data.storeId, orgId: org.id } }))) return;
   if (data.series && (await db.device.findFirst({ where: { orgId: org.id, series: data.series } }))) return;
   await db.$transaction(async (tx) => {
-    // ψυγείο και αυτόματος πωλητής είναι και αποθηκευτικοί χώροι
-    const warehouse = DEVICE_KIND[data.kind].storage ? await tx.warehouse.create({ data: { orgId: org.id, storeId: data.storeId, name: data.name } }) : null;
+    // ψυγείο και αυτόματος πωλητής είναι και αποθηκευτικοί χώροι: δένονται αμέσως στο κατάστημα της συσκευής
+    // (η attachWarehouse κάνει προεπιλογή μόνο αν το κατάστημα δεν έχει ήδη)
+    const warehouse = DEVICE_KIND[data.kind].storage ? await tx.warehouse.create({ data: { orgId: org.id, name: data.name } }) : null;
+    if (warehouse) await attachWarehouse(tx, { orgId: org.id, storeId: data.storeId, warehouseId: warehouse.id });
     await tx.device.create({ data: { ...data, orgId: org.id, warehouseId: warehouse?.id } });
   });
   revalidatePath("/devices");
@@ -43,7 +46,7 @@ export async function addDevice(form: FormData) {
 }
 
 export async function toggleDevice(deviceId: string) {
-  const { org } = await currentOrg("devices.manage");
+  const { org } = await currentOrg("devices.edit");
   const device = await db.device.findFirst({ where: { id: deviceId, orgId: org.id } });
   if (device) await db.device.update({ where: { id: device.id }, data: { active: !device.active } });
   revalidatePath("/devices");

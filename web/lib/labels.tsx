@@ -8,5 +8,4 @@ const FISCAL: Record<FiscalStatus, { tone: "neutral" | "success" | "warning" | "
   FAILED: { tone: "danger", text: "Απέτυχε — θέλει ενέργεια" },
 };
 export const FiscalBadge = ({ status }: { status: FiscalStatus }) => <Badge tone={FISCAL[status].tone}>{FISCAL[status].text}</Badge>;
-export const METHOD = { CASH: "Μετρητά", CARD: "Κάρτα" } as const;
 export const dateTime = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Athens" });

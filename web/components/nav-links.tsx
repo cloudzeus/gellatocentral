@@ -41,7 +41,8 @@ export function NavLinks({ allowed, badges = {}, collapsed = false, onExpand }: 
     <nav aria-label="Κύριο μενού" className={cn("flex-1 space-y-0.5 pb-4", collapsed ? "px-2" : "px-3")}>
       {sections.map((section) => {
         const activeHere = section.items.some((i) => isActive(path, i.to));
-        const single = section.items.length === 1 ? section.items[0] : null;
+        // ομάδα με ένα στοιχείο γίνεται απευθείας σύνδεσμος, εκτός αν ζητά ρητά να μείνει ομάδα (group: θα μαζευτούν κι άλλα)
+        const single = !section.group && section.items.length === 1 ? section.items[0] : null;
         const Icon = section.icon;
 
         if (single)

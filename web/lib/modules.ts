@@ -3,13 +3,13 @@
 import type { Permission } from "./permissions";
 
 export const MODULES = {
-  dashboard: { label: "Πίνακας ελέγχου", hint: "Πωλήσεις και εικόνα της επιχείρησης", permissions: ["dashboard.view"], paths: ["/"] },
-  pos: { label: "Ταμείο και συσκευές", hint: "Έκδοση αποδείξεων, ταμεία, εκτυπωτές, ψυγεία", permissions: ["pos.use", "devices.manage"], paths: ["/pos", "/devices"] },
-  receipts: { label: "Αποδείξεις", hint: "Προβολή και επανεκτύπωση όσων έχουν εκδοθεί", permissions: ["receipts.view"], paths: ["/receipts"] },
-  customers: { label: "Συναλλασσόμενοι", hint: "Πελάτες, προμηθευτές, franchisees, συνεργάτες: καρτέλες, αρχεία και συναινέσεις", permissions: ["customers.manage"], paths: ["/parties", "/customers"] },
-  recipes: { label: "Συνταγολόγιο", hint: "Α΄ ύλες, συνταγές, προϊόντα", permissions: [], paths: ["/materials", "/recipes", "/products"] },
+  dashboard: { label: "Πίνακας ελέγχου", hint: "Πωλήσεις και εικόνα της επιχείρησης", permissions: ["dashboard.read"], paths: ["/"] },
+  pos: { label: "Ταμείο και συσκευές", hint: "Έκδοση αποδείξεων, ταμεία, εκτυπωτές, ψυγεία", permissions: ["pos.use", "devices.read", "devices.add", "devices.edit", "devices.delete"], paths: ["/pos", "/devices"] },
+  receipts: { label: "Αποδείξεις", hint: "Προβολή και επανεκτύπωση όσων έχουν εκδοθεί", permissions: ["receipts.read", "receipts.reissue"], paths: ["/receipts"] },
+  customers: { label: "Συναλλασσόμενοι", hint: "Πελάτες, προμηθευτές, franchisees, συνεργάτες: καρτέλες, αρχεία και συναινέσεις", permissions: ["parties.read", "parties.add", "parties.edit", "parties.delete"], paths: ["/parties", "/customers"] },
+  recipes: { label: "Συνταγολόγιο", hint: "Α΄ ύλες, συνταγές, προϊόντα", permissions: ["items.read", "items.add", "items.edit"], paths: ["/materials", "/recipes", "/products", "/items"] },
   production: { label: "Παραγωγή", hint: "Παραγωγή, HACCP, ιχνηλασιμότητα", permissions: [], paths: ["/production", "/haccp", "/traceability"] },
-  inventory: { label: "Αποθήκη και αγορές", hint: "Αποθήκη, απογραφές, παραγγελίες υλών", permissions: [], paths: ["/inventory", "/counts", "/orders"] },
+  inventory: { label: "Αποθήκη και αγορές", hint: "Αποθήκη, απογραφές, τιμολόγια αγοράς, παραγγελίες υλών", permissions: ["purchases.read", "purchases.add", "purchases.edit"], paths: ["/inventory", "/counts", "/orders", "/purchases"] },
   wholesale: { label: "Χονδρική", hint: "Παραγγελίες πελατών, παραστατικά, βιτρίνα", permissions: [], paths: ["/wholesale-orders", "/invoices", "/vitrine"] },
   team: { label: "Ομάδα και αναφορές", hint: "Προσωπικό, βάρδιες, αναφορές", permissions: [], paths: ["/staff", "/reports"] },
   finance: { label: "Οικονομικά", hint: "Έσοδα, έξοδα, ταμειακή εικόνα", permissions: [], paths: ["/finance"] },

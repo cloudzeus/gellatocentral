@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowRight, ArrowUp, Banknote, BarChart3, CircleCheck, CreditCard, Plus, ReceiptText, Store, TabletSmartphone, ThermometerSnowflake, Users } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUp, Banknote, BarChart3, CircleCheck, CreditCard, Plus, ReceiptText, Store, TabletSmartphone, ThermometerSnowflake, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { RankChart, ShareChart, type TrendPoint, TrendChart } from "@/components/charts";
 import { Badge, btn, Card, cn, Page } from "@/components/ui";
@@ -7,8 +7,8 @@ import { currentOrg } from "@/lib/auth";
 import { compare } from "@/lib/dashboard";
 import { db } from "@/lib/db";
 import { DEVICE_KIND, readingStatus } from "@/lib/devices";
-import { METHOD } from "@/lib/labels";
 import { euro } from "@/lib/money";
+import type { Permission } from "@/lib/permissions";
 
 type Hour = { h: number; total: number };
 type Meta = { now_hour: number; today: string; y_same: number; y_total: number; y_count: number };
@@ -39,7 +39,7 @@ const ROW = "flex min-h-11 items-center gap-3 border-t border-border px-5 py-1.5
 const DOT = { danger: "bg-destructive", warning: "bg-gold" };
 
 export default async function DashboardPage({ searchParams }: PageProps<"/">) {
-  const { org, permissions } = await currentOrg("dashboard.view");
+  const { org, permissions } = await currentOrg("dashboard.read");
   const stores = await db.store.findMany({ where: { orgId: org.id, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } });
   const sp = await searchParams;
   const wanted = sp.store;
@@ -59,14 +59,14 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
         coalesce(sum("totalCents") FILTER (WHERE ${LOCAL} <= ${NOW} - interval '1 day'), 0)::int AS y_same,
         coalesce(sum("totalCents"), 0)::int AS y_total, count(*)::int AS y_count
        FROM "Sale" WHERE ${SCOPE} AND ${LOCAL}::date = ${NOW}::date - 1`, ...args),
-    db.$queryRawUnsafe<{ method: "CASH" | "CARD"; total: number; n: number }[]>(
-      `SELECT p.method, sum(p."amountCents")::int AS total, count(*)::int AS n FROM "Payment" p JOIN "Sale" s ON s.id = p."saleId"
-       WHERE s."orgId" = $1 AND ($2::text IS NULL OR s."storeId" = $2) AND s.status = 'COMPLETED' AND (s."issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')::date = ${NOW}::date GROUP BY 1`, ...args),
+    db.$queryRawUnsafe<{ method: string; ledger: string; total: number; n: number }[]>(
+      `SELECT m.name AS method, m."ledgerKind"::text AS ledger, sum(p."amountCents")::int AS total, count(*)::int AS n FROM "Payment" p JOIN "Sale" s ON s.id = p."saleId" JOIN "PaymentMethod" m ON m.id = p."methodId"
+       WHERE s."orgId" = $1 AND ($2::text IS NULL OR s."storeId" = $2) AND s.status = 'COMPLETED' AND (s."issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')::date = ${NOW}::date GROUP BY 1, 2`, ...args),
     db.$queryRawUnsafe<Top[]>(
       `SELECT l.name, sum(l.quantity)::int AS qty, sum(l.quantity * l."unitPriceCents")::int AS total FROM "SaleLine" l JOIN "Sale" s ON s.id = l."saleId"
        WHERE s."orgId" = $1 AND ($2::text IS NULL OR s."storeId" = $2) AND s.status = 'COMPLETED' AND (s."issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')::date = ${NOW}::date
        GROUP BY 1 ORDER BY 3 DESC LIMIT 5`, ...args),
-    db.sale.findMany({ where: { orgId: org.id, status: "COMPLETED", ...inStore }, orderBy: { issuedAt: "desc" }, take: 5, include: { payment: true, fiscal: true } }),
+    db.sale.findMany({ where: { orgId: org.id, status: "COMPLETED", ...inStore }, orderBy: { issuedAt: "desc" }, take: 5, include: { payment: { include: { method: true } }, fiscal: true } }),
     db.fiscalDocument.count({ where: { sale: { orgId: org.id, status: "COMPLETED", ...inStore }, status: { not: "SIGNED" } } }),
     db.device.findMany({ where: { store: { orgId: org.id }, active: true, ...inStore }, orderBy: { createdAt: "asc" }, include: { store: true, readings: { orderBy: { at: "desc" }, take: 1 } } }),
     db.subscription.findUnique({ where: { orgId: org.id } }),
@@ -79,7 +79,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
        WHERE s."orgId" = $1 AND ($2::text IS NULL OR s."storeId" = $2) AND s.status = 'COMPLETED' AND (s."issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')::date = ${NOW}::date
        GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 6`, ...args),
   ]);
-  const sum = (m: "CASH" | "CARD") => paid.find((p) => p.method === m)?.total ?? 0;
+
+  const ledgerSum = (l: string) => paid.filter((p) => p.ledger === l).reduce((s, p) => s + p.total, 0);
 
   const total = hours.reduce((s, h) => s + h.total, 0);
   const count = paid.reduce((s, p) => s + p.n, 0);
@@ -115,15 +116,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const daysLeft = subscription ? daysUntil(subscription.currentPeriodEnd) : null;
   if (daysLeft !== null && daysLeft <= 7) issues.push({ tone: daysLeft < 0 ? "danger" : "warning", text: daysLeft < 0 ? "Η συνδρομή έληξε" : `Η συνδρομή λήγει σε ${daysLeft} ${daysLeft === 1 ? "ημέρα" : "ημέρες"}`, href: "/billing", action: "Συνδρομή" });
 
-  const shortcuts = [
+  const shortcuts = ([
     { href: "/pos", label: "Ταμείο", needs: "pos.use", icon: Store },
-    { href: "/receipts", label: "Αποδείξεις", needs: "receipts.view", icon: ReceiptText },
-    { href: "/devices", label: "Νέα συσκευή", needs: "devices.manage", icon: Plus },
-    { href: "/users", label: "Νέος χρήστης", needs: "users.manage", icon: Users },
-  ].filter((x) => permissions.includes(x.needs));
+    { href: "/receipts", label: "Αποδείξεις", needs: "receipts.read", icon: ReceiptText },
+    { href: "/devices", label: "Νέα συσκευή", needs: "devices.add", icon: Plus },
+    { href: "/users", label: "Νέος χρήστης", needs: "users.add", icon: Users },
+  ] satisfies { href: string; label: string; needs: Permission; icon: LucideIcon }[]).filter((x) => permissions.includes(x.needs));
   const tiles = [
-    { label: "Μετρητά", value: euro(sum("CASH")), hint: "Τόσα πρέπει να έχει το συρτάρι", icon: Banknote },
-    { label: "Κάρτες", value: euro(sum("CARD")), hint: "Πιστώνονται από τη Viva", icon: CreditCard },
+    { label: "Μετρητά", value: euro(ledgerSum("CASH")), hint: "Τόσα πρέπει να έχει το συρτάρι", icon: Banknote },
+    { label: "Κάρτες", value: euro(ledgerSum("CARD_CLEARING")), hint: "Πιστώνονται από τη Viva", icon: CreditCard },
     { label: "Μέση απόδειξη", value: euro(avg), hint: `${count} ${count === 1 ? "απόδειξη" : "αποδείξεις"}${yAvg ? ` · χθες ${euro(yAvg)}` : ""}`, icon: BarChart3 },
   ];
   const seg = (on: boolean) => cn("rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap pointer-coarse:py-2.5", on ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground");
@@ -225,7 +226,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
               node: (
                 <Card>
                   <Head title="Τρόποι πληρωμής" note="σήμερα" />
-                  {total ? <ShareChart totalLabel="σύνολο" summary={`Μετρητά ${euro(sum("CASH"))}, κάρτες ${euro(sum("CARD"))}`} data={[{ key: "CARD", label: "Κάρτα", value: sum("CARD") }, { key: "CASH", label: "Μετρητά", value: sum("CASH") }]} /> : <p className={cn(ROW, "text-muted-foreground")}>Καμία πληρωμή ακόμα σήμερα</p>}
+                  {total ? <ShareChart totalLabel="σύνολο" summary={paid.map((p) => `${p.method} ${euro(p.total)}`).join(", ")} data={paid.map((p) => ({ key: p.method, label: p.method, value: p.total }))} /> : <p className={cn(ROW, "text-muted-foreground")}>Καμία πληρωμή ακόμα σήμερα</p>}
                 </Card>
               ),
             },
@@ -252,7 +253,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
             </ul>
           </Card> },
             { id: "receipts", title: "Τελευταίες αποδείξεις", node: <Card>
-            <Head title="Τελευταίες αποδείξεις" href={permissions.includes("receipts.view") ? "/receipts" : undefined} all="Όλες" />
+            <Head title="Τελευταίες αποδείξεις" href={permissions.includes("receipts.read") ? "/receipts" : undefined} all="Όλες" />
             {last.length === 0 ? <p className={cn(ROW, "text-muted-foreground")}>Καμία απόδειξη ακόμα</p> : null}
             <ul>
               {last.map((s) => (
@@ -260,7 +261,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
                   <Link href={`/receipts/${s.id}`} className={cn(ROW, "hover:bg-secondary")}>
                     {/* ο αριθμός απόδειξης σαν απόκομμα: το σήμα της εφαρμογής */}
                     <span className="shrink-0 rounded-sm border border-dashed border-primary/30 bg-background px-1.5 py-1 font-mono text-xs leading-none font-medium">{s.series}-{s.aa}</span>
-                    <span className="min-w-0 flex-1 text-muted-foreground tabular-nums">{s.issuedAt ? time.format(s.issuedAt) : ""}{s.payment ? ` · ${METHOD[s.payment.method]}` : ""}</span>
+                    <span className="min-w-0 flex-1 text-muted-foreground tabular-nums">{s.issuedAt ? time.format(s.issuedAt) : ""}{s.payment ? ` · ${s.payment.method.name}` : ""}</span>
                     {s.fiscal && s.fiscal.status !== "SIGNED" ? <Badge tone="danger">Δεν στάλθηκε</Badge> : null}
                     <span className="w-18 shrink-0 text-right font-semibold tabular-nums">{euro(s.totalCents)}</span>
                   </Link>
@@ -269,7 +270,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
             </ul>
           </Card> },
             { id: "devices", title: "Συσκευές", node: <Card>
-            <Head title="Συσκευές" href={permissions.includes("devices.manage") ? "/devices" : undefined} all="Όλες" />
+            <Head title="Συσκευές" href={permissions.includes("devices.read") ? "/devices" : undefined} all="Όλες" />
             {status.length === 0 ? <p className={cn(ROW, "text-muted-foreground")}>Καμία συσκευή ακόμα</p> : null}
             <ul>
               {status.slice(0, 6).map(({ d, st }) => {

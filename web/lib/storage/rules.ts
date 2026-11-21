@@ -12,17 +12,18 @@ const MB = 1024 * 1024;
  * Νέο είδος = μία γραμμή εδώ.
  */
 export const CATEGORIES = {
-  logo: { label: "Λογότυπο", public: true, types: IMAGES, maxBytes: 2 * MB, needs: "users.manage", platform: false, single: true },
-  photo: { label: "Φωτογραφίες", public: true, types: IMAGES, maxBytes: 8 * MB, needs: "devices.manage", platform: false },
-  document: { label: "Έγγραφα", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "users.manage", platform: false },
-  customer_document: { label: "Έγγραφα πελάτη", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "customers.manage", platform: false },
+  logo: { label: "Λογότυπο", public: true, types: IMAGES, maxBytes: 2 * MB, needs: "users.edit", platform: false, single: true },
+  photo: { label: "Φωτογραφίες", public: true, types: IMAGES, maxBytes: 8 * MB, needs: "devices.edit", platform: false },
+  document: { label: "Έγγραφα", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "users.edit", platform: false },
+  customer_document: { label: "Έγγραφα πελάτη", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "parties.edit", platform: false },
   ticket_attachment: { label: "Συνημμένα αιτήματος", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 10 * MB, needs: null, platform: false, staff: "support.tickets" },
-  backup: { label: "Αντίγραφα ασφαλείας", public: false, types: ["application/octet-stream"], maxBytes: 5 * 1024 * MB, needs: "users.manage", platform: true },
+  backup: { label: "Αντίγραφα ασφαλείας", public: false, types: ["application/octet-stream"], maxBytes: 5 * 1024 * MB, needs: "users.edit", platform: true },
+  trade_item: { label: "Φωτογραφίες ειδών", public: true, types: IMAGES, maxBytes: 4 * MB, needs: null, platform: true },
 } as const satisfies Record<string, { label: string; public: boolean; types: readonly string[]; maxBytes: number; needs: Permission | null; platform: boolean; /** κρατιέται μόνο το τελευταίο */ single?: boolean; /** ποιο δικαίωμα προσωπικού πλατφόρμας αρκεί (αλλιώς: αρχικοποίηση) */ staff?: PlatformPermission }>;
 export type Category = keyof typeof CATEGORIES;
 export const isCategory = (v: unknown): v is Category => typeof v === "string" && v in CATEGORIES;
 /** Δικαίωμα προσωπικού πλατφόρμας: αρχεία πελάτη = αρχικοποίηση, αρχεία πλατφόρμας = ρυθμίσεις. */
-export const platformNeeds = (orgId: string | null): PlatformPermission => (orgId ? "setup.manage" : "settings.manage");
+export const platformNeeds = (orgId: string | null): PlatformPermission => (orgId ? "setup.edit" : "settings.edit");
 
 /**
  * Όνομα αρχείου ασφαλές για διαδρομή: μόνο λατινικά, ψηφία, τελεία, παύλα· χωρίς φακέλους, χωρίς κρυφά ονόματα.

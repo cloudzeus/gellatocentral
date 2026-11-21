@@ -6,6 +6,7 @@ import { ActivityForm } from "@/components/crm/activity-form";
 import { QuickActions } from "@/components/crm/quick-actions";
 import { Timeline } from "@/components/crm/timeline";
 import { Files } from "@/components/files";
+import { GeoCascade } from "@/components/geo-fields";
 import { Modal } from "@/components/modal";
 import { RoleBadges } from "@/components/party-bits";
 import { PartyForm } from "@/components/party-form";
@@ -18,6 +19,7 @@ import { partyEvents } from "@/lib/crm-data";
 import { db } from "@/lib/db";
 import { consentsOf } from "@/lib/gdpr";
 import { currentConsents, daysLeft, DUE_DAYS, PURPOSES } from "@/lib/gdpr/rules";
+import { geoBreadcrumb, type GeoBreadcrumb } from "@/lib/geo";
 import { euro } from "@/lib/money";
 import { ADDRESS_KINDS, type AddressKind, distanceKm, roleText, showIban } from "@/lib/parties";
 import { partyScope } from "@/lib/party-scope";
@@ -41,7 +43,9 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
   const party = await db.party.findFirst({
     where: { id: (await params).id, orgId: scope.orgId },
     include: {
-      addresses: { orderBy: [{ branchNo: "asc" }, { label: "asc" }] },
+      // geoArea: το όνομα της περιοχής από την κοινή λίστα, για να εμφανίζεται προσυμπληρωμένο στις φόρμες
+      geoArea: { select: { name: true } },
+      addresses: { orderBy: [{ branchNo: "asc" }, { label: "asc" }], include: { geoArea: { select: { name: true } } } },
       contacts: { orderBy: [{ active: "desc" }, { isPrimary: "desc" }, { person: { name: "asc" } }], include: { address: true, person: { include: { channels: { orderBy: [{ isPrimary: "desc" }, { kind: "desc" }] }, links: { include: { party: { select: { id: true, name: true } } } } } } } },
       channels: { orderBy: [{ kind: "desc" }, { isPrimary: "desc" }, { id: "asc" }], include: { address: true } },
       bankAccounts: { orderBy: [{ isPrimary: "desc" }, { bank: "asc" }] },
@@ -55,7 +59,15 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
   const now = new Date();
   const base = `${scope.base}/${party.id}`;
   const refs = await partyRefs();
-  const tenant = scope.orgId ? await currentOrg("customers.manage") : null;
+  // Η αλυσίδα Καλλικράτη (Περιφέρεια → Νομός → Δήμος) της έδρας και κάθε διεύθυνσης με κωδικό,
+  // ώστε τα αλληλοεξαρτώμενα πεδία των φορμών να ανοίγουν προσυμπληρωμένα
+  const crumbs = new Map<string, GeoBreadcrumb>();
+  await Promise.all(
+    [...(party.regionCode ? [["hq", party.regionCode] as const] : []), ...party.addresses.flatMap((a) => (a.regionCode ? [[a.id, a.regionCode] as const] : []))].map(async ([key, code]) => {
+      crumbs.set(key, await geoBreadcrumb(code));
+    }),
+  );
+  const tenant = scope.orgId ? await currentOrg("parties.read") : null;
   const [consents, request, stores] = tenant
     ? await Promise.all([consentsOf("customer", party.id), db.erasureRequest.findFirst({ where: { orgId: tenant.org.id, subjectType: "customer", subjectId: party.id, status: "PENDING" } }), db.store.findMany({ where: { orgId: tenant.org.id, active: true, latitude: { not: null }, longitude: { not: null } } })])
     : [[], null, []];
@@ -65,7 +77,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
     !scope.orgId && party.linkedOrgId ? db.ticket.count({ where: { orgId: party.linkedOrgId, status: { in: OPEN_TICKETS } } }) : 0,
   ]);
   const marketing = currentConsents(consents).get("customer_marketing");
-  const method = refs.methods.find(([c]) => c === party.paymentMethod)?.[1];
+  const method = refs.methods.find(([c]) => c === party.paymentMethodId)?.[1];
   const facts: [string, string | null][] = [
     ["ΑΦΜ", party.vatNumber ? `${party.countryCode === "GR" ? "" : `${party.countryCode} `}${party.vatNumber}` : null], ["ΔΟΥ", party.taxOffice], ["Δραστηριότητα", party.profession],
     ["Κύρια επαφή", party.contactName], ["Κύριο email", party.email], ["Κύριο τηλέφωνο", party.phone ? showPhone(party.phone) : null],
@@ -140,8 +152,9 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
       <Field label="Αριθμός εγκατάστασης" name="branchNo" type="number" min={1} max={9999} defaultValue={a?.branchNo ?? ""} hint="Μόνο για υποκατάστημα: όπως είναι δηλωμένο στην εφορία (η έδρα είναι 0)" />
       <Field label="Ονομασία" name="label" maxLength={80} defaultValue={a?.label ?? ""} placeholder="π.χ. Κατάστημα Γλυφάδας" />
       <AddressField label="Διεύθυνση" name="street" required minLength={2} maxLength={200} defaultValue={a?.street ?? ""} />
-      <div className="grid grid-cols-[7rem_1fr] gap-4"><Field label="Τ.Κ." name="postalCode" maxLength={10} defaultValue={a?.postalCode ?? ""} /><Field label="Πόλη" name="city" maxLength={80} defaultValue={a?.city ?? ""} /></div>
-      <label className="block min-w-0 space-y-1 text-sm font-medium">Περιοχή<input name="region" list="address-regions" maxLength={80} defaultValue={a?.region ?? ""} className="h-9 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11" /><datalist id="address-regions">{refs.regions.map((r) => <option key={r} value={r} />)}</datalist></label>
+      <Field label="Τ.Κ." name="postalCode" maxLength={10} defaultValue={a?.postalCode ?? ""} />
+      {/* αλληλοεξαρτώμενα γεωγραφικά (Καλλικράτης + πόλη/περιοχή από τις κοινές λίστες)· οι διευθύνσεις είναι εντός Ελλάδος */}
+      <GeoCascade country="GR" initial={a ? { breadcrumb: crumbs.get(a.id), cityId: a.cityId, city: a.city, areaId: a.areaId, areaName: a.geoArea?.name ?? null } : undefined} />
       <Field label="Τηλέφωνο" name="phone" type="tel" maxLength={40} defaultValue={a?.phone ?? ""} />
       <Field label="Email" name="email" type="email" maxLength={160} defaultValue={a?.email ?? ""} />
       <div className="grid grid-cols-2 gap-4"><Field label="Γεωγρ. πλάτος" name="latitude" inputMode="decimal" defaultValue={a?.latitude != null ? String(a.latitude).replace(".", ",") : ""} /><Field label="Γεωγρ. μήκος" name="longitude" inputMode="decimal" defaultValue={a?.longitude != null ? String(a.longitude).replace(".", ",") : ""} /></div>
@@ -383,7 +396,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                 <h2 className="text-lg">Στοιχεία {party.vatCheckedAt ? <Badge tone="success">Επιβεβαιώθηκαν από το μητρώο {day.format(party.vatCheckedAt)}</Badge> : null}</h2>
                 <p className="text-sm text-muted-foreground">{missing.length ? `Για τιμολόγιο λείπουν: ${missing.join(", ")}` : "Τα στοιχεία τιμολόγησης είναι πλήρη"}</p>
               </div>
-              {scope.canEdit ? <Modal label={<><Pencil /> Αλλαγή</>} title="Στοιχεία συναλλασσόμενου"><PartyForm action={saveParty.bind(null, party.id)} party={party} refs={refs} /></Modal> : null}
+              {scope.canEdit ? <Modal label={<><Pencil /> Αλλαγή</>} title="Στοιχεία συναλλασσόμενου"><PartyForm action={saveParty.bind(null, party.id)} party={party} refs={refs} geo={{ breadcrumb: crumbs.get("hq"), cityId: party.cityId, city: party.city, areaId: party.areaId, areaName: party.geoArea?.name ?? null, regionText: party.region }} /></Modal> : null}
             </div>
             <dl className="grid gap-x-6 gap-y-3 p-5 sm:grid-cols-2 xl:grid-cols-3">
               {facts.map(([l, v]) => <div key={l} className="min-w-0"><dt className="text-xs font-medium text-muted-foreground">{l}</dt><dd className="font-semibold break-words">{v ?? <span className="font-normal text-muted-foreground">Δεν έχει συμπληρωθεί</span>}</dd></div>)}
@@ -435,7 +448,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                 </li>
                 <li className="flex flex-wrap items-center gap-3 px-5 py-3">
                   <div className="min-w-0 basis-40 flex-1"><p className="font-medium">Διαγραφή των δεδομένων του</p><p className="text-sm text-muted-foreground">{request ? `Ανοιχτό αίτημα από ${day.format(request.requestedAt)}. ${daysLeft(request.dueAt) >= 0 ? `Απομένουν ${daysLeft(request.dueAt)} ημέρες` : "Η προθεσμία πέρασε"}` : `Ανοίγει αίτημα με προθεσμία ${DUE_DAYS} ημερών`}</p></div>
-                  {request ? (tenant.permissions.includes("gdpr.manage") ? <Link href="/gdpr" className={btn("outline", "sm")}>Στα αιτήματα</Link> : <Badge tone="warning">Σε εξέταση</Badge>) : (
+                  {request ? (tenant.permissions.includes("gdpr.edit") ? <Link href="/gdpr" className={btn("outline", "sm")}>Στα αιτήματα</Link> : <Badge tone="warning">Σε εξέταση</Badge>) : (
                     <Modal label={<><Trash2 /> Αίτημα</>} size="sm" variant="outline" title="Αίτημα διαγραφής" description={`Το εξετάζει ο υπεύθυνος GDPR της επιχείρησης μέσα σε ${DUE_DAYS} ημέρες`}>
                       <form action={requestCustomerErasure.bind(null, party.id)} className="grid gap-4 [&>button]:justify-self-end">
                         <Field label="Πώς ήρθε το αίτημα" name="reason" maxLength={500} hint="π.χ. με email στις 12/11. Σβήνεται όταν ολοκληρωθεί" />

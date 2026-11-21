@@ -63,7 +63,7 @@ function PlanForm({ plan }: { plan?: Row }) {
 }
 
 export default async function PlansPage({ searchParams }: PageProps<"/platform/plans">) {
-  await requirePlatform("billing.manage");
+  await requirePlatform("billing.read");
   const q = await searchParams;
   const rows = await db.plan.findMany({ orderBy: [{ isDefault: "desc" }, { active: "desc" }, { name: "asc" }], include: { _count: { select: { subscriptions: true } } } });
   const noPlan = await db.subscription.count({ where: { planId: null } });

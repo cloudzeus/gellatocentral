@@ -7,7 +7,7 @@ import { db } from "./db";
 import { allowedPermissions } from "./modules";
 import { accessFor } from "./plan-data";
 import { loadPlatformRoles } from "./platform-roles";
-import { ALL_PERMISSIONS, type Permission, permissionFor, platformCan, type PlatformPermission } from "./permissions";
+import { expandOrg, orgPermissionsOf, type Permission, permissionFor, platformCan, type PlatformPermission } from "./permissions";
 
 const COOKIE = "gs_session";
 const DAYS = 14;
@@ -27,13 +27,13 @@ export async function endSession() {
   jar.delete(COOKIE);
 }
 
-/** Ο συνδεδεμένος χρήστης με τη συμμετοχή και τον ρόλο του, ή null. */
+/** Ο συνδεδεμένος χρήστης με τη συμμετοχή, τον ρόλο, τις ομάδες και τα καταστήματά του, ή null. */
 export const getUser = cache(async () => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   const session = await db.session.findUnique({
     where: { tokenHash: sha(token) },
-    include: { user: { include: { memberships: { include: { org: true, role: true } }, staffRole: true } } },
+    include: { user: { include: { memberships: { include: { org: true, role: true, stores: true, groups: { include: { group: true } } } }, staffRole: true, staffGroups: { include: { group: true } } } } },
   });
   // απενεργοποιημένος χρήστης δεν μπαίνει, ακόμα κι αν έμεινε κάποια συνεδρία
   if (!session || session.expiresAt <= new Date() || session.user.disabledAt) return null;
@@ -51,7 +51,7 @@ export async function requireUser() {
 }
 
 /** Προσωπικό πλατφόρμας με το συγκεκριμένο δικαίωμα. Χωρίς αυτό: πίσω στη λίστα συνδρομητών (ή έξω). */
-export async function requirePlatform(permission: PlatformPermission = "orgs.view") {
+export async function requirePlatform(permission: PlatformPermission = "orgs.read") {
   const user = await requireUser();
   if (!user.platformRole) redirect("/");
   if (!platformCan(user, permission)) redirect(`/platform?error=${encodeURIComponent("Ο ρόλος σου δεν επιτρέπει αυτή την ενέργεια")}`);
@@ -62,17 +62,24 @@ export async function requirePlatform(permission: PlatformPermission = "orgs.vie
 const home = (permissions: string[]) => (["/", "/pos", "/receipts", "/devices", "/users", "/billing"] as const).find((p) => permissions.includes(permissionFor(p)));
 
 /**
+ * Τα δικαιώματα ενός μέλους όπως ισχύουν: ρόλος ∪ ομάδες (ο κλειδωμένος ρόλος έχει πάντα όλα),
+ * μείον όσα ανήκουν σε ενότητες που δεν έχει το πακέτο ή που κλείνουν στην εποχιακή παύση.
+ */
+export const memberPermissions = (m: { role: { locked: boolean; permissions: string[] }; groups: { group: { permissions: string[] } }[] }, open: readonly string[]): Permission[] =>
+  allowedPermissions(m.role.locked ? orgPermissionsOf(m.role) : expandOrg([...m.role.permissions, ...m.groups.flatMap((g) => g.group.permissions)]), open) as Permission[];
+
+/**
  * Η επιχείρηση του χρήστη, ο ρόλος και τα δικαιώματά του. Με `needs` ελέγχει και ότι έχει το δικαίωμα
  * για τη σελίδα/ενέργεια. Καλείται σε ΚΑΘΕ σελίδα και server action, όχι μόνο για το μενού.
+ * storeIds: τα καταστήματα του μέλους· κενός πίνακας = όλα.
  */
 export const currentOrg = cache(async (needs?: Permission) => {
   const user = await requireUser();
   const m = user.memberships[0];
   if (!m) redirect(user.platformRole ? "/platform" : "/login");
-  // ο κλειδωμένος ρόλος έχει πάντα όλα τα δικαιώματα, και όσα προστεθούν αργότερα
-  // …μείον όσα ανήκουν σε ενότητες που δεν έχει το πακέτο της επιχείρησης ή που κλείνουν στην εποχιακή παύση
-  const access = await accessFor(m.orgId, m.storeId);
-  const permissions: string[] = allowedPermissions(m.role.locked ? ALL_PERMISSIONS : m.role.permissions, access.open);
+  const storeIds = m.stores.map((s) => s.storeId);
+  const access = await accessFor(m.orgId, storeIds);
+  const permissions = memberPermissions(m, access.open);
   if (needs && !permissions.includes(needs)) redirect(home(permissions) ?? "/account");
-  return { user, membership: m, role: m.role, permissions, org: m.org, storeId: m.storeId, access };
+  return { user, membership: m, role: m.role, permissions, can: (p: Permission) => permissions.includes(p), org: m.org, storeIds, access };
 });

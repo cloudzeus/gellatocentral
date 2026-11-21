@@ -16,7 +16,7 @@ test("απόδειξη 11.1 με μετρητά", () => {
     aa: 397717,
     reference: "receiptreference1",
     moment: new Date("2025-07-17T08:11:06Z"),
-    method: "CASH",
+    payItem: { description: "Μετρητά", payItemCase: 1 },
     lines: [
       { name: "Χωνάκι 2 μπάλες", quantity: 2, unitPriceCents: 450, vatRate: 13 },
       { name: "Νερό", quantity: 1, unitPriceCents: 1400, vatRate: 24 },
@@ -35,8 +35,9 @@ test("απόδειξη 11.1 με μετρητά", () => {
 
 test("κάρτα και άγνωστος ΦΠΑ", () => {
   const base = { merchantVat: "1", series: "A", aa: 1, reference: "r", moment: new Date(0) };
-  const card = buildReceipt({ ...base, method: "CARD", lines: [{ name: "x", quantity: 1, unitPriceCents: 100, vatRate: 13 }] });
+  const card = buildReceipt({ ...base, payItem: { description: "Κάρτα", payItemCase: 5 }, lines: [{ name: "x", quantity: 1, unitPriceCents: 100, vatRate: 13 }] });
   assert.equal(card.data.cbPayItems[0].ftPayItemCase, 5139205309155246085n);
-  assert.throws(() => buildReceipt({ ...base, method: "CASH", lines: [{ name: "x", quantity: 1, unitPriceCents: 100, vatRate: 19 }] }));
-  assert.throws(() => buildReceipt({ ...base, method: "CASH", lines: [] }));
+  const cash = { description: "Μετρητά", payItemCase: 1 };
+  assert.throws(() => buildReceipt({ ...base, payItem: cash, lines: [{ name: "x", quantity: 1, unitPriceCents: 100, vatRate: 19 }] }));
+  assert.throws(() => buildReceipt({ ...base, payItem: cash, lines: [] }));
 });

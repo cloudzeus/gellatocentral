@@ -1,5 +1,7 @@
 import { showRemoteId } from "@/lib/remote";
+import { AddressField } from "@/components/address-field";
 import { Files } from "@/components/files";
+import { GeoCascade } from "@/components/geo-fields";
 import { ProcessFlow } from "@/components/process-flow";
 import { MonitorUp, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
@@ -77,23 +79,24 @@ function Facts({ items }: { items: [label: string, value: ReactNode][] }) {
 const Empty = ({ children }: { children: ReactNode }) => <p className="px-5 py-6 text-sm text-muted-foreground">{children}</p>;
 
 export default async function OrganizationPage({ params, searchParams }: PageProps<"/platform/[orgId]">) {
-  const me = await requirePlatform("orgs.view");
+  const me = await requirePlatform("orgs.read");
   const { orgId } = await params;
   const q = await searchParams;
   const org = await db.organization.findUnique({
     where: { id: orgId },
     include: {
       subscription: { include: { charges: { orderBy: { periodStart: "desc" }, take: 12 } } },
-      members: { orderBy: { user: { name: "asc" } }, include: { user: true, store: true, role: true } },
+      members: { orderBy: { user: { name: "asc" } }, include: { user: true, stores: { include: { store: true } }, role: true } },
       roles: { orderBy: { name: "asc" } },
-      stores: { orderBy: { name: "asc" }, include: { warehouses: { orderBy: { name: "asc" }, include: { device: true } }, devices: { orderBy: { createdAt: "asc" }, include: { printer: true, warehouse: true, linkedDevice: true, readings: { orderBy: { at: "desc" }, take: 1 } } }, printers: { orderBy: { name: "asc" } } } },
+      stores: { orderBy: { name: "asc" }, include: { devices: { orderBy: { createdAt: "asc" }, include: { printer: true, warehouse: true, defaultWarehouse: true, linkedDevice: true, readings: { orderBy: { at: "desc" }, take: 1 } } }, printers: { orderBy: { name: "asc" } } } },
+      warehouses: { orderBy: { name: "asc" }, include: { device: true, stores: { include: { store: true }, orderBy: [{ isDefault: "desc" }, { priority: "asc" }] } } },
     },
   });
   if (!org) notFound();
 
   const settings = await platformSettings();
   const sub = org.subscription;
-  const steps = setupSteps(org);
+  const steps = setupSteps({ ...org, stores: org.stores.map((s) => ({ ...s, warehouses: org.warehouses.filter((w) => w.stores.some((l) => l.storeId === s.id)) })) });
   const doneCount = steps.filter((s) => s.done).length;
   const stores = org.stores.filter((s) => s.active);
   const [plan, plans, bstores, next] = await Promise.all([planOf(org.id), db.plan.findMany({ orderBy: { name: "asc" } }), billableStores(org.id), nextCharge(org.id)]);
@@ -102,8 +105,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const deletable = canDelete(org, new Date());
   const checks = await closingChecks(org.id);
   // Συναλλασσόμενοι του συνδρομητή: μόνο με το δικαίωμα, μόνο όταν ζητηθούν (?parties=1), και κάθε άνοιγμα καταγράφεται
-  const showParties = me.can("parties.view") && q.parties === "1";
-  const partyTotal = me.can("parties.view") ? await db.party.count({ where: { orgId: org.id } }) : 0;
+  const showParties = me.can("parties.read") && q.parties === "1";
+  const partyTotal = me.can("parties.read") ? await db.party.count({ where: { orgId: org.id } }) : 0;
   const theirParties = showParties ? await db.party.findMany({ where: { orgId: org.id }, orderBy: { name: "asc" }, take: 200, include: { _count: { select: { addresses: true } } } }) : [];
   if (showParties) await logAccess({ orgId: org.id, actorName: `${me.name} (πλατφόρμα)`, action: "parties.viewed", target: org.name, detail: `${theirParties.length} συναλλασσόμενοι` });
   const pauses = bstores.flatMap((s) => s.pauses.map((p) => ({ ...p, store: s.name }))).sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime()).slice(0, 8);
@@ -136,7 +139,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
         <Section
           id="profile" title="Στοιχεία & email" hint="Η διεύθυνση της επιχείρησης και ο αποστολέας των email της" saved={saved("profile")}
-          action={me.can("setup.manage") && <Modal label={edit} title="Στοιχεία & email">
+          action={me.can("setup.edit") && <Modal label={edit} title="Στοιχεία & email">
             <form key={[org.name, org.slug, org.contactEmail, org.emailFromName].join()} action={saveOrgProfile} className={form}>
               {hidden}
               <Field label="Επωνυμία" name="name" required minLength={2} maxLength={60} defaultValue={org.name} />
@@ -168,7 +171,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
         <Section
           id="subscription" title="Συνδρομή" hint={`Πακέτο «${plan.name}» · ${euro(monthly.totalCents)} τον μήνα προ ΦΠΑ${monthly.fullCents > monthly.totalCents ? ` (χωρίς παύση ${euro(monthly.fullCents)})` : ""}`} saved={saved("subscription")}
-          action={me.can("billing.manage") && <Modal label={edit} title="Συνδρομή" description="Χειροκίνητη αλλαγή. Η εξόφληση μιας χρέωσης την παρατείνει αυτόματα.">
+          action={me.can("billing.edit") && <Modal label={edit} title="Συνδρομή" description="Χειροκίνητη αλλαγή. Η εξόφληση μιας χρέωσης την παρατείνει αυτόματα.">
             <form key={`${sub?.status}-${sub?.currentPeriodEnd.toISOString()}-${sub?.planId}`} action={saveSubscription} className={form}>
               {hidden}
               <Select label="Πακέτο" name="planId" defaultValue={sub?.planId ?? ""} options={[["", "Προεπιλεγμένο"], ...plans.filter((p) => p.active || p.id === sub?.planId).map((p): [string, string] => [p.id, `${p.name} · ${euro(p.storeCents)} το κατάστημα`])]} />
@@ -245,7 +248,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
         <Section
           id="viva" title="Viva" hint="Ο έμπορος πρέπει να έχει συνδεθεί με τον λογαριασμό ISV και να έχει ενεργό το Viva Fiscal" saved={saved("viva")}
-          action={me.can("setup.manage") && <Modal label={edit} title="Σύνδεση με Viva">
+          action={me.can("setup.edit") && <Modal label={edit} title="Σύνδεση με Viva">
             <form key={org.vivaMerchantId} action={saveViva} className="grid gap-4 [&>button]:justify-self-end">
               {hidden}
               <Field label="Κωδικός εμπόρου (Merchant ID)" name="vivaMerchantId" defaultValue={org.vivaMerchantId ?? ""} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" hint="Από το Viva: Ρυθμίσεις › Πρόσβαση API. Χωρίς αυτόν τα ταμεία μένουν σε δοκιμαστική λειτουργία." />
@@ -258,11 +261,16 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
         <Section
           id="stores" title="Υποκαταστήματα" hint={`Κάθε ενεργό κατάστημα χρεώνεται ${euro(plan.storeCents)} τον μήνα (πακέτο «${plan.name}»)`} saved={saved("stores")}
-          action={me.can("setup.manage") && <Modal label={add} title="Νέο υποκατάστημα" description={`Προσθέτει ${euro(plan.storeCents)} τον μήνα στη συνδρομή`}>
+          action={me.can("setup.edit") && <Modal label={add} title="Νέο υποκατάστημα" description={`Προσθέτει ${euro(plan.storeCents)} τον μήνα στη συνδρομή`}>
             <form action={addStore} className={form}>{hidden}
               <Field label="Όνομα" name="name" required minLength={2} maxLength={60} placeholder="π.χ. Κατάστημα Τήνου" />
-              <Field label="Διεύθυνση" name="address" maxLength={120} hint="Τυπώνεται στην απόδειξη" />
               <Field label="Πηγή πληρωμών Viva" name="vivaSourceCode" maxLength={20} placeholder="προαιρετικό" />
+              <AddressField label="Διεύθυνση" name="address" maxLength={120} hint="Τυπώνεται στην απόδειξη· με επιλογή από τις προτάσεις γεμίζουν τα υπόλοιπα" />
+              <Field label="Τ.Κ." name="postalCode" maxLength={10} />
+              {/* οι συντεταγμένες γεμίζουν από την επιλογή διεύθυνσης, χωρίς να φαίνονται στη φόρμα */}
+              <input type="hidden" name="latitude" /><input type="hidden" name="longitude" />
+              {/* Καλλικράτης + πόλη/περιοχή από τις κοινές λίστες, αλληλοεξαρτώμενα */}
+              <GeoCascade country="GR" />
               <Submit className={btn("default")}>Προσθήκη καταστήματος</Submit>
             </form>
           </Modal>}
@@ -273,25 +281,29 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Section>
 
         <Section
-          id="warehouses" title="Αποθήκες" hint="Οι χώροι όπου τηρείται απόθεμα σε κάθε κατάστημα" saved={saved("warehouses")}
-          action={me.can("setup.manage") && <Modal label={add} title="Νέα αποθήκη">
+          id="warehouses" title="Αποθήκες" hint="Ανεξάρτητοι χώροι απόθεματος της επιχείρησης. Μία κεντρική αποθήκη μπορεί να εξυπηρετεί πολλά καταστήματα· τη σύνδεση και την προεπιλογή ανά κατάστημα τις διαχειρίζεται ο πελάτης στις Αποθήκες" saved={saved("warehouses")}
+          action={me.can("setup.edit") && <Modal label={add} title="Νέα αποθήκη">
             <form action={addWarehouse} className={form}>{hidden}
               <Field label="Όνομα" name="name" required minLength={2} maxLength={60} placeholder="π.χ. Κατάψυξη" />
-              <Select label="Κατάστημα" name="storeId" options={storeOptions} />
+              <Field label="Κωδικός" name="code" maxLength={20} placeholder="π.χ. CENTRAL" hint="Προαιρετικός· κεφαλαία λατινικά, αριθμοί, παύλες" />
+              <Select label="Σύνδεση με κατάστημα" name="storeId" options={[["", "Χωρίς — θα δεθεί αργότερα"], ...storeOptions]} />
               <Submit className={btn("default")}>Προσθήκη αποθήκης</Submit>
             </form>
           </Modal>}
         >
-          {org.stores.some((s) => s.warehouses.length) ? (
+          {org.warehouses.length ? (
             <ul className="divide-y divide-border/70">
-              {org.stores.flatMap((s) => s.warehouses.map((w) => <Row key={w.id} title={w.name} meta={w.device ? `${s.name} · είναι η συσκευή «${w.device.name}»` : s.name} active={w.active} toggle={toggleActive.bind(null, org.id, "warehouses", w.id)} />))}
+              {org.warehouses.map((w) => <Row key={w.id} title={w.code ? `${w.name} (${w.code})` : w.name} meta={[
+                w.stores.length ? w.stores.map((l) => `${l.store.name}${l.isDefault ? " · προεπιλογή" : ""}`).join(", ") : "χωρίς σύνδεση με κατάστημα",
+                w.device && `είναι η συσκευή «${w.device.name}»`,
+              ].filter(Boolean).join(" · ")} active={w.active} toggle={toggleActive.bind(null, org.id, "warehouses", w.id)} />)}
             </ul>
           ) : <Empty>Καμία αποθήκη ακόμα</Empty>}
         </Section>
 
         <Section
           id="printers" title="Εκτυπωτές" hint="Θερμικοί εκτυπωτές αποδείξεων. Δένονται με ταμείο στην επόμενη ενότητα." saved={saved("printers")}
-          action={me.can("setup.manage") && <Modal label={add} title="Νέος εκτυπωτής">
+          action={me.can("setup.edit") && <Modal label={add} title="Νέος εκτυπωτής">
             <form action={addPrinter} className={form}>{hidden}
               <Field label="Όνομα" name="name" required minLength={2} maxLength={60} placeholder="π.χ. Εκτυπωτής πάγκου" />
               <Select label="Κατάστημα" name="storeId" options={storeOptions} />
@@ -311,7 +323,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
         <Section
           id="devices" title="Συσκευές" hint={`Ταμεία, οθόνες κουζίνας, ψυγεία, αυτόματοι πωλητές και ζυγαριές. Κάθε ενεργή συσκευή χρεώνεται με την τιμή του είδους της στο πακέτο «${plan.name}»`} saved={saved("devices")}
-          action={me.can("setup.manage") && <Modal label={add} title="Νέα συσκευή" description="Διάλεξε είδος· η φόρμα δείχνει μόνο όσα χρειάζεται">
+          action={me.can("setup.edit") && <Modal label={add} title="Νέα συσκευή" description="Διάλεξε είδος· η φόρμα δείχνει μόνο όσα χρειάζεται">
             <form action={addDevice} data-by-kind className={form}>{hidden}
               <Select label="Είδος" name="kind" options={KIND_OPTIONS} />
               <Field label="Όνομα" name="name" required minLength={2} maxLength={40} placeholder="π.χ. Ταμείο 2 ή Καταψύκτης εργαστηρίου" />
@@ -339,6 +351,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                   meta={[
                     s.name, kind.label,
                     ...(kind.invoices ? [`σειρά ${d.series}`, `επόμενη απόδειξη #${d.nextAa}`, d.vivaTerminalId ? `τερματικό ${d.vivaTerminalId}` : "χωρίς τερματικό Viva"] : ["δεν χρεώνεται"]),
+                    kind.invoices && (d.defaultWarehouse ? `αποθήκη ${d.defaultWarehouse.name}` : "αποθήκη του καταστήματος"),
                     d.printer && `εκτυπωτής ${d.printer.name}`,
                     kind.storage && (d.warehouse ? `αποθηκευτικός χώρος «${d.warehouse.name}»` : "χωρίς αποθηκευτικό χώρο"),
                     kind.storage && (d.tempMin !== null || d.tempMax !== null) && `όρια ${d.tempMin ?? "…"} έως ${d.tempMax ?? "…"} °C`,
@@ -348,11 +361,12 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                   ].filter(Boolean).join(" · ")}
                 >
                   {status ? <Badge tone={status.tone}>{status.text}</Badge> : null}
-                  {me.can("setup.manage") ? (
+                  {me.can("setup.edit") ? (
                     <Modal label={<><Pencil /> Ρύθμιση</>} size="sm" title={`Ρύθμιση: ${d.name}`} description={kind.invoices ? `Σειρά ${d.series} · η σειρά δεν αλλάζει, για να μη σπάσει η αρίθμηση` : kind.label}>
-                      <form key={[d.vivaTerminalId, d.printerId, d.macAddress, d.tailscaleIp, d.tempMin, d.tempMax, d.linkedDeviceId].join()} action={updateDevice} className={form}>
+                      <form key={[d.vivaTerminalId, d.printerId, d.macAddress, d.tailscaleIp, d.tempMin, d.tempMax, d.linkedDeviceId, d.defaultWarehouseId].join()} action={updateDevice} className={form}>
                         {hidden}<input type="hidden" name="deviceId" value={d.id} />
                         {kind.invoices ? <Field label="Τερματικό Viva (Terminal ID)" name="vivaTerminalId" defaultValue={d.vivaTerminalId ?? ""} maxLength={20} /> : null}
+                        {kind.invoices ? <Select label="Προεπιλεγμένη αποθήκη" name="defaultWarehouseId" defaultValue={d.defaultWarehouseId ?? ""} options={[["", "Της προεπιλογής του καταστήματος"], ...org.warehouses.filter((w) => w.stores.some((l) => l.storeId === s.id)).map((w): [string, string] => [w.id, w.name])]} /> : null}
                         {kind.invoices || d.kind === "KITCHEN_DISPLAY" ? <Select label="Εκτυπωτής" name="printerId" defaultValue={d.printerId ?? ""} options={printerOptions} /> : null}
                         {kind.storage ? <Field label="Κάτω όριο θερμοκρασίας (°C)" name="tempMin" inputMode="decimal" defaultValue={d.tempMin ?? ""} /> : null}
                         {kind.storage ? <Field label="Πάνω όριο θερμοκρασίας (°C)" name="tempMax" inputMode="decimal" defaultValue={d.tempMax ?? ""} /> : null}
@@ -378,7 +392,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                           </form>
                         </Modal>
                       ) : null}
-                      {me.can("setup.manage") ? (
+                      {me.can("setup.edit") ? (
                         <Modal label={d.remoteId ? "RustDesk" : "Ορισμός RustDesk"} size="sm" variant="ghost" title={`Αριθμός RustDesk: ${d.name}`} description="Ο αριθμός που δείχνει το πρόγραμμα RustDesk στη συσκευή του πελάτη">
                           <form key={d.remoteId ?? ""} action={setRemoteId.bind(null, org.id, d.id)} className="grid gap-4 [&>button]:justify-self-end">
                             <Field label="Αριθμός RustDesk" name="remoteId" maxLength={40} defaultValue={d.remoteId ? showRemoteId(d.remoteId) : ""} placeholder="123 456 789" hint="Κενό για να αφαιρεθεί" />
@@ -386,8 +400,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                           </form>
                         </Modal>
                       ) : null}
-                      {me.can("setup.manage") ? <form action={issuePairCode.bind(null, org.id, d.id)}><Submit className={btn("outline", "sm")}>{d.pairedAt ? "Νέα σύζευξη" : "Κωδικός σύζευξης"}</Submit></form> : null}
-                      {d.pairedAt && me.can("setup.manage") ? <form action={revokeDevice.bind(null, org.id, d.id)}><Submit className={btn("destructive", "sm")}>Ανάκληση</Submit></form> : null}
+                      {me.can("setup.edit") ? <form action={issuePairCode.bind(null, org.id, d.id)}><Submit className={btn("outline", "sm")}>{d.pairedAt ? "Νέα σύζευξη" : "Κωδικός σύζευξης"}</Submit></form> : null}
+                      {d.pairedAt && me.can("setup.edit") ? <form action={revokeDevice.bind(null, org.id, d.id)}><Submit className={btn("destructive", "sm")}>Ανάκληση</Submit></form> : null}
                     </div>
                   )}
                 </Row>
@@ -398,7 +412,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
         <Section
           id="users" title="Χρήστες & ρόλοι" hint="Επιχειρηματίας: όλα · Manager: όλα εκτός συνδρομής και χρηστών · Υπάλληλος: ταμείο και αποδείξεις. Ο συνδρομητής ορίζει και δικούς του ρόλους." saved={saved("users")}
-          action={me.can("users.manage") && <Modal label={add} title="Νέος χρήστης" description="Χωρίς αρχικό κωδικό, ο χρήστης παίρνει email πρόσκλησης και τον ορίζει μόνος του">
+          action={me.can("users.add") && <Modal label={add} title="Νέος χρήστης" description="Χωρίς αρχικό κωδικό, ο χρήστης παίρνει email πρόσκλησης και τον ορίζει μόνος του">
             <form action={addUser} className={form}>{hidden}
               <Field label="Ονοματεπώνυμο" name="name" required minLength={2} maxLength={60} />
               <Field label="Email" name="email" type="email" required autoComplete="off" />
@@ -415,7 +429,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                 <li key={m.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{m.user.name}</p>
-                    <p className="text-xs text-muted-foreground">{m.user.email} · {m.store?.name ?? "Όλα τα καταστήματα"}</p>
+                    <p className="text-xs text-muted-foreground">{m.user.email} · {m.stores.length ? m.stores.map((s) => s.store.name).join(", ") : "Όλα τα καταστήματα"}</p>
                   </div>
                   <Badge tone={m.role.locked ? "success" : "neutral"}>{m.role.name}</Badge>
                   <form action={removeMember.bind(null, org.id, m.id)}><Submit className={btn("ghost", "sm")}>Αφαίρεση πρόσβασης</Submit></form>
@@ -425,7 +439,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
           ) : <Empty>Κανένας χρήστης ακόμα. Χωρίς χρήστη η επιχείρηση δεν μπορεί να συνδεθεί.</Empty>}
         </Section>
 
-        {me.can("parties.view") ? (
+        {me.can("parties.read") ? (
           <Section id="parties" title="Συναλλασσόμενοι του συνδρομητή" saved={false} hint={`${partyTotal} στο αρχείο του: πελάτες, προμηθευτές, franchisees, συνεργάτες. Μόνο ανάγνωση· κάθε άνοιγμα καταγράφεται με το όνομά σου`}
             action={showParties ? <Link href={`/platform/${org.id}#parties`} className={btn("outline", "sm")}>Απόκρυψη</Link> : partyTotal ? <Link href={`/platform/${org.id}?parties=1#parties`} className={btn("outline", "sm")}>Εμφάνιση</Link> : null}>
             {showParties ? (
@@ -463,7 +477,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             <div className="space-y-2">
               <p className="font-semibold">Αναστολή</p>
               <p className="text-muted-foreground">Κλείνει αμέσως το ταμείο και τις ενότητες. Μένουν οι αποδείξεις, η συνδρομή και η υποστήριξη. Τίποτα δεν σβήνεται και αναιρείται με ένα κλικ</p>
-              {!me.can("billing.manage") ? null : org.suspendedAt ? (
+              {!me.can("billing.edit") ? null : org.suspendedAt ? (
                 <form action={resumeOrg.bind(null, org.id)}><Submit className={btn("default")}>Άρση αναστολής</Submit></form>
               ) : org.closingAt ? null : (
                 <Modal label="Αναστολή" size="sm" title={`Αναστολή: ${org.name}`} description="Οι χρήστες βλέπουν τον λόγο σε κάθε σελίδα">
@@ -478,7 +492,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               <p className="font-semibold">Κλείσιμο</p>
               <p className="text-muted-foreground">Ο πελάτης φεύγει. Η εφαρμογή περιορίζεται, η συνδρομή ακυρώνεται και κρατάμε όλα τα στοιχεία {CLOSING_DAYS} ημέρες για να τα κατεβάσει. Το ίδιο ξεκινά αυτόματα όταν η συνδρομή γίνει «Ακυρωμένη». Αναιρείται μέχρι τη διαγραφή</p>
               <p className="text-xs text-muted-foreground">Θύμισε στον πελάτη: η σύμβασή του με το Viva Fiscal και η δήλωση παρόχου στην ΑΑΔΕ είναι δικές του και δεν κλείνουν από εδώ. Το αρχείο των αποδείξεων το οφείλει ο ίδιος στην εφορία</p>
-              {!me.can("orgs.create") ? null : org.closingAt ? (
+              {!me.can("orgs.add") ? null : org.closingAt ? (
                 <form action={cancelClosing.bind(null, org.id)}><Submit className={btn("outline")}>Ακύρωση κλεισίματος</Submit></form>
               ) : (
                 <Modal label="Έναρξη κλεισίματος" size="sm" title={`Κλείσιμο: ${org.name}`} description={`Το ταμείο κλείνει αμέσως. Η διαγραφή επιτρέπεται μετά από ${CLOSING_DAYS} ημέρες και γίνεται χειροκίνητα`}>
@@ -488,7 +502,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                   </form>
                 </Modal>
               )}
-              {me.can("gdpr.manage") ? <p className="flex flex-wrap gap-1"><a href={`/api/org-export?org=${org.id}`} download className={btn("ghost", "sm")}>Όλα τα δεδομένα (JSON)</a><a href={`/api/org-export?org=${org.id}&format=receipts`} download className={btn("ghost", "sm")}>Αρχείο αποδείξεων (CSV)</a></p> : null}
+              {me.can("gdpr.read") ? <p className="flex flex-wrap gap-1"><a href={`/api/org-export?org=${org.id}`} download className={btn("ghost", "sm")}>Όλα τα δεδομένα (JSON)</a><a href={`/api/org-export?org=${org.id}&format=receipts`} download className={btn("ghost", "sm")}>Αρχείο αποδείξεων (CSV)</a></p> : null}
             </div>
             <div className="space-y-2">
               <p className="font-semibold">Οριστική διαγραφή</p>
@@ -497,7 +511,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                 <li className={checks.stuck ? "font-medium text-destructive" : "text-muted-foreground"}>{checks.stuck ? `✕ ${checks.stuck} αποδείξεις δεν έχουν διαβιβαστεί στο myDATA` : `✓ Καμία απόδειξη σε εκκρεμότητα (${checks.receipts} συνολικά)`}</li>
                 <li className={checks.receipts && !checks.exportedAt ? "font-medium text-destructive" : "text-muted-foreground"}>{checks.exportedAt ? `✓ Αντίγραφο δεδομένων: ${checks.exportedBy}, ${day(checks.exportedAt)}` : checks.receipts ? "✕ Δεν έχει κατέβει αντίγραφο των δεδομένων" : "✓ Δεν υπάρχουν αποδείξεις για αντίγραφο"}</li>
               </ul>
-              {!me.can("settings.manage") ? <p className="text-xs text-muted-foreground">Μόνο Super Admin</p> : !org.closingAt ? <p className="text-xs text-muted-foreground">Ξεκίνα πρώτα το κλείσιμο</p> : !deletable ? <p className="text-xs text-muted-foreground">Διαθέσιμη από {day(org.deleteAfter!)}</p> : (
+              {!me.can("settings.edit") ? <p className="text-xs text-muted-foreground">Μόνο Super Admin</p> : !org.closingAt ? <p className="text-xs text-muted-foreground">Ξεκίνα πρώτα το κλείσιμο</p> : !deletable ? <p className="text-xs text-muted-foreground">Διαθέσιμη από {day(org.deleteAfter!)}</p> : (
                 <Modal label="Οριστική διαγραφή" size="sm" title={`Διαγραφή: ${org.name}`} description="Όλα τα δεδομένα και τα αρχεία της επιχείρησης σβήνονται. Δεν υπάρχει επαναφορά">
                   <form action={deleteOrg} className="grid gap-4 [&>button]:justify-self-end">{hidden}
                     <Field label={`Για επιβεβαίωση γράψε το ΑΦΜ (${org.vatNumber})`} name="confirm" required autoComplete="off" inputMode="numeric" />

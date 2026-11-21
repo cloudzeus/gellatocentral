@@ -2,7 +2,7 @@
 // Χρήση σε οθόνη: <Files orgId category refType refId /> (components/files.tsx). Από script: saveFile(...).
 import { randomBytes } from "node:crypto";
 import { db } from "../db";
-import { ALL_PERMISSIONS, platformCan } from "../permissions";
+import { orgPermissionsOf, platformCan } from "../permissions";
 import type { getUser } from "../auth";
 import { cdnUrl, put, remove } from "./bunny";
 import { CATEGORIES, type Category, check, pathFor, platformNeeds } from "./rules";
@@ -20,7 +20,7 @@ export function canAccess(user: User, orgId: string | null, category: Category) 
   if (platformCan(user, "staff" in c && c.staff ? c.staff : platformNeeds(orgId))) return true;
   const m = user.memberships.find((x) => x.orgId === orgId);
   if (!m) return false;
-  return c.needs === null || (m.role.locked ? ALL_PERMISSIONS : m.role.permissions).includes(c.needs);
+  return c.needs === null || orgPermissionsOf(m.role).includes(c.needs);
 }
 
 export class FileError extends Error {}

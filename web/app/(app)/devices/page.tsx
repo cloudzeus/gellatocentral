@@ -12,12 +12,13 @@ const field = "h-8.5 w-full rounded-lg border border-input bg-card px-2.5 text-s
 const when = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Athens" });
 
 export default async function DevicesPage() {
-  const { org } = await currentOrg("devices.manage");
+  const { org, can } = await currentOrg("devices.read");
   const stores = await db.store.findMany({ where: { orgId: org.id }, orderBy: { name: "asc" }, include: { devices: { orderBy: { createdAt: "asc" }, include: { readings: { orderBy: { at: "desc" }, take: 1 } } } } });
   const accesses = await db.remoteAccess.findMany({ where: { orgId: org.id }, orderBy: { at: "desc" }, take: 20, include: { device: { select: { name: true } } } });
   return (
     <Page section="Ταμείο & τιμολόγηση" title="Συσκευές" description={`Ταμεία, οθόνες κουζίνας, ψυγεία, αυτόματοι πωλητές και ζυγαριές. Κάθε ενεργή συσκευή χρεώνεται με την τιμή του πακέτου σου (βλ. Συνδρομή)`}
       actions={
+        can("devices.add") ? (
         <Modal label={<><Plus /> Νέα συσκευή</>} variant="default" title="Νέα συσκευή" description="Η τιμή της εξαρτάται από το είδος και το πακέτο σου. Τη βλέπεις στη Συνδρομή">
           <form action={addDevice} data-by-kind className="grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end">
             <label className="block space-y-1 text-sm font-medium">Όνομα<input name="name" required minLength={2} maxLength={40} placeholder="π.χ. Ταμείο 2" className={field} /></label>
@@ -34,6 +35,7 @@ export default async function DevicesPage() {
             <Submit className={btn("default")}>Προσθήκη συσκευής</Submit>
           </form>
         </Modal>
+        ) : null
       }>
         <div className="max-w-7xl space-y-4">
           {stores.map((s) => (
@@ -52,7 +54,7 @@ export default async function DevicesPage() {
                       </div>
                       {status ? <Badge tone={status.tone}>{status.text}</Badge> : null}
                       <Badge tone={d.active ? "success" : "neutral"}>{!d.active ? "Ανενεργή" : kind.invoices ? "Ενεργή — χρεώνεται" : "Ενεργή — χωρίς χρέωση"}</Badge>
-                      <form action={toggleDevice.bind(null, d.id)}><Submit className={btn("outline", "sm")}>{d.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form>
+                      {can("devices.edit") ? <form action={toggleDevice.bind(null, d.id)}><Submit className={btn("outline", "sm")}>{d.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form> : null}
                     </li>
                   );
                 })}

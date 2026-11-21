@@ -63,8 +63,8 @@ test("τρέχουσα μηνιαία εικόνα και υπόλοιπο ημ�
 });
 
 test("ενότητες πακέτου: κλείνουν δικαιώματα και σελίδες", () => {
-  const role = ["dashboard.view", "pos.use", "receipts.view", "users.manage", "billing.view"];
-  assert.deepEqual(allowedPermissions(role, ["receipts"]), ["receipts.view", "users.manage", "billing.view"]); // χρήστες και συνδρομή πάντα ανοιχτά
+  const role = ["dashboard.read", "pos.use", "receipts.read", "users.read", "billing.read"];
+  assert.deepEqual(allowedPermissions(role, ["receipts"]), ["receipts.read", "users.read", "billing.read"]); // χρήστες και συνδρομή πάντα ανοιχτά
   assert.equal(moduleOfPath("/pos"), "pos");
   assert.equal(moduleOfPath("/"), "dashboard");
   assert.equal(moduleOfPath("/billing"), null);

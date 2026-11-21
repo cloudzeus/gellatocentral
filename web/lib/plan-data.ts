@@ -25,17 +25,18 @@ export const billableStores = cache(async (orgId: string) => {
 });
 
 /**
- * Ποιες ενότητες βλέπει ένας χρήστης: όσες έχει το πακέτο· αν το κατάστημά του είναι σε παύση (ή, για χρήστη όλων των
- * καταστημάτων, αν είναι ΟΛΑ σε παύση), μόνο όσες το πακέτο κρατά ανοιχτές στην παύση.
+ * Ποιες ενότητες βλέπει ένας χρήστης: όσες έχει το πακέτο· αν τα καταστήματά του είναι σε παύση (ή, για χρήστη
+ * όλων των καταστημάτων, αν είναι ΟΛΑ σε παύση), μόνο όσες το πακέτο κρατά ανοιχτές στην παύση.
+ * storeIds: τα καταστήματα του μέλους· κενός πίνακας = όλα.
  */
-export const accessFor = cache(async (orgId: string, storeId: string | null) => {
+export const accessFor = cache(async (orgId: string, storeIds: string[]) => {
   const [plan, stores, org] = await Promise.all([
     planOf(orgId),
     db.store.findMany({ where: { orgId, active: true }, select: { id: true, name: true, pauses: { where: { endedAt: null }, select: { startedAt: true }, take: 1 } } }),
     db.organization.findUnique({ where: { id: orgId }, select: { suspendedAt: true, suspendedReason: true, closingAt: true, deleteAfter: true, subscription: { select: { status: true, currentPeriodEnd: true } } } }),
   ]);
   const pausedStores = stores.filter((s) => s.pauses.length).map((s) => ({ id: s.id, name: s.name, since: s.pauses[0].startedAt }));
-  const mine = storeId ? stores.filter((s) => s.id === storeId) : stores;
+  const mine = storeIds.length ? stores.filter((s) => storeIds.includes(s.id)) : stores;
   const paused = mine.length > 0 && mine.every((s) => s.pauses.length);
   // αναστολή, κλείσιμο ή απλήρωτη συνδρομή: μένουν μόνο όσα χρειάζονται για να πληρώσει και να δει το αρχείο του
   const state = org ? orgState(org, new Date()) : ({ kind: "ok", restricted: false, daysLeft: null } as const);

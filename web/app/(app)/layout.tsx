@@ -2,13 +2,13 @@ import { CircleAlert, Menu, Snowflake } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { BottomNav, NavLinks, Sidebar, UserFooter } from "@/components/nav-links";
-import { getUser } from "@/lib/auth";
+import { getUser, memberPermissions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { needsLegalConsent } from "@/lib/gdpr";
 import { redirect } from "next/navigation";
-import { ALL_PERMISSIONS, permissionFor, platformCan, staffRoleLabel } from "@/lib/permissions";
+import { permissionFor, platformCan, staffRoleLabel } from "@/lib/permissions";
 import { ALL_ITEMS } from "@/lib/nav";
-import { allowedPermissions, pathOpen } from "@/lib/modules";
+import { pathOpen } from "@/lib/modules";
 import { accessFor } from "@/lib/plan-data";
 import { logout } from "../login/actions";
 
@@ -16,7 +16,7 @@ import { logout } from "../login/actions";
 export const instant = false;
 
 // Σελίδες της κονσόλας που βλέπει μόνο όποιος διαχειρίζεται την πλατφόρμα (Super Admin)
-const SUPER_ONLY = ["/platform/settings", "/platform/refs", "/platform/infrastructure", "/platform/security", "/platform/continuity"];
+const SUPER_ONLY = ["/platform/settings", "/platform/refs", "/platform/vat-rates", "/platform/payment-methods", "/platform/document-types", "/platform/infrastructure", "/platform/security", "/platform/continuity"];
 
 /** Τι επιτρέπει ο ρόλος του χρήστη και τα στοιχεία του για το κάτω μέρος του μενού. */
 async function navFor() {
@@ -25,10 +25,10 @@ async function navFor() {
   // νέα έκδοση όρων (ή πρώτη είσοδος): πρώτα αποδοχή, μετά η εφαρμογή
   if (await needsLegalConsent(user.id)) redirect("/consent");
   const m = user.memberships[0];
-  const access = m ? await accessFor(m.orgId, m.storeId) : null;
-  const permissions: string[] = m ? allowedPermissions(m.role.locked ? ALL_PERMISSIONS : m.role.permissions, access!.open) : [];
+  const access = m ? await accessFor(m.orgId, m.stores.map((s) => s.storeId)) : null;
+  const permissions: string[] = m ? memberPermissions(m, access!.open) : [];
   const allowed = ALL_ITEMS.map((i) => i.to).filter((to) =>
-    SUPER_ONLY.includes(to) ? platformCan(user, "settings.manage") : to === "/platform/gdpr" ? platformCan(user, "gdpr.manage") : to === "/platform/support" ? platformCan(user, "support.tickets") : to === "/support" || to === "/help" ? !!m : to === "/platform/kb" ? platformCan(user, "support.tickets") : to === "/platform/plans" ? platformCan(user, "billing.manage") : to === "/platform/staff" ? platformCan(user, "staff.manage") : to.startsWith("/platform") ? !!user.platformRole : permissions.includes(permissionFor(to)) && pathOpen(to, access?.open ?? []),
+    SUPER_ONLY.includes(to) ? platformCan(user, "settings.read") : to === "/platform/gdpr" ? platformCan(user, "gdpr.read") : to === "/platform/support" ? platformCan(user, "support.tickets") : to === "/support" || to === "/help" ? !!m : to === "/platform/kb" ? platformCan(user, "support.tickets") : to === "/platform/plans" || to === "/platform/usage" ? platformCan(user, "billing.read") : to === "/platform/staff" ? platformCan(user, "staff.read") : to.startsWith("/platform") ? !!user.platformRole : permissions.includes(permissionFor(to)) && pathOpen(to, access?.open ?? []),
   );
   // εκκρεμότητες δίπλα στο στοιχείο του μενού που τις λύνει
   const unsent = m && allowed.includes("/receipts") ? await db.fiscalDocument.count({ where: { sale: { orgId: m.orgId, status: "COMPLETED" }, status: { not: "SIGNED" } } }) : 0;
@@ -69,9 +69,10 @@ async function StateBanner() {
   const user = await getUser();
   const m = user?.memberships[0];
   if (!m) return null;
-  const access = await accessFor(m.orgId, m.storeId);
-  const perms = m.role.locked ? ALL_PERMISSIONS : m.role.permissions;
-  const pay = perms.includes("billing.view") ? <Link href="/billing" className="font-semibold underline">Πληρωμή από τη Συνδρομή</Link> : "Ενημέρωσε τον διαχειριστή της επιχείρησης";
+  const storeIds = m.stores.map((s) => s.storeId);
+  const access = await accessFor(m.orgId, storeIds);
+  const perms = memberPermissions(m, access.open);
+  const pay = perms.includes("billing.read") ? <Link href="/billing" className="font-semibold underline">Πληρωμή από τη Συνδρομή</Link> : "Ενημέρωσε τον διαχειριστή της επιχείρησης";
   const { kind, daysLeft } = access.state;
   if (kind === "closing")
     return (
@@ -102,7 +103,7 @@ async function StateBanner() {
       </div>
     );
   if (!access.paused) return null;
-  const mine = access.pausedStores.filter((s) => !m.storeId || s.id === m.storeId);
+  const mine = access.pausedStores.filter((s) => !storeIds.length || storeIds.includes(s.id));
   return (
     <div role="status" className={`${bar} border-gold/40 bg-gold/10`}>
       <Snowflake className="mt-0.5 size-4 shrink-0 text-gold-ink" aria-hidden />

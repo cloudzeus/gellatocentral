@@ -3,7 +3,7 @@ import type { getUser } from "../auth";
 import { db } from "../db";
 import { appUrl, platformSettings, sendMail } from "../mail/send";
 import { templates } from "../mail/templates";
-import { ALL_PERMISSIONS, platformCan } from "../permissions";
+import { orgPermissionsOf, platformCan } from "../permissions";
 import { afterMessage, type Category, priorityFor, type Status, type Urgency } from "./rules";
 
 type User = NonNullable<Awaited<ReturnType<typeof getUser>>>;
@@ -13,7 +13,7 @@ export const isSupport = (user: User) => platformCan(user, "support.tickets");
 /** Η επιχείρηση του χρήστη και αν βλέπει όλα τα αιτήματά της (αλλιώς μόνο τα δικά του). */
 export function memberScope(user: User) {
   const m = user.memberships[0];
-  return m ? { orgId: m.orgId, all: (m.role.locked ? ALL_PERMISSIONS : m.role.permissions).includes("tickets.manage") } : null;
+  return m ? { orgId: m.orgId, all: orgPermissionsOf(m.role).includes("tickets.manage") } : null;
 }
 /** Η υποστήριξη βλέπει όλα· ο χρήστης πελάτη μόνο της επιχείρησής του, και χωρίς το δικαίωμα μόνο όσα άνοιξε ο ίδιος. */
 export function canView(user: User, ticket: { orgId: string; openedById: string | null }) {

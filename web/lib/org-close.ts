@@ -17,7 +17,7 @@ export async function exportOrg(orgId: string) {
     db.printer.findMany({ where }),
     db.device.findMany({ where, omit: { apiTokenHash: true, pairCode: true, pairCodeExpiresAt: true } }),
     db.orgRole.findMany({ where }),
-    db.membership.findMany({ where, select: { storeId: true, role: { select: { name: true } }, user: { select: { name: true, email: true, createdAt: true, lastLoginAt: true, disabledAt: true } } } }),
+    db.membership.findMany({ where, select: { stores: { select: { store: { select: { name: true } } } }, role: { select: { name: true } }, user: { select: { name: true, email: true, createdAt: true, lastLoginAt: true, disabledAt: true } } } }),
     db.category.findMany({ where }),
     db.product.findMany({ where }),
     db.party.findMany({ where, include: { addresses: true, contacts: { include: { person: { include: { channels: true } } } }, channels: true, activities: true, bankAccounts: true } }),
@@ -53,8 +53,8 @@ const csv = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
 const FISCAL_TEXT: Record<string, string> = { SIGNED: "Διαβιβάστηκε", PENDING: "Εκκρεμεί", FAILED: "Απέτυχε", NOT_SENT: "Δοκιμαστική (δεν διαβιβάστηκε)" };
 /** Αρχείο αποδείξεων για τον λογιστή: μία γραμμή ανά απόδειξη, σε CSV που ανοίγει στο Excel (UTF-8 με BOM, διαχωριστικό «;»). */
 export async function receiptsCsv(orgId: string) {
-  const sales = await db.sale.findMany({ where: { orgId, status: "COMPLETED" }, orderBy: [{ issuedAt: "asc" }, { aa: "asc" }], include: { store: { select: { name: true } }, payment: { select: { method: true, vivaTransactionId: true } }, fiscal: { select: { docType: true, status: true, receiptReference: true } }, lines: { select: { quantity: true, unitPriceCents: true, vatRate: true } } } });
-  const rows = sales.map((x) => [x.issuedAt?.toISOString() ?? "", x.fiscal?.docType ?? "", x.series ?? "", x.aa ?? "", x.store.name, (x.totalCents / 100).toFixed(2).replace(".", ","), (x.lines.reduce((n, l) => n + Math.round((l.quantity * l.unitPriceCents * l.vatRate) / (100 + l.vatRate)), 0) / 100).toFixed(2).replace(".", ","), x.payment?.method === "CARD" ? "Κάρτα" : "Μετρητά", x.payment?.vivaTransactionId ?? "", FISCAL_TEXT[x.fiscal?.status ?? ""] ?? "", x.fiscal?.receiptReference ?? ""]);
+  const sales = await db.sale.findMany({ where: { orgId, status: "COMPLETED" }, orderBy: [{ issuedAt: "asc" }, { aa: "asc" }], include: { store: { select: { name: true } }, payment: { select: { vivaTransactionId: true, method: { select: { name: true } } } }, fiscal: { select: { docType: true, status: true, receiptReference: true } }, lines: { select: { quantity: true, unitPriceCents: true, vatRate: true } } } });
+  const rows = sales.map((x) => [x.issuedAt?.toISOString() ?? "", x.fiscal?.docType ?? "", x.series ?? "", x.aa ?? "", x.store.name, (x.totalCents / 100).toFixed(2).replace(".", ","), (x.lines.reduce((n, l) => n + Math.round((l.quantity * l.unitPriceCents * l.vatRate) / (100 + l.vatRate)), 0) / 100).toFixed(2).replace(".", ","), x.payment?.method.name ?? "", x.payment?.vivaTransactionId ?? "", FISCAL_TEXT[x.fiscal?.status ?? ""] ?? "", x.fiscal?.receiptReference ?? ""]);
   const head = ["Ημερομηνία (UTC)", "Είδος παραστατικού", "Σειρά", "ΑΑ", "Κατάστημα", "Σύνολο €", "ΦΠΑ €", "Πληρωμή", "Συναλλαγή Viva", "Διαβίβαση", "Αναφορά απόδειξης"];
   return "\uFEFF" + [head, ...rows].map((r) => r.map(csv).join(";")).join("\r\n");
 }

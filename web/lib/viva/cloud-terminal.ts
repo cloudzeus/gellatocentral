@@ -72,6 +72,38 @@ export async function getSession(sessionId: string): Promise<Record<string, unkn
   return (await res.json()) as Record<string, unknown>;
 }
 
+/**
+ * Επιστροφή χρημάτων στο τερματικό (refund). Το fiscalisationData είναι το πιστωτικό (11.4)
+ * με αρνητικά ποσά· στο αίτημα το ποσό πηγαίνει θετικό. ΔΕΝ έχει δοκιμαστεί ακόμα στο demo.
+ */
+export async function startRefund(input: {
+  sessionId: string;
+  terminalId: string;
+  cashRegisterId: string;
+  amountCents: number;
+  merchantReference: string;
+  terminalMerchantId: string;
+  fiscalisationData: unknown;
+}) {
+  const res = await fetch(`${(await isv()).api}/ecr/isv/v1/transactions:refund`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${await bearer()}`, "Content-Type": "application/json" },
+    body: toVivaJson({
+      sessionId: input.sessionId,
+      terminalId: input.terminalId,
+      cashRegisterId: input.cashRegisterId,
+      amount: Math.abs(input.amountCents),
+      currencyCode: "978",
+      merchantReference: input.merchantReference,
+      showTransactionResult: true,
+      isvDetails: { terminalMerchantId: input.terminalMerchantId },
+      fiscalisationData: input.fiscalisationData,
+    }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Viva refund: HTTP ${res.status} ${await res.text()}`);
+}
+
 /** Δοκιμή των κλειδιών ISV: ζητά token από τη Viva. Επιστρέφει null αν όλα καλά, αλλιώς το σφάλμα. */
 export async function testIsvCredentials(): Promise<string | null> {
   if (!(await vivaConfigured())) return "Δεν έχουν οριστεί τα κλειδιά ISV στις Ρυθμίσεις";

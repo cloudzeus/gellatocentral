@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge, btn, Card, Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
+import { posPaymentMethods } from "@/lib/payment-methods";
 import { currentContext } from "@/lib/tenant";
 import { vivaConfigured } from "@/lib/viva/cloud-terminal";
 import { addLine, cancelPending, changeQuantity, clearSale, pay, syncPayment } from "./actions";
@@ -15,11 +16,12 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
   const pendingId = (await db.sale.findFirst({ where: { deviceId: device.id, status: "AWAITING_PAYMENT" }, select: { id: true } }))?.id;
   if (pendingId) await syncPayment(pendingId);
 
-  const [categories, pending, draft, last] = await Promise.all([
+  const [categories, pending, draft, last, methods] = await Promise.all([
     db.category.findMany({ where: { orgId: org.id }, orderBy: { position: "asc" }, include: { products: { where: { active: true }, orderBy: { name: "asc" } } } }),
     db.sale.findFirst({ where: { deviceId: device.id, status: "AWAITING_PAYMENT" } }),
     db.sale.findFirst({ where: { deviceId: device.id, status: "DRAFT" }, include: { lines: { orderBy: { name: "asc" } }, fiscal: true } }),
     db.sale.findFirst({ where: { deviceId: device.id, status: "COMPLETED" }, orderBy: { issuedAt: "desc" } }),
+    posPaymentMethods(),
   ]);
   const active = categories.find((c) => c.id === cat) ?? categories[0];
   const lines = draft?.lines ?? [];
@@ -97,8 +99,11 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
                 </div>
                 {lines.length === 0 ? <p className="text-sm text-muted-foreground">Η πληρωμή ανοίγει μόλις μπει το πρώτο προϊόν</p> : null}
                 <div className="grid grid-cols-2 gap-3">
-                  <form action={pay.bind(null, "CASH")}><Submit disabled={lines.length === 0} className={btn("success", "lg", "w-full")}><Banknote /> Μετρητά</Submit></form>
-                  <form action={pay.bind(null, "CARD")}><Submit disabled={lines.length === 0} className={btn("default", "lg", "w-full")}><CreditCard /> Κάρτα</Submit></form>
+                  {methods.map((m) => (
+                    <form key={m.id} action={pay.bind(null, m.id)}>
+                      <Submit disabled={lines.length === 0} className={btn(m.ledgerKind === "CASH" ? "success" : "default", "lg", "w-full")}>{m.ledgerKind === "CASH" ? <Banknote /> : <CreditCard />} {m.name}</Submit>
+                    </form>
+                  ))}
                 </div>
               </div>
             </>

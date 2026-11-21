@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   if (!user) return new Response("Χρειάζεται σύνδεση", { status: 401 });
   const asked = new URL(req.url).searchParams.get("org");
   const m = user.memberships[0];
-  const orgId = asked && platformCan(user, "gdpr.manage") ? asked : m?.role.locked ? m.orgId : null;
+  const orgId = asked && platformCan(user, "gdpr.read") ? asked : m?.role.locked ? m.orgId : null;
   if (!orgId || (asked && asked !== orgId)) return new Response("Δεν επιτρέπεται", { status: 403 });
   // ?format=receipts: μόνο το αρχείο αποδείξεων, σε CSV για τον λογιστή
   if (new URL(req.url).searchParams.get("format") === "receipts") {

@@ -35,7 +35,9 @@ export async function geocode(parts: Parts): Promise<{ latitude: number; longitu
 // Το δημόσιο Nominatim απαγορεύει την αναζήτηση «όσο πληκτρολογείς»· για αυτό εδώ ρωτάμε το Photon (photon.komoot.io),
 // που είναι φτιαγμένο για αυτή τη χρήση πάνω στα ίδια δεδομένα OpenStreetMap.
 // shortcut: δημόσιο Photon (δίκαιη χρήση, χωρίς εγγύηση)· με πολλούς χρήστες θέλει δικό μας Photon ή πάροχο με σύμβαση.
-export type AddressSuggestion = { label: string; street: string; postalCode: string | null; city: string | null; region: string | null; countryCode: string | null; latitude: number; longitude: number };
+export type AddressSuggestion = { label: string; street: string; postalCode: string | null; city: string | null; region: string | null; countryCode: string | null; latitude: number; longitude: number;
+  // Συμπλήρωση από τη γεωγραφία αναφοράς (lib/geo): ο Δήμος Καλλικράτη και η πόλη που ταιριάζουν, και η περιοχή (district του χάρτη)
+  municipalityCode?: string | null; municipalityName?: string | null; cityId?: string | null; cityName?: string | null; areaName?: string | null };
 type Feature = { properties?: Record<string, string | undefined>; geometry?: { coordinates?: [number, number] } };
 const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ς/g, "σ");
 /** Η περιοχή της λίστας μας που ταιριάζει στο κείμενο του χάρτη («Αποκεντρωμένη Διοίκηση Αττικής» → «Αττική»). Μόνο αν είναι μία: αλλιώς κενό. */
@@ -57,14 +59,20 @@ export function parseSuggestions(json: unknown, regions: readonly string[] = [])
     const postalCode = p.postcode?.replace(/\s+/g, "") ?? null, city = p.city ?? p.town ?? p.village ?? null;
     const label = [street, [postalCode, city].filter(Boolean).join(" "), p.district && p.district !== city ? p.district : null].filter(Boolean).join(", ");
     if (out.some((x) => x.label === label)) continue;
-    out.push({ label, street, postalCode, city, region: matchRegion(p.state ?? "", regions), countryCode: p.countrycode?.toUpperCase() ?? null, latitude: latitude!, longitude: longitude! });
+    const district = p.district && p.district !== city ? p.district : null;
+    out.push({ label, street, postalCode, city, region: matchRegion(p.state ?? "", regions), countryCode: p.countrycode?.toUpperCase() ?? null, latitude: latitude!, longitude: longitude!, ...(district ? { areaName: district } : {}) });
   }
   return out;
 }
-export async function suggestAddresses(q: string, regions: readonly string[] = []): Promise<AddressSuggestion[]> {
+/**
+ * Προτάσεις όσο γράφει ο χρήστης. Με `near`/`cityName` (η πόλη που έχει ήδη διαλέξει στη φόρμα) η αναζήτηση
+ * προτιμά δρόμους εκείνης της πόλης: το όνομά της μπαίνει στο ερώτημα και τα αποτελέσματα κοντά της πρώτα —
+ * αλλιώς μια οδός «Δορυλαίου» φέρνει τις ομώνυμες της Ν. Ιωνίας/Νίκαιας/Πειραιά πριν από αυτήν της Αθήνας.
+ */
+export async function suggestAddresses(q: string, regions: readonly string[] = [], near?: { latitude: number; longitude: number } | null, cityName?: string | null): Promise<AddressSuggestion[]> {
   const url = new URL("https://photon.komoot.io/api/");
-  // προτίμηση σε αποτελέσματα κοντά στην Ελλάδα, χωρίς να αποκλείονται διευθύνσεις άλλων χωρών
-  url.search = new URLSearchParams({ q, limit: "8", lat: "38.5", lon: "23.8" }).toString();
+  // προτίμηση σε αποτελέσματα κοντά στην Ελλάδα (ή κοντά στην επιλεγμένη πόλη), χωρίς αποκλεισμό άλλων χωρών
+  url.search = new URLSearchParams({ q: cityName ? `${q} ${cityName}` : q, limit: "8", lat: String(near?.latitude ?? 38.5), lon: String(near?.longitude ?? 23.8) }).toString();
   const res = await fetch(url, { headers: { "User-Agent": "GelatoSystem/1.0 (address lookup)" }, cache: "no-store", signal: AbortSignal.timeout(5000) }).catch(() => null);
   return res?.ok ? parseSuggestions(await res.json().catch(() => null), regions).slice(0, 5) : [];
 }

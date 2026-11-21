@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { SECURITY_CONTROLS } from "@/lib/ops";
 
 export default async function SecurityPage() {
-  await requirePlatform("settings.manage");
+  await requirePlatform("settings.read");
   const now = new Date();
   const [sessions, locked, pending, staff, unpaired, paired, bound] = await Promise.all([
     db.session.count({ where: { expiresAt: { gt: now } } }),

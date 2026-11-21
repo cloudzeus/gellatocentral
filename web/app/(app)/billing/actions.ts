@@ -12,7 +12,7 @@ import { checkoutConfigured, createOrder } from "@/lib/viva/checkout";
 
 /** Στέλνει τον πελάτη στη σελίδα πληρωμής της Viva για μια ανεξόφλητη χρέωση της ΔΙΚΗΣ του επιχείρησης. */
 export async function payCharge(chargeId: string) {
-  const { org, user } = await currentOrg("billing.view");
+  const { org, user } = await currentOrg("billing.read");
   const charge = await db.subscriptionCharge.findFirst({ where: { id: chargeId, paidAt: null, subscription: { orgId: org.id } } });
   if (!charge) redirect("/billing");
   if (!(await checkoutConfigured())) redirect(`/billing?error=${encodeURIComponent("Η πληρωμή με κάρτα δεν είναι ακόμα διαθέσιμη. Επικοινώνησε μαζί μας.")}`);

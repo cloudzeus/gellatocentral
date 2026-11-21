@@ -45,3 +45,6 @@ next-env.d.ts
 .env
 /lib/generated
 !.env.example
+
+# υλικό αναφοράς (παλιά εφαρμογή, όχι μέρος του repo)
+/.reference/

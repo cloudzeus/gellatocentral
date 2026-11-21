@@ -17,12 +17,12 @@ import { STATUS } from "./status";
 import { Submit } from "@/components/submit";
 
 export default async function PlatformPage({ searchParams }: PageProps<"/platform">) {
-  const me = await requirePlatform("orgs.view");
+  const me = await requirePlatform("orgs.read");
   const q = await searchParams;
   const list = listParams(q, 25, ["org", "until"]);
   const status = filterParam(q, "status", ["TRIALING", "ACTIVE", "PAST_DUE", "CANCELLED"]);
   const orderBy = list.sort === "org" ? { name: list.dir } : list.sort === "until" ? { subscription: { currentPeriodEnd: list.dir } } : { createdAt: "desc" as const };
-  const include = { subscription: { include: { plan: true } }, members: { select: { id: true } }, stores: { include: { warehouses: true, devices: true, pauses: { where: { endedAt: null }, select: { id: true } } } } } as const;
+  const include = { subscription: { include: { plan: true } }, members: { select: { id: true } }, stores: { include: { warehouses: { include: { warehouse: { select: { active: true } } } }, devices: true, pauses: { where: { endedAt: null }, select: { id: true } } } } } as const;
   const where = {
     ...(list.q ? { OR: [{ name: { contains: list.q, mode: "insensitive" as const } }, { vatNumber: { contains: list.q } }, { slug: { contains: list.q.toLowerCase() } }] } : {}),
     ...(status ? { subscription: { status } } : {}),
@@ -39,7 +39,7 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
     const stores = o.stores.filter((s) => s.active);
     const devices = stores.flatMap((s) => s.devices).filter((d) => d.active && DEVICE_KIND[d.kind].invoices).length;
     const plan = o.subscription?.plan ? toPlanRow(o.subscription.plan) : fallback;
-    const steps = setupSteps(o);
+    const steps = setupSteps({ ...o, stores: o.stores.map((s) => ({ ...s, warehouses: s.warehouses.map((l) => l.warehouse) })) });
     return { o, stores: stores.length, devices, plan: plan.name, cents: monthlyPreview(plan, stores.map((s) => ({ id: s.id, name: s.name, deviceKinds: s.devices.filter((d) => d.active).map((d) => d.kind as string), paused: s.pauses.length > 0 }))).totalCents, missing: steps.filter((s) => !s.done).length };
   };
   const all = orgs.map(summarize);
@@ -54,7 +54,7 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
 
   return (
     <Page section="Πλατφόρμα" title="Συνδρομητές" description="Οι επιχειρήσεις που χρησιμοποιούν το Gelato System και η ετοιμότητά τους" actions={
-        me.can("orgs.create") && <Modal label={<><Plus /> Νέα επιχείρηση</>} variant="default" title="Νέα επιχείρηση" description="Δημιουργείται μαζί η έδρα, μια κεντρική αποθήκη, το πρώτο ταμείο (σειρά A1) και δοκιμαστική συνδρομή. Στέλνεται email καλωσορίσματος.">
+        me.can("orgs.add") && <Modal label={<><Plus /> Νέα επιχείρηση</>} variant="default" title="Νέα επιχείρηση" description="Δημιουργείται μαζί η έδρα, μια κεντρική αποθήκη, το πρώτο ταμείο (σειρά A1) και δοκιμαστική συνδρομή. Στέλνεται email καλωσορίσματος.">
           <form action={createOrganization} className="grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end">
             <Field label="Επωνυμία" name="name" required minLength={2} maxLength={60} placeholder="π.χ. Gelateria Aurora" />
             <Field label="ΑΦΜ" name="vatNumber" required inputMode="numeric" pattern="\d{9}" maxLength={9} hint="9 ψηφία. Δεν αλλάζει μετά." />

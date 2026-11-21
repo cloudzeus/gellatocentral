@@ -8,7 +8,7 @@ import { recordContinuityCheck } from "../actions";
 import { Submit } from "@/components/submit";
 
 export default async function ContinuityPage({ searchParams }: PageProps<"/platform/continuity">) {
-  await requirePlatform("settings.manage");
+  await requirePlatform("settings.read");
   const saved = (await searchParams).saved;
   const s = await platformSettings();
   const checks = [

@@ -1,13 +1,14 @@
 import {
   BarChart3, BookOpen, Boxes, Building2, CalendarDays, ChefHat, ClipboardCheck, ClipboardList, Contact, CreditCard,
-  Factory, FileText, Inbox, Landmark, LayoutDashboard, MonitorSmartphone, Package, ReceiptText, ScanSearch, Server, Settings, ShieldCheck, LifeBuoy,
-  ShoppingCart, Store, TabletSmartphone, ThermometerSnowflake, Users, Warehouse, type LucideIcon,
+  Database, Factory, FileText, Gauge, Inbox, Landmark, LayoutDashboard, MonitorSmartphone, Package, Percent, ReceiptText, ScanSearch, Server, Settings, ShieldCheck, LifeBuoy,
+  ShoppingCart, Store, TabletSmartphone, ThermometerSnowflake, Truck, Users, Warehouse, type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = { to: string; label: string; icon: LucideIcon; ready?: boolean };
 
 // Ίδιες ενότητες και σειρά με το Gelato System. `ready` = η οθόνη υπάρχει ήδη στη νέα εφαρμογή.
-export const NAV: { title: string; icon: LucideIcon; items: NavItem[] }[] = [
+// `group` = η ενότητα μένει αναδιπλούμενη ομάδα ακόμα και με ένα στοιχείο (θα μαζευτούν κι άλλα).
+export const NAV: { title: string; icon: LucideIcon; group?: boolean; items: NavItem[] }[] = [
   { title: "Επισκόπηση", icon: LayoutDashboard, items: [{ to: "/", label: "Πίνακας ελέγχου", icon: LayoutDashboard, ready: true }] },
   {
     title: "Ταμείο & τιμολόγηση", icon: Store,
@@ -21,22 +22,24 @@ export const NAV: { title: string; icon: LucideIcon; items: NavItem[] }[] = [
     title: "Συνταγολόγιο", icon: ChefHat,
     items: [
       { to: "/materials", label: "Α΄ Ύλες", icon: Boxes },
-      { to: "/recipes", label: "Συνταγές", icon: ChefHat },
-      { to: "/products", label: "Προϊόντα", icon: Package },
+      { to: "/recipes", label: "Συνταγές", icon: ChefHat, ready: true },
+      { to: "/products", label: "Προϊόντα", icon: Package, ready: true },
+      { to: "/items", label: "Γενικά είδη", icon: Boxes, ready: true },
     ],
   },
   {
     title: "Παραγωγή", icon: Factory,
     items: [
-      { to: "/production", label: "Παραγωγή", icon: Factory },
+      { to: "/production", label: "Παραγωγή", icon: Factory, ready: true },
       { to: "/haccp", label: "HACCP", icon: ThermometerSnowflake },
-      { to: "/traceability", label: "Ιχνηλασιμότητα", icon: ScanSearch },
+      { to: "/traceability", label: "Ιχνηλασιμότητα", icon: ScanSearch, ready: true },
     ],
   },
   {
     title: "Αποθήκη & αγορές", icon: Warehouse,
     items: [
-      { to: "/inventory", label: "Αποθήκη", icon: Warehouse },
+      { to: "/inventory", label: "Αποθήκη", icon: Warehouse, ready: true },
+      { to: "/purchases", label: "Τιμολόγια αγοράς", icon: Truck, ready: true },
       { to: "/counts", label: "Απογραφές", icon: ClipboardCheck },
       { to: "/orders", label: "Παραγγελίες υλών", icon: ClipboardList },
     ],
@@ -70,12 +73,22 @@ export const NAV: { title: string; icon: LucideIcon; items: NavItem[] }[] = [
     items: [
       { to: "/platform", label: "Συνδρομητές", icon: Building2, ready: true },
       { to: "/platform/plans", label: "Πακέτα & τιμές", icon: Package, ready: true },
+      { to: "/platform/usage", label: "Υπηρεσίες pay-as-you-go", icon: Gauge, ready: true },
       { to: "/platform/parties", label: "Συναλλασσόμενοι", icon: Contact, ready: true },
       { to: "/platform/staff", label: "Χρήστες & δικαιώματα", icon: Users, ready: true },
       { to: "/platform/gdpr", label: "GDPR & συναινέσεις", icon: ShieldCheck, ready: true },
     ],
   },
   { title: "Ρυθμίσεις πλατφόρμας", icon: Settings, items: [{ to: "/platform/settings", label: "Ρυθμίσεις & email", icon: Settings, ready: true }, { to: "/platform/refs", label: "Λίστες αναφοράς", icon: ClipboardList, ready: true }] },
+  {
+    title: "Common Tables", icon: Database, group: true,
+    items: [
+      { to: "/platform/vat-rates", label: "Συντελεστές ΦΠΑ", icon: Percent, ready: true },
+      { to: "/platform/payment-methods", label: "Τρόποι πληρωμής", icon: CreditCard, ready: true },
+      { to: "/platform/document-types", label: "Τύποι παραστατικών", icon: FileText, ready: true },
+      { to: "/platform/catalog", label: "Κατάλογος ειδών", icon: Boxes, ready: true },
+    ],
+  },
   {
     title: "Υποστήριξη πελατών", icon: Inbox,
     items: [

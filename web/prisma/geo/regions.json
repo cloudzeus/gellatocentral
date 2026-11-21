@@ -1,0 +1,4122 @@
+[
+ {
+  "code": "01",
+  "level": 3,
+  "parentCode": null,
+  "nameEL": "Περιφέρεια Ανατολικής Μακεδονίας και Θράκης",
+  "nameOfficial": "ΑΝ. ΜΑΚΕΔΟΝΙΑΣ & ΘΡΑΚΗΣ",
+  "latitude": 41.025159,
+  "longitude": 24.938097,
+  "path": "01"
+ },
+ {
+  "code": "02",
+  "level": 3,
+  "parentCode": null,
+  "nameEL": "Περιφέρεια Κεντρικής Μακεδονίας",
+  "nameOfficial": "ΚΕΝΤΡΙΚΗΣ ΜΑΚΕΔΟΝΙΑΣ",
+  "latitude": 40.690477,
+  "longitude": 22.79762,
+  "path": "02"
+ },
+ {
+  "code": "03",
+  "level": 3,
+  "parentCode": null,
+  "nameEL": "Περιφέρεια Δυτικής Μακεδονίας",
+  "nameOfficial": "ΔΥΤΙΚΗΣ ΜΑΚΕΔΟΝΙΑΣ",
+  "latitude": 40.416665,
+  "longitude": 21.42917,
+  "path": "03"
+ },
+ {
+  "code": "04",
+  "level": 3,
+  "parentCode": null,
+  "nameEL": "Περιφέρεια Ηπείρου",
+  "nameOfficial": "ΗΠΕΙΡΟΥ",
+  "latitude": 39.395835,
+  "longitude": 20.666667,
+  "path": "04"
+ },
+ {
+  "code": "05",
+  "level": 3,
+  "parentCode": null,
+  "nameEL": "Περιφέρεια Θεσσαλίας",
+  "nameOfficial": "ΘΕΣΣΑΛΙΑΣ",
+  "latitude": 39.384264,
+  "longitude": 22.437737,
+  "path": "05"
+ },
+ {
+  "code": "06",
+  "level": 3,
+  "parentCode": null,
+  "nameEL": "Περιφέρεια Ιονίων Νήσων",
+  "nameOfficial": "ΙΟΝΙΩΝ ΝΗΣΩΝ",
+  "latitude": 38.558272,
+  "longitude": 20.48283,
+  "path": "06"
+ },
+ {
+  "code": "07",
+  "level": 3,
+  "parentCode": null,
+  "nameEL": "Περιφέρεια Δυτικής Ελλάδας",
+  "nameOfficial": "ΔΥΤΙΚΗΣ ΕΛΛΑΔΑΣ",
+  "latitude": 38.083333,
+  "longitude": 21.694443,
+  "path": "07"
+ },
+ {
+  "code": "08",
+  "level": 3,
+  "parentCode": null,
+  "nameEL": "Περιφέρεια Στερεάς Ελλάδας",
+  "nameOfficial": "ΣΤΕΡΕΑΣ ΕΛΛΑΔΑΣ",
+  "latitude": 38.633332,
+  "longitude": 22.666668,
+  "path": "08"
+ },
+ {
+  "code": "09",
+  "level": 3,
+  "parentCode": null,
+  "nameEL": "Περιφέρεια Αττικής",
+  "nameOfficial": "ΑΤΤΙΚΗΣ",
+  "latitude": 37.926854,
+  "longitude": 23.664697,
+  "path": "09"
+ },
+ {
+  "code": "10",
+  "level": 3,
+  "parentCode": null,
+  "nameEL": "Περιφέρεια Πελοποννήσου",
+  "nameOfficial": "ΠΕΛΟΠΟΝΝΗΣΟΥ",
+  "latitude": 37.483334,
+  "longitude": 22.433332,
+  "path": "10"
+ },
+ {
+  "code": "11",
+  "level": 3,
+  "parentCode": null,
+  "nameEL": "Περιφέρεια Βορείου Αιγαίου",
+  "nameOfficial": "ΒΟΡΕΙΟΥ ΑΙΓΑΙΟΥ",
+  "latitude": 38.541561,
+  "longitude": 26.032743,
+  "path": "11"
+ },
+ {
+  "code": "12",
+  "level": 3,
+  "parentCode": null,
+  "nameEL": "Περιφέρεια Νοτίου Αιγαίου",
+  "nameOfficial": "ΝΟΤΙΟΥ ΑΙΓΑΙΟΥ",
+  "latitude": 36.994277,
+  "longitude": 25.710976,
+  "path": "12"
+ },
+ {
+  "code": "13",
+  "level": 3,
+  "parentCode": null,
+  "nameEL": "Περιφέρεια Κρήτης",
+  "nameOfficial": "ΚΡΗΤΗΣ",
+  "latitude": 35.216832,
+  "longitude": 24.913338,
+  "path": "13"
+ },
+ {
+  "code": "0701",
+  "level": 4,
+  "parentCode": "07",
+  "nameEL": "Νομός Αιτωλοακαρνανίας",
+  "nameOfficial": "ΑΙΤΩΛΟΑΚΑΡΝΑΝΙΑΣ",
+  "latitude": 38.5,
+  "longitude": 21.5,
+  "path": "07>0701"
+ },
+ {
+  "code": "0702",
+  "level": 4,
+  "parentCode": "07",
+  "nameEL": "Νομός Αχαΐας",
+  "nameOfficial": "ΑΧΑΪΑΣ",
+  "latitude": 38.0,
+  "longitude": 22.0,
+  "path": "07>0702"
+ },
+ {
+  "code": "0801",
+  "level": 4,
+  "parentCode": "08",
+  "nameEL": "Νομός Βοιωτίας",
+  "nameOfficial": "ΒΟΙΩΤΙΑΣ",
+  "latitude": 38.33333,
+  "longitude": 23.0,
+  "path": "08>0801"
+ },
+ {
+  "code": "0901",
+  "level": 4,
+  "parentCode": "09",
+  "nameEL": "Π.Ε. Βορείου Τομέα Αθηνών",
+  "nameOfficial": "ΒΟΡΕΙΟΥ ΤΟΜΕΑ ΑΘΗΝΩΝ",
+  "latitude": 38.040438,
+  "longitude": 23.80518,
+  "path": "09>0901"
+ },
+ {
+  "code": "0902",
+  "level": 4,
+  "parentCode": "09",
+  "nameEL": "Π.Ε. Δυτικού Τομέα Αθηνών",
+  "nameOfficial": "ΔΥΤΙΚΟΥ ΤΟΜΕΑ ΑΘΗΝΩΝ",
+  "latitude": 38.019403,
+  "longitude": 23.678343,
+  "path": "09>0902"
+ },
+ {
+  "code": "0903",
+  "level": 4,
+  "parentCode": "09",
+  "nameEL": "Π.Ε. Κεντρικού Τομέα Αθηνών",
+  "nameOfficial": "ΚΕΝΤΡΙΚΟΥ ΤΟΜΕΑ ΑΘΗΝΩΝ",
+  "latitude": 37.976721,
+  "longitude": 23.76286,
+  "path": "09>0903"
+ },
+ {
+  "code": "0904",
+  "level": 4,
+  "parentCode": "09",
+  "nameEL": "Π.Ε. Νοτίου Τομέα Αθηνών",
+  "nameOfficial": "ΝΟΤΙΟΥ ΤΟΜΕΑ ΑΘΗΝΩΝ",
+  "latitude": 37.927316,
+  "longitude": 23.723075,
+  "path": "09>0904"
+ },
+ {
+  "code": "0905",
+  "level": 4,
+  "parentCode": "09",
+  "nameEL": "Π.Ε. Πειραιώς",
+  "nameOfficial": "ΠΕΙΡΑΙΩΣ",
+  "latitude": 37.96943,
+  "longitude": 23.632908,
+  "path": "09>0905"
+ },
+ {
+  "code": "0906",
+  "level": 4,
+  "parentCode": "09",
+  "nameEL": "Π.Ε. Νήσων",
+  "nameOfficial": "ΝΗΣΩΝ",
+  "latitude": 37.404457,
+  "longitude": 23.332224,
+  "path": "09>0906"
+ },
+ {
+  "code": "0907",
+  "level": 4,
+  "parentCode": "09",
+  "nameEL": "Π.Ε. Ανατολικής Αττικής",
+  "nameOfficial": "ΑΝΑΤΟΛΙΚΗΣ ΑΤΤΙΚΗΣ",
+  "latitude": 37.983628,
+  "longitude": 23.895565,
+  "path": "09>0907"
+ },
+ {
+  "code": "0908",
+  "level": 4,
+  "parentCode": "09",
+  "nameEL": "Π.Ε. Δυτικής Αττικής",
+  "nameOfficial": "ΔΥΤΙΚΗΣ ΑΤΤΙΚΗΣ",
+  "latitude": 38.093438,
+  "longitude": 23.487424,
+  "path": "09>0908"
+ },
+ {
+  "code": "1001",
+  "level": 4,
+  "parentCode": "10",
+  "nameEL": "Νομός Αργολίδας",
+  "nameOfficial": "ΑΡΓΟΛΙΔΑΣ",
+  "latitude": 37.66667,
+  "longitude": 22.83333,
+  "path": "10>1001"
+ },
+ {
+  "code": "1002",
+  "level": 4,
+  "parentCode": "10",
+  "nameEL": "Νομός Αρκαδίας",
+  "nameOfficial": "ΑΡΚΑΔΙΑΣ",
+  "latitude": 37.58333,
+  "longitude": 22.25,
+  "path": "10>1002"
+ },
+ {
+  "code": "1003",
+  "level": 4,
+  "parentCode": "10",
+  "nameEL": "Νομός Κορινθίας",
+  "nameOfficial": "ΚΟΡΙΝΘΙΑΣ",
+  "latitude": 37.91667,
+  "longitude": 22.66667,
+  "path": "10>1003"
+ },
+ {
+  "code": "1004",
+  "level": 4,
+  "parentCode": "10",
+  "nameEL": "Νομός Λακωνίας",
+  "nameOfficial": "ΛΑΚΩΝΙΑΣ",
+  "latitude": 37.0,
+  "longitude": 22.58333,
+  "path": "10>1004"
+ },
+ {
+  "code": "1005",
+  "level": 4,
+  "parentCode": "10",
+  "nameEL": "Νομός Μεσσηνίας",
+  "nameOfficial": "ΜΕΣΣΗΝΙΑΣ",
+  "latitude": 37.25,
+  "longitude": 21.83333,
+  "path": "10>1005"
+ },
+ {
+  "code": "101",
+  "level": 4,
+  "parentCode": "01",
+  "nameEL": "Νομός Δράμας",
+  "nameOfficial": "ΔΡΑΜΑΣ",
+  "latitude": 41.25,
+  "longitude": 24.25,
+  "path": "01>101"
+ },
+ {
+  "code": "102",
+  "level": 4,
+  "parentCode": "01",
+  "nameEL": "Νομός Έβρου",
+  "nameOfficial": "ΕΒΡΟΥ",
+  "latitude": 41.0,
+  "longitude": 26.0,
+  "path": "01>102"
+ },
+ {
+  "code": "103",
+  "level": 4,
+  "parentCode": "01",
+  "nameEL": "Π.Ε. Θάσου",
+  "nameOfficial": "ΘΑΣΟΥ",
+  "latitude": 40.68531,
+  "longitude": 24.65323,
+  "path": "01>103"
+ },
+ {
+  "code": "104",
+  "level": 4,
+  "parentCode": "01",
+  "nameEL": "Π.Ε. Καβαλας",
+  "nameOfficial": "ΚΑΒΑΛΑΣ",
+  "latitude": 40.965643,
+  "longitude": 24.392023,
+  "path": "01>104"
+ },
+ {
+  "code": "105",
+  "level": 4,
+  "parentCode": "01",
+  "nameEL": "Νομός Ξάνθης",
+  "nameOfficial": "ΞΑΝΘΗΣ",
+  "latitude": 41.16667,
+  "longitude": 24.83333,
+  "path": "01>105"
+ },
+ {
+  "code": "106",
+  "level": 4,
+  "parentCode": "01",
+  "nameEL": "Νομός Ροδόπης",
+  "nameOfficial": "ΡΟΔΟΠΗΣ",
+  "latitude": 41.08333,
+  "longitude": 25.5,
+  "path": "01>106"
+ },
+ {
+  "code": "1101",
+  "level": 4,
+  "parentCode": "11",
+  "nameEL": "Π.Ε. Ικαρίας",
+  "nameOfficial": "ΙΚΑΡΙΑΣ",
+  "latitude": 37.590215,
+  "longitude": 26.29083,
+  "path": "11>1101"
+ },
+ {
+  "code": "1102",
+  "level": 4,
+  "parentCode": "11",
+  "nameEL": "Π.Ε. Λέσβου",
+  "nameOfficial": "ΛΕΣΒΟΥ",
+  "latitude": 39.17096,
+  "longitude": 26.00206,
+  "path": "11>1102"
+ },
+ {
+  "code": "1103",
+  "level": 4,
+  "parentCode": "11",
+  "nameEL": "Π.Ε. Λήμνου",
+  "nameOfficial": "ΛΗΜΝΟΥ",
+  "latitude": 39.715915,
+  "longitude": 25.11655,
+  "path": "11>1103"
+ },
+ {
+  "code": "1104",
+  "level": 4,
+  "parentCode": "11",
+  "nameEL": "Π.Ε. Σάμου",
+  "nameOfficial": "ΣΑΜΟΥ",
+  "latitude": 37.73347,
+  "longitude": 26.81096,
+  "path": "11>1104"
+ },
+ {
+  "code": "1105",
+  "level": 4,
+  "parentCode": "11",
+  "nameEL": "Π.Ε. Χίου",
+  "nameOfficial": "ΧΙΟΥ",
+  "latitude": 38.497243,
+  "longitude": 25.943313,
+  "path": "11>1105"
+ },
+ {
+  "code": "1201",
+  "level": 4,
+  "parentCode": "12",
+  "nameEL": "Π.Ε. Άνδρου",
+  "nameOfficial": "ΑΝΔΡΟΥ",
+  "latitude": 37.85801,
+  "longitude": 24.84814,
+  "path": "12>1201"
+ },
+ {
+  "code": "1202",
+  "level": 4,
+  "parentCode": "12",
+  "nameEL": "Π.Ε. Θήρας",
+  "nameOfficial": "ΘΗΡΑΣ",
+  "latitude": 36.558918,
+  "longitude": 25.31833,
+  "path": "12>1202"
+ },
+ {
+  "code": "1203",
+  "level": 4,
+  "parentCode": "12",
+  "nameEL": "Π.Ε. Καλύμνου",
+  "nameOfficial": "ΚΑΛΥΜΝΟΥ",
+  "latitude": 37.116098,
+  "longitude": 26.698387,
+  "path": "12>1203"
+ },
+ {
+  "code": "1204",
+  "level": 4,
+  "parentCode": "12",
+  "nameEL": "Π.Ε. Καρπάθου-Ηρωικής Νήσου Κάσου",
+  "nameOfficial": "ΚΑΡΠΑΘΟΥ",
+  "latitude": 35.503315,
+  "longitude": 27.018225,
+  "path": "12>1204"
+ },
+ {
+  "code": "1205",
+  "level": 4,
+  "parentCode": "12",
+  "nameEL": "Π.Ε. Κέας-Κύθνου",
+  "nameOfficial": "ΚΕΑΣ-ΚΥΘΝΟΥ",
+  "latitude": 37.508275,
+  "longitude": 24.36189,
+  "path": "12>1205"
+ },
+ {
+  "code": "1206",
+  "level": 4,
+  "parentCode": "12",
+  "nameEL": "Π.Ε. Κω",
+  "nameOfficial": "ΚΩ",
+  "latitude": 36.70566,
+  "longitude": 27.143415,
+  "path": "12>1206"
+ },
+ {
+  "code": "1207",
+  "level": 4,
+  "parentCode": "12",
+  "nameEL": "Π.Ε. Μήλου",
+  "nameOfficial": "ΜΗΛΟΥ",
+  "latitude": 36.90936,
+  "longitude": 24.569485,
+  "path": "12>1207"
+ },
+ {
+  "code": "1208",
+  "level": 4,
+  "parentCode": "12",
+  "nameEL": "Π.Ε. Μυκόνου",
+  "nameOfficial": "ΜΥΚΟΝΟΥ",
+  "latitude": 37.44529,
+  "longitude": 25.35408,
+  "path": "12>1208"
+ },
+ {
+  "code": "1209",
+  "level": 4,
+  "parentCode": "12",
+  "nameEL": "Π.Ε. Νάξου",
+  "nameOfficial": "ΝΑΞΟΥ",
+  "latitude": 36.945555,
+  "longitude": 25.699265,
+  "path": "12>1209"
+ },
+ {
+  "code": "1210",
+  "level": 4,
+  "parentCode": "12",
+  "nameEL": "Π.Ε. Πάρου",
+  "nameOfficial": "ΠΑΡΟΥ",
+  "latitude": 37.025925,
+  "longitude": 25.11721,
+  "path": "12>1210"
+ },
+ {
+  "code": "1211",
+  "level": 4,
+  "parentCode": "12",
+  "nameEL": "Π.Ε. Ρόδου",
+  "nameOfficial": "ΡΟΔΟΥ",
+  "latitude": 36.318282,
+  "longitude": 28.065426,
+  "path": "12>1211"
+ },
+ {
+  "code": "1212",
+  "level": 4,
+  "parentCode": "12",
+  "nameEL": "Π.Ε. Σύρου",
+  "nameOfficial": "ΣΥΡΟΥ",
+  "latitude": 37.42698,
+  "longitude": 24.91631,
+  "path": "12>1212"
+ },
+ {
+  "code": "1213",
+  "level": 4,
+  "parentCode": "12",
+  "nameEL": "Π.Ε. Τήνου",
+  "nameOfficial": "ΤΗΝΟΥ",
+  "latitude": 37.60393,
+  "longitude": 25.13252,
+  "path": "12>1213"
+ },
+ {
+  "code": "1301",
+  "level": 4,
+  "parentCode": "13",
+  "nameEL": "Π.Ε. Ηρακλειου",
+  "nameOfficial": "ΗΡΑΚΛΕΙΟΥ",
+  "latitude": 35.169475,
+  "longitude": 25.163811,
+  "path": "13>1301"
+ },
+ {
+  "code": "1302",
+  "level": 4,
+  "parentCode": "13",
+  "nameEL": "Νομός Λασιθίου",
+  "nameOfficial": "ΛΑΣΙΘΙΟΥ",
+  "latitude": 35.08333,
+  "longitude": 25.83333,
+  "path": "13>1302"
+ },
+ {
+  "code": "1303",
+  "level": 4,
+  "parentCode": "13",
+  "nameEL": "Π.Ε. Ρεθυμνου",
+  "nameOfficial": "ΡΕΘΥΜΝΟΥ",
+  "latitude": 35.281194,
+  "longitude": 24.65621,
+  "path": "13>1303"
+ },
+ {
+  "code": "1304",
+  "level": 4,
+  "parentCode": "13",
+  "nameEL": "Νομός Χανίων",
+  "nameOfficial": "ΧΑΝΙΩΝ",
+  "latitude": 35.33333,
+  "longitude": 24.0,
+  "path": "13>1304"
+ },
+ {
+  "code": "201",
+  "level": 4,
+  "parentCode": "02",
+  "nameEL": "Νομός Ημαθίας",
+  "nameOfficial": "ΗΜΑΘΙΑΣ",
+  "latitude": 40.5,
+  "longitude": 22.25,
+  "path": "02>201"
+ },
+ {
+  "code": "202",
+  "level": 4,
+  "parentCode": "02",
+  "nameEL": "Νομός Θεσσαλονίκης",
+  "nameOfficial": "ΘΕΣΣΑΛΟΝΙΚΗΣ",
+  "latitude": 40.66667,
+  "longitude": 23.0,
+  "path": "02>202"
+ },
+ {
+  "code": "203",
+  "level": 4,
+  "parentCode": "02",
+  "nameEL": "Νομός Κιλκίς",
+  "nameOfficial": "ΚΙΛΚΙΣ",
+  "latitude": 41.0,
+  "longitude": 22.66667,
+  "path": "02>203"
+ },
+ {
+  "code": "204",
+  "level": 4,
+  "parentCode": "02",
+  "nameEL": "Νομός Πέλλας",
+  "nameOfficial": "ΠΕΛΛΑΣ",
+  "latitude": 40.83333,
+  "longitude": 22.25,
+  "path": "02>204"
+ },
+ {
+  "code": "205",
+  "level": 4,
+  "parentCode": "02",
+  "nameEL": "Νομός Πιερίας",
+  "nameOfficial": "ΠΙΕΡΙΑΣ",
+  "latitude": 40.25,
+  "longitude": 22.41667,
+  "path": "02>205"
+ },
+ {
+  "code": "206",
+  "level": 4,
+  "parentCode": "02",
+  "nameEL": "Νομός Σερρών",
+  "nameOfficial": "ΣΕΡΡΩΝ",
+  "latitude": 41.16667,
+  "longitude": 23.5,
+  "path": "02>206"
+ },
+ {
+  "code": "207",
+  "level": 4,
+  "parentCode": "02",
+  "nameEL": "Νομός Χαλκιδικής",
+  "nameOfficial": "ΧΑΛΚΙΔΙΚΗΣ",
+  "latitude": 40.41667,
+  "longitude": 23.5,
+  "path": "02>207"
+ },
+ {
+  "code": "301",
+  "level": 4,
+  "parentCode": "03",
+  "nameEL": "Νομός Γρεβενών",
+  "nameOfficial": "ΓΡΕΒΕΝΩΝ",
+  "latitude": 40.08333,
+  "longitude": 21.41667,
+  "path": "03>301"
+ },
+ {
+  "code": "302",
+  "level": 4,
+  "parentCode": "03",
+  "nameEL": "Νομός Καστοριάς",
+  "nameOfficial": "ΚΑΣΤΟΡΙΑΣ",
+  "latitude": 40.5,
+  "longitude": 21.16667,
+  "path": "03>302"
+ },
+ {
+  "code": "303",
+  "level": 4,
+  "parentCode": "03",
+  "nameEL": "Νομός Κοζάνης",
+  "nameOfficial": "ΚΟΖΑΝΗΣ",
+  "latitude": 40.33333,
+  "longitude": 21.71667,
+  "path": "03>303"
+ },
+ {
+  "code": "304",
+  "level": 4,
+  "parentCode": "03",
+  "nameEL": "Νομός Φλώρινας",
+  "nameOfficial": "ΦΛΩΡΙΝΑΣ",
+  "latitude": 40.75,
+  "longitude": 21.41667,
+  "path": "03>304"
+ },
+ {
+  "code": "401",
+  "level": 4,
+  "parentCode": "04",
+  "nameEL": "Νομός Άρτας",
+  "nameOfficial": "ΑΡΤΑΣ",
+  "latitude": 39.16667,
+  "longitude": 21.0,
+  "path": "04>401"
+ },
+ {
+  "code": "402",
+  "level": 4,
+  "parentCode": "04",
+  "nameEL": "Νομός Θεσπρωτίας",
+  "nameOfficial": "ΘΕΣΠΡΩΤΙΑΣ",
+  "latitude": 39.5,
+  "longitude": 20.33333,
+  "path": "04>402"
+ },
+ {
+  "code": "403",
+  "level": 4,
+  "parentCode": "04",
+  "nameEL": "Νομός Ιωαννίνων",
+  "nameOfficial": "ΙΩΑΝΝΙΝΩΝ",
+  "latitude": 39.75,
+  "longitude": 20.66667,
+  "path": "04>403"
+ },
+ {
+  "code": "404",
+  "level": 4,
+  "parentCode": "04",
+  "nameEL": "Νομός Πρέβεζας",
+  "nameOfficial": "ΠΡΕΒΕΖΑΣ",
+  "latitude": 39.16667,
+  "longitude": 20.66667,
+  "path": "04>404"
+ },
+ {
+  "code": "501",
+  "level": 4,
+  "parentCode": "05",
+  "nameEL": "Νομός Καρδίτσας",
+  "nameOfficial": "ΚΑΡΔΙΤΣΑΣ",
+  "latitude": 39.33333,
+  "longitude": 21.75,
+  "path": "05>501"
+ },
+ {
+  "code": "502",
+  "level": 4,
+  "parentCode": "05",
+  "nameEL": "Νομός Λάρισας",
+  "nameOfficial": "ΛΑΡΙΣΑΣ",
+  "latitude": 39.5,
+  "longitude": 22.5,
+  "path": "05>502"
+ },
+ {
+  "code": "503",
+  "level": 4,
+  "parentCode": "05",
+  "nameEL": "Νομός Μαγνησίας",
+  "nameOfficial": "ΜΑΓΝΗΣΙΑΣ",
+  "latitude": 39.25,
+  "longitude": 22.75,
+  "path": "05>503"
+ },
+ {
+  "code": "504",
+  "level": 4,
+  "parentCode": "05",
+  "nameEL": "Π.Ε. Σποράδων",
+  "nameOfficial": "ΣΠΟΡΑΔΩΝ",
+  "latitude": 39.17132,
+  "longitude": 23.688687,
+  "path": "05>504"
+ },
+ {
+  "code": "505",
+  "level": 4,
+  "parentCode": "05",
+  "nameEL": "Νομός Τρικάλων",
+  "nameOfficial": "ΤΡΙΚΑΛΩΝ",
+  "latitude": 39.66667,
+  "longitude": 21.5,
+  "path": "05>505"
+ },
+ {
+  "code": "601",
+  "level": 4,
+  "parentCode": "06",
+  "nameEL": "Νομός Ζακύνθου",
+  "nameOfficial": "ΖΑΚΥΝΘΟΥ",
+  "latitude": 37.75,
+  "longitude": 20.75,
+  "path": "06>601"
+ },
+ {
+  "code": "602",
+  "level": 4,
+  "parentCode": "06",
+  "nameEL": "Π.Ε. Ιθακης",
+  "nameOfficial": "ΙΘΑΚΗΣ",
+  "latitude": 38.40025,
+  "longitude": 20.66942,
+  "path": "06>602"
+ },
+ {
+  "code": "603",
+  "level": 4,
+  "parentCode": "06",
+  "nameEL": "Νομός Κερκύρας",
+  "nameOfficial": "ΚΕΡΚΥΡΑΣ",
+  "latitude": 39.66667,
+  "longitude": 19.75,
+  "path": "06>603"
+ },
+ {
+  "code": "604",
+  "level": 4,
+  "parentCode": "06",
+  "nameEL": "Π.Ε. Κεφαλληνιας",
+  "nameOfficial": "ΚΕΦΑΛΛΗΝΙΑΣ",
+  "latitude": 38.22444,
+  "longitude": 20.57806,
+  "path": "06>604"
+ },
+ {
+  "code": "605",
+  "level": 4,
+  "parentCode": "06",
+  "nameEL": "Νομός Λευκάδας",
+  "nameOfficial": "ΛΕΥΚΑΔΑΣ",
+  "latitude": 38.75,
+  "longitude": 20.66667,
+  "path": "06>605"
+ },
+ {
+  "code": "703",
+  "level": 4,
+  "parentCode": "07",
+  "nameEL": "Νομός Ηλείας",
+  "nameOfficial": "ΗΛΕΙΑΣ",
+  "latitude": 37.75,
+  "longitude": 21.58333,
+  "path": "07>703"
+ },
+ {
+  "code": "802",
+  "level": 4,
+  "parentCode": "08",
+  "nameEL": "Νομός Εύβοιας",
+  "nameOfficial": "ΕΥΒΟΙΑΣ",
+  "latitude": 38.5,
+  "longitude": 24.0,
+  "path": "08>802"
+ },
+ {
+  "code": "803",
+  "level": 4,
+  "parentCode": "08",
+  "nameEL": "Νομός Ευρυτανίας",
+  "nameOfficial": "ΕΥΡΥΤΑΝΙΑΣ",
+  "latitude": 39.0,
+  "longitude": 21.66667,
+  "path": "08>803"
+ },
+ {
+  "code": "804",
+  "level": 4,
+  "parentCode": "08",
+  "nameEL": "Νομός Φθιώτιδας",
+  "nameOfficial": "ΦΘΙΩΤΙΔΑΣ",
+  "latitude": 38.83333,
+  "longitude": 22.41667,
+  "path": "08>804"
+ },
+ {
+  "code": "805",
+  "level": 4,
+  "parentCode": "08",
+  "nameEL": "Νομός Φωκίδας",
+  "nameOfficial": "ΦΩΚΙΔΑΣ",
+  "latitude": 38.5,
+  "longitude": 22.25,
+  "path": "08>805"
+ },
+ {
+  "code": "9001",
+  "level": 5,
+  "parentCode": "101",
+  "nameEL": "Δήμος Δοξάτου",
+  "nameOfficial": "ΔΟΞΑΤΟΥ",
+  "latitude": 41.06875,
+  "longitude": 24.24893,
+  "path": "01>101>9001"
+ },
+ {
+  "code": "9002",
+  "level": 5,
+  "parentCode": "101",
+  "nameEL": "Δήμος Δράμας",
+  "nameOfficial": "ΔΡΑΜΑΣ",
+  "latitude": 41.30719,
+  "longitude": 24.21505,
+  "path": "01>101>9002"
+ },
+ {
+  "code": "9003",
+  "level": 5,
+  "parentCode": "101",
+  "nameEL": "Δήμος Κάτω Νευροκοπίου",
+  "nameOfficial": "ΚΑΤΩ ΝΕΥΡΟΚΟΠΙΟΥ",
+  "latitude": 41.37191,
+  "longitude": 23.92807,
+  "path": "01>101>9003"
+ },
+ {
+  "code": "9004",
+  "level": 5,
+  "parentCode": "101",
+  "nameEL": "Δήμος Παρανεστίου",
+  "nameOfficial": "ΠΑΡΑΝΕΣΤΙΟΥ",
+  "latitude": 41.34117,
+  "longitude": 24.47526,
+  "path": "01>101>9004"
+ },
+ {
+  "code": "9005",
+  "level": 5,
+  "parentCode": "101",
+  "nameEL": "Δήμος Προσοτσάνης",
+  "nameOfficial": "ΠΡΟΣΟΤΣΑΝΗΣ",
+  "latitude": 41.18456,
+  "longitude": 23.94133,
+  "path": "01>101>9005"
+ },
+ {
+  "code": "9006",
+  "level": 5,
+  "parentCode": "102",
+  "nameEL": "Δήμος Αλεξανδρούπολης",
+  "nameOfficial": "ΑΛΕΞΑΝΔΡΟΥΠΟΛΗΣ",
+  "latitude": 40.92504,
+  "longitude": 25.97813,
+  "path": "01>102>9006"
+ },
+ {
+  "code": "9007",
+  "level": 5,
+  "parentCode": "102",
+  "nameEL": "Δήμος Διδυμοτείχου",
+  "nameOfficial": "ΔΙΔΥΜΟΤΕΙΧΟΥ",
+  "latitude": 41.40402,
+  "longitude": 26.38976,
+  "path": "01>102>9007"
+ },
+ {
+  "code": "9008",
+  "level": 5,
+  "parentCode": "102",
+  "nameEL": "Δήμος Ορεστιάδας",
+  "nameOfficial": "ΟΡΕΣΤΙΑΔΟΣ",
+  "latitude": 41.5911,
+  "longitude": 26.34694,
+  "path": "01>102>9008"
+ },
+ {
+  "code": "9009",
+  "level": 5,
+  "parentCode": "102",
+  "nameEL": "Δήμος Σαμοθράκης",
+  "nameOfficial": "ΣΑΜΟΘΡΑΚΗΣ",
+  "latitude": 40.45405,
+  "longitude": 25.58474,
+  "path": "01>102>9009"
+ },
+ {
+  "code": "9010",
+  "level": 5,
+  "parentCode": "102",
+  "nameEL": "Δήμος Σουφλίου",
+  "nameOfficial": "ΣΟΥΦΛΙΟΥ",
+  "latitude": 41.18947,
+  "longitude": 26.15592,
+  "path": "01>102>9010"
+ },
+ {
+  "code": "9011",
+  "level": 5,
+  "parentCode": "103",
+  "nameEL": "Δήμος Θάσου",
+  "nameOfficial": "ΘΑΣΟΥ",
+  "latitude": 40.68531,
+  "longitude": 24.65323,
+  "path": "01>103>9011"
+ },
+ {
+  "code": "9012",
+  "level": 5,
+  "parentCode": "104",
+  "nameEL": "Δήμος Καβάλας",
+  "nameOfficial": "ΚΑΒΑΛΑΣ",
+  "latitude": 41.01307,
+  "longitude": 24.4046,
+  "path": "01>104>9012"
+ },
+ {
+  "code": "9013",
+  "level": 5,
+  "parentCode": "104",
+  "nameEL": "Δήμος Νέστου",
+  "nameOfficial": "ΝΕΣΤΟΥ",
+  "latitude": 41.03235,
+  "longitude": 24.6376,
+  "path": "01>104>9013"
+ },
+ {
+  "code": "9014",
+  "level": 5,
+  "parentCode": "104",
+  "nameEL": "Δήμος Παγγαίου",
+  "nameOfficial": "ΠΑΓΓΑΙΟΥ",
+  "latitude": 40.85151,
+  "longitude": 24.13387,
+  "path": "01>104>9014"
+ },
+ {
+  "code": "9015",
+  "level": 5,
+  "parentCode": "105",
+  "nameEL": "Δήμος Αβδήρων",
+  "nameOfficial": "ΑΒΔΗΡΩΝ",
+  "latitude": 41.04514,
+  "longitude": 24.99297,
+  "path": "01>105>9015"
+ },
+ {
+  "code": "9016",
+  "level": 5,
+  "parentCode": "105",
+  "nameEL": "Δήμος Μύκης",
+  "nameOfficial": "ΜΥΚΗΣ",
+  "latitude": 41.28848,
+  "longitude": 24.96119,
+  "path": "01>105>9016"
+ },
+ {
+  "code": "9017",
+  "level": 5,
+  "parentCode": "105",
+  "nameEL": "Δήμος Ξάνθης",
+  "nameOfficial": "ΞΑΝΘΗΣ",
+  "latitude": 41.20843,
+  "longitude": 24.76624,
+  "path": "01>105>9017"
+ },
+ {
+  "code": "9018",
+  "level": 5,
+  "parentCode": "105",
+  "nameEL": "Δήμος Τοπείρου",
+  "nameOfficial": "ΤΟΠΕΙΡΟΥ",
+  "latitude": 41.01457,
+  "longitude": 24.80995,
+  "path": "01>105>9018"
+ },
+ {
+  "code": "9019",
+  "level": 5,
+  "parentCode": "106",
+  "nameEL": "Δήμος Αρριανών",
+  "nameOfficial": "ΑΡΡΙΑΝΩΝ",
+  "latitude": 41.1934,
+  "longitude": 25.72812,
+  "path": "01>106>9019"
+ },
+ {
+  "code": "9020",
+  "level": 5,
+  "parentCode": "106",
+  "nameEL": "Δήμος Ιάσμου",
+  "nameOfficial": "ΙΑΣΜΟΥ",
+  "latitude": 41.14826,
+  "longitude": 25.21857,
+  "path": "01>106>9020"
+ },
+ {
+  "code": "9021",
+  "level": 5,
+  "parentCode": "106",
+  "nameEL": "Δήμος Κομοτηνής",
+  "nameOfficial": "ΚΟΜΟΤΗΝΗΣ",
+  "latitude": 41.10538,
+  "longitude": 25.3865,
+  "path": "01>106>9021"
+ },
+ {
+  "code": "9022",
+  "level": 5,
+  "parentCode": "106",
+  "nameEL": "Δήμος Μαρωνείας - Σαπών",
+  "nameOfficial": "ΜΑΡΩΝΕΙΑΣ-ΣΑΠΩΝ",
+  "latitude": 40.99867,
+  "longitude": 25.59172,
+  "path": "01>106>9022"
+ },
+ {
+  "code": "9023",
+  "level": 5,
+  "parentCode": "201",
+  "nameEL": "Δήμος Αλεξάνδρειας",
+  "nameOfficial": "ΑΛΕΞΑΝΔΡΕΙΑΣ",
+  "latitude": 40.59423,
+  "longitude": 22.46335,
+  "path": "02>201>9023"
+ },
+ {
+  "code": "9024",
+  "level": 5,
+  "parentCode": "201",
+  "nameEL": "Δήμος Βέροιας",
+  "nameOfficial": "ΒΕΡΟΙΑΣ",
+  "latitude": 40.48071,
+  "longitude": 22.1887,
+  "path": "02>201>9024"
+ },
+ {
+  "code": "9025",
+  "level": 5,
+  "parentCode": "201",
+  "nameEL": "Δήμος Νάουσας",
+  "nameOfficial": "ΝΑΟΥΣΑΣ",
+  "latitude": 40.63287,
+  "longitude": 22.05336,
+  "path": "02>201>9025"
+ },
+ {
+  "code": "9026",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Αμπελοκήπων - Μενεμένης",
+  "nameOfficial": "ΑΜΠΕΛΟΚΗΠΩΝ-ΜΕΝΕΜΕΝΗΣ",
+  "latitude": 40.65603,
+  "longitude": 22.89198,
+  "path": "02>202>9026"
+ },
+ {
+  "code": "9027",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Βόλβης",
+  "nameOfficial": "ΒΟΛΒΗΣ",
+  "latitude": 40.69393,
+  "longitude": 23.49071,
+  "path": "02>202>9027"
+ },
+ {
+  "code": "9028",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Δέλτα",
+  "nameOfficial": "ΔΕΛΤΑ",
+  "latitude": 40.62124,
+  "longitude": 22.74551,
+  "path": "02>202>9028"
+ },
+ {
+  "code": "9029",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Θερμαϊκού",
+  "nameOfficial": "ΘΕΡΜΑΪΚΟΥ",
+  "latitude": 40.43509,
+  "longitude": 22.92434,
+  "path": "02>202>9029"
+ },
+ {
+  "code": "9030",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Θέρμης",
+  "nameOfficial": "ΘΕΡΜΗΣ",
+  "latitude": 40.48922,
+  "longitude": 23.08051,
+  "path": "02>202>9030"
+ },
+ {
+  "code": "9031",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Θεσσαλονίκης",
+  "nameOfficial": "ΘΕΣΣΑΛΟΝΙΚΗΣ",
+  "latitude": 40.62334,
+  "longitude": 22.95369,
+  "path": "02>202>9031"
+ },
+ {
+  "code": "9032",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Καλαμαριάς",
+  "nameOfficial": "ΚΑΛΑΜΑΡΙΑΣ",
+  "latitude": 40.57876,
+  "longitude": 22.95724,
+  "path": "02>202>9032"
+ },
+ {
+  "code": "9033",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Κορδελιού - Ευόσμου",
+  "nameOfficial": "ΚΟΡΔΕΛΙΟΥ-ΕΥΟΣΜΟΥ",
+  "latitude": 40.67609,
+  "longitude": 22.90326,
+  "path": "02>202>9033"
+ },
+ {
+  "code": "9034",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Λαγκαδά",
+  "nameOfficial": "ΛΑΓΚΑΔΑ",
+  "latitude": 40.77628,
+  "longitude": 23.2061,
+  "path": "02>202>9034"
+ },
+ {
+  "code": "9035",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Νέαπολης - Συκεών",
+  "nameOfficial": "ΝΕΑΠΟΛΗΣ-ΣΥΚΕΩΝ",
+  "latitude": 40.65206,
+  "longitude": 22.97547,
+  "path": "02>202>9035"
+ },
+ {
+  "code": "9036",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Παύλου Μελά",
+  "nameOfficial": "ΠΑΥΛΟΥ ΜΕΛΑ",
+  "latitude": 40.68195,
+  "longitude": 22.95341,
+  "path": "02>202>9036"
+ },
+ {
+  "code": "9037",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Πυλαίας - Χορτιάτη",
+  "nameOfficial": "ΠΥΛΑΙΑΣ-ΧΟΡΤΙΑΤΗ",
+  "latitude": 40.61469,
+  "longitude": 23.05625,
+  "path": "02>202>9037"
+ },
+ {
+  "code": "9038",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Χαλκηδόνος",
+  "nameOfficial": "ΧΑΛΚΗΔΟΝΟΣ",
+  "latitude": 40.74358,
+  "longitude": 22.65609,
+  "path": "02>202>9038"
+ },
+ {
+  "code": "9039",
+  "level": 5,
+  "parentCode": "202",
+  "nameEL": "Δήμος Ωραιοκάστρου",
+  "nameOfficial": "ΩΡΑΙΟΚΑΣΤΡΟΥ",
+  "latitude": 40.76154,
+  "longitude": 22.90725,
+  "path": "02>202>9039"
+ },
+ {
+  "code": "9040",
+  "level": 5,
+  "parentCode": "203",
+  "nameEL": "Δήμος Κιλκίς",
+  "nameOfficial": "ΚΙΛΚΙΣ",
+  "latitude": 41.04141,
+  "longitude": 22.90118,
+  "path": "02>203>9040"
+ },
+ {
+  "code": "9041",
+  "level": 5,
+  "parentCode": "203",
+  "nameEL": "Δήμος Παιονίας",
+  "nameOfficial": "ΠΑΙΟΝΙΑΣ",
+  "latitude": 41.00087,
+  "longitude": 22.51322,
+  "path": "02>203>9041"
+ },
+ {
+  "code": "9042",
+  "level": 5,
+  "parentCode": "204",
+  "nameEL": "Δήμος Αλμωπίας",
+  "nameOfficial": "ΑΛΜΩΠΙΑΣ",
+  "latitude": 41.01631,
+  "longitude": 22.07961,
+  "path": "02>204>9042"
+ },
+ {
+  "code": "9043",
+  "level": 5,
+  "parentCode": "204",
+  "nameEL": "Δήμος Έδεσσας",
+  "nameOfficial": "ΕΔΕΣΣΑΣ",
+  "latitude": 40.79799,
+  "longitude": 21.92931,
+  "path": "02>204>9043"
+ },
+ {
+  "code": "9044",
+  "level": 5,
+  "parentCode": "204",
+  "nameEL": "Δήμος Πέλλας",
+  "nameOfficial": "ΠΕΛΛΑΣ",
+  "latitude": 40.79879,
+  "longitude": 22.37737,
+  "path": "02>204>9044"
+ },
+ {
+  "code": "9045",
+  "level": 5,
+  "parentCode": "204",
+  "nameEL": "Δήμος Σκύδρας",
+  "nameOfficial": "ΣΚΥΔΡΑΣ",
+  "latitude": 40.80757,
+  "longitude": 22.16946,
+  "path": "02>204>9045"
+ },
+ {
+  "code": "9046",
+  "level": 5,
+  "parentCode": "205",
+  "nameEL": "Δήμος Δίου - Ολύμπου",
+  "nameOfficial": "ΔΙΟΥ-ΟΛΥΜΠΟΥ",
+  "latitude": 40.10753,
+  "longitude": 22.48228,
+  "path": "02>205>9046"
+ },
+ {
+  "code": "9047",
+  "level": 5,
+  "parentCode": "205",
+  "nameEL": "Δήμος Κατερίνης",
+  "nameOfficial": "ΚΑΤΕΡΙΝΗΣ",
+  "latitude": 40.27859,
+  "longitude": 22.37339,
+  "path": "02>205>9047"
+ },
+ {
+  "code": "9048",
+  "level": 5,
+  "parentCode": "205",
+  "nameEL": "Δήμος Πύδνας - Κολινδρού",
+  "nameOfficial": "ΠΥΔΝΑΣ-ΚΟΛΙΝΔΡΟΥ",
+  "latitude": 40.44481,
+  "longitude": 22.51489,
+  "path": "02>205>9048"
+ },
+ {
+  "code": "9049",
+  "level": 5,
+  "parentCode": "206",
+  "nameEL": "Δήμος Αμφίπολης",
+  "nameOfficial": "ΑΜΦΙΠΟΛΗΣ",
+  "latitude": 40.90552,
+  "longitude": 23.94386,
+  "path": "02>206>9049"
+ },
+ {
+  "code": "9050",
+  "level": 5,
+  "parentCode": "206",
+  "nameEL": "Δήμος Βισαλτίας",
+  "nameOfficial": "ΒΙΣΑΛΤΙΑΣ",
+  "latitude": 40.89312,
+  "longitude": 23.56677,
+  "path": "02>206>9050"
+ },
+ {
+  "code": "9051",
+  "level": 5,
+  "parentCode": "206",
+  "nameEL": "Δήμος Εμμανουήλ Παππά",
+  "nameOfficial": "ΕΜΜΑΝΟΥΗΛ ΠΑΠΠΑ",
+  "latitude": 41.05346,
+  "longitude": 23.68147,
+  "path": "02>206>9051"
+ },
+ {
+  "code": "9052",
+  "level": 5,
+  "parentCode": "206",
+  "nameEL": "Δήμος Ηρακλείας",
+  "nameOfficial": "ΗΡΑΚΛΕΙΑΣ",
+  "latitude": 41.12271,
+  "longitude": 23.28716,
+  "path": "02>206>9052"
+ },
+ {
+  "code": "9053",
+  "level": 5,
+  "parentCode": "206",
+  "nameEL": "Δήμος Νέας Ζίχνης",
+  "nameOfficial": "ΝΕΑΣ ΖΙΧΝΗΣ",
+  "latitude": 41.02118,
+  "longitude": 23.86288,
+  "path": "02>206>9053"
+ },
+ {
+  "code": "9054",
+  "level": 5,
+  "parentCode": "206",
+  "nameEL": "Δήμος Σερρών",
+  "nameOfficial": "ΣΕΡΡΩΝ",
+  "latitude": 41.13093,
+  "longitude": 23.54439,
+  "path": "02>206>9054"
+ },
+ {
+  "code": "9055",
+  "level": 5,
+  "parentCode": "206",
+  "nameEL": "Δήμος Σιντικής",
+  "nameOfficial": "ΣΙΝΤΙΚΗΣ",
+  "latitude": 41.28264,
+  "longitude": 23.26813,
+  "path": "02>206>9055"
+ },
+ {
+  "code": "9056",
+  "level": 5,
+  "parentCode": "207",
+  "nameEL": "Δήμος Αριστοτέλη",
+  "nameOfficial": "ΑΡΙΣΤΟΤΕΛΗ",
+  "latitude": 40.48309,
+  "longitude": 23.7236,
+  "path": "02>207>9056"
+ },
+ {
+  "code": "9057",
+  "level": 5,
+  "parentCode": "207",
+  "nameEL": "Δήμος Κασσάνδρας",
+  "nameOfficial": "ΚΑΣΣΑΝΔΡΑΣ",
+  "latitude": 40.01358,
+  "longitude": 23.48358,
+  "path": "02>207>9057"
+ },
+ {
+  "code": "9058",
+  "level": 5,
+  "parentCode": "207",
+  "nameEL": "Δήμος Νέας Προποντίδας",
+  "nameOfficial": "ΝΕΑΣ ΠΡΟΠΟΝΤΙΔΑΣ",
+  "latitude": 40.31621,
+  "longitude": 23.20572,
+  "path": "02>207>9058"
+ },
+ {
+  "code": "9059",
+  "level": 5,
+  "parentCode": "207",
+  "nameEL": "Δήμος Πολυγύρου",
+  "nameOfficial": "ΠΟΛΥΓΥΡΟΥ",
+  "latitude": 40.40437,
+  "longitude": 23.42957,
+  "path": "02>207>9059"
+ },
+ {
+  "code": "9060",
+  "level": 5,
+  "parentCode": "207",
+  "nameEL": "Δήμος Σιθωνίας",
+  "nameOfficial": "ΣΙΘΩΝΙΑΣ",
+  "latitude": 40.12819,
+  "longitude": 23.82803,
+  "path": "02>207>9060"
+ },
+ {
+  "code": "9061",
+  "level": 5,
+  "parentCode": "301",
+  "nameEL": "Δήμος Γρεβενών",
+  "nameOfficial": "ΓΡΕΒΕΝΩΝ",
+  "latitude": 40.0456,
+  "longitude": 21.36452,
+  "path": "03>301>9061"
+ },
+ {
+  "code": "9062",
+  "level": 5,
+  "parentCode": "301",
+  "nameEL": "Δήμος Δεσκάτης",
+  "nameOfficial": "ΔΕΣΚΑΤΗΣ",
+  "latitude": 39.93501,
+  "longitude": 21.73109,
+  "path": "03>301>9062"
+ },
+ {
+  "code": "9063",
+  "level": 5,
+  "parentCode": "302",
+  "nameEL": "Δήμος Καστοριάς",
+  "nameOfficial": "ΚΑΣΤΟΡΙΑΣ",
+  "latitude": 40.56295,
+  "longitude": 21.25623,
+  "path": "03>302>9063"
+ },
+ {
+  "code": "9064",
+  "level": 5,
+  "parentCode": "302",
+  "nameEL": "Δήμος Νεστορίου",
+  "nameOfficial": "ΝΕΣΤΟΡΙΟΥ",
+  "latitude": 40.36892,
+  "longitude": 20.97218,
+  "path": "03>302>9064"
+ },
+ {
+  "code": "9065",
+  "level": 5,
+  "parentCode": "302",
+  "nameEL": "Δήμος Ορεστίδος",
+  "nameOfficial": "ΟΡΕΣΤΙΔΟΣ",
+  "latitude": 40.41374,
+  "longitude": 21.27203,
+  "path": "03>302>9065"
+ },
+ {
+  "code": "9066",
+  "level": 5,
+  "parentCode": "303",
+  "nameEL": "Δήμος Βοϊου",
+  "nameOfficial": "ΒΟΪΟΥ",
+  "latitude": 40.28494,
+  "longitude": 21.36363,
+  "path": "03>303>9066"
+ },
+ {
+  "code": "9067",
+  "level": 5,
+  "parentCode": "303",
+  "nameEL": "Δήμος Εορδαίας",
+  "nameOfficial": "ΕΟΡΔΑΙΑΣ",
+  "latitude": 40.52254,
+  "longitude": 21.71814,
+  "path": "03>303>9067"
+ },
+ {
+  "code": "9068",
+  "level": 5,
+  "parentCode": "303",
+  "nameEL": "Δήμος Κοζάνης",
+  "nameOfficial": "ΚΟΖΑΝΗΣ",
+  "latitude": 40.31298,
+  "longitude": 21.83445,
+  "path": "03>303>9068"
+ },
+ {
+  "code": "9069",
+  "level": 5,
+  "parentCode": "303",
+  "nameEL": "Δήμος Σερβίων - Βελβεντού",
+  "nameOfficial": "ΣΕΡΒΙΩΝ-ΒΕΛΒΕΝΤΟΥ",
+  "latitude": 40.15922,
+  "longitude": 21.97578,
+  "path": "03>303>9069"
+ },
+ {
+  "code": "9070",
+  "level": 5,
+  "parentCode": "304",
+  "nameEL": "Δήμος Αμυνταίου",
+  "nameOfficial": "ΑΜΥΝΤΑΙΟΥ",
+  "latitude": 40.67528,
+  "longitude": 21.63479,
+  "path": "03>304>9070"
+ },
+ {
+  "code": "9071",
+  "level": 5,
+  "parentCode": "304",
+  "nameEL": "Δήμος Πρεσπών",
+  "nameOfficial": "ΠΡΕΣΠΩΝ",
+  "latitude": 40.75838,
+  "longitude": 21.12403,
+  "path": "03>304>9071"
+ },
+ {
+  "code": "9072",
+  "level": 5,
+  "parentCode": "304",
+  "nameEL": "Δήμος Φλώρινας",
+  "nameOfficial": "ΦΛΩΡΙΝΑΣ",
+  "latitude": 40.8014,
+  "longitude": 21.48495,
+  "path": "03>304>9072"
+ },
+ {
+  "code": "9073",
+  "level": 5,
+  "parentCode": "401",
+  "nameEL": "Δήμος Άρτας",
+  "nameOfficial": "ΑΡΤΑΙΩΝ",
+  "latitude": 39.15975,
+  "longitude": 20.98543,
+  "path": "04>401>9073"
+ },
+ {
+  "code": "9074",
+  "level": 5,
+  "parentCode": "401",
+  "nameEL": "Δήμος Γεωργίου Καραϊσκάκη",
+  "nameOfficial": "ΓΕΩΡΓΙΟΥ ΚΑΡΑΪΣΚΑΚΗ",
+  "latitude": 39.22595,
+  "longitude": 21.24941,
+  "path": "04>401>9074"
+ },
+ {
+  "code": "9075",
+  "level": 5,
+  "parentCode": "401",
+  "nameEL": "Δήμος Κεντρικών Τζουμέρκων",
+  "nameOfficial": "ΚΕΝΤΡΙΚΩΝ ΤΖΟΥΜΕΡΚΩΝ",
+  "latitude": 39.38225,
+  "longitude": 21.15162,
+  "path": "04>401>9075"
+ },
+ {
+  "code": "9076",
+  "level": 5,
+  "parentCode": "401",
+  "nameEL": "Δήμος Νικολάου Σκουφά",
+  "nameOfficial": "ΝΙΚΟΛΑΟΥ ΣΚΟΥΦΑ",
+  "latitude": 39.12866,
+  "longitude": 21.04947,
+  "path": "04>401>9076"
+ },
+ {
+  "code": "9077",
+  "level": 5,
+  "parentCode": "402",
+  "nameEL": "Δήμος Ηγουμενίτσας",
+  "nameOfficial": "ΗΓΟΥΜΕΝΙΤΣΗΣ",
+  "latitude": 39.43223,
+  "longitude": 20.34664,
+  "path": "04>402>9077"
+ },
+ {
+  "code": "9078",
+  "level": 5,
+  "parentCode": "402",
+  "nameEL": "Δήμος Σουλίου",
+  "nameOfficial": "ΣΟΥΛΙΟΥ",
+  "latitude": 39.44605,
+  "longitude": 20.53048,
+  "path": "04>402>9078"
+ },
+ {
+  "code": "9079",
+  "level": 5,
+  "parentCode": "402",
+  "nameEL": "Δήμος Φιλιατών",
+  "nameOfficial": "ΦΙΛΙΑΤΩΝ",
+  "latitude": 39.65681,
+  "longitude": 20.34626,
+  "path": "04>402>9079"
+ },
+ {
+  "code": "9080",
+  "level": 5,
+  "parentCode": "403",
+  "nameEL": "Δήμος Βορείων Τζουμέρκων",
+  "nameOfficial": "ΒΟΡΕΙΩΝ ΤΖΟΥΜΕΡΚΩΝ",
+  "latitude": 39.54756,
+  "longitude": 21.05876,
+  "path": "04>403>9080"
+ },
+ {
+  "code": "9081",
+  "level": 5,
+  "parentCode": "403",
+  "nameEL": "Δήμος Δωδώνης",
+  "nameOfficial": "ΔΩΔΩΝΗΣ",
+  "latitude": 39.47188,
+  "longitude": 20.77223,
+  "path": "04>403>9081"
+ },
+ {
+  "code": "9082",
+  "level": 5,
+  "parentCode": "403",
+  "nameEL": "Δήμος Ζαγορίου",
+  "nameOfficial": "ΖΑΓΟΡΙΟΥ",
+  "latitude": 39.88154,
+  "longitude": 20.88053,
+  "path": "04>403>9082"
+ },
+ {
+  "code": "9083",
+  "level": 5,
+  "parentCode": "403",
+  "nameEL": "Δήμος Ζίτσας",
+  "nameOfficial": "ΖΙΤΣΑΣ",
+  "latitude": 39.6943,
+  "longitude": 20.63722,
+  "path": "04>403>9083"
+ },
+ {
+  "code": "9084",
+  "level": 5,
+  "parentCode": "403",
+  "nameEL": "Δήμος Ιωαννιτών",
+  "nameOfficial": "ΙΩΑΝΝΙΤΩΝ",
+  "latitude": 39.66875,
+  "longitude": 20.84682,
+  "path": "04>403>9084"
+ },
+ {
+  "code": "9085",
+  "level": 5,
+  "parentCode": "403",
+  "nameEL": "Δήμος Κόνιτσας",
+  "nameOfficial": "ΚΟΝΙΤΣΑΣ",
+  "latitude": 40.14478,
+  "longitude": 20.82784,
+  "path": "04>403>9085"
+ },
+ {
+  "code": "9086",
+  "level": 5,
+  "parentCode": "403",
+  "nameEL": "Δήμος Μετσόβου",
+  "nameOfficial": "ΜΕΤΣΟΒΟΥ",
+  "latitude": 39.77425,
+  "longitude": 21.13742,
+  "path": "04>403>9086"
+ },
+ {
+  "code": "9087",
+  "level": 5,
+  "parentCode": "403",
+  "nameEL": "Δήμος Πωγωνίου",
+  "nameOfficial": "ΠΩΓΩΝΙΟΥ",
+  "latitude": 39.91976,
+  "longitude": 20.50857,
+  "path": "04>403>9087"
+ },
+ {
+  "code": "9088",
+  "level": 5,
+  "parentCode": "404",
+  "nameEL": "Δήμος Ζηρού",
+  "nameOfficial": "ΖΗΡΟΥ",
+  "latitude": 39.28318,
+  "longitude": 20.84097,
+  "path": "04>404>9088"
+ },
+ {
+  "code": "9089",
+  "level": 5,
+  "parentCode": "404",
+  "nameEL": "Δήμος Πάργας",
+  "nameOfficial": "ΠΑΡΓΑΣ",
+  "latitude": 39.26106,
+  "longitude": 20.53083,
+  "path": "04>404>9089"
+ },
+ {
+  "code": "9090",
+  "level": 5,
+  "parentCode": "404",
+  "nameEL": "Δήμος Πρέβεζας",
+  "nameOfficial": "ΠΡΕΒΕΖΗΣ",
+  "latitude": 39.1423,
+  "longitude": 20.7061,
+  "path": "04>404>9090"
+ },
+ {
+  "code": "9091",
+  "level": 5,
+  "parentCode": "501",
+  "nameEL": "Δήμος Αργιθέας",
+  "nameOfficial": "ΑΡΓΙΘΕΑΣ",
+  "latitude": 39.29296,
+  "longitude": 21.48588,
+  "path": "05>501>9091"
+ },
+ {
+  "code": "9092",
+  "level": 5,
+  "parentCode": "501",
+  "nameEL": "Δήμος Καρδίτσας",
+  "nameOfficial": "ΚΑΡΔΙΤΣΑΣ",
+  "latitude": 39.27159,
+  "longitude": 21.88641,
+  "path": "05>501>9092"
+ },
+ {
+  "code": "9093",
+  "level": 5,
+  "parentCode": "501",
+  "nameEL": "Δήμος Λίμνης Πλαστήρα",
+  "nameOfficial": "ΛΙΜΝΗΣ ΠΛΑΣΤΗΡΑ",
+  "latitude": 39.30364,
+  "longitude": 21.72676,
+  "path": "05>501>9093"
+ },
+ {
+  "code": "9094",
+  "level": 5,
+  "parentCode": "501",
+  "nameEL": "Δήμος Μουζακίου",
+  "nameOfficial": "ΜΟΥΖΑΚΙΟΥ",
+  "latitude": 39.40789,
+  "longitude": 21.71685,
+  "path": "05>501>9094"
+ },
+ {
+  "code": "9095",
+  "level": 5,
+  "parentCode": "501",
+  "nameEL": "Δήμος Παλαμά",
+  "nameOfficial": "ΠΑΛΑΜΑ",
+  "latitude": 39.47539,
+  "longitude": 22.08011,
+  "path": "05>501>9095"
+ },
+ {
+  "code": "9096",
+  "level": 5,
+  "parentCode": "501",
+  "nameEL": "Δήμος Σοφάδων",
+  "nameOfficial": "ΣΟΦΑΔΩΝ",
+  "latitude": 39.23736,
+  "longitude": 22.08585,
+  "path": "05>501>9096"
+ },
+ {
+  "code": "9097",
+  "level": 5,
+  "parentCode": "502",
+  "nameEL": "Δήμος Αγιάς",
+  "nameOfficial": "ΑΓΙΑΣ",
+  "latitude": 39.70975,
+  "longitude": 22.75132,
+  "path": "05>502>9097"
+ },
+ {
+  "code": "9098",
+  "level": 5,
+  "parentCode": "502",
+  "nameEL": "Δήμος Ελασσόνας",
+  "nameOfficial": "ΕΛΑΣΣΟΝΑΣ",
+  "latitude": 39.94601,
+  "longitude": 22.1513,
+  "path": "05>502>9098"
+ },
+ {
+  "code": "9099",
+  "level": 5,
+  "parentCode": "502",
+  "nameEL": "Δήμος Κιλελέρ",
+  "nameOfficial": "ΚΙΛΕΛΕΡ",
+  "latitude": 39.52114,
+  "longitude": 22.51306,
+  "path": "05>502>9099"
+ },
+ {
+  "code": "9100",
+  "level": 5,
+  "parentCode": "502",
+  "nameEL": "Δήμος Λαρισαίων",
+  "nameOfficial": "ΛΑΡΙΣΑΙΩΝ",
+  "latitude": 39.62172,
+  "longitude": 22.33606,
+  "path": "05>502>9100"
+ },
+ {
+  "code": "9101",
+  "level": 5,
+  "parentCode": "502",
+  "nameEL": "Δήμος Τεμπών",
+  "nameOfficial": "ΤΕΜΠΩΝ",
+  "latitude": 39.8423,
+  "longitude": 22.5477,
+  "path": "05>502>9101"
+ },
+ {
+  "code": "9102",
+  "level": 5,
+  "parentCode": "502",
+  "nameEL": "Δήμος Τυρνάβου",
+  "nameOfficial": "ΤΥΡΝΑΒΟΥ",
+  "latitude": 39.7682,
+  "longitude": 22.29624,
+  "path": "05>502>9102"
+ },
+ {
+  "code": "9103",
+  "level": 5,
+  "parentCode": "502",
+  "nameEL": "Δήμος Φαρσάλων",
+  "nameOfficial": "ΦΑΡΣΑΛΩΝ",
+  "latitude": 39.30501,
+  "longitude": 22.43767,
+  "path": "05>502>9103"
+ },
+ {
+  "code": "9104",
+  "level": 5,
+  "parentCode": "503",
+  "nameEL": "Δήμος Αλμυρού",
+  "nameOfficial": "ΑΛΜΥΡΟΥ",
+  "latitude": 39.11658,
+  "longitude": 22.74229,
+  "path": "05>503>9104"
+ },
+ {
+  "code": "9105",
+  "level": 5,
+  "parentCode": "503",
+  "nameEL": "Δήμος Βόλου",
+  "nameOfficial": "ΒΟΛΟΥ",
+  "latitude": 39.35723,
+  "longitude": 22.90835,
+  "path": "05>503>9105"
+ },
+ {
+  "code": "9106",
+  "level": 5,
+  "parentCode": "503",
+  "nameEL": "Δήμος Ζαγοράς - Μουρεσίου",
+  "nameOfficial": "ΖΑΓΟΡΑΣ-ΜΟΥΡΕΣΙΟΥ",
+  "latitude": 39.43551,
+  "longitude": 23.09752,
+  "path": "05>503>9106"
+ },
+ {
+  "code": "9107",
+  "level": 5,
+  "parentCode": "503",
+  "nameEL": "Δήμος Νοτίου Πηλίου",
+  "nameOfficial": "ΝΟΤΙΟΥ ΠΗΛΙΟΥ",
+  "latitude": 39.23354,
+  "longitude": 23.20802,
+  "path": "05>503>9107"
+ },
+ {
+  "code": "9108",
+  "level": 5,
+  "parentCode": "503",
+  "nameEL": "Δήμος Ρήγα Φερραίου",
+  "nameOfficial": "ΡΗΓΑ ΦΕΡΡΑΙΟΥ",
+  "latitude": 39.43598,
+  "longitude": 22.81044,
+  "path": "05>503>9108"
+ },
+ {
+  "code": "9109",
+  "level": 5,
+  "parentCode": "504",
+  "nameEL": "Δήμος Αλοννήσου",
+  "nameOfficial": "ΑΛΟΝΝΗΣΟΥ",
+  "latitude": 39.21735,
+  "longitude": 23.91741,
+  "path": "05>504>9109"
+ },
+ {
+  "code": "9110",
+  "level": 5,
+  "parentCode": "504",
+  "nameEL": "Δήμος Σκιάθου",
+  "nameOfficial": "ΣΚΙΑΘΟΥ",
+  "latitude": 39.1677,
+  "longitude": 23.45788,
+  "path": "05>504>9110"
+ },
+ {
+  "code": "9111",
+  "level": 5,
+  "parentCode": "504",
+  "nameEL": "Δήμος Σκοπέλου",
+  "nameOfficial": "ΣΚΟΠΕΛΟΥ",
+  "latitude": 39.12891,
+  "longitude": 23.69077,
+  "path": "05>504>9111"
+ },
+ {
+  "code": "9112",
+  "level": 5,
+  "parentCode": "505",
+  "nameEL": "Δήμος Καλαμπάκας",
+  "nameOfficial": "ΚΑΛΑΜΠΑΚΑΣ",
+  "latitude": 39.73426,
+  "longitude": 21.51421,
+  "path": "05>505>9112"
+ },
+ {
+  "code": "9113",
+  "level": 5,
+  "parentCode": "505",
+  "nameEL": "Δήμος Πύλης",
+  "nameOfficial": "ΠΥΛΗΣ",
+  "latitude": 39.46407,
+  "longitude": 21.62041,
+  "path": "05>505>9113"
+ },
+ {
+  "code": "9114",
+  "level": 5,
+  "parentCode": "505",
+  "nameEL": "Δήμος Τρικκαίων",
+  "nameOfficial": "ΤΡΙΚΚΑΙΩΝ",
+  "latitude": 39.61184,
+  "longitude": 21.77171,
+  "path": "05>505>9114"
+ },
+ {
+  "code": "9115",
+  "level": 5,
+  "parentCode": "505",
+  "nameEL": "Δήμος Φαρκαδόνας",
+  "nameOfficial": "ΦΑΡΚΑΔΟΝΑΣ",
+  "latitude": 39.60445,
+  "longitude": 22.02932,
+  "path": "05>505>9115"
+ },
+ {
+  "code": "9116",
+  "level": 5,
+  "parentCode": "601",
+  "nameEL": "Δήμος Ζακύνθου",
+  "nameOfficial": "ΖΑΚΥΝΘΟΥ",
+  "latitude": 37.78331,
+  "longitude": 20.77527,
+  "path": "06>601>9116"
+ },
+ {
+  "code": "9117",
+  "level": 5,
+  "parentCode": "602",
+  "nameEL": "Δήμος Ιθάκης",
+  "nameOfficial": "ΙΘΑΚΗΣ",
+  "latitude": 38.40025,
+  "longitude": 20.66942,
+  "path": "06>602>9117"
+ },
+ {
+  "code": "9118",
+  "level": 5,
+  "parentCode": "603",
+  "nameEL": "Δήμος Κέρκυρας",
+  "nameOfficial": "ΚΕΡΚΥΡΑΣ",
+  "latitude": 39.64099,
+  "longitude": 19.83588,
+  "path": "06>603>9118"
+ },
+ {
+  "code": "9119",
+  "level": 5,
+  "parentCode": "603",
+  "nameEL": "Δήμος Παξών",
+  "nameOfficial": "ΠΑΞΩΝ",
+  "latitude": 39.19643,
+  "longitude": 20.17439,
+  "path": "06>603>9119"
+ },
+ {
+  "code": "9120",
+  "level": 5,
+  "parentCode": "604",
+  "nameEL": "Δήμος Κεφαλονιάς",
+  "nameOfficial": "ΚΕΦΑΛΟΝΙΑΣ",
+  "latitude": 38.22444,
+  "longitude": 20.57806,
+  "path": "06>604>9120"
+ },
+ {
+  "code": "9121",
+  "level": 5,
+  "parentCode": "605",
+  "nameEL": "Δήμος Λευκάδας",
+  "nameOfficial": "ΛΕΥΚΑΔΑΣ",
+  "latitude": 38.69886,
+  "longitude": 20.67226,
+  "path": "06>605>9121"
+ },
+ {
+  "code": "9122",
+  "level": 5,
+  "parentCode": "605",
+  "nameEL": "Δήμος Μεγανησίου",
+  "nameOfficial": "ΜΕΓΑΝΗΣΙΟΥ",
+  "latitude": 38.64827,
+  "longitude": 20.76712,
+  "path": "06>605>9122"
+ },
+ {
+  "code": "9123",
+  "level": 5,
+  "parentCode": "0701",
+  "nameEL": "Δήμος Αγρινίου",
+  "nameOfficial": "ΑΓΡΙΝΙΟΥ",
+  "latitude": 38.65316,
+  "longitude": 21.45495,
+  "path": "07>0701>9123"
+ },
+ {
+  "code": "9124",
+  "level": 5,
+  "parentCode": "0701",
+  "nameEL": "Δήμος Άκτιου - Βόνιτσας",
+  "nameOfficial": "ΑΚΤΙΟΥ-ΒΟΝΙΤΣΑΣ",
+  "latitude": 38.82289,
+  "longitude": 20.95158,
+  "path": "07>0701>9124"
+ },
+ {
+  "code": "9125",
+  "level": 5,
+  "parentCode": "0701",
+  "nameEL": "Δήμος Αμφιλοχίας",
+  "nameOfficial": "ΑΜΦΙΛΟΧΙΑΣ",
+  "latitude": 38.95685,
+  "longitude": 21.28575,
+  "path": "07>0701>9125"
+ },
+ {
+  "code": "9126",
+  "level": 5,
+  "parentCode": "0701",
+  "nameEL": "Δήμος Θέρμου",
+  "nameOfficial": "ΘΕΡΜΟΥ",
+  "latitude": 38.59638,
+  "longitude": 21.69376,
+  "path": "07>0701>9126"
+ },
+ {
+  "code": "9127",
+  "level": 5,
+  "parentCode": "0701",
+  "nameEL": "Δήμος Ιεράς Πόλης Μεσολογγίου",
+  "nameOfficial": "ΙΕΡΑΣ ΠΟΛΗΣ ΜΕΣΟΛΟΓΓΙΟΥ",
+  "latitude": 38.41919,
+  "longitude": 21.32396,
+  "path": "07>0701>9127"
+ },
+ {
+  "code": "9128",
+  "level": 5,
+  "parentCode": "0701",
+  "nameEL": "Δήμος Ναυπακτίας",
+  "nameOfficial": "ΝΑΥΠΑΚΤΙΑΣ",
+  "latitude": 38.53175,
+  "longitude": 21.826,
+  "path": "07>0701>9128"
+ },
+ {
+  "code": "9129",
+  "level": 5,
+  "parentCode": "0701",
+  "nameEL": "Δήμος Ξηρομέρου",
+  "nameOfficial": "ΞΗΡΟΜΕΡΟΥ",
+  "latitude": 38.62191,
+  "longitude": 21.11165,
+  "path": "07>0701>9129"
+ },
+ {
+  "code": "9130",
+  "level": 5,
+  "parentCode": "0702",
+  "nameEL": "Δήμος Αιγιαλείας",
+  "nameOfficial": "ΑΙΓΙΑΛΕΙΑΣ",
+  "latitude": 38.153,
+  "longitude": 22.13914,
+  "path": "07>0702>9130"
+ },
+ {
+  "code": "9131",
+  "level": 5,
+  "parentCode": "0702",
+  "nameEL": "Δήμος Δυτικής Αχαΐας",
+  "nameOfficial": "ΔΥΤΙΚΗΣ ΑΧΑΙΑΣ",
+  "latitude": 38.06655,
+  "longitude": 21.51889,
+  "path": "07>0702>9131"
+ },
+ {
+  "code": "9132",
+  "level": 5,
+  "parentCode": "0702",
+  "nameEL": "Δήμος Ερυμάνθου",
+  "nameOfficial": "ΕΡΥΜΑΝΘΟΥ",
+  "latitude": 38.02458,
+  "longitude": 21.76798,
+  "path": "07>0702>9132"
+ },
+ {
+  "code": "9133",
+  "level": 5,
+  "parentCode": "0702",
+  "nameEL": "Δήμος Καλαβρύτων",
+  "nameOfficial": "ΚΑΛΑΒΡΥΤΩΝ",
+  "latitude": 37.96073,
+  "longitude": 22.04996,
+  "path": "07>0702>9133"
+ },
+ {
+  "code": "9134",
+  "level": 5,
+  "parentCode": "0702",
+  "nameEL": "Δήμος Πατρέων",
+  "nameOfficial": "ΠΑΤΡΕΩΝ",
+  "latitude": 38.2155,
+  "longitude": 21.79558,
+  "path": "07>0702>9134"
+ },
+ {
+  "code": "9135",
+  "level": 5,
+  "parentCode": "703",
+  "nameEL": "Δήμος Ανδραβίδας - Κυλλήνης",
+  "nameOfficial": "ΑΝΔΡΑΒΙΔΑΣ-ΚΥΛΛΗΝΗΣ",
+  "latitude": 37.96083,
+  "longitude": 21.32557,
+  "path": "07>703>9135"
+ },
+ {
+  "code": "9136",
+  "level": 5,
+  "parentCode": "703",
+  "nameEL": "Δήμος Ανδρίτσαινας - Κρεστένων",
+  "nameOfficial": "ΑΝΔΡΙΤΣΑΙΝΑΣ-ΚΡΕΣΤΕΝΩΝ",
+  "latitude": 37.54783,
+  "longitude": 21.77578,
+  "path": "07>703>9136"
+ },
+ {
+  "code": "9137",
+  "level": 5,
+  "parentCode": "703",
+  "nameEL": "Δήμος Αρχαίας Ολυμπίας",
+  "nameOfficial": "ΑΡΧΑΙΑΣ ΟΛΥΜΠΙΑΣ",
+  "latitude": 37.76144,
+  "longitude": 21.72192,
+  "path": "07>703>9137"
+ },
+ {
+  "code": "9138",
+  "level": 5,
+  "parentCode": "703",
+  "nameEL": "Δήμος Ζαχάρως",
+  "nameOfficial": "ΖΑΧΑΡΩΣ",
+  "latitude": 37.46563,
+  "longitude": 21.72544,
+  "path": "07>703>9138"
+ },
+ {
+  "code": "9139",
+  "level": 5,
+  "parentCode": "703",
+  "nameEL": "Δήμος Ήλιδας",
+  "nameOfficial": "ΗΛΙΔΑΣ",
+  "latitude": 37.83506,
+  "longitude": 21.45024,
+  "path": "07>703>9139"
+ },
+ {
+  "code": "9140",
+  "level": 5,
+  "parentCode": "703",
+  "nameEL": "Δήμος Πηνειού",
+  "nameOfficial": "ΠΗΝΕΙΟΥ",
+  "latitude": 37.86563,
+  "longitude": 21.25493,
+  "path": "07>703>9140"
+ },
+ {
+  "code": "9141",
+  "level": 5,
+  "parentCode": "703",
+  "nameEL": "Δήμος Πύργου",
+  "nameOfficial": "ΠΥΡΓΟΥ",
+  "latitude": 37.67513,
+  "longitude": 21.44394,
+  "path": "07>703>9141"
+ },
+ {
+  "code": "9142",
+  "level": 5,
+  "parentCode": "0801",
+  "nameEL": "Δήμος Αλιάρτου",
+  "nameOfficial": "ΑΛΙΑΡΤΟΥ",
+  "latitude": 38.36182,
+  "longitude": 23.09052,
+  "path": "08>0801>9142"
+ },
+ {
+  "code": "9143",
+  "level": 5,
+  "parentCode": "0801",
+  "nameEL": "Δήμος Διστόμου-Αράχοβας - Αντίκυρας",
+  "nameOfficial": "ΔΙΣΤΟΜΟΥ - ΑΡΑΧΟΒΑΣ - ΑΝΤΙΚΥΡΑΣ",
+  "latitude": 38.45949,
+  "longitude": 22.63959,
+  "path": "08>0801>9143"
+ },
+ {
+  "code": "9144",
+  "level": 5,
+  "parentCode": "0801",
+  "nameEL": "Δήμος Θηβαίων",
+  "nameOfficial": "ΘΗΒΑΙΩΝ",
+  "latitude": 38.30209,
+  "longitude": 23.20548,
+  "path": "08>0801>9144"
+ },
+ {
+  "code": "9145",
+  "level": 5,
+  "parentCode": "0801",
+  "nameEL": "Δήμος Λεβαδέων",
+  "nameOfficial": "ΛΕΒΑΔΕΩΝ",
+  "latitude": 38.41186,
+  "longitude": 22.83532,
+  "path": "08>0801>9145"
+ },
+ {
+  "code": "9146",
+  "level": 5,
+  "parentCode": "0801",
+  "nameEL": "Δήμος Ορχομενού",
+  "nameOfficial": "ΟΡΧΟΜΕΝΟΥ",
+  "latitude": 38.49247,
+  "longitude": 23.10392,
+  "path": "08>0801>9146"
+ },
+ {
+  "code": "9147",
+  "level": 5,
+  "parentCode": "0801",
+  "nameEL": "Δήμος Τανάγρας",
+  "nameOfficial": "ΤΑΝΑΓΡΑΣ",
+  "latitude": 38.26431,
+  "longitude": 23.53121,
+  "path": "08>0801>9147"
+ },
+ {
+  "code": "9148",
+  "level": 5,
+  "parentCode": "802",
+  "nameEL": "Δήμος Διρφύων - Μεσσαπίων",
+  "nameOfficial": "ΔΙΡΦΥΩΝ-ΜΕΣΣΑΠΙΩΝ",
+  "latitude": 38.61204,
+  "longitude": 23.71583,
+  "path": "08>802>9148"
+ },
+ {
+  "code": "9149",
+  "level": 5,
+  "parentCode": "802",
+  "nameEL": "Δήμος Ερέτριας",
+  "nameOfficial": "ΕΡΕΤΡΙΑΣ",
+  "latitude": 38.45448,
+  "longitude": 23.87414,
+  "path": "08>802>9149"
+ },
+ {
+  "code": "9150",
+  "level": 5,
+  "parentCode": "802",
+  "nameEL": "Δήμος Ιστιαίας - Αιδηψού",
+  "nameOfficial": "ΙΣΤΙΑΙΑΣ-ΑΙΔΗΨΟΥ",
+  "latitude": 38.92459,
+  "longitude": 23.15616,
+  "path": "08>802>9150"
+ },
+ {
+  "code": "9151",
+  "level": 5,
+  "parentCode": "802",
+  "nameEL": "Δήμος Καρύστου",
+  "nameOfficial": "ΚΑΡΥΣΤΟΥ",
+  "latitude": 38.10244,
+  "longitude": 24.37303,
+  "path": "08>802>9151"
+ },
+ {
+  "code": "9152",
+  "level": 5,
+  "parentCode": "802",
+  "nameEL": "Δήμος Κύμης - Αλιβερίου",
+  "nameOfficial": "ΚΥΜΗΣ-ΑΛΙΒΕΡΙΟΥ",
+  "latitude": 38.48785,
+  "longitude": 24.07373,
+  "path": "08>802>9152"
+ },
+ {
+  "code": "9153",
+  "level": 5,
+  "parentCode": "802",
+  "nameEL": "Δήμος Μαντουδίου - Λίμνης - Αγίας Άννας",
+  "nameOfficial": "ΜΑΝΤΟΥΔΙΟΥ-ΛΙΜΝΗΣ-ΑΓΙΑΣ ΑΝΝΑΣ",
+  "latitude": 38.80392,
+  "longitude": 23.42056,
+  "path": "08>802>9153"
+ },
+ {
+  "code": "9154",
+  "level": 5,
+  "parentCode": "802",
+  "nameEL": "Δήμος Σκύρου",
+  "nameOfficial": "ΣΚΥΡΟΥ",
+  "latitude": 38.86251,
+  "longitude": 24.54984,
+  "path": "08>802>9154"
+ },
+ {
+  "code": "9155",
+  "level": 5,
+  "parentCode": "802",
+  "nameEL": "Δήμος Χαλκιδέων",
+  "nameOfficial": "ΧΑΛΚΙΔΕΩΝ",
+  "latitude": 38.45065,
+  "longitude": 23.56306,
+  "path": "08>802>9155"
+ },
+ {
+  "code": "9156",
+  "level": 5,
+  "parentCode": "803",
+  "nameEL": "Δήμος Αγράφων",
+  "nameOfficial": "ΑΓΡΑΦΩΝ",
+  "latitude": 39.07492,
+  "longitude": 21.57975,
+  "path": "08>803>9156"
+ },
+ {
+  "code": "9157",
+  "level": 5,
+  "parentCode": "803",
+  "nameEL": "Δήμος Καρπενησίου",
+  "nameOfficial": "ΚΑΡΠΕΝΗΣΙΟΥ",
+  "latitude": 38.87758,
+  "longitude": 21.76979,
+  "path": "08>803>9157"
+ },
+ {
+  "code": "9158",
+  "level": 5,
+  "parentCode": "804",
+  "nameEL": "Δήμος Αμφίκλειας - Ελάτειας",
+  "nameOfficial": "ΑΜΦΙΚΛΕΙΑΣ - ΕΛΑΤΕΙΑΣ",
+  "latitude": 38.64411,
+  "longitude": 22.67534,
+  "path": "08>804>9158"
+ },
+ {
+  "code": "9159",
+  "level": 5,
+  "parentCode": "804",
+  "nameEL": "Δήμος Δομοκού",
+  "nameOfficial": "ΔΟΜΟΚΟΥ",
+  "latitude": 39.10779,
+  "longitude": 22.32364,
+  "path": "08>804>9159"
+ },
+ {
+  "code": "9160",
+  "level": 5,
+  "parentCode": "804",
+  "nameEL": "Δήμος Λαμιέων",
+  "nameOfficial": "ΛΑΜΙΕΩΝ",
+  "latitude": 38.86649,
+  "longitude": 22.36735,
+  "path": "08>804>9160"
+ },
+ {
+  "code": "9161",
+  "level": 5,
+  "parentCode": "804",
+  "nameEL": "Δήμος Λοκρών",
+  "nameOfficial": "ΛΟΚΡΩΝ",
+  "latitude": 38.61868,
+  "longitude": 23.08784,
+  "path": "08>804>9161"
+ },
+ {
+  "code": "9162",
+  "level": 5,
+  "parentCode": "804",
+  "nameEL": "Δήμος Μακρακώμης",
+  "nameOfficial": "ΜΑΚΡΑΚΩΜΗΣ",
+  "latitude": 38.92086,
+  "longitude": 22.03932,
+  "path": "08>804>9162"
+ },
+ {
+  "code": "9163",
+  "level": 5,
+  "parentCode": "804",
+  "nameEL": "Δήμος Μώλου - Αγ. Κωνσταντίνου",
+  "nameOfficial": "ΜΩΛΟΥ - ΑΓΙΟΥ ΚΩΝΣΤΑΝΤΙΝΟΥ",
+  "latitude": 38.75495,
+  "longitude": 22.73046,
+  "path": "08>804>9163"
+ },
+ {
+  "code": "9164",
+  "level": 5,
+  "parentCode": "804",
+  "nameEL": "Δήμος Στυλίδας",
+  "nameOfficial": "ΣΤΥΛΙΔΟΣ",
+  "latitude": 38.95482,
+  "longitude": 22.72706,
+  "path": "08>804>9164"
+ },
+ {
+  "code": "9165",
+  "level": 5,
+  "parentCode": "805",
+  "nameEL": "Δήμος Δελφών",
+  "nameOfficial": "ΔΕΛΦΩΝ",
+  "latitude": 38.48132,
+  "longitude": 22.49193,
+  "path": "08>805>9165"
+ },
+ {
+  "code": "9166",
+  "level": 5,
+  "parentCode": "805",
+  "nameEL": "Δήμος Δωρίδος",
+  "nameOfficial": "ΔΩΡΙΔΟΣ",
+  "latitude": 38.52029,
+  "longitude": 22.10689,
+  "path": "08>805>9166"
+ },
+ {
+  "code": "9167",
+  "level": 5,
+  "parentCode": "0901",
+  "nameEL": "Δήμος Αγίας Παρασκευής",
+  "nameOfficial": "ΑΓΙΑΣ ΠΑΡΑΣΚΕΥΗΣ",
+  "latitude": 38.00806,
+  "longitude": 23.82642,
+  "path": "09>0901>9167"
+ },
+ {
+  "code": "9168",
+  "level": 5,
+  "parentCode": "0901",
+  "nameEL": "Δήμος Αμαρουσίου",
+  "nameOfficial": "ΑΜΑΡΟΥΣΙΟΥ",
+  "latitude": 38.04669,
+  "longitude": 23.80575,
+  "path": "09>0901>9168"
+ },
+ {
+  "code": "9169",
+  "level": 5,
+  "parentCode": "0901",
+  "nameEL": "Δήμος Βριλησσίων",
+  "nameOfficial": "ΒΡΙΛΗΣΣΙΩΝ",
+  "latitude": 38.03916,
+  "longitude": 23.83736,
+  "path": "09>0901>9169"
+ },
+ {
+  "code": "9170",
+  "level": 5,
+  "parentCode": "0901",
+  "nameEL": "Δήμος Ηρακλείου",
+  "nameOfficial": "ΗΡΑΚΛΕΙΟΥ",
+  "latitude": 38.05157,
+  "longitude": 23.77204,
+  "path": "09>0901>9170"
+ },
+ {
+  "code": "9171",
+  "level": 5,
+  "parentCode": "0901",
+  "nameEL": "Δήμος Κηφισιάς",
+  "nameOfficial": "ΚΗΦΙΣΙΑΣ",
+  "latitude": 38.08832,
+  "longitude": 23.82642,
+  "path": "09>0901>9171"
+ },
+ {
+  "code": "9172",
+  "level": 5,
+  "parentCode": "0901",
+  "nameEL": "Δήμος Λυκόβρυσης - Πεύκης",
+  "nameOfficial": "ΛΥΚΟΒΡΥΣΗΣ - ΠΕΥΚΗΣ",
+  "latitude": 38.06503,
+  "longitude": 23.78847,
+  "path": "09>0901>9172"
+ },
+ {
+  "code": "9173",
+  "level": 5,
+  "parentCode": "0901",
+  "nameEL": "Δήμος Μεταμορφώσεως",
+  "nameOfficial": "ΜΕΤΑΜΟΡΦΩΣΕΩΣ",
+  "latitude": 38.06574,
+  "longitude": 23.76275,
+  "path": "09>0901>9173"
+ },
+ {
+  "code": "9174",
+  "level": 5,
+  "parentCode": "0901",
+  "nameEL": "Δήμος Νέας Ιωνίας",
+  "nameOfficial": "ΝΕΑΣ ΙΩΝΙΑΣ",
+  "latitude": 38.03728,
+  "longitude": 23.75954,
+  "path": "09>0901>9174"
+ },
+ {
+  "code": "9175",
+  "level": 5,
+  "parentCode": "0901",
+  "nameEL": "Δήμος Παπάγου - Χολαργού",
+  "nameOfficial": "ΠΑΠΑΓΟΥ - ΧΟΛΑΡΓΟΥ",
+  "latitude": 37.99143,
+  "longitude": 23.80511,
+  "path": "09>0901>9175"
+ },
+ {
+  "code": "9176",
+  "level": 5,
+  "parentCode": "0901",
+  "nameEL": "Δήμος Πεντέλης",
+  "nameOfficial": "ΠΕΝΤΕΛΗΣ",
+  "latitude": 38.05494,
+  "longitude": 23.89261,
+  "path": "09>0901>9176"
+ },
+ {
+  "code": "9177",
+  "level": 5,
+  "parentCode": "0901",
+  "nameEL": "Δήμος Φιλοθέης - Ψυχικού",
+  "nameOfficial": "ΦΙΛΟΘΕΗΣ - ΨΥΧΙΚΟΥ",
+  "latitude": 38.01477,
+  "longitude": 23.77628,
+  "path": "09>0901>9177"
+ },
+ {
+  "code": "9178",
+  "level": 5,
+  "parentCode": "0901",
+  "nameEL": "Δήμος Χαλανδρίου",
+  "nameOfficial": "ΧΑΛΑΝΔΡΙΟΥ",
+  "latitude": 38.02226,
+  "longitude": 23.80941,
+  "path": "09>0901>9178"
+ },
+ {
+  "code": "9179",
+  "level": 5,
+  "parentCode": "0902",
+  "nameEL": "Δήμος Αγίας Βαρβάρας",
+  "nameOfficial": "ΑΓΙΑΣ ΒΑΡΒΑΡΑΣ",
+  "latitude": 37.9922,
+  "longitude": 23.65697,
+  "path": "09>0902>9179"
+ },
+ {
+  "code": "9180",
+  "level": 5,
+  "parentCode": "0902",
+  "nameEL": "Δήμος Αγίων Αναργύρων - Καματερού",
+  "nameOfficial": "ΑΓΙΩΝ ΑΝΑΡΓΥΡΩΝ - ΚΑΜΑΤΕΡΟΥ",
+  "latitude": 38.04721,
+  "longitude": 23.71341,
+  "path": "09>0902>9180"
+ },
+ {
+  "code": "9181",
+  "level": 5,
+  "parentCode": "0902",
+  "nameEL": "Δήμος Αιγάλεω",
+  "nameOfficial": "ΑΙΓΑΛΕΩ",
+  "latitude": 37.99021,
+  "longitude": 23.67871,
+  "path": "09>0902>9181"
+ },
+ {
+  "code": "9182",
+  "level": 5,
+  "parentCode": "0902",
+  "nameEL": "Δήμος Ιλίου",
+  "nameOfficial": "ΙΛΙΟΥ",
+  "latitude": 38.03833,
+  "longitude": 23.70436,
+  "path": "09>0902>9182"
+ },
+ {
+  "code": "9183",
+  "level": 5,
+  "parentCode": "0902",
+  "nameEL": "Δήμος Περιστερίου",
+  "nameOfficial": "ΠΕΡΙΣΤΕΡΙΟΥ",
+  "latitude": 38.01452,
+  "longitude": 23.68928,
+  "path": "09>0902>9183"
+ },
+ {
+  "code": "9184",
+  "level": 5,
+  "parentCode": "0902",
+  "nameEL": "Δήμος Πετρούπολης",
+  "nameOfficial": "ΠΕΤΡΟΥΠΟΛΕΩΣ",
+  "latitude": 38.04393,
+  "longitude": 23.67483,
+  "path": "09>0902>9184"
+ },
+ {
+  "code": "9185",
+  "level": 5,
+  "parentCode": "0902",
+  "nameEL": "Δήμος Χαϊδαρίου",
+  "nameOfficial": "ΧΑΪΔΑΡΙΟΥ",
+  "latitude": 38.00942,
+  "longitude": 23.63084,
+  "path": "09>0902>9185"
+ },
+ {
+  "code": "9186",
+  "level": 5,
+  "parentCode": "0903",
+  "nameEL": "Δήμος Αθηναίων",
+  "nameOfficial": "ΑΘΗΝΑΙΩΝ",
+  "latitude": 37.98888,
+  "longitude": 23.73604,
+  "path": "09>0903>9186"
+ },
+ {
+  "code": "9187",
+  "level": 5,
+  "parentCode": "0903",
+  "nameEL": "Δήμος Βύρωνος",
+  "nameOfficial": "ΒΥΡΩΝΟΣ",
+  "latitude": 37.94947,
+  "longitude": 23.77839,
+  "path": "09>0903>9187"
+ },
+ {
+  "code": "9188",
+  "level": 5,
+  "parentCode": "0903",
+  "nameEL": "Δήμος Γαλατσίου",
+  "nameOfficial": "ΓΑΛΑΤΣΙΟΥ",
+  "latitude": 38.01915,
+  "longitude": 23.75711,
+  "path": "09>0903>9188"
+ },
+ {
+  "code": "9189",
+  "level": 5,
+  "parentCode": "0903",
+  "nameEL": "Δήμος Δάφνης - Υμηττού",
+  "nameOfficial": "ΔΑΦΝΗΣ - ΥΜΗΤΤΟΥ",
+  "latitude": 37.95073,
+  "longitude": 23.73969,
+  "path": "09>0903>9189"
+ },
+ {
+  "code": "9190",
+  "level": 5,
+  "parentCode": "0903",
+  "nameEL": "Δήμος Ζωγράφου",
+  "nameOfficial": "ΖΩΓΡΑΦΟΥ",
+  "latitude": 37.97457,
+  "longitude": 23.79173,
+  "path": "09>0903>9190"
+ },
+ {
+  "code": "9191",
+  "level": 5,
+  "parentCode": "0903",
+  "nameEL": "Δήμος Ηλιούπολης",
+  "nameOfficial": "ΗΛΙΟΥΠΟΛΕΩΣ",
+  "latitude": 37.93146,
+  "longitude": 23.76983,
+  "path": "09>0903>9191"
+ },
+ {
+  "code": "9192",
+  "level": 5,
+  "parentCode": "0903",
+  "nameEL": "Δήμος Καισαριανής",
+  "nameOfficial": "ΚΑΙΣΑΡΙΑΝΗΣ",
+  "latitude": 37.96013,
+  "longitude": 23.79175,
+  "path": "09>0903>9192"
+ },
+ {
+  "code": "9193",
+  "level": 5,
+  "parentCode": "0903",
+  "nameEL": "Δήμος Φιλαδελφείας - Χαλκηδόνος",
+  "nameOfficial": "ΦΙΛΑΔΕΛΦΕΙΑΣ - ΧΑΛΚΗΔΟΝΟΣ",
+  "latitude": 38.03938,
+  "longitude": 23.73834,
+  "path": "09>0903>9193"
+ },
+ {
+  "code": "9194",
+  "level": 5,
+  "parentCode": "0904",
+  "nameEL": "Δήμος Αγίου Δημητρίου",
+  "nameOfficial": "ΑΓΙΟΥ ΔΗΜΗΤΡΙΟΥ",
+  "latitude": 37.93357,
+  "longitude": 23.73031,
+  "path": "09>0904>9194"
+ },
+ {
+  "code": "9195",
+  "level": 5,
+  "parentCode": "0904",
+  "nameEL": "Δήμος Αλίμου",
+  "nameOfficial": "ΑΛΙΜΟΥ",
+  "latitude": 37.9147,
+  "longitude": 23.72581,
+  "path": "09>0904>9195"
+ },
+ {
+  "code": "9196",
+  "level": 5,
+  "parentCode": "0904",
+  "nameEL": "Δήμος Γλυφάδας",
+  "nameOfficial": "ΓΛΥΦΑΔΑΣ",
+  "latitude": 37.88251,
+  "longitude": 23.77224,
+  "path": "09>0904>9196"
+ },
+ {
+  "code": "9197",
+  "level": 5,
+  "parentCode": "0904",
+  "nameEL": "Δήμος Ελληνικού - Αργυρούπολης",
+  "nameOfficial": "ΕΛΛΗΝΙΚΟΥ - ΑΡΓΥΡΟΥΠΟΛΗΣ",
+  "latitude": 37.90259,
+  "longitude": 23.75137,
+  "path": "09>0904>9197"
+ },
+ {
+  "code": "9198",
+  "level": 5,
+  "parentCode": "0904",
+  "nameEL": "Δήμος Καλλιθέας",
+  "nameOfficial": "ΚΑΛΛΙΘΕΑΣ",
+  "latitude": 37.95213,
+  "longitude": 23.69996,
+  "path": "09>0904>9198"
+ },
+ {
+  "code": "9199",
+  "level": 5,
+  "parentCode": "0904",
+  "nameEL": "Δήμος Μοσχάτου - Ταύρου",
+  "nameOfficial": "ΜΟΣΧΑΤΟΥ - ΤΑΥΡΟΥ",
+  "latitude": 37.96011,
+  "longitude": 23.68851,
+  "path": "09>0904>9199"
+ },
+ {
+  "code": "9200",
+  "level": 5,
+  "parentCode": "0904",
+  "nameEL": "Δήμος Νέας Σμύρνης",
+  "nameOfficial": "ΝΕΑΣ ΣΜΥΡΝΗΣ",
+  "latitude": 37.94338,
+  "longitude": 23.71442,
+  "path": "09>0904>9200"
+ },
+ {
+  "code": "9201",
+  "level": 5,
+  "parentCode": "0904",
+  "nameEL": "Δήμος Παλαιού Φαλήρου",
+  "nameOfficial": "ΠΑΛΑΙΟΥ ΦΑΛΗΡΟΥ",
+  "latitude": 37.92954,
+  "longitude": 23.70198,
+  "path": "09>0904>9201"
+ },
+ {
+  "code": "9202",
+  "level": 5,
+  "parentCode": "0905",
+  "nameEL": "Δήμος Κερατσινίου - Δραπετσώνας",
+  "nameOfficial": "ΚΕΡΑΤΣΙΝΙΟΥ - ΔΡΑΠΕΤΣΩΝΑΣ",
+  "latitude": 37.96428,
+  "longitude": 23.61934,
+  "path": "09>0905>9202"
+ },
+ {
+  "code": "9203",
+  "level": 5,
+  "parentCode": "0905",
+  "nameEL": "Δήμος Κορυδαλλού",
+  "nameOfficial": "ΚΟΡΥΔΑΛΛΟΥ",
+  "latitude": 37.98505,
+  "longitude": 23.64616,
+  "path": "09>0905>9203"
+ },
+ {
+  "code": "9204",
+  "level": 5,
+  "parentCode": "0905",
+  "nameEL": "Δήμος Νίκαιας - Αγίου Ι. Ρέντη",
+  "nameOfficial": "ΝΙΚΑΙΑΣ - ΑΓΙΟΥ Ι. ΡΕΝΤΗ",
+  "latitude": 37.97507,
+  "longitude": 23.67121,
+  "path": "09>0905>9204"
+ },
+ {
+  "code": "9205",
+  "level": 5,
+  "parentCode": "0905",
+  "nameEL": "Δήμος Πειραιώς",
+  "nameOfficial": "ΠΕΙΡΑΙΩΣ",
+  "latitude": 37.94703,
+  "longitude": 23.64503,
+  "path": "09>0905>9205"
+ },
+ {
+  "code": "9206",
+  "level": 5,
+  "parentCode": "0905",
+  "nameEL": "Δήμος Περάματος",
+  "nameOfficial": "ΠΕΡΑΜΑΤΟΣ",
+  "latitude": 37.97572,
+  "longitude": 23.5828,
+  "path": "09>0905>9206"
+ },
+ {
+  "code": "9207",
+  "level": 5,
+  "parentCode": "0906",
+  "nameEL": "Δήμος Αγκιστρίου",
+  "nameOfficial": "ΑΓΚΙΣΤΡΙΟΥ",
+  "latitude": 37.69503,
+  "longitude": 23.34009,
+  "path": "09>0906>9207"
+ },
+ {
+  "code": "9208",
+  "level": 5,
+  "parentCode": "0906",
+  "nameEL": "Δήμος Αίγινας",
+  "nameOfficial": "ΑΙΓΙΝΑΣ",
+  "latitude": 37.73697,
+  "longitude": 23.48181,
+  "path": "09>0906>9208"
+ },
+ {
+  "code": "9209",
+  "level": 5,
+  "parentCode": "0906",
+  "nameEL": "Δήμος Κυθήρων",
+  "nameOfficial": "ΚΥΘΗΡΩΝ",
+  "latitude": 36.25747,
+  "longitude": 22.97602,
+  "path": "09>0906>9209"
+ },
+ {
+  "code": "9210",
+  "level": 5,
+  "parentCode": "0906",
+  "nameEL": "Δήμος Πόρου",
+  "nameOfficial": "ΠΟΡΟΥ",
+  "latitude": 37.4842,
+  "longitude": 23.47721,
+  "path": "09>0906>9210"
+ },
+ {
+  "code": "9211",
+  "level": 5,
+  "parentCode": "0906",
+  "nameEL": "Δήμος Σαλαμίνας",
+  "nameOfficial": "ΣΑΛΑΜΙΝΟΣ",
+  "latitude": 37.93826,
+  "longitude": 23.47966,
+  "path": "09>0906>9211"
+ },
+ {
+  "code": "9212",
+  "level": 5,
+  "parentCode": "0906",
+  "nameEL": "Δήμος Σπετσών",
+  "nameOfficial": "ΣΠΕΤΣΩΝ",
+  "latitude": 37.25882,
+  "longitude": 23.13869,
+  "path": "09>0906>9212"
+ },
+ {
+  "code": "9213",
+  "level": 5,
+  "parentCode": "0906",
+  "nameEL": "Δήμος Τροιζηνίας",
+  "nameOfficial": "ΤΡΟΙΖΗΝΙΑΣ",
+  "latitude": 37.5327,
+  "longitude": 23.33083,
+  "path": "09>0906>9213"
+ },
+ {
+  "code": "9214",
+  "level": 5,
+  "parentCode": "0906",
+  "nameEL": "Δήμος Ύδρας",
+  "nameOfficial": "ΥΔΡΑΣ",
+  "latitude": 37.33221,
+  "longitude": 23.43348,
+  "path": "09>0906>9214"
+ },
+ {
+  "code": "9215",
+  "level": 5,
+  "parentCode": "0907",
+  "nameEL": "Δήμος Αχαρνών",
+  "nameOfficial": "ΑΧΑΡΝΩΝ",
+  "latitude": 38.15068,
+  "longitude": 23.75288,
+  "path": "09>0907>9215"
+ },
+ {
+  "code": "9216",
+  "level": 5,
+  "parentCode": "0907",
+  "nameEL": "Δήμος Βάρης - Βούλας - Βουλιαγμένης",
+  "nameOfficial": "ΒΑΡΗΣ - ΒΟΥΛΑΣ - ΒΟΥΛΙΑΓΜΕΝΗΣ",
+  "latitude": 37.83333,
+  "longitude": 23.79225,
+  "path": "09>0907>9216"
+ },
+ {
+  "code": "9217",
+  "level": 5,
+  "parentCode": "0907",
+  "nameEL": "Δήμος Διονύσου",
+  "nameOfficial": "ΔΙΟΝΥΣΟΥ",
+  "latitude": 38.11919,
+  "longitude": 23.88793,
+  "path": "09>0907>9217"
+ },
+ {
+  "code": "9218",
+  "level": 5,
+  "parentCode": "0907",
+  "nameEL": "Δήμος Κρωπίας",
+  "nameOfficial": "ΚΡΩΠΙΑΣ",
+  "latitude": 37.88164,
+  "longitude": 23.85602,
+  "path": "09>0907>9218"
+ },
+ {
+  "code": "9219",
+  "level": 5,
+  "parentCode": "0907",
+  "nameEL": "Δήμος Λαυρεωτικής",
+  "nameOfficial": "ΛΑΥΡΕΩΤΙΚΗΣ",
+  "latitude": 37.74294,
+  "longitude": 24.01447,
+  "path": "09>0907>9219"
+ },
+ {
+  "code": "9220",
+  "level": 5,
+  "parentCode": "0907",
+  "nameEL": "Δήμος Μαραθώνος",
+  "nameOfficial": "ΜΑΡΑΘΩΝΟΣ",
+  "latitude": 38.17203,
+  "longitude": 23.97369,
+  "path": "09>0907>9220"
+ },
+ {
+  "code": "9221",
+  "level": 5,
+  "parentCode": "0907",
+  "nameEL": "Δήμος Μαρκοπούλου Μεσογαίας",
+  "nameOfficial": "ΜΑΡΚΟΠΟΥΛΟΥ ΜΕΣΟΓΑΙΑΣ",
+  "latitude": 37.88952,
+  "longitude": 23.97636,
+  "path": "09>0907>9221"
+ },
+ {
+  "code": "9222",
+  "level": 5,
+  "parentCode": "0907",
+  "nameEL": "Δήμος Παιανίας",
+  "nameOfficial": "ΠΑΙΑΝΙΑΣ",
+  "latitude": 37.95797,
+  "longitude": 23.86818,
+  "path": "09>0907>9222"
+ },
+ {
+  "code": "9223",
+  "level": 5,
+  "parentCode": "0907",
+  "nameEL": "Δήμος Παλλήνης",
+  "nameOfficial": "ΠΑΛΛΗΝΗΣ",
+  "latitude": 38.01188,
+  "longitude": 23.87889,
+  "path": "09>0907>9223"
+ },
+ {
+  "code": "9224",
+  "level": 5,
+  "parentCode": "0907",
+  "nameEL": "Δήμος Ραφήνας - Πικερμίου",
+  "nameOfficial": "ΡΑΦΗΝΑΣ - ΠΙΚΕΡΜΙΟΥ",
+  "latitude": 38.02027,
+  "longitude": 23.95676,
+  "path": "09>0907>9224"
+ },
+ {
+  "code": "9225",
+  "level": 5,
+  "parentCode": "0907",
+  "nameEL": "Δήμος Σαρωνικού",
+  "nameOfficial": "ΣΑΡΩΝΙΚΟΥ",
+  "latitude": 37.78559,
+  "longitude": 23.93971,
+  "path": "09>0907>9225"
+ },
+ {
+  "code": "9226",
+  "level": 5,
+  "parentCode": "0907",
+  "nameEL": "Δήμος Σπάτων - Αρτέμιδος",
+  "nameOfficial": "ΣΠΑΤΩΝ - ΑΡΤΕΜΙΔΟΣ",
+  "latitude": 37.96779,
+  "longitude": 23.95978,
+  "path": "09>0907>9226"
+ },
+ {
+  "code": "9227",
+  "level": 5,
+  "parentCode": "0907",
+  "nameEL": "Δήμος Ωρωπού",
+  "nameOfficial": "ΩΡΩΠΟΥ",
+  "latitude": 38.25433,
+  "longitude": 23.78543,
+  "path": "09>0907>9227"
+ },
+ {
+  "code": "9228",
+  "level": 5,
+  "parentCode": "0908",
+  "nameEL": "Δήμος Ασπροπύργου",
+  "nameOfficial": "ΑΣΠΡΟΠΥΡΓΟΥ",
+  "latitude": 38.0929,
+  "longitude": 23.59847,
+  "path": "09>0908>9228"
+ },
+ {
+  "code": "9229",
+  "level": 5,
+  "parentCode": "0908",
+  "nameEL": "Δήμος Ελευσίνας",
+  "nameOfficial": "ΕΛΕΥΣΙΝΑΣ",
+  "latitude": 38.08073,
+  "longitude": 23.5332,
+  "path": "09>0908>9229"
+ },
+ {
+  "code": "9230",
+  "level": 5,
+  "parentCode": "0908",
+  "nameEL": "Δήμος Μάνδρας - Ειδυλλίας",
+  "nameOfficial": "ΜΑΝΔΡΑΣ - ΕΙΔΥΛΛΙΑΣ",
+  "latitude": 38.14166,
+  "longitude": 23.36192,
+  "path": "09>0908>9230"
+ },
+ {
+  "code": "9231",
+  "level": 5,
+  "parentCode": "0908",
+  "nameEL": "Δήμος Μεγαρέων",
+  "nameOfficial": "ΜΕΓΑΡΕΩΝ",
+  "latitude": 38.02724,
+  "longitude": 23.2749,
+  "path": "09>0908>9231"
+ },
+ {
+  "code": "9232",
+  "level": 5,
+  "parentCode": "0908",
+  "nameEL": "Δήμος Φυλής",
+  "nameOfficial": "ΦΥΛΗΣ",
+  "latitude": 38.12466,
+  "longitude": 23.66863,
+  "path": "09>0908>9232"
+ },
+ {
+  "code": "9233",
+  "level": 5,
+  "parentCode": "1001",
+  "nameEL": "Δήμος Άργους - Μυκηνών",
+  "nameOfficial": "ΑΡΓΟΥΣ-ΜΥΚΗΝΩΝ",
+  "latitude": 37.66339,
+  "longitude": 22.62532,
+  "path": "10>1001>9233"
+ },
+ {
+  "code": "9234",
+  "level": 5,
+  "parentCode": "1001",
+  "nameEL": "Δήμος Επιδαύρου",
+  "nameOfficial": "ΕΠΙΔΑΥΡΟΥ",
+  "latitude": 37.61265,
+  "longitude": 23.07123,
+  "path": "10>1001>9234"
+ },
+ {
+  "code": "9235",
+  "level": 5,
+  "parentCode": "1001",
+  "nameEL": "Δήμος Ερμιονίδας",
+  "nameOfficial": "ΕΡΜΙΟΝΙΔΑΣ",
+  "latitude": 37.42656,
+  "longitude": 23.21865,
+  "path": "10>1001>9235"
+ },
+ {
+  "code": "9236",
+  "level": 5,
+  "parentCode": "1001",
+  "nameEL": "Δήμος Ναυπλιέων",
+  "nameOfficial": "ΝΑΥΠΛΙΕΩΝ",
+  "latitude": 37.59107,
+  "longitude": 22.84954,
+  "path": "10>1001>9236"
+ },
+ {
+  "code": "9237",
+  "level": 5,
+  "parentCode": "1002",
+  "nameEL": "Δήμος Βόρειας Κυνουρίας",
+  "nameOfficial": "ΒΟΡΕΙΑΣ ΚΥΝΟΥΡΙΑΣ",
+  "latitude": 37.35618,
+  "longitude": 22.64517,
+  "path": "10>1002>9237"
+ },
+ {
+  "code": "9238",
+  "level": 5,
+  "parentCode": "1002",
+  "nameEL": "Δήμος Γορτυνίας",
+  "nameOfficial": "ΓΟΡΤΥΝΙΑΣ",
+  "latitude": 37.67966,
+  "longitude": 22.00691,
+  "path": "10>1002>9238"
+ },
+ {
+  "code": "9239",
+  "level": 5,
+  "parentCode": "1002",
+  "nameEL": "Δήμος Μεγαλόπολης",
+  "nameOfficial": "ΜΕΓΑΛΟΠΟΛΗΣ",
+  "latitude": 37.35896,
+  "longitude": 22.11625,
+  "path": "10>1002>9239"
+ },
+ {
+  "code": "9240",
+  "level": 5,
+  "parentCode": "1002",
+  "nameEL": "Δήμος Νότιας Κυνουρίας",
+  "nameOfficial": "ΝΟΤΙΑΣ ΚΥΝΟΥΡΙΑΣ",
+  "latitude": 37.14182,
+  "longitude": 22.80358,
+  "path": "10>1002>9240"
+ },
+ {
+  "code": "9241",
+  "level": 5,
+  "parentCode": "1002",
+  "nameEL": "Δήμος Τρίπολης",
+  "nameOfficial": "ΤΡΙΠΟΛΗΣ",
+  "latitude": 37.53386,
+  "longitude": 22.34531,
+  "path": "10>1002>9241"
+ },
+ {
+  "code": "9242",
+  "level": 5,
+  "parentCode": "1003",
+  "nameEL": "Δήμος Βέλου - Βόχας",
+  "nameOfficial": "ΒΕΛΟΥ-ΒΟΧΑΣ",
+  "latitude": 37.9152,
+  "longitude": 22.7411,
+  "path": "10>1003>9242"
+ },
+ {
+  "code": "9243",
+  "level": 5,
+  "parentCode": "1003",
+  "nameEL": "Δήμος Κορινθίων",
+  "nameOfficial": "ΚΟΡΙΝΘΙΩΝ",
+  "latitude": 37.8144,
+  "longitude": 22.94352,
+  "path": "10>1003>9243"
+ },
+ {
+  "code": "9244",
+  "level": 5,
+  "parentCode": "1003",
+  "nameEL": "Δήμος Λουτρακίου - Αγ. Θεοδώρων",
+  "nameOfficial": "ΛΟΥΤΡΑΚΙΟΥ-ΑΓ.ΘΕΟΔΩΡΩΝ",
+  "latitude": 37.993,
+  "longitude": 23.02756,
+  "path": "10>1003>9244"
+ },
+ {
+  "code": "9245",
+  "level": 5,
+  "parentCode": "1003",
+  "nameEL": "Δήμος Νεμέας",
+  "nameOfficial": "ΝΕΜΕΑΣ",
+  "latitude": 37.82878,
+  "longitude": 22.65131,
+  "path": "10>1003>9245"
+ },
+ {
+  "code": "9246",
+  "level": 5,
+  "parentCode": "1003",
+  "nameEL": "Δήμος Ξυλοκάστρου - Ευρωστίνης",
+  "nameOfficial": "ΞΥΛΟΚΑΣΤΡΟΥ-ΕΥΡΩΣΤΙΝΗΣ",
+  "latitude": 38.03786,
+  "longitude": 22.49158,
+  "path": "10>1003>9246"
+ },
+ {
+  "code": "9247",
+  "level": 5,
+  "parentCode": "1003",
+  "nameEL": "Δήμος Σικυωνίων",
+  "nameOfficial": "ΣΙΚΥΩΝΙΩΝ",
+  "latitude": 37.91753,
+  "longitude": 22.46632,
+  "path": "10>1003>9247"
+ },
+ {
+  "code": "9248",
+  "level": 5,
+  "parentCode": "1004",
+  "nameEL": "Δήμος Ανατολικής Μάνης",
+  "nameOfficial": "ΑΝΑΤΟΛΙΚΗΣ ΜΑΝΗΣ",
+  "latitude": 36.67518,
+  "longitude": 22.45015,
+  "path": "10>1004>9248"
+ },
+ {
+  "code": "9249",
+  "level": 5,
+  "parentCode": "1004",
+  "nameEL": "Δήμος Ελαφονήσου",
+  "nameOfficial": "ΕΛΑΦΟΝΗΣΟΥ",
+  "latitude": 36.48868,
+  "longitude": 22.96293,
+  "path": "10>1004>9249"
+ },
+ {
+  "code": "9250",
+  "level": 5,
+  "parentCode": "1004",
+  "nameEL": "Δήμος Ευρώτα",
+  "nameOfficial": "ΕΥΡΩΤΑ",
+  "latitude": 36.9311,
+  "longitude": 22.70741,
+  "path": "10>1004>9250"
+ },
+ {
+  "code": "9251",
+  "level": 5,
+  "parentCode": "1004",
+  "nameEL": "Δήμος Μονεμβασίας",
+  "nameOfficial": "ΜΟΝΕΜΒΑΣΙΑΣ",
+  "latitude": 36.68856,
+  "longitude": 23.05035,
+  "path": "10>1004>9251"
+ },
+ {
+  "code": "9252",
+  "level": 5,
+  "parentCode": "1004",
+  "nameEL": "Δήμος Σπάρτης",
+  "nameOfficial": "ΣΠΑΡΤΗΣ",
+  "latitude": 37.11334,
+  "longitude": 22.45279,
+  "path": "10>1004>9252"
+ },
+ {
+  "code": "9253",
+  "level": 5,
+  "parentCode": "1005",
+  "nameEL": "Δήμος Δυτικής Μάνης",
+  "nameOfficial": "ΔΥΤΙΚΗΣ ΜΑΝΗΣ",
+  "latitude": 36.90985,
+  "longitude": 22.28269,
+  "path": "10>1005>9253"
+ },
+ {
+  "code": "9254",
+  "level": 5,
+  "parentCode": "1005",
+  "nameEL": "Δήμος Καλαμάτας",
+  "nameOfficial": "ΚΑΛΑΜΑΤΑΣ",
+  "latitude": 37.10236,
+  "longitude": 22.13575,
+  "path": "10>1005>9254"
+ },
+ {
+  "code": "9255",
+  "level": 5,
+  "parentCode": "1005",
+  "nameEL": "Δήμος Μεσσήνης",
+  "nameOfficial": "ΜΕΣΣΗΝΗΣ",
+  "latitude": 37.05462,
+  "longitude": 21.8932,
+  "path": "10>1005>9255"
+ },
+ {
+  "code": "9256",
+  "level": 5,
+  "parentCode": "1005",
+  "nameEL": "Δήμος Οιχαλίας",
+  "nameOfficial": "ΟΙΧΑΛΙΑΣ",
+  "latitude": 37.25566,
+  "longitude": 21.99858,
+  "path": "10>1005>9256"
+ },
+ {
+  "code": "9257",
+  "level": 5,
+  "parentCode": "1005",
+  "nameEL": "Δήμος Πύλου - Νέστορος",
+  "nameOfficial": "ΠΥΛΟΥ-ΝΕΣΤΟΡΟΣ",
+  "latitude": 36.91635,
+  "longitude": 21.77941,
+  "path": "10>1005>9257"
+ },
+ {
+  "code": "9258",
+  "level": 5,
+  "parentCode": "1005",
+  "nameEL": "Δήμος Τριφυλίας",
+  "nameOfficial": "ΤΡΙΦΥΛΙΑΣ",
+  "latitude": 37.2109,
+  "longitude": 21.70989,
+  "path": "10>1005>9258"
+ },
+ {
+  "code": "9259",
+  "level": 5,
+  "parentCode": "1101",
+  "nameEL": "Δήμος Ικαρίας",
+  "nameOfficial": "ΙΚΑΡΙΑΣ",
+  "latitude": 37.5963,
+  "longitude": 26.15186,
+  "path": "11>1101>9259"
+ },
+ {
+  "code": "9260",
+  "level": 5,
+  "parentCode": "1101",
+  "nameEL": "Δήμος Φούρνων Κορσεών",
+  "nameOfficial": "ΦΟΥΡΝΩΝ ΚΟΡΣΕΩΝ",
+  "latitude": 37.58413,
+  "longitude": 26.4298,
+  "path": "11>1101>9260"
+ },
+ {
+  "code": "9261",
+  "level": 5,
+  "parentCode": "1102",
+  "nameEL": "Δήμος Λέσβου",
+  "nameOfficial": "ΛΕΣΒΟΥ",
+  "latitude": 39.17096,
+  "longitude": 26.00206,
+  "path": "11>1102>9261"
+ },
+ {
+  "code": "9262",
+  "level": 5,
+  "parentCode": "1103",
+  "nameEL": "Δήμος Αγίου Ευστρατίου",
+  "nameOfficial": "ΑΓΙΟΥ ΕΥΣΤΡΑΤΙΟΥ",
+  "latitude": 39.51762,
+  "longitude": 25.0065,
+  "path": "11>1103>9262"
+ },
+ {
+  "code": "9263",
+  "level": 5,
+  "parentCode": "1103",
+  "nameEL": "Δήμος Λήμνου",
+  "nameOfficial": "ΛΗΜΝΟΥ",
+  "latitude": 39.91421,
+  "longitude": 25.2266,
+  "path": "11>1103>9263"
+ },
+ {
+  "code": "9264",
+  "level": 5,
+  "parentCode": "1104",
+  "nameEL": "Δήμος Σάμου",
+  "nameOfficial": "ΣΑΜΟΥ",
+  "latitude": 37.73347,
+  "longitude": 26.81096,
+  "path": "11>1104>9264"
+ },
+ {
+  "code": "9265",
+  "level": 5,
+  "parentCode": "1105",
+  "nameEL": "Δήμος Οινουσσών",
+  "nameOfficial": "ΟΙΝΟΥΣΣΩΝ",
+  "latitude": 38.51976,
+  "longitude": 26.23793,
+  "path": "11>1105>9265"
+ },
+ {
+  "code": "9266",
+  "level": 5,
+  "parentCode": "1105",
+  "nameEL": "Δήμος Χίου",
+  "nameOfficial": "ΧΙΟΥ",
+  "latitude": 38.40198,
+  "longitude": 26.01646,
+  "path": "11>1105>9266"
+ },
+ {
+  "code": "9267",
+  "level": 5,
+  "parentCode": "1105",
+  "nameEL": "Δήμος Ψαρών",
+  "nameOfficial": "ΨΑΡΩΝ",
+  "latitude": 38.56999,
+  "longitude": 25.57555,
+  "path": "11>1105>9267"
+ },
+ {
+  "code": "9268",
+  "level": 5,
+  "parentCode": "1201",
+  "nameEL": "Δήμος Άνδρου",
+  "nameOfficial": "ΑΝΔΡΟΥ",
+  "latitude": 37.85801,
+  "longitude": 24.84814,
+  "path": "12>1201>9268"
+ },
+ {
+  "code": "9269",
+  "level": 5,
+  "parentCode": "1202",
+  "nameEL": "Δήμος Ανάφης",
+  "nameOfficial": "ΑΝΑΦΗΣ",
+  "latitude": 36.36225,
+  "longitude": 25.78494,
+  "path": "12>1202>9269"
+ },
+ {
+  "code": "9270",
+  "level": 5,
+  "parentCode": "1202",
+  "nameEL": "Δήμος Θήρας",
+  "nameOfficial": "ΘΗΡΑΣ",
+  "latitude": 36.40583,
+  "longitude": 25.45687,
+  "path": "12>1202>9270"
+ },
+ {
+  "code": "9271",
+  "level": 5,
+  "parentCode": "1202",
+  "nameEL": "Δήμος Ιητών",
+  "nameOfficial": "ΙΗΤΩΝ",
+  "latitude": 36.72077,
+  "longitude": 25.33047,
+  "path": "12>1202>9271"
+ },
+ {
+  "code": "9272",
+  "level": 5,
+  "parentCode": "1202",
+  "nameEL": "Δήμος Σικίνου",
+  "nameOfficial": "ΣΙΚΙΝΟΥ",
+  "latitude": 36.67783,
+  "longitude": 25.11713,
+  "path": "12>1202>9272"
+ },
+ {
+  "code": "9273",
+  "level": 5,
+  "parentCode": "1202",
+  "nameEL": "Δήμος Φολεγάνδρου",
+  "nameOfficial": "ΦΟΛΕΓΑΝΔΡΟΥ",
+  "latitude": 36.62791,
+  "longitude": 24.90224,
+  "path": "12>1202>9273"
+ },
+ {
+  "code": "9274",
+  "level": 5,
+  "parentCode": "1203",
+  "nameEL": "Δήμος Αγαθονησίου",
+  "nameOfficial": "ΑΓΑΘΟΝΗΣΙΟΥ",
+  "latitude": 37.46231,
+  "longitude": 26.96804,
+  "path": "12>1203>9274"
+ },
+ {
+  "code": "9275",
+  "level": 5,
+  "parentCode": "1203",
+  "nameEL": "Δήμος Αστυπαλαίας",
+  "nameOfficial": "ΑΣΤΥΠΑΛΑΙΑΣ",
+  "latitude": 36.57444,
+  "longitude": 26.308,
+  "path": "12>1203>9275"
+ },
+ {
+  "code": "9276",
+  "level": 5,
+  "parentCode": "1203",
+  "nameEL": "Δήμος Καλυμνίων",
+  "nameOfficial": "ΚΑΛΥΜΝΙΩΝ",
+  "latitude": 36.98715,
+  "longitude": 26.99121,
+  "path": "12>1203>9276"
+ },
+ {
+  "code": "9277",
+  "level": 5,
+  "parentCode": "1203",
+  "nameEL": "Δήμος Λειψών",
+  "nameOfficial": "ΛΕΙΨΩΝ",
+  "latitude": 37.30146,
+  "longitude": 26.75222,
+  "path": "12>1203>9277"
+ },
+ {
+  "code": "9278",
+  "level": 5,
+  "parentCode": "1203",
+  "nameEL": "Δήμος Λέρου",
+  "nameOfficial": "ΛΕΡΟΥ",
+  "latitude": 37.00697,
+  "longitude": 26.46627,
+  "path": "12>1203>9278"
+ },
+ {
+  "code": "9279",
+  "level": 5,
+  "parentCode": "1203",
+  "nameEL": "Δήμος Πάτμου",
+  "nameOfficial": "ΠΑΤΜΟΥ",
+  "latitude": 37.36426,
+  "longitude": 26.70458,
+  "path": "12>1203>9279"
+ },
+ {
+  "code": "9280",
+  "level": 5,
+  "parentCode": "1204",
+  "nameEL": "Δήμος Καρπάθου",
+  "nameOfficial": "ΚΑΡΠΑΘΟΥ",
+  "latitude": 35.6133,
+  "longitude": 27.11808,
+  "path": "12>1204>9280"
+ },
+ {
+  "code": "9281",
+  "level": 5,
+  "parentCode": "1204",
+  "nameEL": "Δήμος Κάσου",
+  "nameOfficial": "ΚΑΣΟΥ",
+  "latitude": 35.39333,
+  "longitude": 26.91837,
+  "path": "12>1204>9281"
+ },
+ {
+  "code": "9282",
+  "level": 5,
+  "parentCode": "1205",
+  "nameEL": "Δήμος Κέας",
+  "nameOfficial": "ΚΕΑΣ",
+  "latitude": 37.62466,
+  "longitude": 24.30646,
+  "path": "12>1205>9282"
+ },
+ {
+  "code": "9283",
+  "level": 5,
+  "parentCode": "1205",
+  "nameEL": "Δήμος Κύθνου",
+  "nameOfficial": "ΚΥΘΝΟΥ",
+  "latitude": 37.39189,
+  "longitude": 24.41732,
+  "path": "12>1205>9283"
+ },
+ {
+  "code": "9284",
+  "level": 5,
+  "parentCode": "1206",
+  "nameEL": "Δήμος Κω",
+  "nameOfficial": "ΚΩ",
+  "latitude": 36.81845,
+  "longitude": 27.13389,
+  "path": "12>1206>9284"
+ },
+ {
+  "code": "9285",
+  "level": 5,
+  "parentCode": "1206",
+  "nameEL": "Δήμος Νισύρου",
+  "nameOfficial": "ΝΙΣΥΡΟΥ",
+  "latitude": 36.59287,
+  "longitude": 27.15294,
+  "path": "12>1206>9285"
+ },
+ {
+  "code": "9286",
+  "level": 5,
+  "parentCode": "1207",
+  "nameEL": "Δήμος Κιμώλου",
+  "nameOfficial": "ΚΙΜΩΛΟΥ",
+  "latitude": 36.7946,
+  "longitude": 24.58425,
+  "path": "12>1207>9286"
+ },
+ {
+  "code": "9287",
+  "level": 5,
+  "parentCode": "1207",
+  "nameEL": "Δήμος Μήλου",
+  "nameOfficial": "ΜΗΛΟΥ",
+  "latitude": 36.7093,
+  "longitude": 24.5066,
+  "path": "12>1207>9287"
+ },
+ {
+  "code": "9288",
+  "level": 5,
+  "parentCode": "1207",
+  "nameEL": "Δήμος Σερίφου",
+  "nameOfficial": "ΣΕΡΙΦΟΥ",
+  "latitude": 37.16277,
+  "longitude": 24.48437,
+  "path": "12>1207>9288"
+ },
+ {
+  "code": "9289",
+  "level": 5,
+  "parentCode": "1207",
+  "nameEL": "Δήμος Σίφνου",
+  "nameOfficial": "ΣΙΦΝΟΥ",
+  "latitude": 36.97077,
+  "longitude": 24.70272,
+  "path": "12>1207>9289"
+ },
+ {
+  "code": "9290",
+  "level": 5,
+  "parentCode": "1208",
+  "nameEL": "Δήμος Μυκόνου",
+  "nameOfficial": "ΜΥΚΟΝΟΥ",
+  "latitude": 37.44529,
+  "longitude": 25.35408,
+  "path": "12>1208>9290"
+ },
+ {
+  "code": "9291",
+  "level": 5,
+  "parentCode": "1209",
+  "nameEL": "Δήμος Αμοργού",
+  "nameOfficial": "ΑΜΟΡΓΟΥ",
+  "latitude": 36.84797,
+  "longitude": 25.89807,
+  "path": "12>1209>9291"
+ },
+ {
+  "code": "9292",
+  "level": 5,
+  "parentCode": "1209",
+  "nameEL": "Δήμος Νάξου & Μικρών Κυκλάδων",
+  "nameOfficial": "ΝΑΞΟΥ & ΜΙΚΡΩΝ ΚΥΚΛΑΔΩΝ",
+  "latitude": 37.04314,
+  "longitude": 25.50046,
+  "path": "12>1209>9292"
+ },
+ {
+  "code": "9293",
+  "level": 5,
+  "parentCode": "1210",
+  "nameEL": "Δήμος Αντιπάρου",
+  "nameOfficial": "ΑΝΤΙΠΑΡΟΥ",
+  "latitude": 36.99256,
+  "longitude": 25.04229,
+  "path": "12>1210>9293"
+ },
+ {
+  "code": "9294",
+  "level": 5,
+  "parentCode": "1210",
+  "nameEL": "Δήμος Πάρου",
+  "nameOfficial": "ΠΑΡΟΥ",
+  "latitude": 37.05929,
+  "longitude": 25.19213,
+  "path": "12>1210>9294"
+ },
+ {
+  "code": "9295",
+  "level": 5,
+  "parentCode": "1211",
+  "nameEL": "Δήμος Μεγίστης",
+  "nameOfficial": "ΜΕΓΙΣΤΗΣ",
+  "latitude": 36.14371,
+  "longitude": 29.57532,
+  "path": "12>1211>9295"
+ },
+ {
+  "code": "9296",
+  "level": 5,
+  "parentCode": "1211",
+  "nameEL": "Δήμος Ρόδου",
+  "nameOfficial": "ΡΟΔΟΥ",
+  "latitude": 36.1848,
+  "longitude": 27.95249,
+  "path": "12>1211>9296"
+ },
+ {
+  "code": "9297",
+  "level": 5,
+  "parentCode": "1211",
+  "nameEL": "Δήμος Σύμης",
+  "nameOfficial": "ΣΥΜΗΣ",
+  "latitude": 36.59509,
+  "longitude": 27.83486,
+  "path": "12>1211>9297"
+ },
+ {
+  "code": "9298",
+  "level": 5,
+  "parentCode": "1211",
+  "nameEL": "Δήμος Τήλου",
+  "nameOfficial": "ΤΗΛΟΥ",
+  "latitude": 36.42962,
+  "longitude": 27.36243,
+  "path": "12>1211>9298"
+ },
+ {
+  "code": "9299",
+  "level": 5,
+  "parentCode": "1211",
+  "nameEL": "Δήμος Χάλκης",
+  "nameOfficial": "ΧΑΛΚΗΣ",
+  "latitude": 36.23819,
+  "longitude": 27.60203,
+  "path": "12>1211>9299"
+ },
+ {
+  "code": "9300",
+  "level": 5,
+  "parentCode": "1212",
+  "nameEL": "Δήμος Σύρος",
+  "nameOfficial": "ΣΥΡΟΥ-ΕΡΜΟΥΠΟΛΗΣ",
+  "latitude": 37.42698,
+  "longitude": 24.91631,
+  "path": "12>1212>9300"
+ },
+ {
+  "code": "9301",
+  "level": 5,
+  "parentCode": "1213",
+  "nameEL": "Δήμος Τήνου",
+  "nameOfficial": "ΤΗΝΟΥ",
+  "latitude": 37.60393,
+  "longitude": 25.13252,
+  "path": "12>1213>9301"
+ },
+ {
+  "code": "9302",
+  "level": 5,
+  "parentCode": "1301",
+  "nameEL": "Δήμος Αρχανών - Αστερουσίων",
+  "nameOfficial": "ΑΡΧΑΝΩΝ - ΑΣΤΕΡΟΥΣΙΩΝ",
+  "latitude": 35.08738,
+  "longitude": 25.17329,
+  "path": "13>1301>9302"
+ },
+ {
+  "code": "9303",
+  "level": 5,
+  "parentCode": "1301",
+  "nameEL": "Δήμος Βιάννου",
+  "nameOfficial": "ΒΙΑΝΝΟΥ",
+  "latitude": 35.04517,
+  "longitude": 25.42553,
+  "path": "13>1301>9303"
+ },
+ {
+  "code": "9304",
+  "level": 5,
+  "parentCode": "1301",
+  "nameEL": "Δήμος Γόρτυνας",
+  "nameOfficial": "ΓΟΡΤΥΝΑΣ",
+  "latitude": 35.05179,
+  "longitude": 25.00814,
+  "path": "13>1301>9304"
+ },
+ {
+  "code": "9305",
+  "level": 5,
+  "parentCode": "1301",
+  "nameEL": "Δήμος Ηρακλείου",
+  "nameOfficial": "ΗΡΑΚΛΕΙΟΥ",
+  "latitude": 35.33978,
+  "longitude": 25.13404,
+  "path": "13>1301>9305"
+ },
+ {
+  "code": "9306",
+  "level": 5,
+  "parentCode": "1301",
+  "nameEL": "Δήμος Μαλεβιζίου",
+  "nameOfficial": "ΜΑΛΕΒΙΖΙΟΥ",
+  "latitude": 35.32605,
+  "longitude": 25.06599,
+  "path": "13>1301>9306"
+ },
+ {
+  "code": "9307",
+  "level": 5,
+  "parentCode": "1301",
+  "nameEL": "Δήμος Μινώα Πεδιάδας",
+  "nameOfficial": "ΜΙΝΩΑ ΠΕΔΙΑΔΑΣ",
+  "latitude": 35.1371,
+  "longitude": 25.29745,
+  "path": "13>1301>9307"
+ },
+ {
+  "code": "9308",
+  "level": 5,
+  "parentCode": "1301",
+  "nameEL": "Δήμος Φαιστού",
+  "nameOfficial": "ΦΑΙΣΤΟΥ",
+  "latitude": 35.05756,
+  "longitude": 24.83501,
+  "path": "13>1301>9308"
+ },
+ {
+  "code": "9309",
+  "level": 5,
+  "parentCode": "1301",
+  "nameEL": "Δήμος Χερσονήσου",
+  "nameOfficial": "ΧΕΡΣΟΝΗΣΟΥ",
+  "latitude": 35.31097,
+  "longitude": 25.37104,
+  "path": "13>1301>9309"
+ },
+ {
+  "code": "9310",
+  "level": 5,
+  "parentCode": "1302",
+  "nameEL": "Δήμος Αγίου Νικολάου",
+  "nameOfficial": "ΑΓΙΟΥ ΝΙΚΟΛΑΟΥ",
+  "latitude": 35.22139,
+  "longitude": 25.63298,
+  "path": "13>1302>9310"
+ },
+ {
+  "code": "9311",
+  "level": 5,
+  "parentCode": "1302",
+  "nameEL": "Δήμος Ιεράπετρας",
+  "nameOfficial": "ΙΕΡΑΠΕΤΡΑΣ",
+  "latitude": 35.01542,
+  "longitude": 25.74011,
+  "path": "13>1302>9311"
+ },
+ {
+  "code": "9312",
+  "level": 5,
+  "parentCode": "1302",
+  "nameEL": "Δήμος Οροπεδίου Λασιθίου",
+  "nameOfficial": "ΟΡΟΠΕΔΙΟΥ ΛΑΣΙΘΙΟΥ",
+  "latitude": 35.16297,
+  "longitude": 25.4762,
+  "path": "13>1302>9312"
+ },
+ {
+  "code": "9313",
+  "level": 5,
+  "parentCode": "1302",
+  "nameEL": "Δήμος Σητείας",
+  "nameOfficial": "ΣΗΤΕΙΑΣ",
+  "latitude": 35.1396,
+  "longitude": 26.12603,
+  "path": "13>1302>9313"
+ },
+ {
+  "code": "9314",
+  "level": 5,
+  "parentCode": "1303",
+  "nameEL": "Δήμος Αγίου Βασιλείου",
+  "nameOfficial": "ΑΓΙΟΥ ΒΑΣΙΛΕΙΟΥ",
+  "latitude": 35.24606,
+  "longitude": 24.45222,
+  "path": "13>1303>9314"
+ },
+ {
+  "code": "9315",
+  "level": 5,
+  "parentCode": "1303",
+  "nameEL": "Δήμος Αμάριου",
+  "nameOfficial": "ΑΜΑΡΙΟΥ",
+  "latitude": 35.21144,
+  "longitude": 24.68159,
+  "path": "13>1303>9315"
+ },
+ {
+  "code": "9316",
+  "level": 5,
+  "parentCode": "1303",
+  "nameEL": "Δήμος Ανωγείων",
+  "nameOfficial": "ΑΝΩΓΕΙΩΝ",
+  "latitude": 35.29054,
+  "longitude": 24.88352,
+  "path": "13>1303>9316"
+ },
+ {
+  "code": "9317",
+  "level": 5,
+  "parentCode": "1303",
+  "nameEL": "Δήμος Μυλοποτάμου",
+  "nameOfficial": "ΜΥΛΟΠΟΤΑΜΟΥ",
+  "latitude": 35.34289,
+  "longitude": 24.77638,
+  "path": "13>1303>9317"
+ },
+ {
+  "code": "9318",
+  "level": 5,
+  "parentCode": "1303",
+  "nameEL": "Δήμος Ρεθύμνης",
+  "nameOfficial": "ΡΕΘΥΜΝΗΣ",
+  "latitude": 35.31504,
+  "longitude": 24.48734,
+  "path": "13>1303>9318"
+ },
+ {
+  "code": "9319",
+  "level": 5,
+  "parentCode": "1304",
+  "nameEL": "Δήμος Αποκορώνου",
+  "nameOfficial": "ΑΠΟΚΟΡΩΝΟΥ",
+  "latitude": 35.3698,
+  "longitude": 24.1941,
+  "path": "13>1304>9319"
+ },
+ {
+  "code": "9320",
+  "level": 5,
+  "parentCode": "1304",
+  "nameEL": "Δήμος Γαύδου",
+  "nameOfficial": "ΓΑΥΔΟΥ",
+  "latitude": 34.84669,
+  "longitude": 24.08441,
+  "path": "13>1304>9320"
+ },
+ {
+  "code": "9321",
+  "level": 5,
+  "parentCode": "1304",
+  "nameEL": "Δήμος Καντάνου - Σέλινου",
+  "nameOfficial": "ΚΑΝΤΑΝΟΥ - ΣΕΛΙΝΟΥ",
+  "latitude": 35.29888,
+  "longitude": 23.73096,
+  "path": "13>1304>9321"
+ },
+ {
+  "code": "9322",
+  "level": 5,
+  "parentCode": "1304",
+  "nameEL": "Δήμος Κισσάμου",
+  "nameOfficial": "ΚΙΣΣΑΜΟΥ",
+  "latitude": 35.48965,
+  "longitude": 23.6558,
+  "path": "13>1304>9322"
+ },
+ {
+  "code": "9323",
+  "level": 5,
+  "parentCode": "1304",
+  "nameEL": "Δήμος Πλατανιά",
+  "nameOfficial": "ΠΛΑΤΑΝΙΑ",
+  "latitude": 35.51369,
+  "longitude": 23.90659,
+  "path": "13>1304>9323"
+ },
+ {
+  "code": "9324",
+  "level": 5,
+  "parentCode": "1304",
+  "nameEL": "Δήμος Σφακίων",
+  "nameOfficial": "ΣΦΑΚΙΩΝ",
+  "latitude": 35.2624,
+  "longitude": 24.09051,
+  "path": "13>1304>9324"
+ },
+ {
+  "code": "9325",
+  "level": 5,
+  "parentCode": "1304",
+  "nameEL": "Δήμος Χανίων",
+  "nameOfficial": "ΧΑΝΙΩΝ",
+  "latitude": 35.51192,
+  "longitude": 24.01714,
+  "path": "13>1304>9325"
+ }
+]

@@ -1,4 +1,5 @@
 // Δοκιμαστικά δεδομένα για τοπική ανάπτυξη: npx prisma db seed
+import { seedGeo } from "./geo/seed-geo";
 import { seedKb } from "./kb-starter";
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -28,6 +29,8 @@ async function admin() {
 
 async function main() {
   await admin();
+  const geo = await seedGeo(db);
+  console.log(`Γεωγραφία: ${geo.countries} χώρες, ${geo.regions} περιφέρειες/νομοί/δήμοι, ${geo.cities.length} πόλεις (${geo.added} νέες)`);
   const articles = await seedKb(db);
   if (articles) console.log(`Βοήθεια: ${articles} αρχικά άρθρα`);
   if (await db.organization.count()) return console.log("Η βάση έχει ήδη δεδομένα — δεν άλλαξε τίποτα.");
@@ -35,10 +38,14 @@ async function main() {
   await db.orgRole.createMany({ data: SYSTEM_ROLES.map((r) => ({ orgId: org.id, system: true, ...r })) });
   const store = await db.store.create({ data: { orgId: org.id, name: "Κατάστημα Πειραιά", address: "Ακτή Μουτσοπούλου 1, Πειραιάς" } });
   await db.device.create({ data: { orgId: org.id, storeId: store.id, name: "Ταμείο 1", kind: "POS_WEB", series: "A1" } });
+  // οι κοινοί συντελεστές ΦΠΑ σπέρνονται από το migration· αν λείπει κάποιος, τον προσθέτουμε
+  const vatIds = new Map<number, string>();
+  for (const r of new Set(Object.values(MENU).flat().map(([, , vatRate = 13]) => vatRate)))
+    vatIds.set(r, (await db.vatRate.upsert({ where: { id: `vat_${r}` }, update: {}, create: { id: `vat_${r}`, name: `ΦΠΑ ${r}%`, rate: r } })).id);
   let position = 0;
   for (const [name, products] of Object.entries(MENU)) {
     await db.category.create({
-      data: { orgId: org.id, name, position: position++, products: { create: products.map(([n, priceCents, vatRate = 13]) => ({ orgId: org.id, name: n, priceCents, vatRate })) } },
+      data: { orgId: org.id, name, position: position++, products: { create: products.map(([n, priceCents, vatRate = 13]) => ({ orgId: org.id, name: n, priceCents, vatRateId: vatIds.get(vatRate)! })) } },
     });
   }
   await db.subscription.create({ data: { orgId: org.id, currentPeriodEnd: new Date(Date.now() + 30 * 864e5) } });

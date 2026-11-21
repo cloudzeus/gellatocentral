@@ -10,7 +10,7 @@ import { saveRef, toggleRef } from "../actions";
 
 // Οι κοινές λίστες από τις οποίες διαλέγουν όλες οι επιχειρήσεις. Τις ορίζει μία φορά η πλατφόρμα.
 export default async function RefsPage({ searchParams }: PageProps<"/platform/refs">) {
-  await requirePlatform("settings.manage");
+  await requirePlatform("settings.read");
   const q = await searchParams;
   const list: RefList = isRefList(q.list) ? q.list : "paymentTerm";
   const [counts, items] = await Promise.all([db.refItem.groupBy({ by: ["list"], _count: true }), db.refItem.findMany({ where: { list }, orderBy: [{ sort: "asc" }, { label: "asc" }] })]);

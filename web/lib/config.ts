@@ -74,6 +74,7 @@ export const GROUPS = {
       APP_URL: { label: "Διεύθυνση εφαρμογής", placeholder: "https://app.gelatosystem.app", check: https },
       PLATFORM_VAT: { label: "ΑΦΜ της εταιρείας μας", placeholder: "9 ψηφία", hint: "Με αυτό το VIES δίνει αριθμό ελέγχου όταν η πλατφόρμα ελέγχει ΑΦΜ άλλης χώρας της ΕΕ", check: [/^\d{9}$/, "έχει 9 ψηφία"] },
       CRON_SECRET: { label: "Μυστικό προγραμματισμένων εργασιών", secret: true, hint: "Τουλάχιστον 20 χαρακτήρες. Το ίδιο στέλνει ο cron στο /api/cron/subscriptions", check: [/^\S{20,}$/, "θέλει τουλάχιστον 20 χαρακτήρες χωρίς κενά"] },
+      USD_EUR_RATE: { label: "Ισοτιμία USD → EUR", placeholder: "π.χ. 0.92", hint: "Για τη χρέωση των pay-as-you-go υπηρεσιών (OCR κ.ά.): το κόστος των παρόχων τιμολογείται σε USD. Κενό = 0,92", check: [/^\d(\.\d{1,4})?$/, "είναι αριθμός, π.χ. 0.92"] },
     },
   },
 } as const satisfies Record<string, { title: string; hint: string; fields: Record<string, Def> }>;

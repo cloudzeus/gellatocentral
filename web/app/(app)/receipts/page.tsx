@@ -4,16 +4,20 @@ import { DataTable } from "@/components/data-table";
 import { Card, menuItem, Page } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { dateTime, FiscalBadge, METHOD } from "@/lib/labels";
+import { dateTime, FiscalBadge } from "@/lib/labels";
 import { euro } from "@/lib/money";
 import { filterParam, listParams } from "@/lib/paging";
+import { paymentMethods } from "@/lib/payment-methods";
 
 export default async function ReceiptsPage({ searchParams }: PageProps<"/receipts">) {
-  const { org } = await currentOrg("receipts.view");
+  const { org } = await currentOrg("receipts.read");
   const sp = await searchParams;
   const list = listParams(sp, 25, ["no", "date", "total"]);
-  const devices = await db.device.findMany({ where: { store: { orgId: org.id }, series: { not: null } }, orderBy: { name: "asc" }, select: { id: true, name: true } });
-  const method = filterParam(sp, "method", ["CASH", "CARD"]);
+  const [devices, methods] = await Promise.all([
+    db.device.findMany({ where: { store: { orgId: org.id }, series: { not: null } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    paymentMethods(),
+  ]);
+  const method = filterParam(sp, "method", methods.map((m) => m.id));
   const fiscal = filterParam(sp, "fiscal", ["SIGNED", "NOT_SENT", "PENDING", "FAILED"]);
   const device = filterParam(sp, "device", devices.map((d) => d.id));
   const orderBy = list.sort === "total" ? [{ totalCents: list.dir }] : list.sort === "no" ? [{ series: list.dir }, { aa: list.dir }] : [{ issuedAt: list.sort === "date" ? list.dir : ("desc" as const) }];
@@ -23,7 +27,7 @@ export default async function ReceiptsPage({ searchParams }: PageProps<"/receipt
   const where = {
     orgId: org.id,
     status: "COMPLETED" as const,
-    ...(method ? { payment: { method } } : {}),
+    ...(method ? { payment: { methodId: method } } : {}),
     ...(fiscal ? { fiscal: { status: fiscal } } : {}),
     ...(device ? { deviceId: device } : {}),
     ...(list.q
@@ -33,7 +37,7 @@ export default async function ReceiptsPage({ searchParams }: PageProps<"/receipt
       : {}),
   };
   const [sales, total] = await Promise.all([
-    db.sale.findMany({ where, orderBy, skip: list.skip, take: list.take, include: { payment: true, fiscal: true, device: true } }),
+    db.sale.findMany({ where, orderBy, skip: list.skip, take: list.take, include: { payment: { include: { method: true } }, fiscal: true, device: true } }),
     db.sale.count({ where }),
   ]);
   return (
@@ -44,7 +48,7 @@ export default async function ReceiptsPage({ searchParams }: PageProps<"/receipt
           listing={{
             ...list, total, placeholder: "Απόδειξη (π.χ. A1-12) ή ταμείο",
             filters: [
-              { key: "method", label: "Πληρωμή", value: method, options: [["CASH", "Μετρητά"], ["CARD", "Κάρτα"]] },
+              { key: "method", label: "Πληρωμή", value: method, options: methods.map((m): [string, string] => [m.id, m.name]) },
               { key: "fiscal", label: "ΑΑΔΕ", value: fiscal, options: [["SIGNED", "Διαβιβάστηκε"], ["NOT_SENT", "Δοκιμαστική"], ["PENDING", "Σε εξέλιξη"], ["FAILED", "Απέτυχε"]] },
               { key: "device", label: "Ταμείο", value: device, options: devices.map((d): [string, string] => [d.id, d.name]) },
             ],
@@ -64,7 +68,7 @@ export default async function ReceiptsPage({ searchParams }: PageProps<"/receipt
               no: <Link href={`/receipts/${s.id}`} className="font-semibold underline-offset-2 hover:underline">{s.series}-{s.aa}</Link>,
               date: s.issuedAt ? dateTime.format(s.issuedAt) : "—",
               device: s.device.name,
-              method: s.payment ? METHOD[s.payment.method] : "—",
+              method: s.payment ? s.payment.method.name : "—",
               fiscal: s.fiscal ? <FiscalBadge status={s.fiscal.status} /> : "—",
               total: euro(s.totalCents),
             },

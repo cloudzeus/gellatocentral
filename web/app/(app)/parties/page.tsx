@@ -5,7 +5,7 @@ import { Drawer } from "@/components/crm/drawer";
 import { QuickActions } from "@/components/crm/quick-actions";
 import { Timeline } from "@/components/crm/timeline";
 import { DataTable } from "@/components/data-table";
-import { Modal } from "@/components/modal";
+import { Modal, RoutedModal } from "@/components/modal";
 import { RoleBadges } from "@/components/party-bits";
 import { PartyForm } from "@/components/party-form";
 import { Submit } from "@/components/submit";
@@ -27,9 +27,11 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
   const status = filterParam(sp, "status", ["active", "inactive"]);
   const role = isPartyRole(sp.role) ? sp.role : null;
   const refs = await partyRefs();
-  const region = filterParam(sp, "region", refs.regions);
-  const like = { contains: list.q, mode: "insensitive" as const };
   const mine = { orgId: scope.orgId };
+  // το φίλτρο «Περιοχή» δείχνει ό,τι υπάρχει πραγματικά στο αρχείο (το γράφει πλέον ο Καλλικράτης: νομός ή περιφέρεια)
+  const regionsInUse = (await db.party.findMany({ where: { ...mine, region: { not: null } }, distinct: ["region"], select: { region: true }, orderBy: { region: "asc" } })).flatMap((r) => (r.region ? [r.region] : []));
+  const region = filterParam(sp, "region", regionsInUse);
+  const like = { contains: list.q, mode: "insensitive" as const };
   const where = {
     ...mine,
     ...(role ? { roles: { has: role } } : {}),
@@ -47,19 +49,22 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
   const roleKeys = Object.keys(PARTY_ROLES) as PartyRole[];
   const now = new Date();
   const ids = rows.map((r) => r.id);
-  // μαζί με το glance έρχονται και τα τηλέφωνα/email της εταιρίας, για το modal «Επαφές και τηλέφωνα» κάθε γραμμής
-  const [glance, channels] = await Promise.all([partyGlance(ids), db.partyChannel.findMany({ where: { partyId: { in: ids } }, orderBy: [{ kind: "desc" }, { isPrimary: "desc" }, { id: "asc" }] })]);
-  const channelsOf = (id: string) => channels.filter((x) => x.partyId === id);
-  // γρήγορη προβολή: ?peek=<id> πάνω στην ίδια λίστα, με τα ίδια φίλτρα
-  const here = (peek?: string) => { const u = new URLSearchParams(); for (const [k, v] of Object.entries(sp)) if (typeof v === "string" && k !== "peek" && k !== "error" && k !== "saved") u.set(k, v); if (peek) u.set("peek", peek); return `${scope.base}${u.size ? `?${u}` : ""}`; };
+  // κύρια επαφή (με τα τηλέφωνα/email του προσώπου), τελευταία επικοινωνία και επόμενο βήμα ανά γραμμή
+  const glance = await partyGlance(ids);
+  // γρήγορη προβολή: ?peek=<id> πάνω στην ίδια λίστα, με τα ίδια φίλτρα — τα παράθυρα της λίστας (peek, contacts)
+  // αποδίδονται μόνο όταν ζητηθούν: αλλιώς κάθε φόρτωση θα έστηνε 25 παράθυρα με φόρμες που σπάνια ανοίγουν
+  const here = (peek?: string, contacts?: string) => { const u = new URLSearchParams(); for (const [k, v] of Object.entries(sp)) if (typeof v === "string" && k !== "peek" && k !== "contacts" && k !== "error" && k !== "saved") u.set(k, v); if (peek) u.set("peek", peek); if (contacts) u.set("contacts", contacts); return `${scope.base}${u.size ? `?${u}` : ""}`; };
   const peek = typeof sp.peek === "string" ? await db.party.findFirst({ where: { id: sp.peek, orgId: scope.orgId }, include: { channels: { orderBy: [{ kind: "desc" }, { isPrimary: "desc" }] }, contacts: { where: { active: true }, orderBy: [{ isPrimary: "desc" }, { id: "asc" }], include: { person: { include: { channels: { orderBy: { isPrimary: "desc" } } } } } }, activities: { orderBy: { at: "desc" }, take: 60, include: { person: { select: { name: true } } } } } }) : null;
   const peekItems = peek?.activities.map(activityItem) ?? [];
   const peekTasks = peekItems.filter((i) => i.task && !i.task.doneAt).sort((a, b) => (a.task!.dueAt?.getTime() ?? Infinity) - (b.task!.dueAt?.getTime() ?? Infinity));
   const channelOf = (channels: { kind: string; value: string }[], kind: string) => channels.find((c) => c.kind === kind)?.value ?? null;
   const tab = (r: PartyRole | null) => { const q = new URLSearchParams(); if (r) q.set("role", r); return `${scope.base}${q.size ? `?${q}` : ""}`; };
+  // το παράθυρο «Επαφές και τηλέφωνα»: ?contacts=<id>, μόνο όταν δεν είναι ήδη ανοιχτή η γρήγορη προβολή
+  const contactsParty = !peek && typeof sp.contacts === "string" ? await db.party.findFirst({ where: { id: sp.contacts, orgId: scope.orgId }, include: { channels: { orderBy: [{ kind: "desc" }, { isPrimary: "desc" }, { id: "asc" }] }, contacts: { where: { active: true }, orderBy: [{ isPrimary: "desc" }, { id: "asc" }], include: { person: { include: { channels: { orderBy: { isPrimary: "desc" } } } } } } } }) : null;
 
-  // ---- Modal «Επαφές και τηλέφωνα» της γραμμής: ίδιες ενέργειες με την καρτέλα, χωρίς αναχώρηση από τη λίστα ----
-  const back = here(); // μετά την αποθήκευση ο server γυρνά εδώ, με τα ίδια φίλτρα
+  // ---- Παράθυρο «Επαφές και τηλέφωνα»: ίδιες ενέργειες με την καρτέλα, χωρίς αναχώρηση από τη λίστα ----
+  // μετά την αποθήκευση ο server γυρνά εδώ: το back κρατά το ?contacts=, ώστε το παράθυρο να μένει ανοιχτό (π.χ. για πολλά τηλέφωνα σερί)
+  const back = contactsParty ? here(undefined, contactsParty.id) : here();
   const INPUT = "h-9 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
   type Channel = { id: string; kind: string; value: string; label: string | null; isPrimary: boolean };
   const chip = (partyId: string, ch: Channel) => (
@@ -83,18 +88,18 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
       <Submit className={btn("outline")}><Plus /> Προσθήκη</Submit>
     </form>
   );
-  const contactsModal = (c: (typeof rows)[number], g: ReturnType<typeof glance>) => (
+  const contactsModal = (c: NonNullable<typeof contactsParty>) => (
     <div className="space-y-5">
       <section>
         <h3 className="text-sm font-semibold">Τηλέφωνα και email της επιχείρησης</h3>
-        <div className="mt-2 flex flex-wrap gap-2">{channelsOf(c.id).length ? channelsOf(c.id).map((x) => chip(c.id, x)) : <span className="text-sm text-muted-foreground">Κανένα ακόμα</span>}</div>
+        <div className="mt-2 flex flex-wrap gap-2">{c.channels.length ? c.channels.map((x) => chip(c.id, x)) : <span className="text-sm text-muted-foreground">Κανένα ακόμα</span>}</div>
         {scope.canEdit ? <div className="mt-3">{channelForm(c.id)}</div> : null}
       </section>
       <section>
         <h3 className="text-sm font-semibold">Επαφές</h3>
-        {g.contacts.length ? (
+        {c.contacts.length ? (
           <ul className="mt-2 space-y-2">
-            {g.contacts.map((x) => (
+            {c.contacts.map((x) => (
               <li key={x.id} className="rounded-lg border border-border/70 px-3 py-2.5">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                   <span className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-xs font-semibold text-muted-foreground" aria-hidden>{initials(x.person.name)}</span>
@@ -141,7 +146,7 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
 
   return (
     <Page section={scope.section} title="Συναλλασσόμενοι" description={scope.orgId ? "Όλοι όσοι συναλλάσσεσαι, μία φορά ο καθένας: πελάτες, προμηθευτές, franchisees, συνεργάτες" : "Οι συναλλασσόμενοι της πλατφόρμας: οι συνδρομητές ως πελάτες, οι προμηθευτές και οι συνεργάτες μας"}
-      actions={scope.canEdit ? <Modal label={<><Plus /> Νέος συναλλασσόμενος</>} variant="default" title="Νέος συναλλασσόμενος" description="Γράψε το ΑΦΜ και πάτα «Εύρεση στοιχείων»: τα υπόλοιπα έρχονται από το μητρώο"><PartyForm action={saveParty.bind(null, null)} refs={refs} defaultRole={role ?? undefined} /></Modal> : null}>
+      actions={scope.can("add") ? <Modal label={<><Plus /> Νέος συναλλασσόμενος</>} variant="default" title="Νέος συναλλασσόμενος" description="Γράψε το ΑΦΜ και πάτα «Εύρεση στοιχείων»: τα υπόλοιπα έρχονται από το μητρώο"><PartyForm action={saveParty.bind(null, null)} refs={refs} defaultRole={role ?? undefined} /></Modal> : null}>
       <div className="max-w-7xl space-y-4">
         <datalist id="channel-labels">{CHANNEL_LABELS.map((l) => <option key={l} value={l} />)}</datalist>
         {typeof sp.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {sp.error.slice(0, 200)}</p> : null}
@@ -169,7 +174,7 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
           </nav>
           <DataTable
             id="parties"
-            listing={{ ...list, total, placeholder: "Επωνυμία, ΑΦΜ, πόλη ή επαφή", filters: [{ key: "region", label: "Περιοχή", value: region, options: refs.regions.map((r): [string, string] => [r, r]) }, { key: "status", label: "Κατάσταση", value: status, options: [["active", "Ενεργοί"], ["inactive", "Ανενεργοί"]] }] }}
+            listing={{ ...list, total, placeholder: "Επωνυμία, ΑΦΜ, πόλη ή επαφή", filters: [{ key: "region", label: "Περιοχή", value: region, options: regionsInUse.map((r): [string, string] => [r, r]) }, { key: "status", label: "Κατάσταση", value: status, options: [["active", "Ενεργοί"], ["inactive", "Ανενεργοί"]] }] }}
             empty={role ? `Κανένας με τον ρόλο «${PARTY_ROLES[role].label}» ακόμα` : "Κανένας συναλλασσόμενος ακόμα. Πάτησε «Νέος συναλλασσόμενος» για την πρώτη καρτέλα"}
             columns={[
               { key: "name", label: "Συναλλασσόμενος", required: true, sortable: true },
@@ -188,7 +193,7 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
               return {
                 id: c.id,
                 cells: {
-                  name: <div className="min-w-0"><Link href={here(c.id)} scroll={false} title="Γρήγορη προβολή" className="font-semibold underline-offset-2 hover:underline">{c.name}</Link><span className="block text-xs text-muted-foreground">{c.vatNumber ? `ΑΦΜ ${c.countryCode === "GR" ? "" : `${c.countryCode} `}${c.vatNumber}` : "χωρίς ΑΦΜ: δεν βγαίνει τιμολόγιο"}{c.vatCheckedAt ? " · επιβεβαιωμένο" : ""}{c.active ? "" : " · ανενεργός"}</span></div>,
+                  name: <div className="min-w-0"><Link href={here(c.id)} scroll={false} prefetch={false} title="Γρήγορη προβολή" className="font-semibold underline-offset-2 hover:underline">{c.name}</Link><span className="block text-xs text-muted-foreground">{c.vatNumber ? `ΑΦΜ ${c.countryCode === "GR" ? "" : `${c.countryCode} `}${c.vatNumber}` : "χωρίς ΑΦΜ: δεν βγαίνει τιμολόγιο"}{c.vatCheckedAt ? " · επιβεβαιωμένο" : ""}{c.active ? "" : " · ανενεργός"}</span></div>,
                   roles: <RoleBadges roles={c.roles} />,
                   city: c.city || c.region ? <span className="inline-flex items-center gap-1">{c.latitude != null ? <MapPin className="size-3.5 text-muted-foreground" aria-label="Έχει θέση στον χάρτη" /> : null}{[c.city, c.region].filter(Boolean).join(" · ")}{c._count.addresses ? <span className="text-muted-foreground"> · {c._count.addresses} υποκ.</span> : null}</span> : <span className="text-muted-foreground">—</span>,
                   contact: main || c.contactName || phone || email ? <div className="min-w-0">{main?.person.name ?? c.contactName ?? (phone ? showPhone(phone) : email)}{g.contacts.length > 1 ? <span className="text-muted-foreground"> +{g.contacts.length - 1}</span> : null}<span className="block text-xs text-muted-foreground">{[main?.title, main || c.contactName ? (phone ? showPhone(phone) : email) : null].filter(Boolean).join(" · ")}</span></div> : <span className="text-muted-foreground">—</span>,
@@ -198,9 +203,10 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
                 menu: (
                   <>
                     {scope.canEdit ? <QuickActions key="log" menuItems action={logActivity.bind(null, c.id)} name={c.name} phone={phone} email={email} contacts={g.contacts.map((x): [string, string] => [x.personId, x.person.name])} /> : null}
-                    <Link key="peek" href={here(c.id)} scroll={false} role="menuitem" className={menuItem}><PanelRight /> Γρήγορη προβολή</Link>
+                    <Link key="peek" href={here(c.id)} scroll={false} prefetch={false} role="menuitem" className={menuItem}><PanelRight /> Γρήγορη προβολή</Link>
                     <Link key="open" href={`${scope.base}/${c.id}`} role="menuitem" className={menuItem}><Eye /> Άνοιγμα καρτέλας</Link>
-                    <Modal key="contacts" menuItem label={<><Phone /> Επαφές και τηλέφωνα</>} title="Επαφές και τηλέφωνα" description={c.name}>{contactsModal(c, g)}</Modal>
+                    {/* prefetch={false}: αλλιώς ο router θα προ-φόρτωνε 25 εκδόσεις της σελίδας (μία ανά παράθυρο) */}
+                    <Link key="contacts" href={here(undefined, c.id)} scroll={false} prefetch={false} role="menuitem" className={menuItem}><Phone /> Επαφές και τηλέφωνα</Link>
                     {c.linkedOrg ? <Link key="org" href={`/platform/${c.linkedOrg.id}`} role="menuitem" className={menuItem}><Eye /> Σελίδα συνδρομητή</Link> : null}
                     {scope.canEdit ? <form key="toggle" action={toggleParty.bind(null, c.id)}><Submit role="menuitem" className={menuItem}><Power /> {c.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form> : null}
                   </>
@@ -265,6 +271,11 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
             </section>
           </div>
         </Drawer>
+      ) : null}
+      {contactsParty ? (
+        <RoutedModal key={contactsParty.id} title="Επαφές και τηλέφωνα" description={contactsParty.name} closeHref={here()}>
+          {contactsModal(contactsParty)}
+        </RoutedModal>
       ) : null}
     </Page>
   );

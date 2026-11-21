@@ -6,7 +6,7 @@ import { db } from "../db";
 import type { Prisma } from "../generated/prisma/client";
 import { platformSettings, sendMail } from "../mail/send";
 import { templates } from "../mail/templates";
-import { ALL_PERMISSIONS, platformCan } from "../permissions";
+import { orgPermissionsOf, platformCan } from "../permissions";
 import { deleteFile } from "../storage";
 import { dueDate, ERASED_NAME, type EventType, hasConsent, type Purpose, PURPOSES, subjectHash, type SubjectType } from "./rules";
 
@@ -19,9 +19,9 @@ export const scopeOf = (user: { memberships: { orgId: string }[] }) => user.memb
 
 /** Μπορεί ο χρήστης να διαχειριστεί το GDPR αυτού του επιπέδου; Ο πελάτης μόνο το δικό του. */
 export function canManageGdpr(user: User, scope: string | null) {
-  if (scope === null) return platformCan(user, "gdpr.manage");
+  if (scope === null) return platformCan(user, "gdpr.edit");
   const m = user.memberships.find((x) => x.orgId === scope);
-  return !!m && (m.role.locked ? ALL_PERMISSIONS : m.role.permissions).includes("gdpr.manage");
+  return !!m && orgPermissionsOf(m.role).includes("gdpr.edit");
 }
 
 export const logEvent = (e: { orgId: string | null; type: EventType; actor: Actor; subjectType?: SubjectType; subjectId?: string | null; subjectLabel?: string | null; detail?: Prisma.InputJsonValue }, tx: Prisma.TransactionClient = db) =>
@@ -174,7 +174,7 @@ export async function exportCustomer(id: string, orgId: string, actor: Actor) {
 }
 
 export async function exportUser(userId: string) {
-  const user = await db.user.findUnique({ where: { id: userId }, include: { memberships: { include: { org: true, role: true, store: true } } } });
+  const user = await db.user.findUnique({ where: { id: userId }, include: { memberships: { include: { org: true, role: true, stores: { include: { store: true } } } } } });
   if (!user) throw new GdprError("Ο λογαριασμός δεν βρέθηκε");
   const [consents, sessions, emails, requests, files] = await Promise.all([
     consentsOf("user", userId),
@@ -187,7 +187,7 @@ export async function exportUser(userId: string) {
   return {
     exportedAt: new Date().toISOString(),
     account: { name: user.name, email: user.email, createdAt: user.createdAt, platformRole: user.platformRole },
-    memberships: user.memberships.map((m) => ({ business: m.org.name, role: m.role.name, store: m.store?.name ?? null })),
+    memberships: user.memberships.map((m) => ({ business: m.org.name, role: m.role.name, stores: m.stores.length ? m.stores.map((s) => s.store.name) : "Όλα" })),
     consents: consents.map((c) => ({ purpose: PURPOSES[c.purpose as Purpose]?.label ?? c.purpose, version: c.version, granted: c.granted, at: c.at, source: c.source })),
     activeSessions: sessions.length,
     emailsSentToYou: emails,

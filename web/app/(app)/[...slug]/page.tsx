@@ -9,7 +9,7 @@ export default async function ComingSoon({ params }: PageProps<"/[...slug]">) {
   const path = `/${(await params).slug.join("/")}`;
   const item = ALL_ITEMS.find((i) => i.to === path);
   if (!item) notFound();
-  await currentOrg("dashboard.view");
+  await currentOrg("dashboard.read");
   return (
     <Page section={item.section} title={item.label}>
       <Card className="mx-auto max-w-lg p-8 text-center">
