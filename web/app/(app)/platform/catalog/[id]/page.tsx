@@ -7,6 +7,7 @@ import { requirePlatform } from "@/lib/auth";
 import { compositionFromRow } from "@/lib/composition";
 import { db } from "@/lib/db";
 import { materialLactose, materialPac, materialPod, materialTotalSolids } from "@/lib/recipe-analysis";
+import { normalizeManufacturerName } from "@/lib/manufacturer";
 import { saveComposition, toggleTradeItem } from "../actions";
 import { Submit } from "@/components/submit";
 import { ItemForm } from "../item-form";
@@ -30,13 +31,13 @@ export default async function CatalogItemPage({ params, searchParams }: { params
   const c = item.composition;
   const summary = c ? compositionFromRow(c as unknown as Record<string, unknown>) : null;
   const categoryOptions: [string, string][] = categories.flatMap((x): [string, string][] => [[x.id, x.name], ...x.children.map((ch): [string, string] => [ch.id, `${x.name} › ${ch.name}`])]);
-  const brandOptions: [string, string][] = brands.map((b): [string, string] => [b.id, `${b.manufacturer.name} · ${b.name}`]);
+  const brandOptions: [string, string][] = brands.map((b): [string, string] => [b.id, `${normalizeManufacturerName(b.manufacturer.name)} · ${b.name}`]);
 
   return (
     <Page
       section="Common Tables"
       title={item.name}
-      description={`${[item.brand ? `${item.brand.manufacturer.name} · ${item.brand.name}` : null, item.ean, c ? "Σύσταση καταχωρημένη" : "Χωρίς σύσταση"].filter(Boolean).join(" · ")}`}
+      description={`${[item.brand ? `${normalizeManufacturerName(item.brand.manufacturer.name)} · ${item.brand.name}` : null, item.ean, c ? "Σύσταση καταχωρημένη" : "Χωρίς σύσταση"].filter(Boolean).join(" · ")}`}
       actions={
         <Link href="/platform/catalog" className={btn("outline", "sm")}>
           <ArrowLeft /> Κατάλογος

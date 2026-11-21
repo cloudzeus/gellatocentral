@@ -9,7 +9,7 @@ import { Modal, RoutedModal } from "@/components/modal";
 import { RoleBadges } from "@/components/party-bits";
 import { PartyForm } from "@/components/party-form";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, Field, menuItem, Page } from "@/components/ui";
+import { Badge, btn, Card, cn, Field, menuItem, Page, Select } from "@/components/ui";
 import { ago, CHANNEL_LABELS, channelHref, contactTone, dueText, initials, showPhone, taskState } from "@/lib/crm";
 import { activityItem, partyGlance } from "@/lib/crm-data";
 import { db } from "@/lib/db";
@@ -82,7 +82,7 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
     <form action={saveChannel.bind(null, partyId)} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="back" value={back} />
       {personId ? <input type="hidden" name="personId" value={personId} /> : null}
-      <label className="space-y-1 text-xs font-medium text-muted-foreground">Είδος<select name="kind" className={cn(INPUT, "w-32")}><option value="phone">Τηλέφωνο</option><option value="email">Email</option></select></label>
+      <Select label="Είδος" name="kind" className={cn(INPUT, "w-32")} options={[["phone", "Τηλέφωνο"], ["email", "Email"]]} />
       <label className="min-w-40 flex-1 space-y-1 text-xs font-medium text-muted-foreground">Αριθμός ή διεύθυνση<input name="value" required maxLength={160} className={INPUT} /></label>
       <label className="space-y-1 text-xs font-medium text-muted-foreground">Ετικέτα<input name="label" list="channel-labels" maxLength={40} placeholder="π.χ. Κινητό" className={cn(INPUT, "w-36")} /></label>
       <Submit className={btn("outline")}><Plus /> Προσθήκη</Submit>

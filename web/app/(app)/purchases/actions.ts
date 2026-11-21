@@ -145,6 +145,20 @@ export async function removeLine(lineId: string, docId: string) {
   back(`/purchases/${docId}`, "?saved=1");
 }
 
+/** Μαζική διαγραφή μόνο γραμμών πρόχειρου τιμολογίου της ίδιας επιχείρησης. */
+export async function removeLines(docId: string, ids: string[]) {
+  const parsed = z.object({ docId: z.string().cuid(), ids: z.array(z.string().cuid()).min(1).max(200) }).safeParse({ docId, ids });
+  if (!parsed.success) return "Η επιλογή γραμμών δεν είναι έγκυρη";
+  const { org } = await currentOrg("purchases.edit");
+  const doc = await db.purchaseDoc.findFirst({ where: { id: parsed.data.docId, orgId: org.id, status: "DRAFT" }, select: { id: true } });
+  if (!doc) return "Το πρόχειρο τιμολόγιο δεν βρέθηκε ή έχει ήδη καταχωρηθεί";
+  const unique = [...new Set(parsed.data.ids)];
+  const result = await db.purchaseLine.deleteMany({ where: { id: { in: unique }, documentId: doc.id, orgId: org.id } });
+  revalidatePath(`/purchases/${doc.id}`);
+  revalidatePath("/purchases");
+  if (result.count !== unique.length) return "Ορισμένες γραμμές δεν βρέθηκαν· ανανέωσε το τιμολόγιο";
+}
+
 /** Αποδοχή: παρτίδες + αποθέματα + τιμές, όλα σε μία συναλλαγή (lib/purchases-db.ts). */
 export async function postDoc(docId: string) {
   const { org } = await currentOrg("purchases.edit");

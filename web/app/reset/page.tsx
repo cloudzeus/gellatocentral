@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AuthCard, Notice } from "@/components/auth-card";
+import { Checkbox } from "@/components/shadcn/checkbox";
 import { btn, Field } from "@/components/ui";
 import { db } from "@/lib/db";
 import { needsLegalConsent } from "@/lib/gdpr";
@@ -34,7 +35,7 @@ export default async function ResetPage({ searchParams }: PageProps<"/reset">) {
           <Field label="Νέος κωδικός" name="password" type="password" autoComplete="new-password" required minLength={10} hint="Τουλάχιστον 10 χαρακτήρες. Μετά την αλλαγή αποσυνδέονται όλες οι συσκευές σου." />
           {legal ? (
             <label className="flex items-start gap-3 text-sm font-medium">
-              <input type="checkbox" name="accept" required className="mt-0.5 size-4 accent-[var(--primary)]" />
+              <Checkbox name="accept" required className="mt-0.5" />
               <span>Διάβασα και αποδέχομαι τους <a href={legal.termsUrl!} target="_blank" rel="noreferrer" className="underline underline-offset-2">όρους χρήσης</a> και την <a href={legal.privacyUrl!} target="_blank" rel="noreferrer" className="underline underline-offset-2">πολιτική απορρήτου</a></span>
             </label>
           ) : null}

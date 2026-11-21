@@ -94,6 +94,21 @@ async function main() {
     return brand.id;
   };
 
+  // P2003 = ξένο κλειδί: το brand σβήστηκε από παράλληλη συγχώνευση κατασκευαστών.
+  // Ξεχνάμε το παλιό id, το ξαναλύνουμε (upsert) και ξαναδοκιμάζουμε μία φορά —
+  // ένα brand που χάθηκε δεν ρίχνει ολόκληρη την εισαγωγή.
+  const isFk = (e: unknown) => (e as { code?: string } | null)?.code === "P2003";
+  const withBrandRetry = async <T>(brand: string | null, run: (id: string | null) => Promise<T>): Promise<T> => {
+    const id = brand ? await brandId(brand) : null;
+    try {
+      return await run(id);
+    } catch (e) {
+      if (!brand || !isFk(e)) throw e;
+      brandIds.delete(brand.toLowerCase());
+      return run(await brandId(brand));
+    }
+  };
+
   let header: string[] | null = null;
   let scanned = 0, matched = 0, created = 0, updated = 0, imagesOk = 0, imagesFailed = 0, withComposition = 0, withAllergens = 0;
   let buffer: OffMapped[] = [];
@@ -117,17 +132,19 @@ async function main() {
       const slice = toCreate.slice(i, i + 500);
       // το brandId θέλει upsert, οπότε δημιουργία ανά γραμμή αλλά σε πακέτα των 500
       for (const m of slice) {
-        const item = await db.tradeItem.create({
-          data: {
-            orgId: null,
-            ean: m.ean,
-            name: m.name,
-            packaging: m.packaging,
-            contentQty: m.contentQty,
-            contentUnitId: units.get(m.unitCode)!,
-            brandId: m.brand ? await brandId(m.brand) : null,
-          },
-        });
+        const item = await withBrandRetry(m.brand, (brandId) =>
+          db.tradeItem.create({
+            data: {
+              orgId: null,
+              ean: m.ean,
+              name: m.name,
+              packaging: m.packaging,
+              contentQty: m.contentQty,
+              contentUnitId: units.get(m.unitCode)!,
+              brandId,
+            },
+          }),
+        );
         const comp = compositionData(m);
         if (comp) { await db.composition.create({ data: { orgId: null, tradeItemId: item.id, ...comp } }); withComposition++; }
       }
@@ -142,11 +159,13 @@ async function main() {
           if (imageUrl) imagesOk++; else imagesFailed++;
         } catch { imagesFailed++; }
       }
-      await db.tradeItem.update({
-        where: { id: cur.id },
-        // το brand δεν μηδενίζεται ποτέ από εισαγωγή — μόνο συμπληρώνεται
-        data: { name: m.name, packaging: m.packaging, contentQty: m.contentQty, contentUnitId: units.get(m.unitCode)!, ...(m.brand ? { brandId: await brandId(m.brand) } : {}), imageUrl },
-      });
+      await withBrandRetry(m.brand, (brandId) =>
+        db.tradeItem.update({
+          where: { id: cur.id },
+          // το brand δεν μηδενίζεται ποτέ από εισαγωγή — μόνο συμπληρώνεται
+          data: { name: m.name, packaging: m.packaging, contentQty: m.contentQty, contentUnitId: units.get(m.unitCode)!, ...(brandId ? { brandId } : {}), imageUrl },
+        }),
+      );
       // σύσταση μόνο όπου λείπει — χειροκίνητες εγγραφές δεν πειράζονται
       if (!cur.composition) {
         const comp = compositionData(m);

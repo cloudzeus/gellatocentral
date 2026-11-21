@@ -2,6 +2,7 @@ import { KeyRound, Pencil, Plus, UserCheck, UserMinus, UserX, UsersRound } from 
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { PermissionMatrix } from "@/components/permission-matrix";
+import { Checkbox } from "@/components/shadcn/checkbox";
 import { Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
 import { accountStatus, actionLabel } from "@/lib/access";
 import { currentOrg } from "@/lib/auth";
@@ -24,7 +25,7 @@ function CheckList({ name, options, selected, emptyNote }: { name: string; optio
       <div className="flex flex-wrap gap-x-5 gap-y-1">
         {options.map(([value, label]) => (
           <label key={value} className="flex min-h-10 cursor-pointer items-center gap-2 text-sm">
-            <input type="checkbox" name={name} value={value} defaultChecked={selected.includes(value)} className="size-4 accent-[var(--primary)]" />
+            <Checkbox name={name} value={value} defaultChecked={selected.includes(value)} />
             {label}
           </label>
         ))}

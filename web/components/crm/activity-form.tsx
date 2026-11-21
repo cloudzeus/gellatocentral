@@ -4,7 +4,7 @@ import { CalendarClock, Mail, Phone, StickyNote, Users } from "lucide-react";
 import { useState } from "react";
 import { ACTIVITY_KINDS, type ActivityKind } from "@/lib/crm";
 import { Submit } from "../submit";
-import { btn, cn } from "../ui";
+import { btn, cn, Select } from "../ui";
 
 export const KIND_ICON = { note: StickyNote, call: Phone, email: Mail, meeting: Users, task: CalendarClock } as const;
 const INPUT = "w-full rounded-lg border border-input bg-card px-2.5 text-sm";
@@ -29,10 +29,10 @@ export function ActivityForm({ action, contacts, kind: initial = "note", personI
       </label>
       <div className="flex flex-wrap items-end gap-3">
         {kind === "call" || kind === "email" ? (
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">Κατεύθυνση<select name="direction" defaultValue="out" className={cn(INPUT, "h-9 pointer-coarse:h-11")}><option value="out">{kind === "call" ? "Τον πήραμε εμείς" : "Το στείλαμε εμείς"}</option><option value="in">{kind === "call" ? "Μας πήρε αυτός" : "Το λάβαμε"}</option></select></label>
+          <Select label="Κατεύθυνση" name="direction" defaultValue="out" className={cn(INPUT, "h-9 pointer-coarse:h-11")} options={[["out", kind === "call" ? "Τον πήραμε εμείς" : "Το στείλαμε εμείς"], ["in", kind === "call" ? "Μας πήρε αυτός" : "Το λάβαμε"]]} />
         ) : null}
         {contacts.length ? (
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">{task ? "Αφορά" : "Με ποιον"}<select name="personId" defaultValue={personId ?? ""} className={cn(INPUT, "h-9 pointer-coarse:h-11")}><option value="">Γενικά την εταιρία</option>{contacts.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
+          <Select label={task ? "Αφορά" : "Με ποιον"} name="personId" defaultValue={personId ?? ""} className={cn(INPUT, "h-9 pointer-coarse:h-11")} options={[["", "Γενικά την εταιρία"], ...contacts]} />
         ) : null}
         {kind === "call" || kind === "meeting" ? <label className="space-y-1 text-xs font-medium text-muted-foreground">Διάρκεια (λεπτά)<input name="durationMin" type="number" min={1} max={999} inputMode="numeric" className={cn(INPUT, "h-9 w-28 pointer-coarse:h-11")} /></label> : null}
         {task ? <label className="space-y-1 text-xs font-medium text-muted-foreground">Ως πότε<input name="dueAt" type="date" className={cn(INPUT, "h-9 pointer-coarse:h-11")} /></label> : null}

@@ -4,6 +4,7 @@
 import type { Composition } from "@/lib/generated/prisma/client";
 import { ACIDITY_OPTIONS, ALLERGENS, COMPOSITION_GROUPS, PCT_FIELDS, pmToInput } from "@/lib/composition";
 import { Submit } from "@/components/submit";
+import { Checkbox } from "@/components/shadcn/checkbox";
 import { btn, Field, Select, TextareaField } from "@/components/ui";
 
 const CHECK = "flex items-center gap-2 rounded-lg border border-border/70 px-2.5 py-1.5 text-sm cursor-pointer hover:bg-secondary/60 has-checked:border-primary/50 has-checked:bg-primary/5";
@@ -11,7 +12,7 @@ const CHECK = "flex items-center gap-2 rounded-lg border border-border/70 px-2.5
 function Check({ name, label, defaultChecked, value }: { name: string; label: string; defaultChecked?: boolean; value?: string }) {
   return (
     <label className={CHECK}>
-      <input type="checkbox" name={name} value={value ?? "on"} defaultChecked={defaultChecked} className="size-4 accent-[var(--primary)]" />
+      <Checkbox name={name} value={value ?? "on"} defaultChecked={defaultChecked} />
       {label}
     </label>
   );

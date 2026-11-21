@@ -1,5 +1,6 @@
 import { showRemoteId } from "@/lib/remote";
 import { AddressField } from "@/components/address-field";
+import { DataTable } from "@/components/data-table";
 import { Files } from "@/components/files";
 import { GeoCascade } from "@/components/geo-fields";
 import { ProcessFlow } from "@/components/process-flow";
@@ -14,6 +15,7 @@ import { db } from "@/lib/db";
 import { DEVICE_KIND, FOR, KIND_OPTIONS, readingStatus } from "@/lib/devices";
 import { mailDomain, platformSettings } from "@/lib/mail/send";
 import { euro } from "@/lib/money";
+import { listParams } from "@/lib/paging";
 import { logAccess } from "@/lib/access-log";
 import { RoleBadges } from "@/components/party-bits";
 import { closingChecks } from "@/lib/org-close";
@@ -82,6 +84,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const me = await requirePlatform("orgs.read");
   const { orgId } = await params;
   const q = await searchParams;
+  const list = listParams(q, 50, ["store", "status", "devices", "full", "pause", "charge", "name", "roles", "location", "contact", "addresses"]);
   const org = await db.organization.findUnique({
     where: { id: orgId },
     include: {
@@ -104,11 +107,40 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const life = orgState(org, new Date());
   const deletable = canDelete(org, new Date());
   const checks = await closingChecks(org.id);
+  const chargeRows = (next?.calc.lines ?? []).map((l) => ({ ...l, paused: bstores.find((s) => s.id === l.storeId)?.paused }));
+  const sortedCharges = [...chargeRows].sort((a, b) => {
+    if (!list.sort || !["store", "status", "devices", "full", "pause", "charge"].includes(list.sort)) return 0;
+    const value = (l: (typeof chargeRows)[number]) => list.sort === "store" ? l.name
+      : list.sort === "status" ? l.paused ? 1 : 0
+        : list.sort === "devices" ? l.devicesCents
+          : list.sort === "full" ? l.fullCents
+            : list.sort === "pause" ? l.discountCents
+              : l.cents;
+    const av = value(a), bv = value(b);
+    const result = typeof av === "string" && typeof bv === "string" ? av.localeCompare(bv, "el") : Number(av) - Number(bv);
+    return list.dir === "asc" ? result : -result;
+  });
   // Συναλλασσόμενοι του συνδρομητή: μόνο με το δικαίωμα, μόνο όταν ζητηθούν (?parties=1), και κάθε άνοιγμα καταγράφεται
   const showParties = me.can("parties.read") && q.parties === "1";
-  const partyTotal = me.can("parties.read") ? await db.party.count({ where: { orgId: org.id } }) : 0;
-  const theirParties = showParties ? await db.party.findMany({ where: { orgId: org.id }, orderBy: { name: "asc" }, take: 200, include: { _count: { select: { addresses: true } } } }) : [];
-  if (showParties) await logAccess({ orgId: org.id, actorName: `${me.name} (πλατφόρμα)`, action: "parties.viewed", target: org.name, detail: `${theirParties.length} συναλλασσόμενοι` });
+  const partyWhere = {
+    orgId: org.id,
+    ...(list.q ? { OR: [
+      { name: { contains: list.q, mode: "insensitive" as const } },
+      { vatNumber: { contains: list.q, mode: "insensitive" as const } },
+      { email: { contains: list.q, mode: "insensitive" as const } },
+      { phone: { contains: list.q, mode: "insensitive" as const } },
+    ] } : {}),
+  };
+  const partyOrder = list.sort === "location" ? { city: list.dir }
+    : list.sort === "contact" ? { phone: list.dir }
+      : list.sort === "addresses" ? { addresses: { _count: list.dir } }
+        : { name: list.sort ? list.dir : "asc" as const };
+  const [partyTotal, filteredParties, theirParties] = await Promise.all([
+    me.can("parties.read") ? db.party.count({ where: { orgId: org.id } }) : Promise.resolve(0),
+    showParties ? db.party.count({ where: partyWhere }) : Promise.resolve(0),
+    showParties ? db.party.findMany({ where: partyWhere, orderBy: partyOrder, skip: list.skip, take: list.take, include: { _count: { select: { addresses: true } } } }) : Promise.resolve([]),
+  ]);
+  if (showParties) await logAccess({ orgId: org.id, actorName: `${me.name} (πλατφόρμα)`, action: "parties.viewed", target: org.name, detail: `${theirParties.length} από ${filteredParties} συναλλασσόμενοι` });
   const pauses = bstores.flatMap((s) => s.pauses.map((p) => ({ ...p, store: s.name }))).sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime()).slice(0, 8);
   const storeOptions = stores.map((s): [string, string] => [s.id, s.name]);
   const printerOptions: [string, string][] = [["", "Κανένας"], ...org.stores.flatMap((s) => s.printers.filter((p) => p.active).map((p): [string, string] => [p.id, `${p.name} · ${s.name}`]))];
@@ -190,26 +222,44 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
           {next ? (
             <div className="border-t border-border/70">
               <p className="px-5 pt-3 text-sm font-semibold">Επόμενη χρέωση: {day(next.periodStart)} – {day(next.periodEnd)} <span className="font-normal text-muted-foreground">· όπως θα εκδοθεί σήμερα</span></p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="text-left text-xs text-muted-foreground"><th className="px-5 py-2 font-semibold">Κατάστημα</th><th className="px-3 py-2 font-semibold">Κατάσταση</th><th className="px-3 py-2 font-semibold">Συσκευές</th><th className="px-3 py-2 text-right font-semibold">Πλήρης τιμή</th><th className="px-3 py-2 font-semibold">Παύση</th><th className="px-5 py-2 text-right font-semibold">Χρέωση</th></tr></thead>
-                  <tbody>
-                    {next.calc.lines.map((l) => { const st = bstores.find((x) => x.id === l.storeId); return (
-                      <tr key={l.storeId} className="border-t border-border/70">
-                        <td className="px-5 py-2 font-semibold">{l.name}</td>
-                        <td className="px-3 py-2">{st?.paused ? <Badge tone="warning">Σε παύση από {day(st.paused.startedAt)}</Badge> : <Badge tone="success">Σε λειτουργία</Badge>}</td>
-                        <td className="px-3 py-2 tabular-nums text-muted-foreground">{l.devices} · {euro(l.devicesCents)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{euro(l.fullCents)}</td>
-                        <td className="px-3 py-2 tabular-nums">{l.pauseDays ? `${l.pauseDays} ημέρες · ${l.discountCents > 0 ? "−" : "+"}${euro(Math.abs(l.discountCents))}` : "—"}</td>
-                        <td className="px-5 py-2 text-right font-semibold tabular-nums">{euro(l.cents)}</td>
-                      </tr>
-                    ); })}
-                    {next.calc.usedCreditCents ? <tr className="border-t border-border/70"><td colSpan={5} className="px-5 py-2">Πιστωτικό υπόλοιπο από προηγούμενη χρέωση</td><td className="px-5 py-2 text-right tabular-nums">−{euro(next.calc.usedCreditCents)}</td></tr> : null}
-                    <tr className="border-t border-border/70 bg-secondary/50"><td colSpan={5} className="px-5 py-2 font-medium">Σύνολο προ ΦΠΑ</td><td className="px-5 py-2 text-right font-semibold tabular-nums">{euro(next.calc.totalCents)}</td></tr>
-                    {next.calc.carryCents ? <tr className="border-t border-border/70"><td colSpan={5} className="px-5 py-2 text-muted-foreground">Η έκπτωση ξεπερνά τη χρέωση του μήνα: μένει πιστωτικό για την επόμενη</td><td className="px-5 py-2 text-right tabular-nums text-success-ink">{euro(next.calc.carryCents)}</td></tr> : null}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                id={`org-${org.id}-next-charge`}
+                listing={{ ...list, total: sortedCharges.length, placeholder: "Κατάστημα…", showSearch: false }}
+                empty="Κανένα χρεώσιμο κατάστημα"
+                columns={[
+                  { key: "store", label: "Κατάστημα", required: true, sortable: true },
+                  { key: "status", label: "Κατάσταση", sortable: true },
+                  { key: "devices", label: "Συσκευές", numeric: true, sortable: true },
+                  { key: "full", label: "Πλήρης τιμή", numeric: true, sortable: true },
+                  { key: "pause", label: "Παύση", numeric: true, sortable: true },
+                  { key: "charge", label: "Χρέωση", numeric: true, sortable: true },
+                ]}
+                rows={sortedCharges.slice(list.skip, list.skip + list.take).map((l) => ({
+                  id: l.storeId,
+                  cells: {
+                    store: <span className="font-semibold">{l.name}</span>,
+                    status: l.paused ? <Badge tone="warning">Σε παύση από {day(l.paused.startedAt)}</Badge> : <Badge tone="success">Σε λειτουργία</Badge>,
+                    devices: `${l.devices} · ${euro(l.devicesCents)}`,
+                    full: euro(l.fullCents),
+                    pause: l.pauseDays ? `${l.pauseDays} ημέρες · ${l.discountCents > 0 ? "−" : "+"}${euro(Math.abs(l.discountCents))}` : "—",
+                    charge: euro(l.cents),
+                  },
+                  details: {
+                    label: l.name,
+                    view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <div><dt className="text-xs text-muted-foreground">Συσκευές</dt><dd className="font-medium">{l.devices} · {euro(l.devicesCents)}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Πλήρης τιμή</dt><dd className="font-medium">{euro(l.fullCents)}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Έκπτωση παύσης</dt><dd className="font-medium">{l.pauseDays ? `${l.pauseDays} ημέρες · ${euro(Math.abs(l.discountCents))}` : "—"}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Χρέωση</dt><dd className="font-medium">{euro(l.cents)}</dd></div>
+                    </dl>,
+                  },
+                }))}
+              />
+              <dl className="grid gap-2 border-t border-border/70 bg-secondary/50 px-5 py-3 text-sm sm:grid-cols-[1fr_auto]">
+                {next.calc.usedCreditCents ? <><dt>Πιστωτικό υπόλοιπο από προηγούμενη χρέωση</dt><dd className="text-right tabular-nums">−{euro(next.calc.usedCreditCents)}</dd></> : null}
+                <dt className="font-medium">Σύνολο προ ΦΠΑ</dt><dd className="text-right font-semibold tabular-nums">{euro(next.calc.totalCents)}</dd>
+                {next.calc.carryCents ? <><dt className="text-muted-foreground">Η έκπτωση ξεπερνά τη χρέωση του μήνα: μένει πιστωτικό για την επόμενη</dt><dd className="text-right tabular-nums text-success-ink">{euro(next.calc.carryCents)}</dd></> : null}
+              </dl>
             </div>
           ) : null}
           {pauses.length ? (
@@ -443,23 +493,37 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
           <Section id="parties" title="Συναλλασσόμενοι του συνδρομητή" saved={false} hint={`${partyTotal} στο αρχείο του: πελάτες, προμηθευτές, franchisees, συνεργάτες. Μόνο ανάγνωση· κάθε άνοιγμα καταγράφεται με το όνομά σου`}
             action={showParties ? <Link href={`/platform/${org.id}#parties`} className={btn("outline", "sm")}>Απόκρυψη</Link> : partyTotal ? <Link href={`/platform/${org.id}?parties=1#parties`} className={btn("outline", "sm")}>Εμφάνιση</Link> : null}>
             {showParties ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="text-left text-xs text-muted-foreground"><th className="px-5 py-2 font-semibold">Συναλλασσόμενος</th><th className="px-3 py-2 font-semibold">Ρόλοι</th><th className="px-3 py-2 font-semibold">Έδρα · περιοχή</th><th className="px-3 py-2 font-semibold">Επικοινωνία</th><th className="px-5 py-2 text-right font-semibold">Διευθύνσεις</th></tr></thead>
-                  <tbody>
-                    {theirParties.map((p) => (
-                      <tr key={p.id} className="border-t border-border/70">
-                        <td className="px-5 py-2"><span className="font-semibold">{p.name}</span><span className="block text-xs text-muted-foreground">{p.vatNumber ? `ΑΦΜ ${p.vatNumber}` : "χωρίς ΑΦΜ"}{p.active ? "" : " · ανενεργός"}</span></td>
-                        <td className="px-3 py-2"><RoleBadges roles={p.roles} /></td>
-                        <td className="px-3 py-2">{[p.city, p.region].filter(Boolean).join(" · ") || "—"}</td>
-                        <td className="px-3 py-2">{p.phone ?? p.email ?? "—"}</td>
-                        <td className="px-5 py-2 text-right tabular-nums">{p._count.addresses || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {partyTotal > theirParties.length ? <p className="border-t border-border/70 px-5 py-3 text-xs text-muted-foreground">Εμφανίζονται οι πρώτοι {theirParties.length} από {partyTotal}</p> : null}
-              </div>
+              <DataTable
+                id={`org-${org.id}-parties`}
+                listing={{ ...list, total: filteredParties, placeholder: "Επωνυμία, ΑΦΜ ή επικοινωνία…", params: { parties: "1" } }}
+                empty="Κανένας συναλλασσόμενος"
+                columns={[
+                  { key: "name", label: "Συναλλασσόμενος", required: true, sortable: true },
+                  { key: "roles", label: "Ρόλοι", sortable: true },
+                  { key: "location", label: "Έδρα · περιοχή", sortable: true },
+                  { key: "contact", label: "Επικοινωνία", sortable: true },
+                  { key: "addresses", label: "Διευθύνσεις", numeric: true, sortable: true },
+                ]}
+                rows={theirParties.map((p) => ({
+                  id: p.id,
+                  cells: {
+                    name: <><span className="font-semibold">{p.name}</span><span className="block text-xs text-muted-foreground">{p.vatNumber ? `ΑΦΜ ${p.vatNumber}` : "χωρίς ΑΦΜ"}{p.active ? "" : " · ανενεργός"}</span></>,
+                    roles: <RoleBadges roles={p.roles} />,
+                    location: [p.city, p.region].filter(Boolean).join(" · ") || "—",
+                    contact: p.phone ?? p.email ?? "—",
+                    addresses: p._count.addresses || "—",
+                  },
+                  details: {
+                    label: p.name,
+                    view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <div><dt className="text-xs text-muted-foreground">ΑΦΜ</dt><dd className="font-medium">{p.vatNumber ?? "—"}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Έδρα · περιοχή</dt><dd className="font-medium">{[p.city, p.region].filter(Boolean).join(" · ") || "—"}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Email</dt><dd className="font-medium">{p.email ?? "—"}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Τηλέφωνο</dt><dd className="font-medium">{p.phone ?? "—"}</dd></div>
+                    </dl>,
+                  },
+                }))}
+              />
             ) : <Empty>{partyTotal ? "Πάτησε «Εμφάνιση» για να τους δεις. Το άνοιγμα γράφεται στο ιστορικό του συνδρομητή" : "Ο συνδρομητής δεν έχει καταχωρίσει συναλλασσόμενους ακόμα"}</Empty>}
           </Section>
         ) : null}

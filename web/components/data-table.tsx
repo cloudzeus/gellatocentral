@@ -3,16 +3,20 @@
 // Αναζήτηση, φίλτρα, server-side ταξινόμηση και σελιδοποίηση μένουν στο URL· το client χειρίζεται μόνο το UI.
 import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, ChevronUp, Columns3, Eye, Pencil, Pin, PinOff, Search } from "lucide-react";
 import Link from "next/link";
-import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Fragment, isValidElement, type ReactNode, useEffect, useRef, useState, useTransition } from "react";
 import { useTablePreferences } from "@/lib/use-table-preferences";
+import { RowMenu } from "./row-menu";
+import { SearchSelect } from "./search-select";
+import { Checkbox } from "./shadcn/checkbox";
 import { Input } from "./shadcn/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./shadcn/tabs";
-import { RowMenu } from "./row-menu";
 import { btn, cn } from "./ui";
 
 export type Column = { key: string; label: string; numeric?: boolean; /** δεν κρύβεται (π.χ. η στήλη που ταυτοποιεί τη γραμμή) */ required?: boolean; /** ο server ξέρει να ταξινόμησει με αυτή τη στήλη (?sort=key) */ sortable?: boolean };
 export type RowDetails = { label?: string; view: ReactNode; edit?: ReactNode };
 export type Row = { id: string; cells: Record<string, ReactNode>; menu?: ReactNode; /** γρήγορες ενέργειες με εικονίδια, πριν από το μενού */ actions?: ReactNode; /** accordion με Προβολή και, όταν επιτρέπεται, Αλλαγή */ details?: RowDetails };
+export type BulkAction = { value: string; label: string; confirm?: string; run: (ids: string[]) => Promise<void | string> };
 
 /** Κλείνει ένα αναδυόμενο με πάτημα έξω ή Esc. */
 function useDismiss(open: boolean, close: () => void, ...inside: React.RefObject<HTMLElement | null>[]) {
@@ -34,13 +38,36 @@ function useDismiss(open: boolean, close: () => void, ...inside: React.RefObject
 
 export type Filter = { key: string; label: string; value?: string; options: [value: string, text: string][] };
 /** `total` = όλες οι γραμμές που ταιριάζουν στην αναζήτηση (όχι μόνο της σελίδας). */
-export type Listing = { q: string; page: number; pageSize: number; total: number; placeholder: string; sort?: string; dir?: "asc" | "desc"; filters?: Filter[] };
+export type Listing = { q: string; page: number; pageSize: number; total: number; placeholder: string; sort?: string; dir?: "asc" | "desc"; filters?: Filter[]; /** κοινή αναζήτηση εκτός πίνακα, π.χ. δύο συνδεδεμένα αποτελέσματα */ showSearch?: boolean; /** πρόσθετη server κατάσταση, π.χ. επιλεγμένη λίστα αναφοράς */ params?: Record<string, string | undefined>; /** διαφορετικά URL keys όταν συνυπάρχουν πίνακες στην ίδια σελίδα */ keys?: { q?: string; sort?: string; dir?: string; page?: string } };
 
 /** Το URL της λίστας με ό,τι ισχύει τώρα, αλλαγμένο κατά `change`. Κενές τιμές δεν γράφονται. */
 const hrefFor = (l: Listing, change: Record<string, string | undefined>) => {
-  const all: Record<string, string | undefined> = { q: l.q, sort: l.sort, dir: l.sort ? l.dir : undefined, ...Object.fromEntries((l.filters ?? []).map((f) => [f.key, f.value])), page: l.page > 1 ? String(l.page) : undefined, ...change };
+  const keys = { q: "q", sort: "sort", dir: "dir", page: "page", ...l.keys };
+  const keyedChange = Object.fromEntries(Object.entries(change).map(([key, value]) => [keys[key as keyof typeof keys] ?? key, value]));
+  const all: Record<string, string | undefined> = { ...l.params, [keys.q]: l.q, [keys.sort]: l.sort, [keys.dir]: l.sort ? l.dir : undefined, ...Object.fromEntries((l.filters ?? []).map((f) => [f.key, f.value])), [keys.page]: l.page > 1 ? String(l.page) : undefined, ...keyedChange };
   return `?${new URLSearchParams(Object.entries(all).filter((e): e is [string, string] => !!e[1]))}`;
 };
+
+function ListingFilter({ filter }: { filter: Filter }) {
+  const root = useRef<HTMLSpanElement>(null);
+  const submit = () => {
+    const form = root.current?.closest("form");
+    if (form) setTimeout(() => form.requestSubmit(), 0);
+  };
+  const className = cn("h-9 max-w-44 rounded-lg border bg-card px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:h-11", filter.value ? "border-primary font-medium" : "border-input text-muted-foreground");
+  const options: [string, string][] = [["", `${filter.label}: όλα`], ...filter.options];
+  return (
+    <span ref={root} className="contents">
+      {filter.options.length > 15 ? (
+        <SearchSelect name={filter.key} value={filter.value ?? ""} options={options} onChange={submit} onValueChange={submit} ariaLabel={filter.label} className={className} />
+      ) : (
+        <select name={filter.key} value={filter.value ?? ""} aria-label={filter.label} onChange={submit} className={className}>
+          {options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+        </select>
+      )}
+    </span>
+  );
+}
 
 function ExpandedRow({ row, colSpan, tableId }: { row: Row; colSpan: number; tableId: string }) {
   if (!row.details) return null;
@@ -48,28 +75,49 @@ function ExpandedRow({ row, colSpan, tableId }: { row: Row; colSpan: number; tab
     <tr className="table-expansion border-t border-border/70 bg-secondary/25">
       <td colSpan={colSpan} className="p-4 md:p-5">
         <div id={`${tableId}-${row.id}-details`} role="region" aria-label={`Λεπτομέρειες: ${row.details.label ?? "γραμμής"}`}>
-          <Tabs defaultValue="view">
-            <TabsList aria-label="Λειτουργία γραμμής" className="mb-4">
-              <TabsTrigger value="view"><Eye /> Προβολή</TabsTrigger>
-              {row.details.edit ? <TabsTrigger value="edit"><Pencil /> Αλλαγή</TabsTrigger> : null}
-            </TabsList>
-            <TabsContent value="view">{row.details.view}</TabsContent>
-            {row.details.edit ? <TabsContent value="edit" className="rounded-lg border border-border/70 bg-card p-4">{row.details.edit}</TabsContent> : null}
-          </Tabs>
+          {row.details.edit ? (
+            <Tabs defaultValue="view">
+              <TabsList aria-label="Λειτουργία γραμμής" className="mb-4">
+                <TabsTrigger value="view"><Eye /> Προβολή</TabsTrigger>
+                <TabsTrigger value="edit"><Pencil /> Αλλαγή</TabsTrigger>
+              </TabsList>
+              <TabsContent value="view">{row.details.view}</TabsContent>
+              <TabsContent value="edit" className="rounded-lg border border-border/70 bg-card p-4">{row.details.edit}</TabsContent>
+            </Tabs>
+          ) : row.details.view}
         </div>
       </td>
     </tr>
   );
 }
 
-export function DataTable({ id, columns, rows, empty, listing }: { id: string; columns: Column[]; rows: Row[]; empty: ReactNode; listing?: Listing }) {
+/** Καθαρό κείμενο για CSV, ακόμα κι όταν το κελί περιέχει Link ή Badge. */
+function nodeText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(nodeText).join(" ");
+  if (isValidElement<{ children?: ReactNode }>(node)) return nodeText(node.props.children);
+  return "";
+}
+const csvCell = (value: string) => `"${value.replaceAll('"', '""')}"`;
+
+export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] }: { id: string; columns: Column[]; rows: Row[]; empty: ReactNode; listing?: Listing; bulkActions?: BulkAction[] }) {
+  const router = useRouter();
   const [prefs, setPrefs, preferenceStatus] = useTablePreferences(id);
   const [drag, setDrag] = useState<Record<string, number> | null>(null);
   const [picker, setPicker] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkPending, startBulk] = useTransition();
   const pickerRef = useRef<HTMLDivElement>(null);
   const table = useRef<HTMLTableElement>(null);
   useDismiss(picker, () => setPicker(false), pickerRef);
+  const [previousRows, setPreviousRows] = useState(rows);
+  if (previousRows !== rows) {
+    // Καθαρίζουμε επιλογές που δεν υπάρχουν πια πριν από το render, όχι με καθυστερημένο effect.
+    setPreviousRows(rows);
+    setSelected((current) => new Set([...current].filter((selectedId) => rows.some((r) => r.id === selectedId))));
+  }
 
   const [dragCol, setDragCol] = useState<string | null>(null);
   const order = prefs.order ?? [];
@@ -93,6 +141,7 @@ export function DataTable({ id, columns, rows, empty, listing }: { id: string; c
   const hasMenu = rows.some((r) => r.menu);
   const hasActions = rows.some((r) => r.actions);
   const actionsWidth = hasActions ? 184 : 56;
+  const selectionWidth = 44;
   const lastPinned = visible.findLast((c) => prefs.pinned.includes(c.key))?.key;
   const leftOffsets: Record<string, number> = {};
   let left = 0;
@@ -132,27 +181,69 @@ export function DataTable({ id, columns, rows, empty, listing }: { id: string; c
   };
   const pinClass = (key: string, header = false) => prefs.pinned.includes(key) ? cn(header ? "md:sticky md:z-30 md:bg-card" : "md:sticky md:z-[5] md:bg-card", lastPinned === key && "md:shadow-[8px_0_8px_-8px_rgb(0_0_0/0.18)]") : "";
   const statusText = { syncing: "Συγχρονισμός ρυθμίσεων…", saving: "Αποθήκευση ρυθμίσεων…", saved: "Ρυθμίσεις αποθηκευμένες", local: "Ρυθμίσεις σε αυτόν τον browser" }[preferenceStatus];
+  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  const someSelected = rows.some((r) => selected.has(r.id));
+
+  const exportSelected = () => {
+    const chosen = rows.filter((r) => selected.has(r.id));
+    const lines = [visible.map((c) => csvCell(c.label)).join(","), ...chosen.map((r) => visible.map((c) => csvCell(nodeText(r.cells[c.key]).trim())).join(","))];
+    const blob = new Blob(["\uFEFF", lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${id}-selected.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const runBulk = (action: BulkAction) => {
+    const ids = rows.filter((r) => selected.has(r.id)).map((r) => r.id);
+    if (!ids.length || (action.confirm && !window.confirm(action.confirm))) return;
+    setBulkError(null);
+    startBulk(async () => {
+      try {
+        const result = await action.run(ids);
+        if (result) setBulkError(result);
+        else {
+          setSelected(new Set());
+          router.refresh();
+        }
+      } catch {
+        setBulkError("Η ομαδική ενέργεια απέτυχε. Δοκίμασε ξανά");
+      }
+    });
+  };
 
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-3 py-2">
-        {listing ? (
+        {listing && listing.showSearch !== false ? (
           <form role="search" className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <span className="relative min-w-40 flex-1 sm:max-w-xs">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input type="search" name="q" defaultValue={listing.q} placeholder={listing.placeholder} aria-label="Αναζήτηση" className="bg-card pr-2.5 pl-8" />
+              <Input type="search" name={listing.keys?.q ?? "q"} defaultValue={listing.q} placeholder={listing.placeholder} aria-label="Αναζήτηση" className="bg-card pr-2.5 pl-8" />
             </span>
-            {listing.filters?.map((f) => (
-              <select key={f.key} name={f.key} defaultValue={f.value ?? ""} aria-label={f.label} onChange={(e) => e.currentTarget.form?.requestSubmit()} className={cn("h-9 max-w-44 rounded-lg border bg-card px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:h-11", f.value ? "border-primary font-medium" : "border-input text-muted-foreground")}>
-                <option value="">{f.label}: όλα</option>
-                {f.options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-              </select>
-            ))}
-            {listing.sort ? <><input type="hidden" name="sort" value={listing.sort} /><input type="hidden" name="dir" value={listing.dir} /></> : null}
-            {listing.q || listing.filters?.some((f) => f.value) ? <Link href={hrefFor({ ...listing, q: "", filters: listing.filters?.map((f) => ({ ...f, value: undefined })) }, { page: undefined })} className={btn("ghost", "sm")}>Καθαρισμός</Link> : null}
+            {listing.filters?.map((f) => <ListingFilter key={f.key} filter={f} />)}
+            {Object.entries(listing.params ?? {}).map(([key, value]) => value ? <input key={key} type="hidden" name={key} value={value} /> : null)}
+            {listing.sort ? <><input type="hidden" name={listing.keys?.sort ?? "sort"} value={listing.sort} /><input type="hidden" name={listing.keys?.dir ?? "dir"} value={listing.dir} /></> : null}
+            {listing.q || listing.filters?.some((f) => f.value) ? <Link href={hrefFor({ ...listing, q: "", filters: listing.filters?.map((f) => ({ ...f, value: undefined })) }, { [listing.keys?.page ?? "page"]: undefined })} className={btn("ghost", "sm")}>Καθαρισμός</Link> : null}
           </form>
         ) : null}
         <span className="flex-1" />
+        <span className="text-xs text-muted-foreground tabular-nums">{selected.size ? `${selected.size} επιλεγμένες` : "Καμία επιλογή"}</span>
+        <select
+          aria-label="Ομαδικές ενέργειες" value="" disabled={!selected.size || bulkPending}
+          onChange={(e) => {
+            const action = e.target.value;
+            if (action === "export") exportSelected();
+            else if (action) {
+              const bulk = bulkActions.find((a) => a.value === action);
+              if (bulk) runBulk(bulk);
+            }
+          }}
+          className="h-9 max-w-52 rounded-lg border border-input bg-card px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50 pointer-coarse:h-11"
+        >
+          <option value="">{bulkPending ? "Εκτέλεση…" : "Ομαδικές ενέργειες"}</option>
+          <option value="export">Εξαγωγή επιλεγμένων CSV</option>
+          {bulkActions.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+        </select>
         <span role="status" className="text-2xs text-muted-foreground">{statusText}</span>
         {Object.keys(prefs.widths).length || prefs.hidden.length || order.length || prefs.pinned.length ? <button type="button" className={btn("ghost", "sm")} onClick={() => setPrefs({ widths: {}, hidden: [], order: [], pinned: [] })}>Επαναφορά στηλών</button> : null}
         <div ref={pickerRef} className="relative">
@@ -162,7 +253,7 @@ export function DataTable({ id, columns, rows, empty, listing }: { id: string; c
               {ordered.map((c, i) => (
                 <div key={c.key} className="flex items-center">
                   <label className={cn("flex min-h-10 min-w-0 flex-1 items-center gap-3 rounded-lg px-3 text-sm font-medium", c.required ? "text-muted-foreground" : "cursor-pointer hover:bg-secondary")}>
-                    <input type="checkbox" className="size-4 accent-[var(--primary)]" checked={c.required || !prefs.hidden.includes(c.key)} disabled={c.required} onChange={() => toggleColumn(c.key)} />
+                    <Checkbox checked={c.required || !prefs.hidden.includes(c.key)} disabled={c.required} onCheckedChange={() => toggleColumn(c.key)} />
                     <span className="truncate">{c.label}</span>
                   </label>
                   <button type="button" aria-pressed={prefs.pinned.includes(c.key)} onClick={() => togglePin(c.key)} aria-label={`${prefs.pinned.includes(c.key) ? "Ξεκαρφίτσωμα" : "Καρφίτσωμα αριστερά"}: ${c.label}`} title={prefs.pinned.includes(c.key) ? "Ξεκαρφίτσωμα" : "Καρφίτσωμα αριστερά"} className={btn("ghost", "sm", "px-1.5")}>{prefs.pinned.includes(c.key) ? <PinOff /> : <Pin />}</button>
@@ -175,12 +266,16 @@ export function DataTable({ id, columns, rows, empty, listing }: { id: string; c
           ) : null}
         </div>
       </div>
+      {bulkError ? <p role="alert" className="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive">{bulkError}</p> : null}
 
       <div className="overflow-x-auto">
-        <table ref={table} className={cn("table-cards table-desktop text-sm", sized ? "md:table-fixed" : "w-full")} style={sized ? { width: visible.reduce((s, c) => s + widths[c.key], hasMenu ? actionsWidth : 0), minWidth: "100%" } : undefined}>
-          {sized ? <colgroup>{visible.map((c) => <col key={c.key} style={{ width: widths[c.key] }} />)}{hasMenu ? <col style={{ width: actionsWidth }} /> : null}</colgroup> : null}
+        <table ref={table} className={cn("table-cards table-desktop text-sm", sized ? "md:table-fixed" : "w-full")} style={sized ? { width: visible.reduce((s, c) => s + widths[c.key], selectionWidth + (hasMenu ? actionsWidth : 0)), minWidth: "100%" } : undefined}>
+          {sized ? <colgroup><col style={{ width: selectionWidth }} />{visible.map((c) => <col key={c.key} style={{ width: widths[c.key] }} />)}{hasMenu ? <col style={{ width: actionsWidth }} /> : null}</colgroup> : null}
           <thead>
             <tr className="text-left text-xs text-muted-foreground">
+              <th className="w-11 px-3 py-3 text-center">
+                <Checkbox aria-label="Επιλογή όλων των γραμμών της σελίδας" checked={allSelected ? true : someSelected ? "indeterminate" : false} onCheckedChange={() => setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)))} />
+              </th>
               {visible.map((c) => (
                 <th
                   key={c.key} data-key={c.key} scope="col" draggable
@@ -218,7 +313,14 @@ export function DataTable({ id, columns, rows, empty, listing }: { id: string; c
               const open = expanded === r.id;
               return (
                 <Fragment key={r.id}>
-                  <tr className="border-t border-border/70">
+                  <tr className={cn("border-t border-border/70", selected.has(r.id) && "bg-primary/5")}>
+                    <td data-selection className="w-11 px-3 py-3 text-center">
+                      <Checkbox aria-label={`Επιλογή γραμμής${r.details?.label ? `: ${r.details.label}` : ""}`} checked={selected.has(r.id)} onCheckedChange={() => setSelected((current) => {
+                        const next = new Set(current);
+                        if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
+                        return next;
+                      })} />
+                    </td>
                     {visible.map((c, i) => (
                       <td key={c.key} {...(i === 0 ? { "data-primary": true } : { "data-label": c.label })} style={prefs.pinned.includes(c.key) ? { left: leftOffsets[c.key] } : undefined} className={cn("px-5 py-3 md:truncate", pinClass(c.key), c.numeric && "text-right font-medium tabular-nums")}>
                         {r.details && i === 0 ? (
@@ -231,7 +333,7 @@ export function DataTable({ id, columns, rows, empty, listing }: { id: string; c
                     ))}
                     {hasMenu ? <td data-actions className={cn("px-2 py-1 text-right", hasActions && "md:sticky md:right-0 md:bg-card md:shadow-[-8px_0_8px_-8px_rgb(0_0_0/0.12)]")}><span className="inline-flex items-center justify-end gap-0.5"><span className="contents">{r.actions}</span>{r.menu ? <RowMenu label="Ενέργειες γραμμής">{r.menu}</RowMenu> : null}</span></td> : null}
                   </tr>
-                  {open ? <ExpandedRow row={r} colSpan={visible.length + (hasMenu ? 1 : 0)} tableId={id} /> : null}
+                  {open ? <ExpandedRow row={r} colSpan={visible.length + 1 + (hasMenu ? 1 : 0)} tableId={id} /> : null}
                 </Fragment>
               );
             })}

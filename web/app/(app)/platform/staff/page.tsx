@@ -4,7 +4,7 @@ import { requirePlatform } from "@/lib/auth";
 import { Modal } from "@/components/modal";
 import { PermissionMatrix } from "@/components/permission-matrix";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
+import { Badge, btn, Card, Field, MultiSelectField, Page, Select } from "@/components/ui";
 import { db } from "@/lib/db";
 import { ALL_PERMISSIONS, AREAS, permissionLabel as orgPermLabel, PLATFORM_AREAS, PLATFORM_PERMISSIONS, PLATFORM_ROLES, type PlatformPermission, platformPermissionsOf, type PlatformRoleKey, staffPermissions, staffRoleLabel } from "@/lib/permissions";
 import { addStaff, addStaffAccess, deleteStaffGroup, deleteStaffRole, removeStaff, removeStaffAccess, savePlatformRole, saveStaffGroup, saveStaffRole, setStaffActive, setStaffGroups, setStaffRole } from "../actions";
@@ -81,12 +81,7 @@ export default async function PlatformStaffPage({ searchParams }: PageProps<"/pl
                       <Modal label="Ομάδες" size="sm" title={u.name} description="Οι ομάδες προσθέτουν δικαιώματα πάνω στον ρόλο — δεν αφαιρούν ποτέ">
                         <form key={u.staffGroups.map((g) => g.groupId).join()} action={setStaffGroups} className="grid gap-3 [&>button]:justify-self-end">
                           <input type="hidden" name="userId" value={u.id} />
-                          {groups.length ? groups.map((g) => (
-                            <label key={g.id} className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-secondary">
-                              <input type="checkbox" name="groupIds" value={g.id} defaultChecked={u.staffGroups.some((x) => x.groupId === g.id)} className="size-4 accent-[var(--primary)]" />
-                              <span className="text-sm font-medium">{g.name}</span>
-                            </label>
-                          )) : <p className="text-sm text-muted-foreground">Δεν υπάρχουν ομάδες ακόμα — φτιάξτε μία πιο κάτω</p>}
+                          {groups.length ? <MultiSelectField label="Ομάδες" name="groupIds" options={groups.map((g): [string, string] => [g.id, g.name])} defaultValues={u.staffGroups.map((g) => g.groupId)} hint="Κάθε επιλογή έχει εμφανές checkbox· πάνω από 15 ομάδες εμφανίζεται αναζήτηση" /> : <p className="text-sm text-muted-foreground">Δεν υπάρχουν ομάδες ακόμα — φτιάξτε μία πιο κάτω</p>}
                           {groups.length ? <Submit className={btn("default")}>Αποθήκευση</Submit> : null}
                         </form>
                       </Modal>

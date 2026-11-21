@@ -1,6 +1,7 @@
 import { Plus, Star, Warehouse as WarehouseIcon, X } from "lucide-react";
 import { Modal } from "@/components/modal";
-import { Badge, btn, Card, Field, Page } from "@/components/ui";
+import { Checkbox } from "@/components/shadcn/checkbox";
+import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
 import { Submit } from "@/components/submit";
 import { db } from "@/lib/db";
 import { currentOrg } from "@/lib/auth";
@@ -93,14 +94,12 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
                 {edit && w.active && unlinked.length ? (
                   <form action={attachStore} className="flex flex-wrap items-end gap-3 border-t border-border/70 bg-secondary/40 px-5 py-4">
                     <input type="hidden" name="warehouseId" value={w.id} />
-                    <label className="min-w-44 flex-1 space-y-1 text-sm font-medium">Σύνδεση με κατάστημα
-                      <select name="storeId" className={field}>{unlinked.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
-                    </label>
+                    <div className="min-w-44 flex-1"><Select label="Σύνδεση με κατάστημα" name="storeId" className={field} options={unlinked.map((s): [string, string] => [s.id, s.name])} /></div>
                     <label className="w-28 space-y-1 text-sm font-medium">Προτεραιότητα
                       <input name="priority" type="number" min={0} max={999} defaultValue={100} className={field} />
                     </label>
                     <label className="flex h-8.5 items-center gap-2 text-sm font-medium pointer-coarse:h-11">
-                      <input type="checkbox" name="isDefault" className="size-4 accent-primary" /> Προεπιλογή
+                      <Checkbox name="isDefault" /> Προεπιλογή
                     </label>
                     <Submit className={btn("default", "sm")}>Σύνδεση</Submit>
                   </form>

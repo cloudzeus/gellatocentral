@@ -44,3 +44,19 @@ export async function toggleUsagePrice(service: string) {
   if (p) await db.usagePrice.update({ where: { service }, data: { active: !p.active } });
   back("saved=1");
 }
+
+async function setUsagePricesActive(ids: string[], active: boolean) {
+  const parsed = z.array(schema.shape.service).min(1).max(200).safeParse(ids);
+  if (!parsed.success) return "Η επιλογή υπηρεσιών δεν είναι έγκυρη";
+  await requirePlatform("billing.edit");
+  const unique = [...new Set(parsed.data)];
+  const result = await db.usagePrice.updateMany({ where: { service: { in: unique } }, data: { active } });
+  revalidatePath("/platform/usage");
+  if (result.count !== unique.length) return "Ορισμένες υπηρεσίες δεν βρέθηκαν· ανανέωσε τη λίστα";
+}
+export async function activateUsagePrices(ids: string[]) {
+  return setUsagePricesActive(ids, true);
+}
+export async function hideUsagePrices(ids: string[]) {
+  return setUsagePricesActive(ids, false);
+}

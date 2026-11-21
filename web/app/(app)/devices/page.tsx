@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
 import { Modal } from "@/components/modal";
-import { Badge, btn, Card, Page } from "@/components/ui";
+import { Badge, btn, Card, Page, Select } from "@/components/ui";
 import { db } from "@/lib/db";
 import { DEVICE_KIND, FOR, KIND_OPTIONS, readingStatus } from "@/lib/devices";
 import { currentOrg } from "@/lib/auth";
@@ -22,12 +22,8 @@ export default async function DevicesPage() {
         <Modal label={<><Plus /> Νέα συσκευή</>} variant="default" title="Νέα συσκευή" description="Η τιμή της εξαρτάται από το είδος και το πακέτο σου. Τη βλέπεις στη Συνδρομή">
           <form action={addDevice} data-by-kind className="grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end">
             <label className="block space-y-1 text-sm font-medium">Όνομα<input name="name" required minLength={2} maxLength={40} placeholder="π.χ. Ταμείο 2" className={field} /></label>
-            <label className="block space-y-1 text-sm font-medium">Κατάστημα
-              <select name="storeId" className={field}>{stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
-            </label>
-            <label className="block space-y-1 text-sm font-medium">Είδος
-              <select name="kind" className={field}>{KIND_OPTIONS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-            </label>
+            <Select label="Κατάστημα" name="storeId" className={field} options={stores.map((s): [string, string] => [s.id, s.name])} />
+            <Select label="Είδος" name="kind" className={field} options={KIND_OPTIONS} />
             <label data-for={FOR.invoicing} className="space-y-1 text-sm font-medium">Σειρά αποδείξεων<input name="series" pattern="[A-Za-z0-9]{1,6}" placeholder="π.χ. A2" className={field} /></label>
             <label data-for={FOR.invoicing} className="space-y-1 text-sm font-medium">Τερματικό Viva (προαιρετικό)<input name="vivaTerminalId" maxLength={20} placeholder="π.χ. 16000010" className={field} /></label>
             <label data-for={FOR.storage} className="space-y-1 text-sm font-medium">Κάτω όριο θερμοκρασίας (°C)<input name="tempMin" inputMode="decimal" placeholder="π.χ. -25" className={field} /></label>

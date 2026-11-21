@@ -1,12 +1,15 @@
 import { Plus } from "lucide-react";
+import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
+import { Checkbox } from "@/components/shadcn/checkbox";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, Page } from "@/components/ui";
+import { Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DEVICE_KIND } from "@/lib/devices";
 import { MODULES, type ModuleKey } from "@/lib/modules";
 import { euro } from "@/lib/money";
+import { listParams } from "@/lib/paging";
 import { toPlanRow } from "@/lib/plan-data";
 import { MIN_PAUSE_DAYS, pausedMonthly, storeMonthly } from "@/lib/plans";
 import { deletePlan, savePlan, setDefaultPlan, togglePlan } from "../actions";
@@ -33,8 +36,8 @@ function PlanForm({ plan }: { plan?: Row }) {
               {(Object.keys(MODULES) as ModuleKey[]).map((k) => (
                 <tr key={k} className="border-t border-border/70">
                   <td className="px-3 py-1.5"><span className="font-medium">{MODULES[k].label}</span><span className="block text-xs text-muted-foreground">{MODULES[k].hint}</span></td>
-                  <td className="px-3 py-1.5 text-center"><input type="checkbox" name="modules" value={k} aria-label={`${MODULES[k].label}: ανοιχτή στο πακέτο`} defaultChecked={plan ? plan.modules.includes(k) : true} className="size-4 accent-[var(--primary)]" /></td>
-                  <td className="px-3 py-1.5 text-center"><input type="checkbox" name="pausedModules" value={k} aria-label={`${MODULES[k].label}: ανοιχτή στην παύση`} defaultChecked={plan?.pausedModules.includes(k) ?? false} className="size-4 accent-[var(--primary)]" /></td>
+                  <td className="px-3 py-1.5 text-center"><Checkbox name="modules" value={k} aria-label={`${MODULES[k].label}: ανοιχτή στο πακέτο`} defaultChecked={plan ? plan.modules.includes(k) : true} /></td>
+                  <td className="px-3 py-1.5 text-center"><Checkbox name="pausedModules" value={k} aria-label={`${MODULES[k].label}: ανοιχτή στην παύση`} defaultChecked={plan?.pausedModules.includes(k) ?? false} /></td>
                 </tr>
               ))}
             </tbody>
@@ -65,10 +68,31 @@ function PlanForm({ plan }: { plan?: Row }) {
 export default async function PlansPage({ searchParams }: PageProps<"/platform/plans">) {
   await requirePlatform("billing.read");
   const q = await searchParams;
+  const list = listParams(q, 50, ["name", "store", "customers", "devices", "modules", "pause", "example", "status"]);
   const rows = await db.plan.findMany({ orderBy: [{ isDefault: "desc" }, { active: "desc" }, { name: "asc" }], include: { _count: { select: { subscriptions: true } } } });
   const noPlan = await db.subscription.count({ where: { planId: null } });
   // παράδειγμα για να φαίνεται αμέσως τι σημαίνουν οι τιμές: 1 κατάστημα, 2 ταμεία Android, 1 ψυγείο
   const sample = ["POS_ANDROID", "POS_ANDROID", "FRIDGE"];
+  const planRows = rows.map((r) => {
+    const plan: Row = { ...toPlanRow(r), description: r.description };
+    const monthly = storeMonthly(plan, sample);
+    const customers = r._count.subscriptions + (r.isDefault ? noPlan : 0);
+    return { ...r, plan, monthly, customers };
+  });
+  const sorted = [...planRows].sort((a, b) => {
+    if (!list.sort) return 0;
+    const value = (r: (typeof planRows)[number]) => list.sort === "name" ? r.name
+      : list.sort === "store" ? r.plan.storeCents
+        : list.sort === "customers" ? r.customers
+          : list.sort === "devices" ? Object.values(r.plan.devicePrices).reduce((sum, cents) => sum + cents, 0)
+            : list.sort === "modules" ? r.plan.modules.length
+              : list.sort === "pause" ? r.plan.pausePercent
+                : list.sort === "example" ? r.monthly.fullCents
+                  : Number(r.active) * 2 + Number(r.isDefault);
+    const av = value(a), bv = value(b);
+    const result = typeof av === "string" && typeof bv === "string" ? av.localeCompare(bv, "el") : Number(av) - Number(bv);
+    return list.dir === "asc" ? result : -result;
+  });
 
   return (
     <Page section="Πλατφόρμα" title="Πακέτα & τιμές" description="Τι ανοίγει κάθε πακέτο και πόσο κοστίζει κάθε κατάστημα και κάθε συσκευή. Τιμές τον μήνα, προ ΦΠΑ"
@@ -77,41 +101,58 @@ export default async function PlansPage({ searchParams }: PageProps<"/platform/p
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν έγινε: {q.error.slice(0, 200)}</p> : null}
         {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Τα πακέτα ενημερώθηκαν. Οι νέες τιμές ισχύουν από την επόμενη χρέωση κάθε πελάτη</p> : null}
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          {rows.map((r) => {
-            const plan: Row = { ...toPlanRow(r), description: r.description };
-            const m = storeMonthly(plan, sample);
-            const customers = r._count.subscriptions + (r.isDefault ? noPlan : 0);
-            return (
-              <Card key={r.id} className={r.active ? "" : "opacity-70"}>
-                <div className="flex flex-wrap items-start gap-3 border-b border-border/70 px-5 py-4">
-                  <div className="min-w-0 basis-48 flex-1">
-                    <h2 className="text-lg">{r.name} {r.isDefault ? <Badge tone="success">Προεπιλογή</Badge> : null} {r.active ? null : <Badge>Ανενεργό</Badge>}</h2>
-                    <p className="text-sm text-muted-foreground">{r.description ?? "Χωρίς περιγραφή"} · {customers} {customers === 1 ? "πελάτης" : "πελάτες"}</p>
+        <Card>
+          <DataTable
+            id="platform-plans"
+            listing={{ ...list, total: sorted.length, placeholder: "Πακέτο…", showSearch: false }}
+            empty="Κανένα πακέτο συνδρομής"
+            columns={[
+              { key: "name", label: "Πακέτο", required: true, sortable: true },
+              { key: "store", label: "Κατάστημα / μήνα", numeric: true, sortable: true },
+              { key: "devices", label: "Συσκευές / μήνα", numeric: true, sortable: true },
+              { key: "modules", label: "Ενότητες", numeric: true, sortable: true },
+              { key: "customers", label: "Πελάτες", numeric: true, sortable: true },
+              { key: "pause", label: "Παύση", numeric: true, sortable: true },
+              { key: "example", label: "Παράδειγμα", numeric: true, sortable: true },
+              { key: "status", label: "Κατάσταση", sortable: true },
+            ]}
+            rows={sorted.slice(list.skip, list.skip + list.take).map((r) => ({
+              id: r.id,
+              cells: {
+                name: <><span className="font-semibold">{r.name}</span><span className="block text-xs font-normal text-muted-foreground">{r.description ?? "Χωρίς περιγραφή"}</span></>,
+                store: euro(r.plan.storeCents),
+                devices: KINDS.map(([k, v]) => `${v.label}: ${r.plan.devicePrices[k] ? euro(r.plan.devicePrices[k]) : "δωρεάν"}`).join(" · "),
+                modules: `${r.plan.modules.length} / ${Object.keys(MODULES).length}`,
+                customers: r.customers,
+                pause: `${r.plan.pausePercent}% · έως ${r.plan.pauseMaxDaysPerYear} ημέρες`,
+                example: euro(r.monthly.fullCents),
+                status: <span className="inline-flex flex-wrap gap-1">{r.isDefault ? <Badge tone="success">Προεπιλογή</Badge> : null}{r.active ? <Badge>Ενεργό</Badge> : <Badge tone="warning">Ανενεργό</Badge>}</span>,
+              },
+              details: {
+                label: r.name,
+                view: <div className="grid gap-5 lg:grid-cols-2">
+                  <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm">
+                    <dt>Κατάστημα</dt><dd className="text-right font-semibold tabular-nums">{euro(r.plan.storeCents)}</dd>
+                    {KINDS.map(([k, v]) => <div key={k} className="col-span-2 grid grid-cols-subgrid text-muted-foreground"><dt>{v.label}</dt><dd className="text-right tabular-nums">{r.plan.devicePrices[k] ? euro(r.plan.devicePrices[k]) : "δωρεάν"}</dd></div>)}
+                    <dt className="mt-2 border-t border-border/70 pt-2 font-medium">Παράδειγμα: 1 κατάστημα, 2 ταμεία Android, 1 ψυγείο</dt><dd className="mt-2 border-t border-border/70 pt-2 text-right font-semibold tabular-nums">{euro(r.monthly.fullCents)}</dd>
+                    <dt className="text-success-ink">Το ίδιο σε παύση</dt><dd className="text-right font-semibold tabular-nums text-success-ink">{euro(pausedMonthly(r.plan, r.monthly.fullCents))}</dd>
+                  </dl>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground">Ενότητες · με περίγραμμα όσες μένουν ανοιχτές στην παύση</p>
+                    <p className="flex flex-wrap gap-1">{(Object.keys(MODULES) as ModuleKey[]).filter((k) => r.plan.modules.includes(k)).map((k) => <span key={k} className={`rounded-md px-2 py-0.5 text-2xs font-semibold ${r.plan.pausedModules.includes(k) ? "border border-success/50 bg-success/10 text-success-ink" : "bg-secondary text-muted-foreground"}`}>{MODULES[k].label}</span>)}</p>
+                    <p className="text-sm text-muted-foreground">{r.customers} {r.customers === 1 ? "πελάτης" : "πελάτες"} · παύση {r.plan.pausePercent}% έως {r.plan.pauseMaxDaysPerYear} ημέρες τον χρόνο</p>
                   </div>
-                  <Modal label="Αλλαγή" title={`Πακέτο «${r.name}»`} description={`${customers} πελάτες. Οι αλλαγές ισχύουν από την επόμενη χρέωσή τους`}><PlanForm plan={plan} /></Modal>
-                </div>
-                <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 px-5 py-4 text-sm">
-                  <dt>Κατάστημα</dt><dd className="text-right font-semibold tabular-nums">{euro(plan.storeCents)}</dd>
-                  {KINDS.map(([k, v]) => <div key={k} className="col-span-2 grid grid-cols-subgrid text-muted-foreground"><dt>{v.label}</dt><dd className="text-right tabular-nums">{plan.devicePrices[k] ? euro(plan.devicePrices[k]) : "δωρεάν"}</dd></div>)}
-                  <dt className="mt-2 border-t border-border/70 pt-2 font-medium">Παράδειγμα: 1 κατάστημα, 2 ταμεία Android, 1 ψυγείο</dt><dd className="mt-2 border-t border-border/70 pt-2 text-right font-semibold tabular-nums">{euro(m.fullCents)}</dd>
-                  <dt className="text-success-ink">Το ίδιο σε παύση ({plan.pausePercent}%, έως {plan.pauseMaxDaysPerYear} ημέρες τον χρόνο)</dt><dd className="text-right font-semibold tabular-nums text-success-ink">{euro(pausedMonthly(plan, m.fullCents))}</dd>
-                </dl>
-                <div className="space-y-2 border-t border-border/70 px-5 py-4">
-                  <p className="text-xs font-semibold text-muted-foreground">Ενότητες ({plan.modules.length} από {Object.keys(MODULES).length}) · με περίγραμμα όσες μένουν ανοιχτές στην παύση</p>
-                  <p className="flex flex-wrap gap-1">{(Object.keys(MODULES) as ModuleKey[]).filter((k) => plan.modules.includes(k)).map((k) => <span key={k} className={`rounded-md px-2 py-0.5 text-2xs font-semibold ${plan.pausedModules.includes(k) ? "border border-success/50 bg-success/10 text-success-ink" : "bg-secondary text-muted-foreground"}`}>{MODULES[k].label}</span>)}</p>
-                </div>
-                {r.isDefault ? null : (
-                <div className="flex flex-wrap justify-end gap-2 border-t border-border/70 px-5 py-3">
-                  {r.isDefault || !r.active ? null : <form action={setDefaultPlan.bind(null, r.id)}><Submit className={btn("ghost", "sm")}>Ορισμός ως προεπιλογή</Submit></form>}
-                  {r.isDefault ? null : <form action={togglePlan.bind(null, r.id)}><Submit className={btn("ghost", "sm")}>{r.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form>}
-                  {r.isDefault || customers ? null : <form action={deletePlan.bind(null, r.id)}><Submit className={btn("ghost", "sm")}>Διαγραφή</Submit></form>}
-                </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
+                </div>,
+                edit: <PlanForm plan={r.plan} />,
+              },
+              menu: <>
+                {!r.isDefault && r.active ? <form action={setDefaultPlan.bind(null, r.id)}><Submit className={menuItem}>Ορισμός ως προεπιλογή</Submit></form> : null}
+                {!r.isDefault ? <form action={togglePlan.bind(null, r.id)}><Submit className={menuItem}>{r.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form> : null}
+                {!r.isDefault && !r.customers ? <form action={deletePlan.bind(null, r.id)}><Submit className={menuItem}>Διαγραφή</Submit></form> : null}
+              </>,
+            }))}
+          />
+        </Card>
       </div>
     </Page>
   );

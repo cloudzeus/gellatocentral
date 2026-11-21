@@ -9,6 +9,8 @@ import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { compositionFromForm } from "@/lib/composition";
 import { validGtin } from "@/lib/gs1";
+import { normalizeManufacturerName } from "@/lib/manufacturer";
+import { deleteFile } from "@/lib/storage";
 
 const back = (q: string): never => {
   revalidatePath("/platform/catalog");
@@ -30,25 +32,26 @@ export async function saveTradeCategory(form: FormData) {
     return fail(`Υπάρχει ήδη «${d.data.name}» σε αυτό το επίπεδο`);
   if (d.data.categoryId) await db.tradeCategory.updateMany({ where: { id: d.data.categoryId }, data: { name: d.data.name, parentId } });
   else await db.tradeCategory.create({ data: { name: d.data.name, parentId, position: await db.tradeCategory.count({ where: { parentId } }) } });
-  back("saved=1");
+  back("saved=1&tab=categories");
 }
 
 export async function toggleTradeCategory(categoryId: string) {
   await requirePlatform("settings.edit");
   const c = await db.tradeCategory.findUnique({ where: { id: id.parse(categoryId) } });
   if (c) await db.tradeCategory.update({ where: { id: c.id }, data: { active: !c.active } });
-  back("saved=1");
+  back("saved=1&tab=categories");
 }
 
 export async function saveManufacturer(form: FormData) {
   await requirePlatform("settings.edit");
   const d = z.object({ manufacturerId: id, name }).safeParse(Object.fromEntries(form));
   if (!d.success) return fail(d.error.issues[0].message);
-  if (await db.manufacturer.findFirst({ where: { name: d.data.name, NOT: { id: d.data.manufacturerId || undefined } } }))
-    return fail(`Υπάρχει ήδη κατασκευαστής «${d.data.name}»`);
-  if (d.data.manufacturerId) await db.manufacturer.update({ where: { id: d.data.manufacturerId }, data: { name: d.data.name } });
-  else await db.manufacturer.create({ data: { name: d.data.name } });
-  back("saved=1");
+  const normalizedName = normalizeManufacturerName(d.data.name);
+  if (await db.manufacturer.findFirst({ where: { name: normalizedName, NOT: { id: d.data.manufacturerId || undefined } } }))
+    return fail(`Υπάρχει ήδη κατασκευαστής «${normalizedName}»`);
+  if (d.data.manufacturerId) await db.manufacturer.update({ where: { id: d.data.manufacturerId }, data: { name: normalizedName } });
+  else await db.manufacturer.create({ data: { name: normalizedName } });
+  back("saved=1&tab=manufacturers");
 }
 
 export async function saveBrand(form: FormData) {
@@ -60,7 +63,7 @@ export async function saveBrand(form: FormData) {
     return fail(`Υπάρχει ήδη brand «${d.data.name}» σε αυτόν τον κατασκευαστή`);
   if (d.data.brandId) await db.brand.update({ where: { id: d.data.brandId }, data: { name: d.data.name, manufacturerId: d.data.manufacturerId } });
   else await db.brand.create({ data: { name: d.data.name, manufacturerId: d.data.manufacturerId } });
-  back("saved=1");
+  back("saved=1&tab=manufacturers");
 }
 
 export async function saveTradeItem(form: FormData) {
@@ -101,9 +104,10 @@ export async function saveTradeItem(form: FormData) {
   };
   if (d.data.itemId) {
     await db.tradeItem.updateMany({ where: { id: d.data.itemId, orgId: null }, data });
-    // η επεξεργασία γίνεται στην καρτέλα του είδους — εκεί γυρνάμε
     revalidatePath(`/platform/catalog/${d.data.itemId}`);
     revalidatePath("/platform/catalog");
+    // Από το modal της λίστας μένουμε στη λίστα· από την καρτέλα επιστρέφουμε σε αυτήν.
+    if (raw.returnTo === "catalog") back("saved=1");
     redirect(`/platform/catalog/${d.data.itemId}?saved=1`);
   }
   await db.tradeItem.create({ data: { ...data, orgId: null } });
@@ -120,6 +124,113 @@ export async function toggleTradeItem(itemId: string, form: FormData) {
     redirect(`/platform/catalog/${t.id}?saved=1`);
   }
   back("saved=1");
+}
+
+const bulkIds = (ids: string[]) => {
+  const parsed = z.array(z.string().min(1).max(80)).min(1).max(200).safeParse(ids);
+  return parsed.success ? [...new Set(parsed.data)] : null;
+};
+
+async function setTradeItemsActive(ids: string[], active: boolean) {
+  await requirePlatform("settings.edit");
+  const unique = bulkIds(ids);
+  if (!unique) return "Η επιλογή ειδών δεν είναι έγκυρη";
+  const result = await db.tradeItem.updateMany({ where: { id: { in: unique }, orgId: null }, data: { active } });
+  revalidatePath("/platform/catalog");
+  if (result.count !== unique.length) return "Ορισμένα είδη δεν βρέθηκαν στον κεντρικό κατάλογο· ανανέωσε τη λίστα";
+}
+
+export async function activateTradeItems(ids: string[]) {
+  return setTradeItemsActive(ids, true);
+}
+
+export async function hideTradeItems(ids: string[]) {
+  return setTradeItemsActive(ids, false);
+}
+
+async function setTradeCategoriesActive(ids: string[], active: boolean) {
+  await requirePlatform("settings.edit");
+  const unique = bulkIds(ids);
+  if (!unique) return "Η επιλογή κατηγοριών δεν είναι έγκυρη";
+  const result = await db.tradeCategory.updateMany({ where: { id: { in: unique } }, data: { active } });
+  revalidatePath("/platform/catalog");
+  if (result.count !== unique.length) return "Ορισμένες κατηγορίες δεν βρέθηκαν· ανανέωσε τη λίστα";
+}
+
+export async function activateTradeCategories(ids: string[]) {
+  return setTradeCategoriesActive(ids, true);
+}
+
+export async function hideTradeCategories(ids: string[]) {
+  return setTradeCategoriesActive(ids, false);
+}
+
+/** Οριστική διαγραφή μόνο όταν το είδος δεν έχει συνδεθεί με συνδρομητή ή αγορά. */
+export async function deleteTradeItem(itemId: string) {
+  await requirePlatform("settings.edit");
+  const parsed = id.safeParse(itemId);
+  if (!parsed.success) return fail("Άγνωστο είδος καταλόγου");
+  const item = await db.tradeItem.findFirst({ where: { id: parsed.data, orgId: null }, include: { _count: { select: { mappings: true, supplierItems: true, purchaseLines: true } } } });
+  if (!item) return fail("Άγνωστο είδος καταλόγου");
+  if (item._count.mappings || item._count.supplierItems || item._count.purchaseLines)
+    return fail("Το είδος χρησιμοποιείται σε συνδέσεις, προμηθευτές ή αγορές· κρύψε το αντί να το διαγράψεις");
+  const files = await db.storedFile.findMany({ where: { orgId: null, refType: "tradeItem", refId: item.id }, select: { id: true, path: true } });
+  try {
+    for (const file of files) await deleteFile(file);
+  } catch {
+    return fail("Δεν ολοκληρώθηκε η διαγραφή της φωτογραφίας· δοκίμασε ξανά");
+  }
+  await db.tradeItem.deleteMany({ where: { id: item.id, orgId: null } });
+  back("saved=1");
+}
+
+export async function deleteTradeCategory(categoryId: string) {
+  await requirePlatform("settings.edit");
+  const category = await db.tradeCategory.findUnique({ where: { id: id.parse(categoryId) }, include: { _count: { select: { children: true, items: true } } } });
+  if (!category) return fail("Άγνωστη κατηγορία");
+  if (category._count.children || category._count.items) return fail("Η κατηγορία έχει υποκατηγορίες ή είδη· μετακίνησέ τα πρώτα ή κρύψε την");
+  await db.tradeCategory.delete({ where: { id: category.id } });
+  back("saved=1&tab=categories");
+}
+
+export async function deleteManufacturer(manufacturerId: string) {
+  await requirePlatform("settings.edit");
+  const manufacturer = await db.manufacturer.findUnique({ where: { id: id.parse(manufacturerId) }, include: { _count: { select: { brands: true } } } });
+  if (!manufacturer) return fail("Άγνωστος κατασκευαστής");
+  if (manufacturer._count.brands) return fail("Ο κατασκευαστής έχει brands· μετακίνησέ τα ή διάγραψέ τα πρώτα");
+  await db.manufacturer.delete({ where: { id: manufacturer.id } });
+  back("saved=1&tab=manufacturers");
+}
+
+export async function deleteBrand(brandId: string) {
+  await requirePlatform("settings.edit");
+  const brand = await db.brand.findUnique({ where: { id: id.parse(brandId) }, include: { _count: { select: { items: true } } } });
+  if (!brand) return fail("Άγνωστο brand");
+  if (brand._count.items) return fail("Το brand συνδέεται με είδη· μετακίνησέ τα πρώτα");
+  await db.brand.delete({ where: { id: brand.id } });
+  back("saved=1&tab=manufacturers");
+}
+
+export async function deleteManufacturers(ids: string[]) {
+  await requirePlatform("settings.edit");
+  const unique = bulkIds(ids);
+  if (!unique) return "Η επιλογή κατασκευαστών δεν είναι έγκυρη";
+  const rows = await db.manufacturer.findMany({ where: { id: { in: unique } }, include: { _count: { select: { brands: true } } } });
+  if (rows.length !== unique.length) return "Ορισμένοι κατασκευαστές δεν βρέθηκαν· ανανέωσε τη λίστα";
+  if (rows.some((m) => m._count.brands)) return "Κάποιοι κατασκευαστές έχουν brands· δεν διαγράφηκε κανένας";
+  await db.manufacturer.deleteMany({ where: { id: { in: unique } } });
+  revalidatePath("/platform/catalog");
+}
+
+export async function deleteBrands(ids: string[]) {
+  await requirePlatform("settings.edit");
+  const unique = bulkIds(ids);
+  if (!unique) return "Η επιλογή brands δεν είναι έγκυρη";
+  const rows = await db.brand.findMany({ where: { id: { in: unique } }, include: { _count: { select: { items: true } } } });
+  if (rows.length !== unique.length) return "Ορισμένα brands δεν βρέθηκαν· ανανέωσε τη λίστα";
+  if (rows.some((b) => b._count.items)) return "Κάποια brands συνδέονται με είδη· δεν διαγράφηκε κανένα";
+  await db.brand.deleteMany({ where: { id: { in: unique } } });
+  revalidatePath("/platform/catalog");
 }
 
 /** Τεχνική σύσταση είδους του κεντρικού καταλόγου (orgId κενό) — μία ανά είδος. */
@@ -175,6 +286,7 @@ export async function mergeManufacturers(form: FormData) {
       }
       await tx.manufacturer.delete({ where: { id: drop.id } });
     }
+    await tx.manufacturer.update({ where: { id: keep.id }, data: { name: normalizeManufacturerName(keep.name) } });
   });
   dupBack(`saved=${drops.length}`);
 }

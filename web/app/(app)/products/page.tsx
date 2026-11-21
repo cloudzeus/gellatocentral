@@ -8,7 +8,7 @@ import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { filterParam, listParams } from "@/lib/paging";
-import { saveCategory, saveProduct, toggleProduct } from "./actions";
+import { activateProducts, hideProducts, saveCategory, saveProduct, toggleProduct } from "./actions";
 
 // Ο κατάλογος του ταμείου: server-side φίλτρα και προσαρμόσιμες στήλες, με την επεξεργασία μέσα στη γραμμή.
 export default async function ProductsPage({ searchParams }: PageProps<"/products">) {
@@ -74,6 +74,10 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
         <Card>
           <DataTable
             id="products"
+            bulkActions={can("products.edit") ? [
+              { value: "activate", label: "Ενεργοποίηση επιλεγμένων", run: activateProducts },
+              { value: "hide", label: "Απόκρυψη επιλεγμένων", confirm: "Απόκρυψη των επιλεγμένων προϊόντων από το ταμείο;", run: hideProducts },
+            ] : []}
             listing={{ ...list, total, placeholder: "Προϊόν ή κατηγορία…", filters: [
               { key: "category", label: "Κατηγορία", value: category, options: categories.map((c): [string, string] => [c.id, c.name]) },
               { key: "status", label: "Κατάσταση", value: status, options: [["active", "Ενεργά"], ["hidden", "Κρυφά"]] },

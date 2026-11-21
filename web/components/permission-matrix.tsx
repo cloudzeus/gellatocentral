@@ -1,5 +1,6 @@
 // Πλέγμα δικαιωμάτων: μία γραμμή ανά περιοχή, ένα κουτάκι ανά ενέργεια (Προβολή / Προσθήκη / …).
 // Κοινό για ρόλους και ομάδες, στην επιχείρηση και στην πλατφόρμα. Ό,τι δεν έχει ο ίδιος ο χρήστης δεν επιλέγεται.
+import { Checkbox } from "@/components/shadcn/checkbox";
 import { ACTION_LABEL, type Action } from "@/lib/permissions";
 
 export type MatrixArea = { key: string; group: string; label: string; hint: string; actions: readonly Action[] };
@@ -26,7 +27,7 @@ export function PermissionMatrix({ areas, selected, mine }: { areas: readonly Ma
                       const allowed = mine.includes(key);
                       return (
                         <label key={key} title={allowed ? undefined : "Δεν το έχεις εσύ"} className={`flex min-h-10 items-center gap-1.5 text-sm whitespace-nowrap ${allowed ? "cursor-pointer" : "opacity-50"}`}>
-                          <input type="checkbox" name="permissions" value={key} defaultChecked={selected.includes(key)} disabled={!allowed} className="size-4 accent-[var(--primary)]" />
+                          <Checkbox name="permissions" value={key} defaultChecked={selected.includes(key)} disabled={!allowed} />
                           {ACTION_LABEL[act]}
                         </label>
                       );

@@ -2,6 +2,9 @@
 // μόνο τα shadcn primitives με πραγματική αλληλεπίδραση μπαίνουν στο client bundle.
 import { Info } from "lucide-react";
 import { useId, type ComponentProps, type ReactNode } from "react";
+import type { SelectOption } from "@/lib/select-options";
+import { MultiSelect } from "./multi-select";
+import { SearchSelect } from "./search-select";
 import { buttonVariants } from "./shadcn/button";
 import { Input } from "./shadcn/input";
 import { Label } from "./shadcn/label";
@@ -108,15 +111,35 @@ export function TextareaField({ label, hint, error, id: suppliedId, ...p }: { la
   );
 }
 
-/** Εγγενές select ώστε οι Server Component φόρμες να λειτουργούν και πριν από hydration. */
-export function Select({ label, options, hint, id: suppliedId, ...p }: { label: string; options: [value: string, text: string][]; hint?: string } & ComponentProps<"select">) {
+const singleValue = (value: ComponentProps<"select">["value"]) => value === undefined || Array.isArray(value) ? undefined : String(value);
+
+/** Μικρές λίστες μένουν native· πάνω από 15 επιλογές αποκτούν αναζήτηση και δενδρική προβολή. */
+export function Select({ label, options, hint, id: suppliedId, onValueChange, ...p }: { label: string; options: SelectOption[]; hint?: string; onValueChange?: (value: string) => void } & ComponentProps<"select">) {
   const generatedId = useId();
   const id = suppliedId ?? generatedId;
   const hintId = `${id}-hint`;
   return (
     <div className="min-w-0 space-y-1.5">
       <FieldLabel id={id} label={label} required={p.required} hint={hint} hintId={hintId} />
-      <select id={id} aria-describedby={hint ? hintId : undefined} className={FIELD} {...p}>{options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
+      {options.length > 15 ? (
+        <SearchSelect id={id} name={p.name} options={options} defaultValue={singleValue(p.defaultValue)} value={singleValue(p.value)} required={p.required} disabled={p.disabled} onChange={p.onChange} onValueChange={onValueChange} ariaLabel={label} ariaDescribedBy={hint ? hintId : undefined} className={cn(FIELD, p.className)} />
+      ) : (
+        <select id={id} aria-describedby={hint ? hintId : undefined} className={cn(FIELD, p.className)} {...p}>{options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
+      )}
+    </div>
+  );
+}
+
+/** Πολλαπλή επιλογή με εμφανή checkbox, κοινή ετικέτα και native hidden inputs. */
+export function MultiSelectField({ label, hint, error, id: suppliedId, ...p }: { label: string; hint?: string; error?: string } & ComponentProps<typeof MultiSelect>) {
+  const generatedId = useId();
+  const id = suppliedId ?? generatedId;
+  const messageId = `${id}-message`;
+  return (
+    <div className="min-w-0 space-y-1.5">
+      <FieldLabel id={id} label={label} required={p.required} hint={hint} hintId={messageId} />
+      <MultiSelect id={id} ariaDescribedBy={hint || error ? messageId : undefined} {...p} />
+      {error ? <p className="text-xs font-medium text-destructive">{error}</p> : null}
     </div>
   );
 }

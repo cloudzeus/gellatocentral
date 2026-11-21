@@ -1,6 +1,7 @@
 import { Download, Trash2 } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { ProcessFlow } from "@/components/process-flow";
+import { Checkbox } from "@/components/shadcn/checkbox";
 import { Submit } from "@/components/submit";
 import { Badge, btn, Card, Field, Page } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -89,7 +90,7 @@ export default async function MyDataPage({ searchParams }: PageProps<"/my-data">
                     <li>Μένουν μόνο όσα επιβάλλει ο νόμος, χωρίς δικά σου στοιχεία (π.χ. οι αποδείξεις που εκδόθηκαν)</li>
                   </ul>
                   <Field label="Λόγος (προαιρετικά)" name="reason" maxLength={500} />
-                  <label className="flex items-start gap-3 text-sm font-medium"><input type="checkbox" name="confirm" required className="mt-0.5 size-4 accent-[var(--primary)]" /> Κατάλαβα ότι η διαγραφή είναι οριστική</label>
+                  <label className="flex items-start gap-3 text-sm font-medium"><Checkbox name="confirm" required className="mt-0.5" /> Κατάλαβα ότι η διαγραφή είναι οριστική</label>
                   <Submit className={btn("destructive")}>Αποστολή αιτήματος</Submit>
                 </form>
               </Modal>

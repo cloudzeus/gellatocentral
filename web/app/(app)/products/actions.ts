@@ -52,3 +52,22 @@ export async function toggleProduct(productId: string) {
   if (p) await db.product.update({ where: { id: p.id }, data: { active: !p.active } });
   back("?saved=1");
 }
+
+async function setProductsActive(ids: string[], active: boolean) {
+  const parsed = z.array(z.string().cuid()).min(1).max(200).safeParse(ids);
+  if (!parsed.success) return "Η επιλογή προϊόντων δεν είναι έγκυρη";
+  const { org } = await currentOrg("products.edit");
+  const unique = [...new Set(parsed.data)];
+  const result = await db.product.updateMany({ where: { id: { in: unique }, orgId: org.id }, data: { active } });
+  revalidatePath("/products");
+  revalidatePath("/pos");
+  if (result.count !== unique.length) return "Ορισμένα προϊόντα δεν βρέθηκαν στην επιχείρηση· ανανέωσε τη λίστα";
+}
+
+export async function activateProducts(ids: string[]) {
+  return setProductsActive(ids, true);
+}
+
+export async function hideProducts(ids: string[]) {
+  return setProductsActive(ids, false);
+}

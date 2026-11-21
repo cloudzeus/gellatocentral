@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AuthCard, Notice } from "@/components/auth-card";
+import { Checkbox } from "@/components/shadcn/checkbox";
 import { Submit } from "@/components/submit";
 import { btn } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -24,7 +25,7 @@ export default async function ConsentPage({ searchParams }: PageProps<"/consent"
         <li><a href={s.privacyUrl!} target="_blank" rel="noreferrer" className="font-semibold text-primary underline underline-offset-2">Πολιτική απορρήτου</a></li>
       </ul>
       <form action={acceptLegal} className="space-y-4">
-        <label className="flex items-start gap-3 text-sm font-medium"><input type="checkbox" name="accept" required className="mt-0.5 size-4 accent-[var(--primary)]" /> Διάβασα και αποδέχομαι τους όρους χρήσης και την πολιτική απορρήτου</label>
+        <label className="flex items-start gap-3 text-sm font-medium"><Checkbox name="accept" required className="mt-0.5" /> Διάβασα και αποδέχομαι τους όρους χρήσης και την πολιτική απορρήτου</label>
         <Submit className={btn("default", "lg", "w-full")}>Αποδοχή και συνέχεια</Submit>
       </form>
       <form action={logoutAfterDecline}><Submit className={btn("ghost", "default", "w-full")}>Δεν αποδέχομαι · Έξοδος</Submit></form>

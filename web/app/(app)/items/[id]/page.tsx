@@ -1,16 +1,29 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ClipboardEdit, Euro, FlaskConical, Pencil, Plus, ScanBarcode, Trash2 } from "lucide-react";
+import { ClipboardEdit, Euro, FlaskConical, Plus, ScanBarcode, Trash2 } from "lucide-react";
 import { BarcodeField } from "@/components/barcode-field";
+import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, Field, Page, Select } from "@/components/ui";
+import { Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
+import { normalizeManufacturerName } from "@/lib/manufacturer";
+import { listParams } from "@/lib/paging";
 import { resolvePrice } from "@/lib/purchase-pricing";
 import { formatBaseQty } from "@/lib/units";
-import { addCorrection, addMapping, addSupplierItemPrice, removeMapping, saveSupplierItem, toggleSupplierItem } from "../actions";
+import {
+  activateSupplierItems,
+  addCorrection,
+  addMapping,
+  addSupplierItemPrice,
+  hideSupplierItems,
+  removeMapping,
+  removeMappings,
+  saveSupplierItem,
+  toggleSupplierItem,
+} from "../actions";
 
 // Καρτέλα γενικού είδους: ποιες συσκευασίες του κεντρικού καταλόγου το τροφοδοτούν (υιοθεσία με
 // barcode) και ποιοι προμηθευτές τις πουλάνε, με τον δικό τους κωδικό και την πολλαπλότητα.
@@ -18,6 +31,7 @@ export default async function GenericItemPage({ params, searchParams }: { params
   const { org, can } = await currentOrg("items.read");
   const { id } = await params;
   const q = await searchParams;
+  const list = listParams(q, 50, ["warehouse", "kind", "batch", "expiry", "quantity", "item", "brand", "ean", "content", "supplier", "code", "pack", "price", "status", "validFrom", "min", "note"]);
   const generic = await db.genericItem.findFirst({
     where: { id, orgId: org.id },
     include: {
@@ -48,6 +62,19 @@ export default async function GenericItemPage({ params, searchParams }: { params
   const now = new Date();
   const dayFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeZone: "UTC" }); // οι ημερομηνίες ισχύος κρατιούνται σε UTC μεσάνυχτα
 
+  // Η ταξινόμηση αποφασίζεται στον server από το URL· κάθε πίνακας της καρτέλας μοιράζεται την ίδια σύμβαση.
+  const ordered = <T,>(rows: T[], keys: string[], value: (row: T, key: string) => string | number) => {
+    const key = list.sort;
+    if (!key || !keys.includes(key)) return rows;
+    return [...rows].sort((a, b) => {
+      const av = value(a, key), bv = value(b, key);
+      const result = typeof av === "string" && typeof bv === "string" ? av.localeCompare(bv, "el") : Number(av) - Number(bv);
+      return list.dir === "asc" ? result : -result;
+    });
+  };
+  const paginated = <T,>(rows: T[]) => rows.slice(list.skip, list.skip + list.take);
+  const listing = (total: number, placeholder: string) => ({ ...list, total, placeholder, showSearch: false });
+
   const mappingForm = (
     <form action={addMapping} className="grid gap-4 [&>button]:justify-self-end">
       <input type="hidden" name="genericItemId" value={generic.id} />
@@ -70,43 +97,86 @@ export default async function GenericItemPage({ params, searchParams }: { params
   );
 
   // Ιστορικό τιμών + νέα τιμή/συμφωνία για μια σύνδεση προμηθευτή. Μόνο προσθήκες — το παρελθόν δεν πειράζεται.
-  const priceModal = (s: (typeof supplierItems)[number]) => (
-    <Modal label={<><Euro /> Τιμές</>} size="lg" title={`Τιμές: ${s.supplier.name} — ${s.tradeItem.name}`}>
-      <div className="grid gap-5">
-        <form action={addSupplierItemPrice} className="grid gap-4 rounded-lg border border-border/70 p-4 [&>button]:justify-self-end">
-          <input type="hidden" name="supplierItemId" value={s.id} />
-          <input type="hidden" name="genericItemId" value={generic.id} />
-          <Field label="Τιμή ανά συσκευασία, προ ΦΠΑ (€)" name="price" required inputMode="decimal" hint="π.χ. 12,40 — για μία συσκευασία, όχι για τη μονάδα παραγγελίας" />
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Ελάχιστη ποσότητα" name="minPackQty" inputMode="numeric" hint="Κενό = τιμοκατάλογος" />
-            <Field label="Ισχύει από" name="validFrom" type="date" hint="Κενό = σήμερα" />
-            <Field label="Ισχύει έως" name="validTo" type="date" hint="Κενό = ανοικτά" />
+  const priceModal = (s: (typeof supplierItems)[number]) => {
+    const prices = ordered(s.prices, ["price", "min", "validFrom", "note"], (p, key) => key === "price" ? p.priceCents : key === "min" ? p.minPackQty ?? -1 : key === "validFrom" ? p.validFrom.getTime() : p.note ?? "");
+    return (
+      <Modal label={<><Euro /> Τιμές</>} size="lg" title={`Τιμές: ${s.supplier.name} — ${s.tradeItem.name}`}>
+        <div className="grid gap-5">
+          <form action={addSupplierItemPrice} className="grid gap-4 rounded-lg border border-border/70 p-4 [&>button]:justify-self-end">
+            <input type="hidden" name="supplierItemId" value={s.id} />
+            <input type="hidden" name="genericItemId" value={generic.id} />
+            <Field label="Τιμή ανά συσκευασία, προ ΦΠΑ (€)" name="price" required inputMode="decimal" hint="π.χ. 12,40 — για μία συσκευασία, όχι για τη μονάδα παραγγελίας" />
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Ελάχιστη ποσότητα" name="minPackQty" inputMode="numeric" hint="Κενό = τιμοκατάλογος" />
+              <Field label="Ισχύει από" name="validFrom" type="date" hint="Κενό = σήμερα" />
+              <Field label="Ισχύει έως" name="validTo" type="date" hint="Κενό = ανοικτά" />
+            </div>
+            <Field label="Σημείωση" name="note" maxLength={120} hint="π.χ. «Συμφωνία έκθεσης 2026»" />
+            <Submit className={btn("default")}>Καταχώριση τιμής</Submit>
+          </form>
+          <div className="overflow-hidden rounded-lg border border-border/70">
+            <DataTable
+              id={`supplier-prices-${s.id}`}
+              listing={listing(prices.length, "Αναζήτηση τιμής…")}
+              empty="Καμία τιμή ακόμα — η πρώτη καταχώριση είναι ο τιμοκατάλογος"
+              columns={[
+                { key: "price", label: "Τιμή", required: true, numeric: true, sortable: true },
+                { key: "min", label: "Ελάχ.", numeric: true, sortable: true },
+                { key: "validFrom", label: "Ισχύς", sortable: true },
+                { key: "note", label: "Σημείωση", sortable: true },
+              ]}
+              rows={paginated(prices).map((p) => ({
+                id: p.id,
+                cells: {
+                  price: euro(p.priceCents),
+                  min: p.minPackQty ?? "—",
+                  validFrom: `${dayFmt.format(p.validFrom)} → ${p.validTo ? dayFmt.format(p.validTo) : "ανοικτά"}`,
+                  note: p.note ?? "",
+                },
+                details: {
+                  label: `Τιμή ${euro(p.priceCents)}`,
+                  view: <dl className="grid gap-4 sm:grid-cols-3">
+                    <div><dt className="text-xs text-muted-foreground">Καταχώριση</dt><dd className="font-medium">{p.createdByName}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Ελάχιστη ποσότητα</dt><dd className="font-medium">{p.minPackQty ?? "Τιμοκατάλογος"}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Σημείωση</dt><dd className="font-medium">{p.note ?? "—"}</dd></div>
+                  </dl>,
+                },
+              }))}
+            />
           </div>
-          <Field label="Σημείωση" name="note" maxLength={120} hint="π.χ. «Συμφωνία έκθεσης 2026»" />
-          <Submit className={btn("default")}>Καταχώριση τιμής</Submit>
-        </form>
-        {s.prices.length ? (
-          <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs text-muted-foreground"><th className="py-1 pr-2 font-semibold">Τιμή</th><th className="px-2 py-1 font-semibold">Ελάχ.</th><th className="px-2 py-1 font-semibold">Ισχύς</th><th className="px-2 py-1 font-semibold">Σημείωση</th></tr></thead>
-            <tbody>
-              {s.prices.map((p) => (
-                <tr key={p.id} className="border-t border-border/70">
-                  <td className="py-1.5 pr-2 font-medium tabular-nums">{euro(p.priceCents)}</td>
-                  <td className="px-2 py-1.5 tabular-nums">{p.minPackQty ?? "—"}</td>
-                  <td className="px-2 py-1.5">{dayFmt.format(p.validFrom)} → {p.validTo ? dayFmt.format(p.validTo) : "ανοικτά"}</td>
-                  <td className="px-2 py-1.5 text-muted-foreground">{p.note ?? ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <p className="text-sm text-muted-foreground">Καμία τιμή ακόμα — η πρώτη καταχώριση είναι ο τιμοκατάλογος</p>}
-      </div>
-    </Modal>
-  );
+        </div>
+      </Modal>
+    );
+  };
+
+  const stockRows = [
+    ...stockByWarehouse.map((s) => ({
+      id: `warehouse-${s.warehouseId}`,
+      kind: "Αποθήκη",
+      warehouse: warehouses.find((w) => w.id === s.warehouseId)?.name ?? "—",
+      batch: "Συνολικό απόθεμα",
+      expiry: "",
+      expiryTime: 0,
+      quantity: s._sum.quantity ?? 0,
+    })),
+    ...liveLots.map((l) => ({
+      id: `lot-${l.id}`,
+      kind: "Παρτίδα",
+      warehouse: l.warehouse.name,
+      batch: l.batchNumber ?? "(χύμα)",
+      expiry: l.expiresAt ? dayFmt.format(l.expiresAt) : "Χωρίς λήξη",
+      expiryTime: l.expiresAt?.getTime() ?? 0,
+      quantity: lotQty.get(l.id) ?? 0,
+    })),
+  ];
+  const sortedStock = ordered(stockRows, ["warehouse", "kind", "batch", "expiry", "quantity"], (r, key) => key === "quantity" ? r.quantity : key === "expiry" ? ("expiryTime" in r ? r.expiryTime : 0) : key === "kind" ? r.kind : key === "batch" ? r.batch : r.warehouse);
+  const sortedMappings = ordered(generic.mappings, ["item", "brand", "ean", "content"], (m, key) => key === "item" ? m.tradeItem.name : key === "brand" ? m.tradeItem.brand ? `${normalizeManufacturerName(m.tradeItem.brand.manufacturer.name)} ${m.tradeItem.brand.name}` : "" : key === "ean" ? m.tradeItem.ean ?? "" : m.tradeItem.contentQty);
+  const supplierRows = supplierItems.map((s) => ({ ...s, current: resolvePrice(s.prices, s.packQty, now) }));
+  const sortedSuppliers = ordered(supplierRows, ["supplier", "item", "code", "pack", "price", "status"], (s, key) => key === "supplier" ? s.supplier.name : key === "item" ? s.tradeItem.name : key === "code" ? s.supplierCode ?? "" : key === "pack" ? s.packQty : key === "price" ? s.current?.priceCents ?? -1 : s.active ? 1 : 0);
 
   return (
     <Page section="Συνταγολόγιο" title={generic.name} description={`Μονάδα κατανάλωσης: ${generic.baseUnit.nameEL} (${generic.baseUnit.code})${generic.vatRate ? ` · ΦΠΑ αγοράς ${generic.vatRate.rate}%` : ""}`}>
-      <div className="grid max-w-5xl gap-4">
+      <div className="grid max-w-7xl gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
         {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Οι συνδέσεις ενημερώθηκαν{q.copied ? " — η σύσταση αντιγράφηκε από τον κατάλογο" : ""}</p> : null}
 
@@ -141,24 +211,37 @@ export default async function GenericItemPage({ params, searchParams }: { params
               </Modal>
             ) : null}
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <tbody>
-                {stockByWarehouse.length ? stockByWarehouse.map((s) => (
-                  <tr key={s.warehouseId} className="border-t border-border/70 first:border-t-0">
-                    <td className="px-5 py-2 font-medium">{warehouses.find((w) => w.id === s.warehouseId)?.name ?? "—"}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{fmt(s._sum.quantity ?? 0)}</td>
-                  </tr>
-                )) : <tr><td className="px-5 py-4 text-sm text-muted-foreground">Χωρίς κινήσεις ακόμα — το απόθεμα γεμίζει από τιμολόγια αγοράς ή διόρθωση</td></tr>}
-                {liveLots.map((l) => (
-                  <tr key={l.id} className="border-t border-border/70 text-muted-foreground">
-                    <td className="px-5 py-1.5 text-xs">παρτίδα {l.batchNumber ?? "(χύμα)"} · {l.warehouse.name}{l.expiresAt ? ` · λήξη ${dayFmt.format(l.expiresAt)}` : ""}</td>
-                    <td className="px-3 py-1.5 text-right text-xs tabular-nums">{fmt(lotQty.get(l.id) ?? 0)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            id={`item-${generic.id}-stock`}
+            listing={listing(sortedStock.length, "Αποθήκη ή παρτίδα…")}
+            empty="Χωρίς κινήσεις ακόμα — το απόθεμα γεμίζει από τιμολόγια αγοράς ή διόρθωση"
+            columns={[
+              { key: "warehouse", label: "Αποθήκη", required: true, sortable: true },
+              { key: "kind", label: "Εγγραφή", sortable: true },
+              { key: "batch", label: "Παρτίδα", sortable: true },
+              { key: "expiry", label: "Λήξη", sortable: true },
+              { key: "quantity", label: "Ποσότητα", numeric: true, sortable: true },
+            ]}
+            rows={paginated(sortedStock).map((r) => ({
+              id: r.id,
+              cells: {
+                warehouse: <span className="font-semibold">{r.warehouse}</span>,
+                kind: r.kind === "Παρτίδα" ? <Badge>Παρτίδα</Badge> : <Badge tone="success">Αποθήκη</Badge>,
+                batch: r.batch,
+                expiry: r.expiry || "—",
+                quantity: fmt(r.quantity),
+              },
+              details: {
+                label: `${r.warehouse} · ${r.batch}`,
+                view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div><dt className="text-xs text-muted-foreground">Αποθήκη</dt><dd className="font-medium">{r.warehouse}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Παρτίδα</dt><dd className="font-medium">{r.batch}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Λήξη</dt><dd className="font-medium">{r.expiry || "—"}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Υπόλοιπο</dt><dd className="font-medium">{fmt(r.quantity)}</dd></div>
+                </dl>,
+              },
+            }))}
+          />
         </Card>
 
         <Card>
@@ -169,28 +252,37 @@ export default async function GenericItemPage({ params, searchParams }: { params
             </div>
             {can("items.edit") ? <Modal label={<><ScanBarcode /> Σύνδεση με barcode</>} size="sm" title={`Σύνδεση συσκευασίας: ${generic.name}`}>{mappingForm}</Modal> : null}
           </div>
-          {generic.mappings.length ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs text-muted-foreground"><th className="px-5 py-2 font-semibold">Είδος</th><th className="px-3 py-2 font-semibold">Μάρκα</th><th className="px-3 py-2 font-semibold">EAN</th><th className="px-3 py-2 text-right font-semibold">Περιεχόμενο</th><th className="px-5 py-2" /></tr></thead>
-                <tbody>
-                  {generic.mappings.map((m) => (
-                    <tr key={m.id} className="border-t border-border/70">
-                      <td className="px-5 py-2 font-medium">{m.tradeItem.name}{m.tradeItem.orgId ? <Badge>ιδιωτικό</Badge> : null}</td>
-                      <td className="px-3 py-2">{m.tradeItem.brand ? `${m.tradeItem.brand.manufacturer.name} · ${m.tradeItem.brand.name}` : "—"}</td>
-                      <td className="px-3 py-2 tabular-nums">{m.tradeItem.ean ?? "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{content(m.tradeItem)}</td>
-                      <td className="px-5 py-1.5">
-                        {can("items.edit") ? (
-                          <span className="flex justify-end"><form action={removeMapping.bind(null, m.id, generic.id)}><Submit className={btn("ghost", "sm")}><Trash2 /> Αποσύνδεση</Submit></form></span>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : <p className="px-5 py-6 text-sm text-muted-foreground">Καμία συσκευασία ακόμα — σάρωσε το barcode της για σύνδεση με τον κεντρικό κατάλογο</p>}
+          <DataTable
+            id={`item-${generic.id}-mappings`}
+            listing={listing(sortedMappings.length, "Συσκευασία ή barcode…")}
+            bulkActions={can("items.edit") ? [{ value: "remove", label: "Αποσύνδεση επιλεγμένων", confirm: "Αποσύνδεση των επιλεγμένων συσκευασιών;", run: removeMappings.bind(null, generic.id) }] : []}
+            empty="Καμία συσκευασία ακόμα — σάρωσε το barcode της για σύνδεση με τον κεντρικό κατάλογο"
+            columns={[
+              { key: "item", label: "Είδος", required: true, sortable: true },
+              { key: "brand", label: "Μάρκα", sortable: true },
+              { key: "ean", label: "EAN", sortable: true },
+              { key: "content", label: "Περιεχόμενο", numeric: true, sortable: true },
+            ]}
+            rows={paginated(sortedMappings).map((m) => ({
+              id: m.id,
+              cells: {
+                item: <span className="font-semibold">{m.tradeItem.name} {m.tradeItem.orgId ? <Badge>ιδιωτικό</Badge> : null}</span>,
+                brand: m.tradeItem.brand ? `${normalizeManufacturerName(m.tradeItem.brand.manufacturer.name)} · ${m.tradeItem.brand.name}` : "—",
+                ean: <span className="tabular-nums">{m.tradeItem.ean ?? "—"}</span>,
+                content: content(m.tradeItem),
+              },
+              details: {
+                label: m.tradeItem.name,
+                view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div><dt className="text-xs text-muted-foreground">Είδος</dt><dd className="font-medium">{m.tradeItem.name}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Μάρκα</dt><dd className="font-medium">{m.tradeItem.brand?.name ?? "—"}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Barcode</dt><dd className="font-medium">{m.tradeItem.ean ?? "—"}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Περιεχόμενο</dt><dd className="font-medium">{content(m.tradeItem)}</dd></div>
+                </dl>,
+              },
+              menu: can("items.edit") ? <form action={removeMapping.bind(null, m.id, generic.id)}><Submit className={menuItem}><Trash2 /> Αποσύνδεση</Submit></form> : undefined,
+            }))}
+          />
         </Card>
 
         <Card>
@@ -201,37 +293,46 @@ export default async function GenericItemPage({ params, searchParams }: { params
             </div>
             {can("items.add") && generic.mappings.length && suppliers.length ? <Modal label={<><Plus /> Σύνδεση προμηθευτή</>} size="sm" title={`Προμηθευτής για: ${generic.name}`}>{supplierForm()}</Modal> : null}
           </div>
-          {supplierItems.length ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs text-muted-foreground"><th className="px-5 py-2 font-semibold">Προμηθευτής</th><th className="px-3 py-2 font-semibold">Συσκευασία</th><th className="px-3 py-2 font-semibold">Κωδικός</th><th className="px-3 py-2 text-right font-semibold">Πολλαπλότητα</th><th className="px-3 py-2 text-right font-semibold">Τρέχουσα τιμή</th><th className="px-3 py-2 font-semibold">Κατάσταση</th><th className="px-5 py-2" /></tr></thead>
-                <tbody>
-                  {supplierItems.map((s) => {
-                    const current = resolvePrice(s.prices, s.packQty, now);
-                    return (
-                    <tr key={s.id} className={cn("border-t border-border/70", s.active ? "" : "text-muted-foreground")}>
-                      <td className="px-5 py-2 font-medium"><Link href={`/parties/${s.supplierId}`} className="hover:underline">{s.supplier.name}</Link></td>
-                      <td className="px-3 py-2">{s.tradeItem.name}</td>
-                      <td className="px-3 py-2 tabular-nums">{s.supplierCode ?? "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">×{s.packQty}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{current ? euro(current.priceCents) : "—"}</td>
-                      <td className="px-3 py-2">{s.active ? <Badge tone="success">Ενεργή</Badge> : <Badge>Ανενεργή</Badge>}</td>
-                      <td className="px-5 py-1.5">
-                        <span className="flex justify-end gap-1">
-                          {can("items.edit") ? <>{priceModal(s)}<Modal label={<><Pencil /> Αλλαγή</>} size="sm" title={`${s.supplier.name} — ${s.tradeItem.name}`}>{supplierForm(s)}</Modal><form action={toggleSupplierItem.bind(null, s.id, generic.id)}><Submit className={btn("ghost", "sm")}>{s.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form></> : null}
-                        </span>
-                      </td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="px-5 py-6 text-sm text-muted-foreground">
-              {!suppliers.length ? <>Κανένας προμηθευτής ακόμα — πρόσθεσέ τον στους <Link href="/parties" className="underline">Συναλλασσόμενους</Link> με ρόλο «προμηθευτής»</> : !generic.mappings.length ? "Σύνδεσε πρώτα μια συσκευασία" : "Καμία σύνδεση προμηθευτή ακόμα"}
-            </p>
-          )}
+          <DataTable
+            id={`item-${generic.id}-suppliers`}
+            listing={listing(sortedSuppliers.length, "Προμηθευτής ή κωδικός…")}
+            bulkActions={can("items.edit") ? [
+              { value: "activate", label: "Ενεργοποίηση επιλεγμένων", run: activateSupplierItems.bind(null, generic.id) },
+              { value: "hide", label: "Απενεργοποίηση επιλεγμένων", confirm: "Απενεργοποίηση των επιλεγμένων συνδέσεων προμηθευτών;", run: hideSupplierItems.bind(null, generic.id) },
+            ] : []}
+            empty={!suppliers.length ? <>Κανένας προμηθευτής ακόμα — πρόσθεσέ τον στους <Link href="/parties" className="underline">Συναλλασσόμενους</Link> με ρόλο «προμηθευτής»</> : !generic.mappings.length ? "Σύνδεσε πρώτα μια συσκευασία" : "Καμία σύνδεση προμηθευτή ακόμα"}
+            columns={[
+              { key: "supplier", label: "Προμηθευτής", required: true, sortable: true },
+              { key: "item", label: "Συσκευασία", sortable: true },
+              { key: "code", label: "Κωδικός", sortable: true },
+              { key: "pack", label: "Πολλαπλότητα", numeric: true, sortable: true },
+              { key: "price", label: "Τρέχουσα τιμή", numeric: true, sortable: true },
+              { key: "status", label: "Κατάσταση", sortable: true },
+            ]}
+            rows={paginated(sortedSuppliers).map((s) => ({
+              id: s.id,
+              cells: {
+                supplier: <Link href={`/parties/${s.supplierId}`} className="font-semibold hover:underline">{s.supplier.name}</Link>,
+                item: s.tradeItem.name,
+                code: <span className="tabular-nums">{s.supplierCode ?? "—"}</span>,
+                pack: `×${s.packQty}`,
+                price: s.current ? euro(s.current.priceCents) : "—",
+                status: s.active ? <Badge tone="success">Ενεργή</Badge> : <Badge>Ανενεργή</Badge>,
+              },
+              details: {
+                label: `${s.supplier.name} · ${s.tradeItem.name}`,
+                view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div><dt className="text-xs text-muted-foreground">Κωδικός προμηθευτή</dt><dd className="font-medium">{s.supplierCode ?? "—"}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Barcode</dt><dd className="font-medium">{s.barcode ?? "—"}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Πολλαπλότητα</dt><dd className="font-medium">×{s.packQty}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Τρέχουσα τιμή</dt><dd className="font-medium">{s.current ? euro(s.current.priceCents) : "—"}</dd></div>
+                </dl>,
+                edit: can("items.edit") ? supplierForm(s) : undefined,
+              },
+              actions: can("items.edit") ? priceModal(s) : undefined,
+              menu: can("items.edit") ? <form action={toggleSupplierItem.bind(null, s.id, generic.id)}><Submit className={menuItem}>{s.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form> : undefined,
+            }))}
+          />
         </Card>
       </div>
     </Page>

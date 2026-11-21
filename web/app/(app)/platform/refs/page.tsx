@@ -1,19 +1,40 @@
-import { Pencil, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
+import { DataTable } from "@/components/data-table";
+import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, Field, Page } from "@/components/ui";
+import { Badge, btn, Card, cn, Field, menuItem, Page } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { filterParam, listParams } from "@/lib/paging";
 import { isRefList, REF_LISTS, type RefList } from "@/lib/refs";
-import { saveRef, toggleRef } from "../actions";
+import { activateRefItems, hideRefItems, saveRef, toggleRef } from "../actions";
 
-// Οι κοινές λίστες από τις οποίες διαλέγουν όλες οι επιχειρήσεις. Τις ορίζει μία φορά η πλατφόρμα.
+// Οι κοινές λίστες από τις οποίες διαλέγουν όλες οι επιχειρήσεις.
 export default async function RefsPage({ searchParams }: PageProps<"/platform/refs">) {
   await requirePlatform("settings.read");
   const q = await searchParams;
   const list: RefList = isRefList(q.list) ? q.list : "paymentTerm";
-  const [counts, items] = await Promise.all([db.refItem.groupBy({ by: ["list"], _count: true }), db.refItem.findMany({ where: { list }, orderBy: [{ sort: "asc" }, { label: "asc" }] })]);
+  const paging = listParams(q, 50, ["code", "label", "value", "status", "sort"]);
+  const status = filterParam(q, "status", ["active", "hidden"]);
+  const where = {
+    list,
+    ...(status ? { active: status === "active" } : {}),
+    ...(paging.q ? { OR: [{ code: { contains: paging.q, mode: "insensitive" as const } }, { label: { contains: paging.q, mode: "insensitive" as const } }] } : {}),
+  };
+  const direction = paging.sort ? paging.dir : "asc";
+  const orderBy = paging.sort === "code" ? { code: direction }
+    : paging.sort === "label" ? { label: direction }
+      : paging.sort === "value" ? { value: direction }
+        : paging.sort === "status" ? { active: direction }
+          : [{ sort: direction }, { label: "asc" as const }];
+  const [counts, items, total, active] = await Promise.all([
+    db.refItem.groupBy({ by: ["list"], _count: true }),
+    db.refItem.findMany({ where, orderBy, skip: paging.skip, take: paging.take }),
+    db.refItem.count({ where }),
+    db.refItem.count({ where: { list, active: true } }),
+  ]);
   const def = REF_LISTS[list];
   const refForm = (item?: (typeof items)[number]) => (
     <form key={item ? `${item.code}-${item.label}-${item.value}` : "new"} action={saveRef} className="grid gap-4 [&>button]:justify-self-end">
@@ -21,7 +42,8 @@ export default async function RefsPage({ searchParams }: PageProps<"/platform/re
       <Field label="Κωδικός" name="code" required maxLength={20} defaultValue={item?.code} hint={def.hint} />
       <Field label="Περιγραφή" name="label" required maxLength={120} defaultValue={item?.label} />
       {def.value ? <Field label={def.value} name="value" type="number" defaultValue={item?.value ?? ""} /> : <input type="hidden" name="value" value="" />}
-      <Submit className={btn("default")}>{item ? "Αποθήκευση" : "Προσθήκη"}</Submit>
+      <FormPending label="Αποθήκευση τιμής…" />
+      <Submit pendingText="Αποθήκευση…" className={btn("default")}>{item ? "Αποθήκευση" : "Προσθήκη"}</Submit>
     </form>
   );
 
@@ -45,28 +67,44 @@ export default async function RefsPage({ searchParams }: PageProps<"/platform/re
           {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Η λίστα ενημερώθηκε</p> : null}
           <Card>
             <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
-              <div className="min-w-0 flex-1"><h2 className="text-lg">{def.label}</h2><p className="text-sm text-muted-foreground">{items.length ? `${items.filter((i) => i.active).length} ενεργές τιμές` : "Η λίστα είναι άδεια"}</p></div>
+              <div className="min-w-0 flex-1"><h2 className="text-lg">{def.label}</h2><p className="text-sm text-muted-foreground">{total ? `${active} ενεργές τιμές στη λίστα` : "Η λίστα είναι άδεια"}</p></div>
               <Modal label={<><Plus /> Νέα τιμή</>} size="sm" title={`Νέα τιμή: ${def.label}`}>{refForm()}</Modal>
             </div>
-            {items.length ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="text-left text-xs text-muted-foreground"><th className="px-5 py-2 font-semibold">Κωδικός</th><th className="px-3 py-2 font-semibold">Περιγραφή</th>{def.value ? <th className="px-3 py-2 text-right font-semibold">{def.value}</th> : null}<th className="px-3 py-2 font-semibold">Κατάσταση</th><th className="px-5 py-2" /></tr></thead>
-                  <tbody>
-                    {items.map((i) => (
-                      <tr key={i.id} className={cn("border-t border-border/70", i.active ? "" : "text-muted-foreground")}>
-                        <td className="px-5 py-2 font-mono text-xs">{i.code}</td>
-                        <td className="px-3 py-2 font-medium">{i.label}</td>
-                        {def.value ? <td className="px-3 py-2 text-right tabular-nums">{i.value ?? "—"}</td> : null}
-                        <td className="px-3 py-2">{i.active ? <Badge tone="success">Ενεργή</Badge> : <Badge>Κρυφή</Badge>}</td>
-                        <td className="px-5 py-1.5"><span className="flex justify-end gap-1"><Modal label={<><Pencil /> Αλλαγή</>} size="sm" title={i.label}>{refForm(i)}</Modal><form action={toggleRef.bind(null, i.id)}><Submit className={btn("ghost", "sm")}>{i.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit></form></span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : <p className="px-5 py-6 text-sm text-muted-foreground">Καμία τιμή ακόμα. {list === "taxOffice" ? "Η ΔΟΥ κάθε συναλλασσόμενου έρχεται από την αναζήτηση ΑΦΜ· πρόσθεσε εδώ τιμές μόνο αν θες λίστα επιλογής" : "Πρόσθεσε την πρώτη με το «Νέα τιμή»"}</p>}
-            <p className="border-t border-border/70 px-5 py-3 text-xs text-muted-foreground">Μια τιμή δεν σβήνεται, μόνο κρύβεται από τις νέες καταχωρίσεις: έτσι όσοι την έχουν ήδη δεν μένουν με κενό</p>
+            <DataTable
+              id={`refs-${list}`}
+              bulkActions={[
+                { value: "activate", label: "Ενεργοποίηση επιλεγμένων", run: activateRefItems },
+                { value: "hide", label: "Απόκρυψη επιλεγμένων", confirm: "Απόκρυψη των επιλεγμένων τιμών από τις νέες καταχωρίσεις;", run: hideRefItems },
+              ]}
+              listing={{ ...paging, total, placeholder: "Κωδικός ή περιγραφή…", params: { list }, filters: [{ key: "status", label: "Κατάσταση", value: status, options: [["active", "Ενεργές"], ["hidden", "Κρυφές"]] }] }}
+              empty={list === "taxOffice" ? "Η ΔΟΥ έρχεται από την αναζήτηση ΑΦΜ· πρόσθεσε τιμές μόνο αν θες λίστα επιλογής" : "Καμία τιμή ακόμα. Πρόσθεσε την πρώτη με «Νέα τιμή»"}
+              columns={[
+                { key: "code", label: "Κωδικός", required: true, sortable: true },
+                { key: "label", label: "Περιγραφή", sortable: true },
+                ...(def.value ? [{ key: "value", label: def.value, numeric: true, sortable: true }] : []),
+                { key: "status", label: "Κατάσταση", sortable: true },
+              ]}
+              rows={items.map((i) => ({
+                id: i.id,
+                cells: {
+                  code: <span className="font-mono text-xs">{i.code}</span>,
+                  label: <span className="font-semibold">{i.label}</span>,
+                  ...(def.value ? { value: i.value ?? "—" } : {}),
+                  status: i.active ? <Badge tone="success">Ενεργή</Badge> : <Badge>Κρυφή</Badge>,
+                },
+                details: {
+                  label: i.label,
+                  view: <dl className="grid gap-4 sm:grid-cols-3">
+                    <div><dt className="text-xs text-muted-foreground">Κωδικός</dt><dd className="font-mono text-xs">{i.code}</dd></div>
+                    {def.value ? <div><dt className="text-xs text-muted-foreground">{def.value}</dt><dd className="font-medium tabular-nums">{i.value ?? "—"}</dd></div> : null}
+                    <div><dt className="text-xs text-muted-foreground">Σειρά</dt><dd className="font-medium tabular-nums">{i.sort}</dd></div>
+                  </dl>,
+                  edit: refForm(i),
+                },
+                menu: <form action={toggleRef.bind(null, i.id)}><Submit className={menuItem}>{i.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit></form>,
+              }))}
+            />
+            <p className="border-t border-border/70 px-5 py-3 text-xs text-muted-foreground">Μια τιμή δεν σβήνεται, μόνο κρύβεται από τις νέες καταχωρίσεις, ώστε οι υπάρχουσες εγγραφές να μη μένουν με κενό</p>
           </Card>
         </div>
       </div>

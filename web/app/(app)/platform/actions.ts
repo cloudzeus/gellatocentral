@@ -853,6 +853,22 @@ export async function toggleRef(refId: string) {
   refsBack(r.list, "saved=1");
 }
 
+async function setRefItemsActive(ids: string[], active: boolean) {
+  const parsed = z.array(z.string().min(1).max(80)).min(1).max(200).safeParse(ids);
+  if (!parsed.success) return "Η επιλογή τιμών δεν είναι έγκυρη";
+  await requirePlatform("settings.edit");
+  const unique = [...new Set(parsed.data)];
+  const result = await db.refItem.updateMany({ where: { id: { in: unique } }, data: { active } });
+  revalidatePath("/", "layout");
+  if (result.count !== unique.length) return "Ορισμένες τιμές δεν βρέθηκαν· ανανέωσε τη λίστα";
+}
+export async function activateRefItems(ids: string[]) {
+  return setRefItemsActive(ids, true);
+}
+export async function hideRefItems(ids: string[]) {
+  return setRefItemsActive(ids, false);
+}
+
 // ---- Συντελεστές ΦΠΑ (κοινοί για όλους τους συνδρομητές) ----
 const vatBack = (q: string): never => {
   revalidatePath("/", "layout");
@@ -886,6 +902,23 @@ export async function toggleVatRate(rateId: string) {
   if (!r) return;
   await db.vatRate.update({ where: { id: r.id }, data: { active: !r.active } });
   vatBack("saved=1");
+}
+
+const bulkRefIds = z.array(z.string().min(1).max(80)).min(1).max(200);
+async function setVatRatesActive(ids: string[], active: boolean) {
+  const parsed = bulkRefIds.safeParse(ids);
+  if (!parsed.success) return "Η επιλογή συντελεστών δεν είναι έγκυρη";
+  await requirePlatform("settings.edit");
+  const unique = [...new Set(parsed.data)];
+  const result = await db.vatRate.updateMany({ where: { id: { in: unique } }, data: { active } });
+  revalidatePath("/", "layout");
+  if (result.count !== unique.length) return "Ορισμένοι συντελεστές δεν βρέθηκαν· ανανέωσε τη λίστα";
+}
+export async function activateVatRates(ids: string[]) {
+  return setVatRatesActive(ids, true);
+}
+export async function hideVatRates(ids: string[]) {
+  return setVatRatesActive(ids, false);
 }
 
 // ---- Τρόποι πληρωμής (κοινοί για όλη την πλατφόρμα· προεπιλογή όσοι υποστηρίζει η Viva) ----
@@ -936,6 +969,22 @@ export async function togglePaymentMethod(methodId: string) {
   pmBack("saved=1");
 }
 
+async function setPaymentMethodsActive(ids: string[], active: boolean) {
+  const parsed = bulkRefIds.safeParse(ids);
+  if (!parsed.success) return "Η επιλογή τρόπων πληρωμής δεν είναι έγκυρη";
+  await requirePlatform("settings.edit");
+  const unique = [...new Set(parsed.data)];
+  const result = await db.paymentMethod.updateMany({ where: { id: { in: unique } }, data: { active } });
+  revalidatePath("/", "layout");
+  if (result.count !== unique.length) return "Ορισμένοι τρόποι πληρωμής δεν βρέθηκαν· ανανέωσε τη λίστα";
+}
+export async function activatePaymentMethods(ids: string[]) {
+  return setPaymentMethodsActive(ids, true);
+}
+export async function hidePaymentMethods(ids: string[]) {
+  return setPaymentMethodsActive(ids, false);
+}
+
 // ---- Τύποι παραστατικών (Common Tables) ----
 const dtBack = (q: string): never => {
   revalidatePath("/", "layout");
@@ -967,4 +1016,20 @@ export async function toggleDocumentType(typeId: string) {
   if (!t) return;
   await db.documentType.update({ where: { id: t.id }, data: { active: !t.active } });
   dtBack("saved=1");
+}
+
+async function setDocumentTypesActive(ids: string[], active: boolean) {
+  const parsed = bulkRefIds.safeParse(ids);
+  if (!parsed.success) return "Η επιλογή παραστατικών δεν είναι έγκυρη";
+  await requirePlatform("settings.edit");
+  const unique = [...new Set(parsed.data)];
+  const result = await db.documentType.updateMany({ where: { id: { in: unique } }, data: { active } });
+  revalidatePath("/", "layout");
+  if (result.count !== unique.length) return "Ορισμένοι τύποι παραστατικών δεν βρέθηκαν· ανανέωσε τη λίστα";
+}
+export async function activateDocumentTypes(ids: string[]) {
+  return setDocumentTypesActive(ids, true);
+}
+export async function hideDocumentTypes(ids: string[]) {
+  return setDocumentTypesActive(ids, false);
 }

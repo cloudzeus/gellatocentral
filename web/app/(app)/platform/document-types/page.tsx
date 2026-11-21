@@ -1,19 +1,41 @@
-import { Pencil } from "lucide-react";
-import { Modal } from "@/components/modal";
+import { DataTable } from "@/components/data-table";
+import { FormPending } from "@/components/form-pending";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, Field, Page } from "@/components/ui";
+import { Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { saveDocumentType, toggleDocumentType } from "../actions";
+import { filterParam, listParams } from "@/lib/paging";
+import { activateDocumentTypes, hideDocumentTypes, saveDocumentType, toggleDocumentType } from "../actions";
 
-// Οι τύποι παραστατικών myDATA: τους ορίζει η ΑΑΔΕ, οπότε δεν προστίθενται νέοι από εδώ —
-// διαχειριζόμαστε ποιοι είναι διαθέσιμοι και τον κωδικό της Viva (ftReceiptCase) του καθενός.
+// Οι τύποι ορίζονται από την ΑΑΔΕ· αλλάζουν μόνο τίτλος, Viva case, σειρά και διαθεσιμότητα.
 export default async function DocumentTypesPage({ searchParams }: PageProps<"/platform/document-types">) {
   await requirePlatform("settings.read");
   const q = await searchParams;
-  const types = await db.documentType.findMany({ orderBy: [{ sort: "asc" }, { code: "asc" }] });
-  // εκδόσεις ανά τύπο (το docType του FiscalDocument είναι κωδικός-κείμενο, όχι σχέση)
-  const counts = new Map((await db.fiscalDocument.groupBy({ by: ["docType"], _count: { _all: true } })).map((g) => [g.docType, g._count._all]));
+  const list = listParams(q, 50, ["code", "title", "kind", "sign", "receiptCase", "status", "sort"]);
+  const status = filterParam(q, "status", ["active", "hidden"]);
+  const kind = filterParam(q, "kind", ["retail", "wholesale"]);
+  const where = {
+    ...(status ? { active: status === "active" } : {}),
+    ...(kind ? { retail: kind === "retail" } : {}),
+    ...(list.q ? { OR: [{ code: { contains: list.q, mode: "insensitive" as const } }, { title: { contains: list.q, mode: "insensitive" as const } }] } : {}),
+  };
+  const direction = list.sort ? list.dir : "asc";
+  const orderBy = list.sort === "code" ? { code: direction }
+    : list.sort === "title" ? { title: direction }
+      : list.sort === "kind" ? { retail: direction }
+        : list.sort === "sign" ? { sign: direction }
+          : list.sort === "receiptCase" ? { receiptCase: direction }
+            : list.sort === "status" ? { active: direction }
+              : [{ sort: direction }, { code: "asc" as const }];
+  const [types, total, active, issuable, counts] = await Promise.all([
+    db.documentType.findMany({ where, orderBy, skip: list.skip, take: list.take }),
+    db.documentType.count({ where }),
+    db.documentType.count({ where: { active: true } }),
+    db.documentType.count({ where: { receiptCase: { not: null } } }),
+    db.fiscalDocument.groupBy({ by: ["docType"], _count: { _all: true } }),
+  ]);
+  // Το docType του FiscalDocument είναι κωδικός-κείμενο, όχι σχέση.
+  const issueCounts = new Map(counts.map((g) => [g.docType, g._count._all]));
 
   const typeForm = (t: (typeof types)[number]) => (
     <form key={t.code} action={saveDocumentType} className="grid gap-4 [&>button]:justify-self-end">
@@ -22,57 +44,64 @@ export default async function DocumentTypesPage({ searchParams }: PageProps<"/pl
       <Field label="Τίτλος" name="title" required maxLength={120} defaultValue={t.title} hint="Ο τίτλος που βλέπει ο χρήστης στις οθόνες και τα παραστατικά" />
       <Field label="ftReceiptCase (Viva)" name="receiptCase" defaultValue={t.receiptCase ?? ""} hint="Δεκαδικός Int64 από τα δείγματα της Viva· κενό = ο τύπος δεν εκδίδεται ακόμη" />
       <Field label="Σειρά εμφάνισης" name="sort" type="number" min={0} max={9999} defaultValue={t.sort} />
-      <Submit className={btn("default")}>Αποθήκευση</Submit>
+      <FormPending label="Αποθήκευση τύπου παραστατικού…" />
+      <Submit pendingText="Αποθήκευση…" className={btn("default")}>Αποθήκευση</Submit>
     </form>
   );
 
   return (
-    <Page section="Common Tables" title="Τύποι παραστατικών" description="Οι τύποι myDATA που γνωρίζει η εφαρμογή — κοινοί για ταμείο, τιμολόγηση και χονδρική">
-      <div className="grid max-w-6xl gap-4">
+    <Page section="Common Tables" title="Τύποι παραστατικών" description={`${issuable} εκδίδονται · ${active} ενεργοί. Κοινοί τύποι myDATA για ταμείο, τιμολόγηση και χονδρική`}>
+      <div className="grid max-w-7xl gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε{q.error ? `: ${q.error.slice(0, 200)}` : ""}</p> : null}
         {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Οι τύποι παραστατικών ενημερώθηκαν</p> : null}
         <Card>
-          <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg">Τύποι</h2>
-              <p className="text-sm text-muted-foreground">{types.filter((t) => t.receiptCase !== null).length} εκδίδονται · {types.filter((t) => t.active).length} ενεργοί από {types.length}</p>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-muted-foreground">
-                  <th className="px-5 py-2 font-semibold">Κωδικός</th><th className="px-3 py-2 font-semibold">Τίτλος</th><th className="px-3 py-2 font-semibold">Κατηγορία</th>
-                  <th className="px-3 py-2 font-semibold">Πρόσημο</th><th className="px-3 py-2 font-semibold">Απαιτεί</th><th className="px-3 py-2 font-semibold">ftReceiptCase</th>
-                  <th className="px-3 py-2 text-right font-semibold">Εκδόσεις</th><th className="px-3 py-2 font-semibold">Κατάσταση</th><th className="px-5 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {types.map((t) => (
-                  <tr key={t.id} className={cn("border-t border-border/70", t.active ? "" : "text-muted-foreground")}>
-                    <td className="px-5 py-2 font-mono text-xs">{t.code}</td>
-                    <td className="px-3 py-2 font-medium">{t.title}</td>
-                    <td className="px-3 py-2">{t.retail ? <Badge>Λιανική</Badge> : <Badge tone="warning">Αντικριζόμενο</Badge>}</td>
-                    <td className="px-3 py-2">{t.sign === 1 ? "Χρέωση" : "Πίστωση"}</td>
-                    <td className="px-3 py-2 text-xs">{[t.needsParty ? "ΑΦΜ λήπτη" : null, t.needsRelated ? "Συσχέτιση" : null].filter(Boolean).join(" · ") || "—"}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{t.receiptCase ?? <span className="text-muted-foreground">δεν εκδίδεται</span>}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{counts.get(t.code) || "—"}</td>
-                    <td className="px-3 py-2">{t.active ? <Badge tone="success">Ενεργός</Badge> : <Badge>Κρυφός</Badge>}</td>
-                    <td className="px-5 py-1.5">
-                      <span className="flex justify-end gap-1">
-                        <Modal label={<><Pencil /> Αλλαγή</>} size="sm" title={`${t.code} · ${t.title}`}>{typeForm(t)}</Modal>
-                        <form action={toggleDocumentType.bind(null, t.id)}><Submit className={btn("ghost", "sm")}>{t.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit></form>
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="border-t border-border/70 px-5 py-3 text-xs text-muted-foreground">
-            Οι φορολογικοί κανόνες (πρόσημο, ανάγκη ΑΦΜ ή συσχέτισης) ορίζονται από την ΑΑΔΕ και αλλάζουν μόνο με έκδοση της εφαρμογής.
-            Τύπος χωρίς ftReceiptCase δεν εκδίδεται: χρειάζεται πρώτα επαληθευμένο δείγμα από το demo της Viva.
-          </p>
+          <DataTable
+            id="document-types"
+            bulkActions={[
+              { value: "activate", label: "Ενεργοποίηση επιλεγμένων", run: activateDocumentTypes },
+              { value: "hide", label: "Απόκρυψη επιλεγμένων", confirm: "Απόκρυψη των επιλεγμένων τύπων παραστατικών;", run: hideDocumentTypes },
+            ]}
+            listing={{ ...list, total, placeholder: "Κωδικός ή τίτλος…", filters: [
+              { key: "kind", label: "Κατηγορία", value: kind, options: [["retail", "Λιανική"], ["wholesale", "Αντικριζόμενο"]] },
+              { key: "status", label: "Κατάσταση", value: status, options: [["active", "Ενεργοί"], ["hidden", "Κρυφοί"]] },
+            ] }}
+            empty="Κανένας τύπος παραστατικού"
+            columns={[
+              { key: "code", label: "Κωδικός", required: true, sortable: true },
+              { key: "title", label: "Τίτλος", sortable: true },
+              { key: "kind", label: "Κατηγορία", sortable: true },
+              { key: "sign", label: "Πρόσημο", sortable: true },
+              { key: "requirements", label: "Απαιτεί" },
+              { key: "receiptCase", label: "ftReceiptCase", sortable: true },
+              { key: "issues", label: "Εκδόσεις", numeric: true },
+              { key: "status", label: "Κατάσταση", sortable: true },
+            ]}
+            rows={types.map((t) => ({
+              id: t.id,
+              cells: {
+                code: <span className="font-mono text-xs">{t.code}</span>,
+                title: <span className="font-semibold">{t.title}</span>,
+                kind: t.retail ? <Badge>Λιανική</Badge> : <Badge tone="warning">Αντικριζόμενο</Badge>,
+                sign: t.sign === 1 ? "Χρέωση" : "Πίστωση",
+                requirements: <span className="text-xs">{[t.needsParty ? "ΑΦΜ λήπτη" : null, t.needsRelated ? "Συσχέτιση" : null].filter(Boolean).join(" · ") || "—"}</span>,
+                receiptCase: <span className="font-mono text-xs">{t.receiptCase ?? "δεν εκδίδεται"}</span>,
+                issues: issueCounts.get(t.code) || "—",
+                status: t.active ? <Badge tone="success">Ενεργός</Badge> : <Badge>Κρυφός</Badge>,
+              },
+              details: {
+                label: `${t.code} · ${t.title}`,
+                view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div><dt className="text-xs text-muted-foreground">Φορολογικό πρόσημο</dt><dd className="font-medium">{t.sign === 1 ? "Χρέωση" : "Πίστωση"}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Απαιτήσεις</dt><dd className="font-medium">{[t.needsParty ? "ΑΦΜ λήπτη" : null, t.needsRelated ? "Συσχέτιση" : null].filter(Boolean).join(" · ") || "Καμία"}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Εκδόσεις</dt><dd className="font-medium tabular-nums">{issueCounts.get(t.code) ?? 0}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Σειρά</dt><dd className="font-medium tabular-nums">{t.sort}</dd></div>
+                </dl>,
+                edit: typeForm(t),
+              },
+              menu: <form action={toggleDocumentType.bind(null, t.id)}><Submit className={menuItem}>{t.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit></form>,
+            }))}
+          />
+          <p className="border-t border-border/70 px-5 py-3 text-xs text-muted-foreground">Οι φορολογικοί κανόνες ορίζονται από την ΑΑΔΕ. Τύπος χωρίς επαληθευμένο ftReceiptCase δεν εκδίδεται</p>
         </Card>
       </div>
     </Page>

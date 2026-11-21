@@ -49,6 +49,24 @@ export async function toggleGenericItem(genericItemId: string) {
   back("/items", "?saved=1");
 }
 
+async function setGenericItemsActive(ids: string[], active: boolean) {
+  const parsed = z.array(z.string().cuid()).min(1).max(200).safeParse(ids);
+  if (!parsed.success) return "Η επιλογή ειδών δεν είναι έγκυρη";
+  const { org } = await currentOrg("items.edit");
+  const unique = [...new Set(parsed.data)];
+  const result = await db.genericItem.updateMany({ where: { id: { in: unique }, orgId: org.id }, data: { active } });
+  revalidatePath("/items");
+  if (result.count !== unique.length) return "Ορισμένα είδη δεν βρέθηκαν στην επιχείρηση· ανανέωσε τη λίστα";
+}
+
+export async function activateGenericItems(ids: string[]) {
+  return setGenericItemsActive(ids, true);
+}
+
+export async function hideGenericItems(ids: string[]) {
+  return setGenericItemsActive(ids, false);
+}
+
 /** Υιοθεσία εμπορικού είδους με barcode: ο κεντρικός κατάλογος ή τα ιδιωτικά της επιχείρησης. */
 export async function addMapping(form: FormData) {
   const d = z.object({ genericItemId: z.string().min(1), code: z.string().trim().min(4, "Σάρωσε ή γράψε barcode").max(48) }).safeParse(Object.fromEntries(form));
@@ -147,6 +165,41 @@ export async function toggleSupplierItem(supplierItemId: string, genericItemId: 
   const s = await db.supplierItem.findFirst({ where: { id: supplierItemId, orgId: org.id } });
   if (s) await db.supplierItem.update({ where: { id: s.id }, data: { active: !s.active } });
   back(`/items/${genericItemId}`, "?saved=1");
+}
+
+/** Ομαδικές ενέργειες μόνο στις συνδέσεις του ανοιχτού γενικού είδους. */
+export async function removeMappings(genericItemId: string, ids: string[]) {
+  const parsed = z.array(z.string().cuid()).min(1).max(200).safeParse(ids);
+  if (!parsed.success) return "Η επιλογή συσκευασιών δεν είναι έγκυρη";
+  const { org } = await currentOrg("items.edit");
+  const unique = [...new Set(parsed.data)];
+  const result = await db.itemMapping.deleteMany({ where: { id: { in: unique }, orgId: org.id, genericItemId } });
+  revalidatePath(`/items/${genericItemId}`);
+  revalidatePath("/items");
+  if (result.count !== unique.length) return "Ορισμένες συσκευασίες δεν ανήκουν σε αυτό το είδος· ανανέωσε τη σελίδα";
+}
+
+async function setSupplierItemsActive(genericItemId: string, ids: string[], active: boolean) {
+  const parsed = z.array(z.string().cuid()).min(1).max(200).safeParse(ids);
+  if (!parsed.success) return "Η επιλογή προμηθευτών δεν είναι έγκυρη";
+  const { org } = await currentOrg("items.edit");
+  const generic = await db.genericItem.findFirst({ where: { id: genericItemId, orgId: org.id }, include: { mappings: { select: { tradeItemId: true } } } });
+  if (!generic) return "Το γενικό είδος δεν βρέθηκε στην επιχείρηση";
+  const unique = [...new Set(parsed.data)];
+  const result = await db.supplierItem.updateMany({
+    where: { id: { in: unique }, orgId: org.id, tradeItemId: { in: generic.mappings.map((m) => m.tradeItemId) } },
+    data: { active },
+  });
+  revalidatePath(`/items/${genericItemId}`);
+  if (result.count !== unique.length) return "Ορισμένες συνδέσεις προμηθευτών δεν ανήκουν σε αυτό το είδος· ανανέωσε τη σελίδα";
+}
+
+export async function activateSupplierItems(genericItemId: string, ids: string[]) {
+  return setSupplierItemsActive(genericItemId, ids, true);
+}
+
+export async function hideSupplierItems(genericItemId: string, ids: string[]) {
+  return setSupplierItemsActive(genericItemId, ids, false);
 }
 
 /** Διόρθωση αποθέματος: χειροκίνητη κίνηση ± σε βασική μονάδα με αιτιολογία (append-only, πηγή «manual»). */

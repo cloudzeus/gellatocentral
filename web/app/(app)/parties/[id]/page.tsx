@@ -9,6 +9,7 @@ import { Files } from "@/components/files";
 import { GeoCascade } from "@/components/geo-fields";
 import { Modal } from "@/components/modal";
 import { RoleBadges } from "@/components/party-bits";
+import { Checkbox } from "@/components/shadcn/checkbox";
 import { PartyForm } from "@/components/party-form";
 import { PartyMap, type MapPoint } from "@/components/party-map";
 import { Submit } from "@/components/submit";
@@ -139,10 +140,10 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
   const channelForm = (personId?: string) => (
     <form action={saveChannel.bind(null, party.id)} className="flex flex-wrap items-end gap-2">
       {personId ? <input type="hidden" name="personId" value={personId} /> : null}
-      <label className="space-y-1 text-xs font-medium text-muted-foreground">Είδος<select name="kind" className={cn(INPUT, "w-32")}><option value="phone">Τηλέφωνο</option><option value="email">Email</option></select></label>
+      <Select label="Είδος" name="kind" className={cn(INPUT, "w-32")} options={[["phone", "Τηλέφωνο"], ["email", "Email"]]} />
       <label className="min-w-40 flex-1 space-y-1 text-xs font-medium text-muted-foreground">Αριθμός ή διεύθυνση<input name="value" required maxLength={160} className={INPUT} /></label>
       <label className="space-y-1 text-xs font-medium text-muted-foreground">Ετικέτα<input name="label" list="channel-labels" maxLength={40} placeholder="π.χ. Κινητό" className={cn(INPUT, "w-36")} /></label>
-      {!personId && party.addresses.length ? <label className="space-y-1 text-xs font-medium text-muted-foreground">Πού<select name="addressId" className={cn(INPUT, "w-44")}>{addressOptions.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></label> : null}
+      {!personId && party.addresses.length ? <Select label="Πού" name="addressId" className={cn(INPUT, "w-44")} options={addressOptions} /> : null}
       <Submit className={btn("outline")}><Plus /> Προσθήκη</Submit>
     </form>
   );
@@ -158,7 +159,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
       <Field label="Τηλέφωνο" name="phone" type="tel" maxLength={40} defaultValue={a?.phone ?? ""} />
       <Field label="Email" name="email" type="email" maxLength={160} defaultValue={a?.email ?? ""} />
       <div className="grid grid-cols-2 gap-4"><Field label="Γεωγρ. πλάτος" name="latitude" inputMode="decimal" defaultValue={a?.latitude != null ? String(a.latitude).replace(".", ",") : ""} /><Field label="Γεωγρ. μήκος" name="longitude" inputMode="decimal" defaultValue={a?.longitude != null ? String(a.longitude).replace(".", ",") : ""} /></div>
-      <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name="locate" defaultChecked={!a} className="size-4 accent-[var(--primary)]" /> Αν δεν γράψω συντεταγμένες, βρες τες από τη διεύθυνση</label>
+      <label className="flex min-h-11 items-center gap-3 text-sm"><Checkbox name="locate" defaultChecked={!a} /> Αν δεν γράψω συντεταγμένες, βρες τες από τη διεύθυνση</label>
       <details className="sm:col-span-2"><summary className="cursor-pointer text-sm font-semibold">Τοποθέτηση στον χάρτη</summary><div className="mt-2"><PartyMap pick={{ lat: "latitude", lng: "longitude" }} points={a?.latitude != null && a.longitude != null ? [{ latitude: a.latitude, longitude: a.longitude, label: a.label ?? "Σημείο", primary: true }] : hq ? [{ ...hq, label: "Έδρα" }] : []} /></div></details>
       <div className="sm:col-span-2"><Field label="Σημειώσεις" name="notes" maxLength={300} defaultValue={a?.notes ?? ""} placeholder="π.χ. ώρες παραλαβής" /></div>
       <Submit className={btn("default")}>{a ? "Αποθήκευση" : "Προσθήκη"}</Submit>

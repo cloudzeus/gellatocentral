@@ -7,7 +7,7 @@ import { Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
-import { saveGenericItem, toggleGenericItem } from "./actions";
+import { activateGenericItems, hideGenericItems, saveGenericItem, toggleGenericItem } from "./actions";
 
 // Γενικά είδη: αυτά που μπαίνουν στις συνταγές. Κάθε ένα δένει με συσκευασίες του κεντρικού
 // καταλόγου και προμηθευτές — η σύνδεση γίνεται στην καρτέλα του είδους.
@@ -52,6 +52,10 @@ export default async function ItemsPage({ searchParams }: PageProps<"/items">) {
         <Card>
           <DataTable
             id="items"
+            bulkActions={can("items.edit") ? [
+              { value: "activate", label: "Ενεργοποίηση επιλεγμένων", run: activateGenericItems },
+              { value: "hide", label: "Απόκρυψη επιλεγμένων", confirm: "Απόκρυψη των επιλεγμένων ειδών από τις νέες συνδέσεις;", run: hideGenericItems },
+            ] : []}
             listing={{
               ...list,
               total,

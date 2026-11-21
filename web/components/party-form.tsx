@@ -98,7 +98,7 @@ export function PartyForm({ action, party, refs, geo, defaultRole }: { action: (
 
       <FormSection id={sectionId("registry")} step={1} title={STEPS[0].title} description={STEPS[0].description}>
         <div className="grid gap-4 sm:col-span-2 sm:grid-cols-[11rem_1fr_auto] sm:items-end">
-          <Select label="Χώρα" name="countryCode" value={country} onChange={(e) => setCountry(e.target.value)} options={refs.countries} />
+          <Select label="Χώρα" name="countryCode" value={country} onValueChange={setCountry} options={refs.countries} />
           <Field label="ΑΦΜ" name="vatNumber" maxLength={20} defaultValue={v("vatNumber")} autoComplete="off" hint="Ελληνικό: 9 ψηφία. Ιδιώτης χωρίς ΑΦΜ: άφησέ το κενό" />
           <Button type="button" variant="outline" onClick={lookup} disabled={busy} aria-busy={busy || undefined} className="sm:mb-5">
             {busy ? <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Search aria-hidden />}{busy ? "Αναζήτηση…" : "Εύρεση στοιχείων"}

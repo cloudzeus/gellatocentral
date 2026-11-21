@@ -7,6 +7,7 @@
 import { Fragment, type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
 import type { AddressSuggestion } from "@/lib/geocode";
 import { shortRegionName, shortUnitName } from "@/lib/geo/pure";
+import { SearchSelect } from "./search-select";
 import { cn } from "./ui";
 
 export type GeoChainItem = { code: string; nameEL: string; level: number };
@@ -142,15 +143,17 @@ function Combo<T extends { id: string; name: string }>({ label, name, text, onTe
 }
 
 function LevelSelect({ label, value, options, onChange, disabled }: { label: string; value: string; options: GeoChainItem[]; onChange: (code: string) => void; disabled?: boolean }) {
+  const choices: [string, string][] = [["", "—"], ...options.map((o): [string, string] => [o.code, o.nameEL])];
   return (
     <label className="block min-w-0 space-y-1 text-sm font-medium">
       {label}
-      <select value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={inputCls}>
-        <option value="">—</option>
-        {options.map((o) => (
-          <option key={o.code} value={o.code}>{o.nameEL}</option>
-        ))}
-      </select>
+      {options.length > 15 ? (
+        <SearchSelect ariaLabel={label} value={value} options={choices} disabled={disabled} onValueChange={onChange} className={inputCls} />
+      ) : (
+        <select value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={inputCls}>
+          {choices.map(([code, text]) => <option key={code} value={code}>{text}</option>)}
+        </select>
+      )}
     </label>
   );
 }

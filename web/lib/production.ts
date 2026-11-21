@@ -2,6 +2,12 @@
 // πρώτα λήγει, πρώτη καταναλώνεται· χωρίς λήξη στο τέλος, παλιότερη πρώτη). Κανένα I/O —
 // η ατομική εκτέλεση σε βάση είναι στο lib/production-db.ts. Δοκιμάζεται με node --test.
 
+export const daysUntil = (date: Date | null) => date ? Math.ceil((date.getTime() - Date.now()) / 86_400_000) : null;
+export const isExpired = (expiresAt: Date | null) => {
+  const days = daysUntil(expiresAt);
+  return days !== null && days < 0;
+};
+
 export interface LotStock {
   id: string;
   /** null = χύμα παρτίδα χωρίς ημερομηνία — καταναλώνεται τελευταία */

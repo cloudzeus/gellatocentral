@@ -1,18 +1,17 @@
 import Link from "next/link";
 import { ArrowLeft, Factory } from "lucide-react";
+import { DataTable } from "@/components/data-table";
 import { Submit } from "@/components/submit";
 import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
+import { listParams } from "@/lib/paging";
 import { ProductionError, planProduction } from "@/lib/production-db";
 import { formatBaseQty } from "@/lib/units";
 import { createBatch } from "../actions";
 
-// Νέα παρτίδα παραγωγής με προεπισκόπηση FEFO: ο χρήστης βλέπει ΠΡΙΝ το κλείσιμο ποιες παρτίδες
-// υλικών (και από ποιον προμηθευτή) θα καταναλωθούν — το ίδιο είδος μπορεί να τραβηχτεί από
-// παρτίδες διαφορετικών προμηθευτών. Server-driven: η φόρμα είναι GET και η προεπισκόπηση
-// υπολογίζεται στον server με τον ίδιο σχεδιασμό που εκτελεί και το κλείσιμο.
+// Server-driven FEFO προεπισκόπηση: ο ίδιος σχεδιασμός χρησιμοποιείται και στο κλείσιμο.
 export default async function NewProductionPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { org } = await currentOrg("production.add");
   const q = await searchParams;
@@ -21,14 +20,13 @@ export default async function NewProductionPage({ searchParams }: { searchParams
     db.warehouse.findMany({ where: { orgId: org.id, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   const dayFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeZone: "UTC" });
-  // εμφάνιση ποσότητας στην καθημερινή μονάδα της διάστασης (kg / l / τεμ)
   const fmtQty = (qty: number, dimension: string) =>
     formatBaseQty(qty, [dimension === "mass" ? { code: "kg", dimension, toBase: 1_000_000 } : dimension === "volume" ? { code: "l", dimension, toBase: 1_000 } : { code: "τεμ", dimension, toBase: 1 }]);
 
   const recipeId = typeof q.recipeId === "string" ? q.recipeId : "";
   const warehouseId = typeof q.warehouseId === "string" ? q.warehouseId : "";
   const quantityGrams = Math.round(Number(String(typeof q.quantityGrams === "string" ? q.quantityGrams : "").replace(",", ".")));
-  const recipe = recipes.find((r) => r.id === recipeId);
+  const list = listParams(q, 50, ["item", "grams", "lot", "supplier", "expiry", "quantity"]);
 
   let plan: Awaited<ReturnType<typeof planProduction>> | null = null;
   let planError: string | null = null;
@@ -40,31 +38,45 @@ export default async function NewProductionPage({ searchParams }: { searchParams
     }
   }
 
+  type PreviewRow = { id: string; item: string; grams: number; dimension: string; lot: string; supplier: string; expiry: string; expiryAt: number; quantity: number | null; quantityLabel: string; note: string; blocked: boolean };
+  const previewRows = (plan?.lines ?? []).flatMap<PreviewRow>((l) => {
+    const base = { item: l.name, grams: l.grams, dimension: l.dimension };
+    if (!l.trackStock) return [{ ...base, id: l.genericItemId, lot: "—", supplier: "—", expiry: "—", expiryAt: 0, quantity: null, quantityLabel: "—", note: "Χωρίς απόθεμα — κοστολογείται μόνο", blocked: false }];
+    if (l.shortfall > 0) return [{ ...base, id: l.genericItemId, lot: "—", supplier: "—", expiry: "—", expiryAt: 0, quantity: l.quantity, quantityLabel: fmtQty(l.quantity, l.dimension), note: `Λείπουν ${l.shortfall.toLocaleString("el-GR")} ${l.unitCode}`, blocked: true }];
+    return (l.allocations ?? []).map((a) => ({
+      ...base,
+      id: `${l.genericItemId}-${a.lotId}`,
+      lot: a.lot.batchNumber ?? "(χύμα)",
+      supplier: `${a.lot.supplierName ?? "—"}${a.lot.docNumber ? ` · ${a.lot.docNumber}` : ""}`,
+      expiry: a.lot.expiresAt ? dayFmt.format(a.lot.expiresAt) : "—",
+      expiryAt: a.lot.expiresAt?.getTime() ?? 0,
+      quantity: a.qty,
+      quantityLabel: fmtQty(a.qty, l.dimension),
+      note: a.lot.supplierName ?? "Χωρίς προμηθευτή",
+      blocked: false,
+    }));
+  });
+  const sort = list.sort;
+  if (sort) previewRows.sort((a, b) => {
+    const av = sort === "quantity" ? a.quantity : sort === "expiry" ? a.expiryAt : a[sort];
+    const bv = sort === "quantity" ? b.quantity : sort === "expiry" ? b.expiryAt : b[sort];
+    const result = typeof av === "string" && typeof bv === "string" ? av.localeCompare(bv, "el") : Number(av) - Number(bv);
+    return list.dir === "asc" ? result : -result;
+  });
+
   return (
-    <Page
-      section="Παραγωγή"
-      title="Νέα παρτίδα παραγωγής"
-      description="Διάλεξε συνταγή και ποσότητα — η προεπισκόπηση δείχνει ακριβώς ποιες παρτίδες θα καταναλωθούν"
-      actions={
-        <Link href="/production" className={btn("outline", "sm")}>
-          <ArrowLeft /> Παραγωγή
-        </Link>
-      }
-    >
-      <div className="grid max-w-5xl gap-4">
+    <Page section="Παραγωγή" title="Νέα παρτίδα παραγωγής" description="Διάλεξε συνταγή και ποσότητα — η προεπισκόπηση δείχνει ακριβώς ποιες παρτίδες θα καταναλωθούν"
+      actions={<Link href="/production" className={btn("outline", "sm")}><ArrowLeft /> Παραγωγή</Link>}>
+      <div className="grid max-w-7xl gap-4">
         {!recipes.length ? (
-          <p className="rounded-lg bg-gold/15 px-4 py-3 text-sm text-gold-ink">
-            Δεν υπάρχει ενεργή συνταγή με γραμμές — ξεκίνα από τις <Link href="/recipes" className="underline">Συνταγές</Link>.
-          </p>
+          <p className="rounded-lg bg-gold/15 px-4 py-3 text-sm text-gold-ink">Δεν υπάρχει ενεργή συνταγή με γραμμές — ξεκίνα από τις <Link href="/recipes" className="underline">Συνταγές</Link>.</p>
         ) : (
           <Card>
             <form method="get" action="/production/new" className="grid gap-4 px-5 py-4 sm:grid-cols-4">
               <Select label="Συνταγή" name="recipeId" defaultValue={recipeId || recipes[0]!.id} options={recipes.map((r): [string, string] => [r.id, r.name])} />
               <Select label="Αποθήκη υλικών" name="warehouseId" defaultValue={warehouseId || warehouses[0]?.id || ""} options={warehouses.map((w): [string, string] => [w.id, w.name])} />
-              <Field label="Ποσότητα (g)" name="quantityGrams" required inputMode="numeric" defaultValue={String(quantityGrams > 0 ? quantityGrams : recipe?.batchGrams ?? recipes[0]!.batchGrams)} />
-              <div className="flex items-end">
-                <Submit className={btn("outline")}>Προεπισκόπηση</Submit>
-              </div>
+              <Field label="Ποσότητα (g)" name="quantityGrams" required inputMode="numeric" defaultValue={String(quantityGrams > 0 ? quantityGrams : recipes.find((r) => r.id === recipeId)?.batchGrams ?? recipes[0]!.batchGrams)} />
+              <div className="flex items-end"><Submit className={btn("outline")}>Προεπισκόπηση</Submit></div>
             </form>
           </Card>
         )}
@@ -77,59 +89,43 @@ export default async function NewProductionPage({ searchParams }: { searchParams
             <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
               <div className="min-w-0 flex-1">
                 <h2 className="text-lg">Προεπισκόπηση κατανάλωσης</h2>
-                <p className="text-sm text-muted-foreground">
-                  {plan.recipe.name} · {(plan.quantityGrams / 1000).toLocaleString("el-GR")} kg · {plan.warehouse.name} · κόστος{" "}
-                  {plan.costHundredths > 0 ? euro(plan.costHundredths / 100) : "—"}
-                </p>
+                <p className="text-sm text-muted-foreground">{plan.recipe.name} · {(plan.quantityGrams / 1000).toLocaleString("el-GR")} kg · {plan.warehouse.name} · κόστος {plan.costHundredths > 0 ? euro(plan.costHundredths / 100) : "—"}</p>
               </div>
               {plan.blocked ? <Badge tone="danger">Ανεπαρκές απόθεμα</Badge> : <Badge tone="success">Έτοιμο προς κλείσιμο</Badge>}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-muted-foreground">
-                    <th className="px-5 py-2 font-semibold">Υλικό</th>
-                    <th className="px-3 py-2 text-right font-semibold">Συνταγή (g)</th>
-                    <th className="px-3 py-2 font-semibold">Παρτίδα υλικού</th>
-                    <th className="px-3 py-2 font-semibold">Προμηθευτής</th>
-                    <th className="px-3 py-2 font-semibold">Λήξη</th>
-                    <th className="px-5 py-2 text-right font-semibold">Ποσότητα</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {plan.lines.map((l) =>
-                    !l.trackStock ? (
-                      <tr key={l.genericItemId} className="border-t border-border/70">
-                        <td className="px-5 py-2 font-medium">{l.name}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{l.grams.toLocaleString("el-GR")}</td>
-                        <td className="px-3 py-2 text-muted-foreground" colSpan={3}>χωρίς απόθεμα — κοστολογείται μόνο</td>
-                        <td className="px-5 py-2 text-right tabular-nums">—</td>
-                      </tr>
-                    ) : l.shortfall > 0 ? (
-                      <tr key={l.genericItemId} className="border-t border-border/70 bg-destructive/5">
-                        <td className="px-5 py-2 font-medium">{l.name}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{l.grams.toLocaleString("el-GR")}</td>
-                        <td className="px-3 py-2 text-destructive" colSpan={3}>
-                          λείπουν {l.shortfall.toLocaleString("el-GR")} {l.unitCode}
-                        </td>
-                        <td className="px-5 py-2 text-right tabular-nums">{fmtQty(l.quantity, l.dimension)}</td>
-                      </tr>
-                    ) : (
-                      (l.allocations ?? []).map((a, i) => (
-                        <tr key={`${l.genericItemId}-${a.lotId}`} className="border-t border-border/70">
-                          <td className="px-5 py-2 font-medium">{i === 0 ? l.name : ""}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{i === 0 ? l.grams.toLocaleString("el-GR") : ""}</td>
-                          <td className="px-3 py-2 tabular-nums">{a.lot.batchNumber ?? "(χύμα)"}</td>
-                          <td className="px-3 py-2">{a.lot.supplierName ?? "—"}{a.lot.docNumber ? <span className="text-xs text-muted-foreground"> · {a.lot.docNumber}</span> : null}</td>
-                          <td className="px-3 py-2">{a.lot.expiresAt ? dayFmt.format(a.lot.expiresAt) : "—"}</td>
-                          <td className="px-5 py-2 text-right tabular-nums">{fmtQty(a.qty, l.dimension)}</td>
-                        </tr>
-                      ))
-                    ),
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              id="production-preview"
+              listing={{ ...list, total: previewRows.length, placeholder: "Υλικό ή παρτίδα…", showSearch: false, params: { recipeId, warehouseId, quantityGrams: String(quantityGrams) } }}
+              empty="Καμία κατανάλωση υλικών"
+              columns={[
+                { key: "item", label: "Υλικό", required: true, sortable: true },
+                { key: "grams", label: "Συνταγή (g)", numeric: true, sortable: true },
+                { key: "lot", label: "Παρτίδα υλικού", sortable: true },
+                { key: "supplier", label: "Προμηθευτής", sortable: true },
+                { key: "expiry", label: "Λήξη", sortable: true },
+                { key: "quantity", label: "Ποσότητα", numeric: true, sortable: true },
+              ]}
+              rows={previewRows.map((r) => ({
+                id: r.id,
+                cells: {
+                  item: <span className={r.blocked ? "font-semibold text-destructive" : "font-semibold"}>{r.item}</span>,
+                  grams: r.grams.toLocaleString("el-GR"),
+                  lot: r.lot,
+                  supplier: r.supplier,
+                  expiry: r.expiry,
+                  quantity: r.quantityLabel,
+                },
+                details: {
+                  label: `${r.item} · ${r.lot}`,
+                  view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div><dt className="text-xs text-muted-foreground">Υλικό</dt><dd className="font-medium">{r.item}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Παρτίδα</dt><dd className="font-medium">{r.lot}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Ποσότητα</dt><dd className="font-medium">{r.quantityLabel}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Κατάσταση</dt><dd className={r.blocked ? "font-medium text-destructive" : "font-medium"}>{r.note}</dd></div>
+                  </dl>,
+                },
+              }))}
+            />
             <form action={createBatch} className="grid gap-3 border-t border-border/70 px-5 py-4 sm:grid-cols-[1fr_1fr_auto]">
               <input type="hidden" name="recipeId" value={plan.recipe.id} />
               <input type="hidden" name="warehouseId" value={plan.warehouse.id} />
@@ -137,13 +133,7 @@ export default async function NewProductionPage({ searchParams }: { searchParams
               <Field label="Αριθμός παρτίδας" name="batchNumber" maxLength={40} hint="Κενό = αυτόματος (YYYYMMDD-N)" />
               <Field label="Σημείωση" name="note" maxLength={120} hint="π.χ. «πρωινή βάρδια»" />
               <div className="flex items-end">
-                {plan.blocked ? (
-                  <span className="text-sm text-muted-foreground">Συμπλήρωσε απόθεμα για να κλείσει</span>
-                ) : (
-                  <Submit className={btn("default")}>
-                    <Factory /> Κλείσιμο παρτίδας
-                  </Submit>
-                )}
+                {plan.blocked ? <span className="text-sm text-muted-foreground">Συμπλήρωσε απόθεμα για να κλείσει</span> : <Submit className={btn("default")}><Factory /> Κλείσιμο παρτίδας</Submit>}
               </div>
             </form>
           </Card>
