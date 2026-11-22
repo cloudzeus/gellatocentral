@@ -30,6 +30,7 @@ test("count request: trim, null normalization και canonical hash", () => {
   const canonical = canonicalStockCountRequest(input);
   assert.deepEqual(canonical, {
     clientKey: input.clientKey,
+    storeId: null,
     warehouseId: "warehouse",
     countedOn: "2026-11-22",
     note: "Μηνιαία απογραφή",
@@ -39,17 +40,19 @@ test("count request: trim, null normalization και canonical hash", () => {
   assert.equal(stockCountRequestHash("org-a", canonical), stockCountRequestHash("org-a", rekeyed));
 });
 
-test("count request: το hash αλλάζει ανά tenant και ουσιαστικό payload", () => {
+test("count request: το hash αλλάζει ανά tenant, store και ουσιαστικό payload", () => {
   const request = canonicalStockCountRequest(input);
   const hash = stockCountRequestHash("org-a", request);
   assert.notEqual(stockCountRequestHash("org-b", request), hash);
   for (const changed of [
+    { ...input, storeId: " store-a " },
     { ...input, warehouseId: "other" },
     { ...input, countedOn: "2026-11-23" },
     { ...input, note: "άλλη σημείωση" },
   ]) {
     assert.notEqual(stockCountRequestHash("org-a", canonicalStockCountRequest(changed)), hash);
   }
+  assert.equal(stockCountRequestHash("org-a", request), stockCountRequestHash("org-a", canonicalStockCountRequest({ ...input, storeId: null })));
 });
 
 test("count date: δέχεται μόνο πραγματικά ISO calendar dates", () => {

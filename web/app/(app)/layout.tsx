@@ -2,6 +2,7 @@ import { CircleAlert, Menu, Snowflake } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { BottomNav, NavLinks, Sidebar, UserFooter } from "@/components/nav-links";
+import { OfflineCountSessionGuard } from "@/components/offline-counts";
 import { getUser, memberPermissions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { needsLegalConsent } from "@/lib/gdpr";
@@ -58,6 +59,13 @@ async function Menus() {
       <BottomNav allowed={nav.allowed} />
     </>
   );
+}
+
+async function OfflineSessionGuard() {
+  const user = await getUser();
+  const membership = user?.memberships[0];
+  if (!user || !membership) return null;
+  return <OfflineCountSessionGuard identity={{ orgId: membership.orgId, userId: user.id }} />;
 }
 
 const bar = "flex items-start gap-3 border-b px-6 py-3 text-sm print:hidden max-lg:pl-16";
@@ -122,6 +130,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       <Suspense fallback={<div className="sidebar-surface hidden w-[17rem] shrink-0 lg:block" />}>
         <Menus />
       </Suspense>
+      <Suspense fallback={null}><OfflineSessionGuard /></Suspense>
       <div className="flex min-w-0 flex-1 flex-col">
         <Suspense fallback={null}><StateBanner /></Suspense>
         {children}

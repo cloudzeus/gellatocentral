@@ -13,6 +13,7 @@ export const STOCK_COUNT_ERROR = [
   "LOT_ALREADY_EXISTS",
   "FINALIZED_COUNT_EXISTS",
   "IDEMPOTENCY_KEY_REUSED",
+  "COUNT_REVISION_CONFLICT",
 ] as const;
 export type StockCountErrorCode = (typeof STOCK_COUNT_ERROR)[number];
 
@@ -37,10 +38,12 @@ export const STOCK_COUNT_ERROR_MESSAGE: Record<StockCountErrorCode, string> = {
   LOT_ALREADY_EXISTS: "Η παρτίδα υπάρχει ήδη· πρόσθεσέ την από την επιλογή υπάρχουσας παρτίδας",
   FINALIZED_COUNT_EXISTS: "Υπάρχει ήδη οριστικοποιημένη απογραφή για αυτή την αποθήκη και ημερομηνία",
   IDEMPOTENCY_KEY_REUSED: "Το αναγνωριστικό υποβολής έχει χρησιμοποιηθεί για διαφορετική απογραφή",
+  COUNT_REVISION_CONFLICT: "Η απογραφή άλλαξε από άλλη συσκευή· ανανέωσε και έλεγξε τις μετρήσεις πριν ξαναστείλεις",
 };
 
 export type StockCountInput = {
   clientKey: string;
+  storeId?: string | null;
   warehouseId: string;
   countedOn: string;
   note?: string | null;
@@ -48,6 +51,7 @@ export type StockCountInput = {
 
 export type CanonicalStockCountRequest = {
   clientKey: string;
+  storeId: string | null;
   warehouseId: string;
   countedOn: string;
   note: string | null;
@@ -74,8 +78,11 @@ export function canonicalStockCountRequest(input: StockCountInput): CanonicalSto
   stockCountedOnDate(countedOn);
   const note = input.note?.trim() || null;
   if (note && note.length > 500) throw new StockCountError("INVALID_COUNT_REQUEST");
+  const storeId = input.storeId?.trim() || null;
+  if (storeId && storeId.length > 80) throw new StockCountError("INVALID_COUNT_REQUEST");
   return {
     clientKey: text(input.clientKey, 100),
+    storeId,
     warehouseId: text(input.warehouseId, 80),
     countedOn,
     note,
@@ -86,6 +93,8 @@ export function stockCountRequestHash(orgId: string, request: CanonicalStockCoun
   return createHash("sha256").update(JSON.stringify({
     version: 1,
     orgId: text(orgId, 80),
+    // Το παλιό workshop hash μένει συμβατό· το store μπαίνει μόνο όταν υπάρχει.
+    ...(request.storeId ? { storeId: request.storeId } : {}),
     warehouseId: request.warehouseId,
     countedOn: request.countedOn,
     note: request.note,
@@ -130,4 +139,21 @@ export function assertFinalizableStockCountLine(line: {
     throw new StockCountError("MISSING_DIFFERENCE_REASON");
   }
   return { differenceQty, reason };
+}
+
+
+/** Σταθερό hash ανεξάρτητο από τη σειρά με την οποία ήρθαν οι γραμμές της φόρμας. */
+export function stockCountMeasurementsHash(
+  orgId: string,
+  countId: string,
+  measurements: readonly ({ lineId: string; actualQty: number | null; reason: string | null })[],
+): string {
+  const canonical = measurements
+    .map((measurement) => ({
+      lineId: measurement.lineId,
+      actualQty: measurement.actualQty,
+      reason: measurement.reason,
+    }))
+    .sort((a, b) => a.lineId.localeCompare(b.lineId));
+  return createHash("sha256").update(JSON.stringify({ version: 1, orgId, countId, measurements: canonical })).digest("hex");
 }

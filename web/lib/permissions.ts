@@ -106,6 +106,7 @@ const PAGE: Record<string, Permission> = {
   "/receipts": "receipts.read",
   "/devices": "devices.read",
   "/inventory/stock": "stock.read",
+  "/inventory/alerts": "stock.read",
   "/inventory/transfers": "stock.read",
   "/inventory/warehouses": "warehouses.read",
   "/inventory": "warehouses.read",

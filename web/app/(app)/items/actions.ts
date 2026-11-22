@@ -8,9 +8,9 @@ import { compositionCopyData, compositionFromForm } from "@/lib/composition";
 import { db } from "@/lib/db";
 import { parseGs1 } from "@/lib/gs1";
 import { requireStockContext } from "@/lib/stock-context";
-import { postStockMovement, STOCK_ERROR_MESSAGE, StockError } from "@/lib/stock-db";
-import { stockTransaction } from "@/lib/stock-transaction";
-import { assertStockScope, STOCK_SCOPE_ERROR_MESSAGE, StockScopeError } from "@/lib/stock-scope";
+import { postStockCorrection } from "@/lib/stock-corrections";
+import { STOCK_ERROR_MESSAGE, StockError } from "@/lib/stock-db";
+import { STOCK_SCOPE_ERROR_MESSAGE, StockScopeError } from "@/lib/stock-scope";
 
 // Μετά από αλλαγή: και η λίστα και η καρτέλα είδους ξαναδιαβάζουν.
 const back = (path = "/items", q = ""): never => {
@@ -210,26 +210,20 @@ export async function addCorrection(form: FormData) {
   const raw = Object.fromEntries(form);
   const genericItemId = String(raw.genericItemId ?? "");
   const path = `/items/${genericItemId}`;
-  const d = z.object({ genericItemId: z.string().min(1), warehouseId: z.string().min(1), note: z.string().trim().min(3, "Γράψε αιτιολογία, π.χ. «σπασίματα»").max(120) }).safeParse(raw);
+  const d = z.object({ genericItemId: z.string().cuid(), warehouseId: z.string().cuid(), note: z.string().trim().min(3, "Γράψε αιτιολογία, π.χ. «σπασίματα»").max(200) }).safeParse(raw);
   if (!d.success) return fail(d.error.issues[0].message, path);
-  const ctx = await requireStockContext("warehouses.edit", { warehouseId: d.data.warehouseId, forWrite: true });
+  const ctx = await requireStockContext("stock.correct", { warehouseId: d.data.warehouseId, forWrite: true });
   const qty = Number(String(raw.qty ?? "").replace(",", "."));
-  if (!Number.isInteger(qty) || qty === 0) return fail("Η ποσότητα διόρθωσης είναι μη μηδενικός ακέραιος στη βασική μονάδα (π.χ. -500 για μισό κιλό λιγότερο)", path);
+  if (!Number.isSafeInteger(qty) || qty === 0) return fail("Η ποσότητα διόρθωσης είναι μη μηδενικός ακέραιος στη βασική μονάδα (π.χ. -500 για μισό κιλό λιγότερο)", path);
   const generic = await db.genericItem.findFirst({ where: { id: d.data.genericItemId, orgId: ctx.orgId } });
   if (!generic) return fail("Άγνωστο είδος", path);
   try {
-    await stockTransaction(async (tx) => {
-      await assertStockScope(tx, ctx, { warehouseId: d.data.warehouseId, forWrite: true });
-      await postStockMovement(tx, {
-        orgId: ctx.orgId,
-        warehouseId: d.data.warehouseId,
-        quantity: qty,
-        genericItemId: generic.id,
-        lotId: null,
-        source: "manual",
-        note: d.data.note,
-        actor: { id: ctx.userId, name: ctx.userName },
-      });
+    await postStockCorrection(ctx, {
+      warehouseId: d.data.warehouseId,
+      quantity: qty,
+      genericItemId: generic.id,
+      lotId: null,
+      reason: d.data.note,
     });
   } catch (error) {
     if (error instanceof StockError) return fail(STOCK_ERROR_MESSAGE[error.code], path);

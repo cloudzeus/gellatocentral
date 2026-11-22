@@ -35,12 +35,13 @@ function refresh(countId?: string) {
 export async function createCount(form: FormData) {
   const parsed = z.object({
     clientKey: z.string().uuid(),
+    storeId: z.union([id, z.literal("")]).transform((value) => value || null),
     warehouseId: id,
     countedOn: z.string(),
     note: z.string().trim().max(500).transform((value) => value || null),
   }).safeParse(Object.fromEntries(form));
   if (!parsed.success) fail(new StockCountError("INVALID_COUNT_REQUEST"));
-  const ctx = await requireStockContext("counts.add", { warehouseId: parsed.data.warehouseId, forWrite: true });
+  const ctx = await requireStockContext("counts.add", { storeId: parsed.data.storeId ?? undefined, warehouseId: parsed.data.warehouseId, forWrite: true });
   let result: Awaited<ReturnType<typeof createStockCount>>;
   try {
     result = await createStockCount(ctx, parsed.data);

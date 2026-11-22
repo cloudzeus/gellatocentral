@@ -7,9 +7,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { correctionBaseQty } from "@/lib/stock-correction";
+import { postStockCorrection } from "@/lib/stock-corrections";
 import { requireStockContext } from "@/lib/stock-context";
-import { postStockMovement, stockBalance, STOCK_ERROR_MESSAGE, StockError } from "@/lib/stock-db";
-import { stockTransaction } from "@/lib/stock-transaction";
+import { stockBalance, STOCK_ERROR_MESSAGE, StockError } from "@/lib/stock-db";
 import { assertStockScope, STOCK_SCOPE_ERROR_MESSAGE, StockScopeError } from "@/lib/stock-scope";
 
 export async function correctLotStock(form: FormData) {
@@ -29,7 +29,7 @@ export async function correctLotStock(form: FormData) {
   if (!d.success) return fail(d.error.issues[0].message);
   const amount = Number(String(form.get("amount") ?? "").replace(",", "."));
 
-  const ctx = await requireStockContext("warehouses.edit");
+  const ctx = await requireStockContext("stock.correct");
   const lot = await db.stockLot.findFirst({
     where: { id: d.data.lotId, orgId: ctx.orgId },
     include: { genericItem: { include: { baseUnit: true } } },
@@ -46,18 +46,12 @@ export async function correctLotStock(form: FormData) {
   }
 
   try {
-    await stockTransaction(async (tx) => {
-      await assertStockScope(tx, ctx, { warehouseId: lot.warehouseId, forWrite: true });
-      await postStockMovement(tx, {
-        orgId: ctx.orgId,
-        warehouseId: lot.warehouseId,
-        lotId: lot.id,
-        genericItemId: lot.genericItemId,
-        quantity,
-        source: "manual",
-        note: d.data.note,
-        actor: { id: ctx.userId, name: ctx.userName },
-      });
+    await postStockCorrection(ctx, {
+      warehouseId: lot.warehouseId,
+      lotId: lot.id,
+      genericItemId: lot.genericItemId,
+      quantity,
+      reason: d.data.note,
     });
   } catch (error) {
     if (error instanceof StockError) return fail(STOCK_ERROR_MESSAGE[error.code]);

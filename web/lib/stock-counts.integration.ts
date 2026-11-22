@@ -78,7 +78,7 @@ function context(f: Fixture, warehouseIds: readonly string[] = []): StockContext
   };
 }
 
-function input(f: Fixture, override: Partial<{ clientKey: string; warehouseId: string; countedOn: string; note: string | null }> = {}) {
+function input(f: Fixture, override: Partial<{ clientKey: string; storeId: string | null; warehouseId: string; countedOn: string; note: string | null }> = {}) {
   return { clientKey: randomUUID(), warehouseId: f.warehouseId, countedOn, note: "Δοκιμαστική απογραφή", ...override };
 }
 
@@ -343,5 +343,129 @@ test("PostgreSQL STK-05: cross-tenant, warehouse scope και inactive warehouse
   } finally {
     await cleanup(f);
     await cleanup(foreign);
+  }
+});
+
+
+test("PostgreSQL STK-06: store count, replay, ημερήσιο conflict και scoped corrections", databaseOptions, async () => {
+  const f = await fixture();
+  try {
+    const store = await db.store.create({ data: { orgId: f.orgId, name: "Κατάστημα STK-06" } });
+    await db.storeWarehouse.create({ data: { storeId: store.id, warehouseId: f.warehouseId, isDefault: true } });
+    await seed(f, 10);
+    const request = input(f, { storeId: store.id });
+    const first = await createStockCount(context(f), request);
+    const replay = await createStockCount(context(f), request);
+    assert.deepEqual(replay, { id: first.id, replayed: true });
+
+    const count = await db.stockCount.findUnique({ where: { id: first.id }, include: { lines: true } });
+    assert.ok(count);
+    assert.equal(count.storeId, store.id);
+    assert.equal(count.lines[0]!.expectedQty, 10);
+    await saveLines(count.id, [{ lineId: count.lines[0]!.id, actualQty: 8, reason: "διαφορά καταστήματος" }], f);
+    assert.equal((await finalizeStockCount(context(f), count.id)).replayed, false);
+    assert.deepEqual(await finalizeStockCount(context(f), count.id), { id: count.id, replayed: true, lineCount: 1, correctionCount: 1 });
+
+    const movement = await db.stockMovement.findFirst({ where: { orgId: f.orgId, countId: count.id } });
+    assert.ok(movement);
+    assert.equal(movement.storeId, store.id);
+    assert.equal(movement.quantity, -2);
+
+    const second = await createStockCount(context(f), input(f, { storeId: store.id }));
+    const secondLine = (await db.stockCountLine.findFirst({ where: { countId: second.id, orgId: f.orgId } }))!;
+    await saveLines(second.id, [{ lineId: secondLine.id, actualQty: 8 }], f);
+    await expectCountCode(finalizeStockCount(context(f), second.id), "FINALIZED_COUNT_EXISTS");
+    assert.equal(await db.stockMovement.count({ where: { orgId: f.orgId, source: "count" } }), 1);
+  } finally {
+    await cleanup(f);
+  }
+});
+
+test("PostgreSQL STK-06: store/warehouse link, membership και inactive store μπλοκάρουν εγγραφές", databaseOptions, async () => {
+  const f = await fixture();
+  const foreign = await fixture();
+  try {
+    await seed(f, 5);
+    const store = await db.store.create({ data: { orgId: f.orgId, name: "Περιορισμένο κατάστημα STK-06" } });
+    const otherStore = await db.store.create({ data: { orgId: f.orgId, name: "Άλλο κατάστημα STK-06" } });
+    await expectScopeCode(createStockCount(context(f), input(f, { storeId: store.id })), "WAREHOUSE_NOT_ALLOWED_FOR_STORE");
+    await db.storeWarehouse.create({ data: { storeId: store.id, warehouseId: f.warehouseId } });
+    await db.storeWarehouse.create({ data: { storeId: otherStore.id, warehouseId: f.otherWarehouseId } });
+
+    const role = await db.orgRole.create({ data: { orgId: f.orgId, name: "Απογραφές STK-06", permissions: ["counts.read", "counts.add", "counts.edit", "counts.finalize"] } });
+    const membership = await db.membership.create({ data: { orgId: f.orgId, userId: f.userId, roleId: role.id } });
+    await db.membershipStore.create({ data: { membershipId: membership.id, storeId: store.id } });
+    const restricted = { ...context(f), membershipId: membership.id, storeIds: [store.id] };
+    await expectScopeCode(createStockCount(restricted, input(f, { storeId: otherStore.id, warehouseId: f.otherWarehouseId })), "STORE_NOT_FOUND");
+
+    const own = await createStockCount(restricted, input(f, { storeId: store.id }));
+    const line = (await db.stockCountLine.findFirst({ where: { orgId: f.orgId, countId: own.id } }))!;
+    await updateStockCountMeasurements(restricted, own.id, [{ lineId: line.id, actualQty: 5 }]);
+    await db.store.update({ where: { id: store.id }, data: { active: false } });
+    await expectScopeCode(createStockCount(context(f), input(f, { storeId: store.id })), "STORE_INACTIVE");
+    await expectScopeCode(finalizeStockCount(context(f), own.id), "STORE_INACTIVE");
+    await expectScopeCode(createStockCount(context(f), input(f, { storeId: foreign.warehouseId })), "STORE_NOT_FOUND");
+    assert.equal((await db.stockCount.findUnique({ where: { id: own.id } }))?.status, "DRAFT");
+    assert.equal(await db.stockMovement.count({ where: { orgId: f.orgId, source: "count" } }), 0);
+  } finally {
+    await cleanup(f);
+    await cleanup(foreign);
+  }
+});
+
+
+test("PostgreSQL STK-08: edit replay, payload mismatch, stale revision και finalized replay", databaseOptions, async () => {
+  const f = await fixture();
+  try {
+    await seed(f, 10);
+    const store = await db.store.create({ data: { orgId: f.orgId, name: "Offline STK-08" } });
+    await db.storeWarehouse.create({ data: { storeId: store.id, warehouseId: f.warehouseId } });
+    const created = await createStockCount(context(f), input(f, { storeId: store.id }));
+    const initial = (await db.stockCount.findUnique({ where: { id: created.id } }))!;
+    const line = (await db.stockCountLine.findFirst({ where: { orgId: f.orgId, countId: created.id } }))!;
+    const options = { clientKey: randomUUID(), expectedUpdatedAt: initial.updatedAt };
+    const first = await updateStockCountMeasurements(context(f), created.id, [{ lineId: line.id, actualQty: 8, reason: "offline μέτρηση" }], options);
+    assert.equal(first.replayed, false);
+    assert.ok(first.updatedAt > initial.updatedAt);
+
+    const replay = await updateStockCountMeasurements(context(f), created.id, [{ lineId: line.id, actualQty: 8, reason: "offline μέτρηση" }], options);
+    assert.equal(replay.replayed, true);
+    assert.equal(replay.updatedAt.toISOString(), first.updatedAt.toISOString());
+    assert.equal(await db.stockCountEdit.count({ where: { orgId: f.orgId, countId: created.id } }), 1);
+    await expectCountCode(updateStockCountMeasurements(context(f), created.id, [{ lineId: line.id, actualQty: 7, reason: "άλλο payload" }], options), "IDEMPOTENCY_KEY_REUSED");
+    await expectCountCode(updateStockCountMeasurements(context(f), created.id, [{ lineId: line.id, actualQty: 6, reason: "παλιά συσκευή" }], { clientKey: randomUUID(), expectedUpdatedAt: initial.updatedAt }), "COUNT_REVISION_CONFLICT");
+    assert.equal((await db.stockCountLine.findUnique({ where: { id: line.id } }))?.actualQty, 8);
+
+    await finalizeStockCount(context(f), created.id);
+    const finalizedReplay = await updateStockCountMeasurements(context(f), created.id, [{ lineId: line.id, actualQty: 8, reason: "offline μέτρηση" }], options);
+    assert.equal(finalizedReplay.replayed, true);
+    await expectCountCode(updateStockCountMeasurements(context(f), created.id, [{ lineId: line.id, actualQty: 8, reason: "offline μέτρηση" }], { clientKey: randomUUID(), expectedUpdatedAt: first.updatedAt }), "COUNT_ALREADY_FINALIZED");
+    assert.equal(await db.stockMovement.count({ where: { orgId: f.orgId, source: "count" } }), 1);
+  } finally {
+    await cleanup(f);
+  }
+});
+
+test("PostgreSQL STK-08: concurrent device edits επιτρέπουν μία εγγραφή και ρητό revision conflict", databaseOptions, async () => {
+  const f = await fixture();
+  try {
+    await seed(f, 10);
+    const created = await createStockCount(context(f), input(f));
+    const initial = (await db.stockCount.findUnique({ where: { id: created.id } }))!;
+    const line = (await db.stockCountLine.findFirst({ where: { orgId: f.orgId, countId: created.id } }))!;
+    const results = await Promise.allSettled([7, 8].map((actualQty) => updateStockCountMeasurements(
+      context(f),
+      created.id,
+      [{ lineId: line.id, actualQty, reason: "ταυτόχρονη συσκευή" }],
+      { clientKey: randomUUID(), expectedUpdatedAt: initial.updatedAt },
+    )));
+    assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+    const rejected = results.find((result) => result.status === "rejected");
+    assert.ok(rejected && rejected.status === "rejected");
+    assert.ok(rejected.reason instanceof StockCountError);
+    assert.equal(rejected.reason.code, "COUNT_REVISION_CONFLICT");
+    assert.equal(await db.stockCountEdit.count({ where: { orgId: f.orgId, countId: created.id } }), 1);
+  } finally {
+    await cleanup(f);
   }
 });

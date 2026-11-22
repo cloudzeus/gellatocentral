@@ -119,6 +119,8 @@ model Organization {
   stockLots            StockLot[]
   stockTransfers       StockTransfer[]
   stockCounts          StockCount[]
+  stockCountEdits      StockCountEdit[]
+  stockThresholds      StockThreshold[]
   usageEvents          UsageEvent[]
   tickets              Ticket[]
   documentSeries       DocumentSeries[]
@@ -414,6 +416,7 @@ model Warehouse {
   sourceTransfers      StockTransfer[]       @relation("TransferSource")
   destinationTransfers StockTransfer[]       @relation("TransferDestination")
   stockCounts          StockCount[]
+  stockThresholds      StockThreshold[]
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -524,10 +527,26 @@ model StockCount {
   finalizedBy     User?            @relation("CountFinalizedBy", fields: [finalizedById], references: [id], onDelete: SetNull)
   lines           StockCountLine[]
   movements       StockMovement[]
+  edits           StockCountEdit[]
 
   @@unique([orgId, clientKey])
   @@index([orgId, warehouseId, countedOn, status])
   @@index([orgId, storeId, countedOn])
+}
+
+// Idempotency των offline measurement edits· το canonical hash εμποδίζει reuse με άλλο payload.
+model StockCountEdit {
+  id          String       @id @default(cuid())
+  orgId       String
+  countId     String
+  clientKey   String
+  requestHash String
+  createdAt   DateTime     @default(now())
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  count       StockCount   @relation(fields: [countId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, countId, clientKey])
+  @@index([orgId, countId, createdAt])
 }
 
 model StockCountLine {
@@ -550,6 +569,23 @@ model StockCountLine {
 
   @@unique([orgId, countId, genericItemId, lotId])
   @@index([orgId, genericItemId])
+}
+
+// Ρητό ελάχιστο ανά tenant/warehouse/generic· χωρίς γραμμή δεν παράγεται low-stock alert.
+model StockThreshold {
+  id            String       @id @default(cuid())
+  orgId         String
+  warehouseId   String
+  genericItemId String
+  minimumQty    Int
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  warehouse     Warehouse    @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  genericItem   GenericItem  @relation(fields: [genericItemId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, warehouseId, genericItemId])
+  @@index([orgId, warehouseId])
 }
 
 // Άμεση, οριστική μεταφορά: η ύπαρξή του σημαίνει posted και δημιουργείται μαζί με όλες τις κινήσεις.
@@ -1373,6 +1409,7 @@ model GenericItem {
   productionItems   ProductionBatchItem[]
   transferLines     StockTransferLine[]
   countLines        StockCountLine[]
+  stockThresholds   StockThreshold[]
 
   @@unique([orgId, name])
   @@index([orgId, active])

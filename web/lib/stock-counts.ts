@@ -1,4 +1,4 @@
-// Απογραφή εργαστηρίου: draft snapshot, επεξεργασία μετρήσεων και ατομικό finalize με append-only corrections.
+// Απογραφή εργαστηρίου/καταστήματος: snapshot, revisioned offline edits και ατομικό finalize.
 import type { Prisma } from "./generated/prisma/client.ts";
 import { writeAudit } from "./audit.ts";
 import { db } from "./db.ts";
@@ -8,6 +8,7 @@ import {
   canonicalStockCountRequest,
   stockCountedOnDate,
   stockCountDifference,
+  stockCountMeasurementsHash,
   stockCountRequestHash,
   StockCountError,
   type CanonicalStockCountRequest,
@@ -25,14 +26,16 @@ import {
 import { assertStockScope, type StockContext } from "./stock-scope.ts";
 import { stockTransaction } from "./stock-transaction.ts";
 
-type CountDb = Pick<Prisma.TransactionClient, "stockCount" | "stockCountLine">;
+type CountDb = Pick<Prisma.TransactionClient, "stockCount" | "stockCountLine" | "stockCountEdit">;
 type CountHeader = {
   id: string;
   orgId: string;
+  storeId: string | null;
   warehouseId: string;
   countedOn: Date;
   snapshotAt: Date;
   status: "DRAFT" | "FINALIZED";
+  updatedAt: Date;
 };
 
 export type StockCountResult = { id: string; replayed: boolean };
@@ -59,10 +62,10 @@ async function databaseNow(tx: Pick<Prisma.TransactionClient, "$queryRaw">): Pro
   return rows[0].now;
 }
 
-async function workshopCount(tx: CountDb, ctx: StockContext, id: string): Promise<CountHeader> {
+async function scopedCount(tx: CountDb, ctx: StockContext, id: string): Promise<CountHeader> {
   const count = await tx.stockCount.findFirst({
-    where: { id: entityId(id), orgId: ctx.orgId, storeId: null },
-    select: { id: true, orgId: true, warehouseId: true, countedOn: true, snapshotAt: true, status: true },
+    where: { id: entityId(id), orgId: ctx.orgId },
+    select: { id: true, orgId: true, storeId: true, warehouseId: true, countedOn: true, snapshotAt: true, status: true, updatedAt: true },
   });
   if (!count) throw new StockCountError("COUNT_NOT_FOUND");
   return count;
@@ -84,14 +87,17 @@ async function createInTransaction(
   request: CanonicalStockCountRequest,
   requestHash: string,
 ): Promise<StockCountResult> {
-  await assertStockScope(tx, ctx, { warehouseId: request.warehouseId, forWrite: true });
+  await assertStockScope(tx, ctx, { storeId: request.storeId ?? undefined, warehouseId: request.warehouseId, forWrite: true });
   const replay = await existingCount(tx, ctx.orgId, request.clientKey, requestHash);
   if (replay) return replay;
 
   // Η ώρα και τα balances διαβάζονται από το ίδιο Serializable database snapshot.
   const snapshotAt = await databaseNow(tx);
-  const nonzero = (await stockBalances(tx, { orgId: ctx.orgId, warehouseIds: [request.warehouseId] }))
-    .filter((balance) => balance.quantity !== 0);
+  const nonzero = (await stockBalances(tx, {
+    orgId: ctx.orgId,
+    warehouseIds: [request.warehouseId],
+    storeId: request.storeId ?? undefined,
+  })).filter((balance) => balance.quantity !== 0);
   const generics = nonzero.length ? await tx.genericItem.findMany({
     where: { orgId: ctx.orgId, id: { in: nonzero.map((balance) => balance.genericItemId) }, trackStock: true },
     select: { id: true, avgCostHundredths: true, baseUnit: { select: { toBase: true } } },
@@ -123,7 +129,7 @@ async function createInTransaction(
   const count = await tx.stockCount.create({
     data: {
       orgId: ctx.orgId,
-      storeId: null,
+      storeId: request.storeId,
       warehouseId: request.warehouseId,
       countedOn: stockCountedOnDate(request.countedOn),
       snapshotAt,
@@ -169,20 +175,24 @@ async function lockDraft(
   ctx: StockContext,
   countId: string,
 ): Promise<CountHeader> {
-  const initial = await workshopCount(tx, ctx, countId);
-  await assertStockScope(tx, ctx, { warehouseId: initial.warehouseId });
+  const initial = await scopedCount(tx, ctx, countId);
+  await assertStockScope(tx, ctx, { storeId: initial.storeId ?? undefined, warehouseId: initial.warehouseId });
   // Κλειδώνει έναντι του finalize, ώστε καμία μέτρηση/γραμμή δεν γράφεται ενώ οριστικοποιείται.
   await lockStockWarehouses(tx, ctx.orgId, [initial.warehouseId], true);
-  const count = await workshopCount(tx, ctx, countId);
+  const count = await scopedCount(tx, ctx, countId);
   if (count.status !== "DRAFT") throw new StockCountError("COUNT_ALREADY_FINALIZED");
   return count;
 }
+
+export type StockCountMeasurementOptions = { clientKey: string; expectedUpdatedAt: Date };
+export type StockCountMeasurementResult = { replayed: boolean; updatedAt: Date };
 
 export async function updateStockCountMeasurements(
   ctx: StockContext,
   countId: string,
   measurements: readonly ({ lineId: string } & StockCountMeasurementInput)[],
-): Promise<void> {
+  options?: StockCountMeasurementOptions,
+): Promise<StockCountMeasurementResult> {
   if (!measurements.length || measurements.length > 1000) throw new StockCountError("INVALID_COUNT_REQUEST");
   const seen = new Set<string>();
   const parsed = measurements.map((measurement) => {
@@ -191,8 +201,29 @@ export async function updateStockCountMeasurements(
     seen.add(lineId);
     return { lineId, ...canonicalStockCountMeasurement(measurement) };
   });
-  await stockTransaction(async (tx) => {
+  const clientKey = options ? entityId(options.clientKey) : null;
+  if (options && !Number.isFinite(options.expectedUpdatedAt.getTime())) throw new StockCountError("INVALID_COUNT_REQUEST");
+  const requestHash = stockCountMeasurementsHash(ctx.orgId, countId, parsed);
+
+  return stockTransaction(async (tx) => {
+    // Το replay ελέγχεται πριν από το status lock, ώστε ένα ήδη εφαρμοσμένο edit να μείνει επιτυχές.
+    const initial = await scopedCount(tx, ctx, countId);
+    await assertStockScope(tx, ctx, { storeId: initial.storeId ?? undefined, warehouseId: initial.warehouseId });
+    if (clientKey) {
+      const existing = await tx.stockCountEdit.findUnique({
+        where: { orgId_countId_clientKey: { orgId: ctx.orgId, countId: initial.id, clientKey } },
+        select: { requestHash: true },
+      });
+      if (existing) {
+        if (existing.requestHash !== requestHash) throw new StockCountError("IDEMPOTENCY_KEY_REUSED");
+        return { replayed: true, updatedAt: initial.updatedAt };
+      }
+    }
+
     const count = await lockDraft(tx, ctx, countId);
+    if (options && count.updatedAt.getTime() !== options.expectedUpdatedAt.getTime()) {
+      throw new StockCountError("COUNT_REVISION_CONFLICT");
+    }
     const lines = await tx.stockCountLine.findMany({
       where: { orgId: ctx.orgId, countId: count.id, id: { in: parsed.map((measurement) => measurement.lineId) } },
       select: { id: true, expectedQty: true },
@@ -207,6 +238,14 @@ export async function updateStockCountMeasurements(
       });
       if (result.count !== 1) throw new StockCountError("COUNT_ALREADY_FINALIZED");
     }
+    const updatedAt = await databaseNow(tx);
+    const touched = await tx.stockCount.updateMany({
+      where: { id: count.id, orgId: ctx.orgId, status: "DRAFT" },
+      data: { updatedAt },
+    });
+    if (touched.count !== 1) throw new StockCountError("COUNT_ALREADY_FINALIZED");
+    if (clientKey) await tx.stockCountEdit.create({ data: { orgId: ctx.orgId, countId: count.id, clientKey, requestHash } });
+    return { replayed: false, updatedAt };
   });
 }
 
@@ -257,6 +296,7 @@ export async function addStockCountLine(
           unitCostHundredths: generic.avgCostHundredths,
         },
       });
+      await tx.stockCount.update({ where: { id: count.id }, data: { updatedAt: await databaseNow(tx) } });
     });
   } catch (error) {
     if (isUniqueConflict(error)) throw new StockCountError("DUPLICATE_COUNT_LINE");
@@ -298,6 +338,7 @@ export async function addStockCountLotLine(
           unitCostHundredths: generic.avgCostHundredths,
         },
       });
+      await tx.stockCount.update({ where: { id: count.id }, data: { updatedAt: await databaseNow(tx) } });
     });
   } catch (error) {
     if (isUniqueConflict(error)) throw new StockCountError("LOT_ALREADY_EXISTS");
@@ -311,7 +352,7 @@ function keyOf(key: Omit<StockKey, "orgId">): string {
 
 async function finalizeResult(tx: CountDb, ctx: StockContext, id: string, replayed: boolean): Promise<StockCountFinalizeResult> {
   const count = await tx.stockCount.findFirst({
-    where: { id, orgId: ctx.orgId, storeId: null, status: "FINALIZED" },
+    where: { id, orgId: ctx.orgId, status: "FINALIZED" },
     select: { id: true, lines: { select: { id: true, movement: { select: { id: true } } } } },
   });
   if (!count) throw new StockCountError("COUNT_NOT_FOUND");
@@ -324,12 +365,12 @@ async function finalizeResult(tx: CountDb, ctx: StockContext, id: string, replay
 }
 
 async function finalizeInTransaction(tx: Prisma.TransactionClient, ctx: StockContext, countId: string): Promise<StockCountFinalizeResult> {
-  const initial = await workshopCount(tx, ctx, countId);
-  await assertStockScope(tx, ctx, { warehouseId: initial.warehouseId });
+  const initial = await scopedCount(tx, ctx, countId);
+  await assertStockScope(tx, ctx, { storeId: initial.storeId ?? undefined, warehouseId: initial.warehouseId });
   await lockStockWarehouses(tx, ctx.orgId, [initial.warehouseId], true);
-  const count = await workshopCount(tx, ctx, countId);
+  const count = await scopedCount(tx, ctx, countId);
   if (count.status === "FINALIZED") return finalizeResult(tx, ctx, count.id, true);
-  await assertStockScope(tx, ctx, { warehouseId: count.warehouseId, forWrite: true });
+  await assertStockScope(tx, ctx, { storeId: count.storeId ?? undefined, warehouseId: count.warehouseId, forWrite: true });
 
   const finalized = await tx.stockCount.findFirst({
     where: {
@@ -354,6 +395,7 @@ async function finalizeInTransaction(tx: Prisma.TransactionClient, ctx: StockCon
     orgId: ctx.orgId,
     warehouseIds: [count.warehouseId],
     genericItemIds: lines.map((line) => line.genericItemId),
+    storeId: count.storeId ?? undefined,
   });
   const currentByKey = new Map(balances.map((balance) => [keyOf(balance), balance.quantity]));
   for (const { line } of prepared) {
@@ -374,7 +416,7 @@ async function finalizeInTransaction(tx: Prisma.TransactionClient, ctx: StockCon
       warehouseId: count.warehouseId,
       genericItemId: line.genericItemId,
       lotId: line.lotId,
-      storeId: null,
+      storeId: count.storeId,
       quantity: differenceQty,
       source: "count",
       countId: count.id,

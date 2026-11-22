@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Layers3, Plus, Save } from "lucide-react";
+import { OfflineCountMeasurements, OfflineCountQueue, OnlineOnlyFinalize } from "@/components/offline-counts";
 import { Submit } from "@/components/submit";
 import { Badge, btn, Card, Page } from "@/components/ui";
 import { db } from "@/lib/db";
@@ -24,9 +25,10 @@ export default async function CountPage({ params, searchParams }: { params: Prom
   const ctx = await requireStockContext("counts.read");
   const warehouses = await db.warehouse.findMany({ where: warehouseScopeWhere(ctx), select: { id: true } });
   const count = await db.stockCount.findFirst({
-    where: { id, orgId: ctx.orgId, storeId: null, warehouseId: { in: warehouses.map((warehouse) => warehouse.id) } },
+    where: { id, orgId: ctx.orgId, warehouseId: { in: warehouses.map((warehouse) => warehouse.id) } },
     include: {
       warehouse: { select: { name: true, active: true } },
+      store: { select: { name: true, active: true } },
       lines: {
         include: {
           genericItem: { include: { baseUnit: true } },
@@ -40,8 +42,9 @@ export default async function CountPage({ params, searchParams }: { params: Prom
   if (!count) notFound();
 
   const draft = count.status === "DRAFT";
-  const canEdit = draft && count.warehouse.active && ctx.can("counts.edit");
-  const canFinalize = draft && count.warehouse.active && ctx.can("counts.finalize");
+  const activeScope = count.warehouse.active && (count.store?.active ?? true);
+  const canEdit = draft && activeScope && ctx.can("counts.edit");
+  const canFinalize = draft && activeScope && ctx.can("counts.finalize");
   const [generics, lots] = canEdit ? await Promise.all([
     db.genericItem.findMany({
       where: { orgId: ctx.orgId, trackStock: true, active: true },
@@ -69,7 +72,7 @@ export default async function CountPage({ params, searchParams }: { params: Prom
     <Page
       section="Αποθήκη & αγορές"
       title={`Απογραφή ${day.format(count.countedOn)}`}
-      description={`${count.warehouse.name} · ${draft ? "προσχέδιο μετρήσεων" : "οριστικοποιημένο ιστορικό"}`}
+      description={`${count.store ? `Κατάστημα: ${count.store.name} · ` : "Εργαστήριο / αποθήκη · "}${count.warehouse.name} · ${draft ? "προσχέδιο μετρήσεων" : "οριστικοποιημένο ιστορικό"}`}
       actions={<Link href="/counts" className={btn("outline", "sm")}><ArrowLeft /> Όλες οι απογραφές</Link>}
     >
       <div className="grid max-w-[100rem] gap-5">
@@ -93,9 +96,12 @@ export default async function CountPage({ params, searchParams }: { params: Prom
           </div>
           {draft ? <p className="mt-4 rounded-lg bg-secondary/45 px-3 py-2 text-xs text-muted-foreground">Οι ποσότητες καταχωρίζονται στη βασική μονάδα κάθε είδους (mg, ml ή τεμάχια). Αποθήκευσε τις μετρήσεις πριν από την οριστικοποίηση. Αν καταγραφεί νέα κίνηση μετά το snapshot, η οριστικοποίηση απορρίπτεται αντί να γίνει rebase.</p> : null}
           {!count.warehouse.active && draft ? <p className="mt-3 text-sm font-medium text-destructive">Η αποθήκη είναι ανενεργή· η απογραφή παραμένει read-only.</p> : null}
+          {count.store && !count.store.active && draft ? <p className="mt-3 text-sm font-medium text-destructive">Το κατάστημα είναι ανενεργό· η απογραφή παραμένει read-only.</p> : null}
         </Card>
 
+        {count.store ? <OfflineCountQueue identity={{ orgId: ctx.orgId, userId: ctx.userId }} /> : null}
         {canEdit ? <form id="count-measurements" action={saveCountMeasurements.bind(null, count.id)} /> : null}
+        {canEdit && count.store ? <OfflineCountMeasurements identity={{ orgId: ctx.orgId, userId: ctx.userId }} formId="count-measurements" countId={count.id} expectedUpdatedAt={count.updatedAt.toISOString()} /> : null}
         <Card className="overflow-hidden">
           <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
             <div className="min-w-0 flex-1"><h2 className="text-lg font-semibold">Μετρήσεις ειδών και παρτίδων</h2><p className="text-sm text-muted-foreground">Το αναμενόμενο είναι το παγωμένο snapshot· η διαφορά είναι πραγματική μείον αναμενόμενη ποσότητα.</p></div>
@@ -161,7 +167,7 @@ export default async function CountPage({ params, searchParams }: { params: Prom
         {draft ? <Card className="px-5 py-5">
           <div className="flex flex-wrap items-center gap-4">
             <div className="min-w-0 flex-1"><h2 className="text-lg font-semibold">Οριστικοποίηση</h2><p className="mt-1 text-sm text-muted-foreground">Απαιτούνται πραγματική ποσότητα σε κάθε γραμμή και αιτιολογία 3–200 χαρακτήρων σε κάθε διαφορά. Επιτρέπεται μία οριστική απογραφή ανά αποθήκη και ημερομηνία.</p></div>
-            {canFinalize && count.lines.length ? <form action={finalizeCount.bind(null, count.id)}><Submit className={btn("default")} pendingText="Οριστικοποίηση…"><CheckCircle2 /> Οριστικοποίηση απογραφής</Submit></form> : null}
+            {canFinalize && count.lines.length ? <form id="count-finalize" action={finalizeCount.bind(null, count.id)}>{count.store ? <OnlineOnlyFinalize formId="count-finalize" className={btn("default")}><CheckCircle2 /> Οριστικοποίηση απογραφής</OnlineOnlyFinalize> : <Submit className={btn("default")} pendingText="Οριστικοποίηση…"><CheckCircle2 /> Οριστικοποίηση απογραφής</Submit>}</form> : null}
           </div>
           {!ctx.can("counts.finalize") ? <p className="mt-3 text-sm text-muted-foreground">Δεν έχεις δικαίωμα οριστικοποίησης.</p> : null}
         </Card> : null}

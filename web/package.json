@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test \"lib/**/*.test.ts\"",
-    "test:stock-integration": "tsx --test --test-concurrency=1 lib/stock-db.integration.ts lib/stock-read.integration.ts lib/stock-transfers.integration.ts lib/stock-counts.integration.ts",
+    "test:stock-integration": "tsx --test --test-concurrency=1 lib/stock-db.integration.ts lib/stock-read.integration.ts lib/stock-transfers.integration.ts lib/stock-counts.integration.ts lib/stock-corrections.integration.ts lib/stock-alerts.integration.ts",
     "backup": "tsx scripts/backup.ts",
     "postinstall": "prisma generate"
   },

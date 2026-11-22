@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Boxes, Layers3, Search, Warehouse } from "lucide-react";
+import { ArrowLeft, ArrowRight, BellRing, Boxes, Layers3, Search, Warehouse } from "lucide-react";
 import { Badge, btn, Card, Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -69,7 +69,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
       section="Αποθήκη & αγορές"
       title="Απόθεμα"
       description="Πραγματικό υπόλοιπο πρώτων υλών από τις κινήσεις αποθήκης, με κόστος, λήξεις και σειρά FEFO"
-      actions={ctx.can("warehouses.read") ? <Link href="/inventory" className={btn("outline", "sm")}><Warehouse /> Αποθήκες</Link> : null}
+      actions={<div className="flex flex-wrap gap-2"><Link href="/inventory/alerts" className={btn("outline", "sm")}><BellRing /> Ειδοποιήσεις</Link>{ctx.can("warehouses.read") ? <Link href="/inventory" className={btn("outline", "sm")}><Warehouse /> Αποθήκες</Link> : null}</div>}
     >
       <div className="grid max-w-[90rem] gap-4">
         <nav aria-label="Προβολή αποθέματος" className="flex w-fit flex-wrap gap-1 rounded-lg border border-border bg-card p-1">

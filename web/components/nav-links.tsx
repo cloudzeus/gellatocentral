@@ -123,7 +123,7 @@ export function UserFooter({ user, collapsed = false }: { user: User; collapsed?
         </Link>
       )}
       {collapsed ? null : <ThemeToggle />}
-      <form action={user.logout}>
+      <form action={user.logout} data-offline-logout="true">
         <button aria-label="Έξοδος" title="Έξοδος" className="grid size-10 cursor-pointer place-items-center rounded-lg text-sidebar-foreground/70 transition-colors duration-200 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground pointer-coarse:size-11">
           <LogOut className="size-4" />
         </button>

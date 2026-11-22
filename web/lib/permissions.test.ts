@@ -27,6 +27,7 @@ test("δικαίωμα ανά σελίδα", () => {
   assert.equal(permissionFor("/materials"), "items.read");
   assert.equal(permissionFor("/inventory/stock"), "stock.read");
   assert.equal(permissionFor("/inventory/stock/lots/abc"), "stock.read");
+  assert.equal(permissionFor("/inventory/alerts"), "stock.read");
   assert.equal(permissionFor("/inventory/transfers/abc"), "stock.read");
   assert.equal(permissionFor("/inventory/warehouses/abc"), "warehouses.read");
   assert.equal(permissionFor("/counts/abc"), "counts.read");

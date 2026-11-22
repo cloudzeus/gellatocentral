@@ -1,0 +1,118 @@
+// Καθαρό contract τοπικής ουράς· δεν περιέχει session tokens ή credentials.
+export type OfflineCountIdentity = { orgId: string; userId: string; deviceId: string };
+export type OfflineCountCreatePayload = {
+  kind: "create";
+  storeId: string;
+  warehouseId: string;
+  countedOn: string;
+  note: string | null;
+};
+export type OfflineCountMeasurementsPayload = {
+  kind: "measurements";
+  countId: string;
+  expectedUpdatedAt: string;
+  measurements: { lineId: string; actualQty: number | null; reason: string | null }[];
+};
+export type OfflineCountPayload = OfflineCountCreatePayload | OfflineCountMeasurementsPayload;
+export type OfflineCountStatus = "queued" | "syncing" | "conflict";
+export type OfflineCountEntry = {
+  key: string;
+  orgId: string;
+  userId: string;
+  deviceId: string;
+  clientKey: string;
+  localRevision: number;
+  canonicalPayload: string;
+  payload: OfflineCountPayload;
+  status: OfflineCountStatus;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function canonicalOfflineCountPayload(payload: OfflineCountPayload): string {
+  if (payload.kind === "create") {
+    return JSON.stringify({
+      kind: payload.kind,
+      storeId: payload.storeId.trim(),
+      warehouseId: payload.warehouseId,
+      countedOn: payload.countedOn,
+      note: payload.note?.trim() || null,
+    });
+  }
+  return JSON.stringify({
+    kind: payload.kind,
+    countId: payload.countId,
+    expectedUpdatedAt: payload.expectedUpdatedAt,
+    measurements: payload.measurements
+      .map((line) => ({ lineId: line.lineId, actualQty: line.actualQty, reason: line.reason?.trim() || null }))
+      .sort((a, b) => a.lineId.localeCompare(b.lineId)),
+  });
+}
+
+export function offlineCountKey(identity: OfflineCountIdentity, clientKey: string): string {
+  return JSON.stringify([identity.orgId, identity.userId, identity.deviceId, clientKey]);
+}
+
+export function newOfflineCountEntry(
+  identity: OfflineCountIdentity,
+  clientKey: string,
+  payload: OfflineCountPayload,
+  now = new Date(),
+): OfflineCountEntry {
+  return {
+    key: offlineCountKey(identity, clientKey),
+    ...identity,
+    clientKey,
+    localRevision: 1,
+    canonicalPayload: canonicalOfflineCountPayload(payload),
+    payload,
+    status: "queued",
+    error: null,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+}
+
+/** Ίδιο key/payload είναι replay· διαφορετικό payload γίνεται ορατό conflict, ποτέ overwrite. */
+export function mergeOfflineCountEntry(existing: OfflineCountEntry | undefined, incoming: OfflineCountEntry): OfflineCountEntry {
+  if (!existing) return incoming;
+  if (existing.canonicalPayload === incoming.canonicalPayload) return existing;
+  return {
+    ...existing,
+    localRevision: existing.localRevision + 1,
+    status: "conflict",
+    error: "LOCAL_KEY_REUSED",
+    updatedAt: incoming.updatedAt,
+  };
+}
+
+const CONFLICTS = new Set([
+  "COUNT_ALREADY_FINALIZED",
+  "COUNT_REVISION_CONFLICT",
+  "STOCK_CHANGED_SINCE_SNAPSHOT",
+  "FINALIZED_COUNT_EXISTS",
+  "IDEMPOTENCY_KEY_REUSED",
+  "LOCAL_KEY_REUSED",
+]);
+
+export function offlineStatusForError(code: string, httpStatus = 0): OfflineCountStatus {
+  return CONFLICTS.has(code) || (httpStatus >= 400 && httpStatus < 500) ? "conflict" : "queued";
+}
+
+/** Μετά από reload/crash το «syncing» είναι ορατό, αλλά ξαναγίνεται queued πριν από νέο global sync. */
+export function recoverOfflineCountEntry(entry: OfflineCountEntry, now = new Date()): OfflineCountEntry {
+  if (entry.status !== "syncing") return entry;
+  return { ...entry, status: "queued", error: "SYNC_INTERRUPTED", updatedAt: now.toISOString() };
+}
+
+export function canSyncOfflineCount(entry: Pick<OfflineCountEntry, "status">): boolean {
+  return entry.status === "queued";
+}
+
+export function shouldClearOfflineQueue(
+  previous: Pick<OfflineCountIdentity, "orgId" | "userId"> | null,
+  next: Pick<OfflineCountIdentity, "orgId" | "userId">,
+): boolean {
+  return !!previous && (previous.orgId !== next.orgId || previous.userId !== next.userId);
+}

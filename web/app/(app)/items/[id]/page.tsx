@@ -199,13 +199,13 @@ export default async function GenericItemPage({ params, searchParams }: { params
               <h2 className="text-lg">Απόθεμα & παρτίδες</h2>
               <p className="text-sm text-muted-foreground">Σε βασική μονάδα ({generic.baseUnit.code})· οι παρτίδες με λήξη οδηγούν την κατανάλωση (FEFO)</p>
             </div>
-            {can("warehouses.edit") && warehouses.length ? (
+            {can("stock.correct") && warehouses.length ? (
               <Modal label={<><ClipboardEdit /> Διόρθωση</>} size="sm" title={`Διόρθωση αποθέματος: ${generic.name}`}>
                 <form action={addCorrection} className="grid gap-4 [&>button]:justify-self-end">
                   <input type="hidden" name="genericItemId" value={generic.id} />
                   <Select label="Αποθήκη" name="warehouseId" required options={warehouses.map((w): [string, string] => [w.id, w.name])} />
                   <Field label={`Ποσότητα (${generic.baseUnit.code})`} name="qty" required inputMode="numeric" hint="Θετική για είσοδο, αρνητική για αφαίρεση — π.χ. -500 για μισό κιλό λιγότερο" />
-                  <Field label="Αιτιολογία" name="note" required minLength={3} maxLength={120} hint="π.χ. «σπασίματα», «μέτρηση απογραφής», «άνοιγμα συσκευασίας»" />
+                  <Field label="Αιτιολογία" name="note" required minLength={3} maxLength={200} hint="π.χ. «σπασίματα», «μέτρηση απογραφής», «άνοιγμα συσκευασίας»" />
                   <Submit className={btn("default")}>Καταχώριση</Submit>
                 </form>
               </Modal>
