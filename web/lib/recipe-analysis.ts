@@ -267,7 +267,7 @@ export function piecesFromGrams(m: { gramsPerPiece?: number | null }, grams: num
 }
 
 /**
- * Μέσο κόστος ανά βασική μονάδα (εκατοστά λεπτού) → κόστος ανά γραμμάριο συνταγής.
+ * Μέσο κόστος ανά 1.000 βασικές μονάδες (εκατοστά λεπτού) → κόστος ανά γραμμάριο συνταγής.
  * Μάζα/όγκος: μέσω του toBase της μονάδας (1 g = 1000 mg, 1 ml νερού ≈ 1 g).
  * Τεμάχια: μέσω του βάρους τεμαχίου· χωρίς βάρος δεν κοστολογείται ανά γραμμάριο.
  */
@@ -276,7 +276,7 @@ export function costPerGramHundredths(item: { avgCostHundredths: number; baseUni
   if (avg <= 0) return 0;
   if (item.baseUnit.dimension === "count") {
     const gpp = num(item.gramsPerPiece);
-    return gpp > 0 ? avg / gpp : 0;
+    return gpp > 0 ? avg / 1000 / gpp : 0;
   }
   return item.baseUnit.toBase > 0 ? (avg * 1000) / item.baseUnit.toBase : 0;
 }

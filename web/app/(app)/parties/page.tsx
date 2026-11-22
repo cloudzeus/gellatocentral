@@ -177,7 +177,7 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
             listing={{ ...list, total, placeholder: "Επωνυμία, ΑΦΜ, πόλη ή επαφή", filters: [{ key: "region", label: "Περιοχή", value: region, options: regionsInUse.map((r): [string, string] => [r, r]) }, { key: "status", label: "Κατάσταση", value: status, options: [["active", "Ενεργοί"], ["inactive", "Ανενεργοί"]] }] }}
             empty={role ? `Κανένας με τον ρόλο «${PARTY_ROLES[role].label}» ακόμα` : "Κανένας συναλλασσόμενος ακόμα. Πάτησε «Νέος συναλλασσόμενος» για την πρώτη καρτέλα"}
             columns={[
-              { key: "name", label: "Συναλλασσόμενος", required: true, sortable: true },
+              { key: "name", label: "Συναλλασσόμενος", required: true, sortable: true, wrap: true },
               { key: "roles", label: "Ρόλοι" },
               { key: "city", label: "Έδρα · περιοχή", sortable: true },
               { key: "contact", label: "Κύρια επαφή" },
@@ -193,7 +193,7 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
               return {
                 id: c.id,
                 cells: {
-                  name: <div className="min-w-0"><Link href={here(c.id)} scroll={false} prefetch={false} title="Γρήγορη προβολή" className="font-semibold underline-offset-2 hover:underline">{c.name}</Link><span className="block text-xs text-muted-foreground">{c.vatNumber ? `ΑΦΜ ${c.countryCode === "GR" ? "" : `${c.countryCode} `}${c.vatNumber}` : "χωρίς ΑΦΜ: δεν βγαίνει τιμολόγιο"}{c.vatCheckedAt ? " · επιβεβαιωμένο" : ""}{c.active ? "" : " · ανενεργός"}</span></div>,
+                  name: <div className="min-w-0"><Link href={here(c.id)} scroll={false} prefetch={false} title={c.name} className="block min-w-0 wrap-anywhere leading-snug font-semibold underline-offset-2 hover:underline md:line-clamp-2">{c.name}</Link><span className="block text-xs text-muted-foreground">{c.vatNumber ? `ΑΦΜ ${c.countryCode === "GR" ? "" : `${c.countryCode} `}${c.vatNumber}` : "χωρίς ΑΦΜ: δεν βγαίνει τιμολόγιο"}{c.vatCheckedAt ? " · επιβεβαιωμένο" : ""}{c.active ? "" : " · ανενεργός"}</span></div>,
                   roles: <RoleBadges roles={c.roles} />,
                   city: c.city || c.region ? <span className="inline-flex items-center gap-1">{c.latitude != null ? <MapPin className="size-3.5 text-muted-foreground" aria-label="Έχει θέση στον χάρτη" /> : null}{[c.city, c.region].filter(Boolean).join(" · ")}{c._count.addresses ? <span className="text-muted-foreground"> · {c._count.addresses} υποκ.</span> : null}</span> : <span className="text-muted-foreground">—</span>,
                   contact: main || c.contactName || phone || email ? <div className="min-w-0">{main?.person.name ?? c.contactName ?? (phone ? showPhone(phone) : email)}{g.contacts.length > 1 ? <span className="text-muted-foreground"> +{g.contacts.length - 1}</span> : null}<span className="block text-xs text-muted-foreground">{[main?.title, main || c.contactName ? (phone ? showPhone(phone) : email) : null].filter(Boolean).join(" · ")}</span></div> : <span className="text-muted-foreground">—</span>,

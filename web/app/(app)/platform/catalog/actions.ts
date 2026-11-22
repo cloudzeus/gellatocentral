@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { compositionFromForm } from "@/lib/composition";
 import { validGtin } from "@/lib/gs1";
 import { normalizeManufacturerName } from "@/lib/manufacturer";
+import { submittedOption } from "@/lib/select-options";
 import { deleteFile } from "@/lib/storage";
 
 const back = (q: string): never => {
@@ -75,7 +76,7 @@ export async function saveTradeItem(form: FormData) {
       name,
       ean: z.string().trim().max(14).refine((v) => v === "" || validGtin(v), "Το EAN είναι 8–14 ψηφία με σωστό ψηφίο ελέγχου"),
       categoryId: id,
-      brandId: id,
+      brandId: id.transform(submittedOption),
       packaging: z.string().trim().max(80),
       familyCode: z.string().trim().max(40),
       contentUnitId: z.string().min(1).max(80),

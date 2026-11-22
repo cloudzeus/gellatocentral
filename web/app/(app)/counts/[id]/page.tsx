@@ -6,7 +6,7 @@ import { Submit } from "@/components/submit";
 import { Badge, btn, Card, Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
-import { formatStockQuantity, formatStockValue, stockUnitCostHundredths, stockValueHundredths } from "@/lib/stock-view";
+import { formatStockQuantity, formatStockValue, stockDisplayUnit, stockUnitCostHundredths, stockValueHundredths } from "@/lib/stock-view";
 import { addCountLine, addCountLot, finalizeCount, saveCountMeasurements } from "../actions";
 
 const field = "h-10 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60";
@@ -123,7 +123,7 @@ export default async function CountPage({ params, searchParams }: { params: Prom
                       {canEdit ? <input form="count-measurements" aria-label={`Πραγματική ποσότητα: ${line.genericItem.name}`} name={`actual_${line.id}`} type="number" inputMode="numeric" min={0} max={2_147_483_647} step={1} defaultValue={line.actualQty ?? ""} placeholder={line.genericItem.baseUnit.code} className={`${field} ml-auto w-32 text-right tabular-nums`} /> : <span className="whitespace-nowrap tabular-nums">{line.actualQty === null ? "—" : formatStockQuantity(line.actualQty, line.genericItem.baseUnit.dimension)}</span>}
                     </td>
                     <td className={`${td} text-right whitespace-nowrap font-medium tabular-nums ${line.differenceQty ? line.differenceQty > 0 ? "text-success" : "text-destructive" : ""}`}>{line.differenceQty === null ? "—" : formatStockQuantity(line.differenceQty, line.genericItem.baseUnit.dimension)}</td>
-                    <td className={`${td} text-right whitespace-nowrap tabular-nums`}>{line.unitCostHundredths > 0 ? <>{formatStockValue(stockUnitCostHundredths(line.unitCostHundredths, line.genericItem.baseUnit.toBase))} <span className="text-xs text-muted-foreground">/ {line.genericItem.baseUnit.code}</span></> : "—"}</td>
+                    <td className={`${td} text-right whitespace-nowrap tabular-nums`}>{line.unitCostHundredths > 0 ? <>{formatStockValue(stockUnitCostHundredths(line.unitCostHundredths, stockDisplayUnit(line.genericItem.baseUnit).toBase))} <span className="text-xs text-muted-foreground">/ {stockDisplayUnit(line.genericItem.baseUnit).code}</span></> : "—"}</td>
                     <td className={`${td} text-right whitespace-nowrap tabular-nums`}>{line.unitCostHundredths > 0 && line.differenceQty !== null ? formatStockValue(stockValueHundredths(line.differenceQty, line.unitCostHundredths)) : "—"}</td>
                     <td className={td}>
                       {canEdit ? <textarea form="count-measurements" aria-label={`Αιτιολογία: ${line.genericItem.name}`} name={`reason_${line.id}`} rows={2} maxLength={200} defaultValue={line.reason ?? ""} placeholder="Υποχρεωτική μόνο αν υπάρχει διαφορά" className="w-64 rounded-lg border border-input bg-card px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40" /> : line.reason ?? "—"}

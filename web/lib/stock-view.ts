@@ -18,20 +18,32 @@ export function safeStockNumber(value: number | bigint): number {
   return result;
 }
 
-/** Αξία σε εκατοστά λεπτού: ποσότητα βάσης × μέσο κόστος ανά βασική μονάδα. */
+/** Στρογγυλοποίηση κόστους από 1.000 βασικές μονάδες, συμμετρική και για αρνητική διαφορά απογραφής. */
+function fromThousandBaseUnits(value: bigint): number {
+  const sign = value < 0n ? -1n : 1n;
+  const absolute = value < 0n ? -value : value;
+  return safeStockNumber(sign * ((absolute + 500n) / 1000n));
+}
+
+/** Αξία σε εκατοστά λεπτού: ποσότητα βάσης × κόστος ανά 1.000 βασικές μονάδες. */
 export function stockValueHundredths(quantity: number, unitCostHundredths: number): number {
   if (!Number.isSafeInteger(quantity) || !Number.isSafeInteger(unitCostHundredths) || unitCostHundredths < 0) {
     throw new Error("μη έγκυρη ποσότητα ή κόστος αποθέματος");
   }
-  return safeStockNumber(BigInt(quantity) * BigInt(unitCostHundredths));
+  return fromThousandBaseUnits(BigInt(quantity) * BigInt(unitCostHundredths));
 }
 
-/** Το αποθηκευμένο κόστος είναι ανά mg/ml/τεμ· για την οθόνη μετατρέπεται στη μονάδα κατανάλωσης. */
+/** Το αποθηκευμένο κόστος είναι ανά 1.000 mg/ml/τεμ· για την οθόνη μετατρέπεται στη μονάδα κατανάλωσης. */
 export function stockUnitCostHundredths(baseUnitCostHundredths: number, toBase: number): number {
   if (!Number.isSafeInteger(baseUnitCostHundredths) || baseUnitCostHundredths < 0 || !Number.isSafeInteger(toBase) || toBase < 1) {
     throw new Error("μη έγκυρη μονάδα ή κόστος αποθέματος");
   }
-  return safeStockNumber(BigInt(baseUnitCostHundredths) * BigInt(toBase));
+  return fromThousandBaseUnits(BigInt(baseUnitCostHundredths) * BigInt(toBase));
+}
+
+/** Το κόστος εμφανίζεται ανά kg/l/τεμάχιο, όχι ανά μικροσκοπική βασική μονάδα. */
+export function stockDisplayUnit(baseUnit: UnitLike): UnitLike {
+  return VIEW_UNITS[baseUnit.dimension]?.[0] ?? baseUnit;
 }
 
 export function formatStockValue(valueHundredths: number | bigint): string {

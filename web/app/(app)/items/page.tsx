@@ -29,7 +29,7 @@ export default async function ItemsPage({ searchParams }: PageProps<"/items">) {
   const [items, total, units, vatRates] = await Promise.all([
     db.genericItem.findMany({ where, orderBy, skip: list.skip, take: list.take, include: { baseUnit: true, vatRate: true, _count: { select: { mappings: true } } } }),
     db.genericItem.count({ where }),
-    db.unit.findMany({ where: { active: true }, orderBy: [{ dimension: "asc" }, { toBase: "asc" }] }),
+    db.unit.findMany({ where: { active: true, toBase: 1 }, orderBy: [{ dimension: "asc" }, { toBase: "asc" }] }),
     db.vatRate.findMany({ where: { active: true }, orderBy: { rate: "desc" } }),
   ]);
 
@@ -37,7 +37,7 @@ export default async function ItemsPage({ searchParams }: PageProps<"/items">) {
     <form key={g?.id ?? "new"} action={saveGenericItem} className="grid gap-4 [&>button]:justify-self-end">
       <input type="hidden" name="genericItemId" value={g?.id ?? ""} />
       <Field label="Όνομα είδους" name="name" required minLength={2} maxLength={80} defaultValue={g?.name} hint="Γενικά, όπως θα μπαίνει στη συνταγή: «γάλα φρέσκο», «ζάχαρη άχνη»" />
-      <Select label="Μονάδα κατανάλωσης" name="baseUnitId" defaultValue={g?.baseUnitId ?? units.find((u) => u.code === "g")?.id} options={units.map((u): [string, string] => [u.id, `${u.nameEL} (${u.code})`])} />
+      <Select label="Μονάδα κατανάλωσης" name="baseUnitId" defaultValue={g?.baseUnitId ?? units.find((u) => u.code === "mg")?.id} options={units.map((u): [string, string] => [u.id, `${u.nameEL} (${u.code})`])} />
       <Select label="ΦΠΑ αγοράς" name="vatRateId" defaultValue={g?.vatRateId ?? ""} options={[["", "— χωρίς προεπιλογή —"], ...vatRates.map((v): [string, string] => [v.id, `${v.name} ${v.rate}%`])]} />
       <Submit pendingText="Αποθήκευση…" className={btn("default")}>{g ? "Αποθήκευση" : "Προσθήκη"}</Submit>
     </form>

@@ -37,11 +37,11 @@ export function Badge({ tone = "neutral", children }: { tone?: keyof typeof TONE
 export function Page({ section, title, description, actions, children }: { section: string; title: string; description?: string; actions?: ReactNode; children: ReactNode }) {
   return (
     <>
-      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 bg-background/70 px-4 py-2.5 backdrop-blur-xl backdrop-saturate-150 max-lg:pl-16 lg:px-8 print:hidden">
+      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 bg-background/70 px-4 py-2 backdrop-blur-xl backdrop-saturate-150 max-lg:pl-16 lg:px-8 print:hidden">
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="text-xs font-medium text-muted-foreground lg:text-xs">{section} › {title}</p>
-          <h1 className="truncate text-xl leading-tight lg:text-2xl">{title}</h1>
-          {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+          <p className="text-2xs font-medium text-muted-foreground">{section}</p>
+          <h1 className="truncate text-base font-semibold leading-tight lg:text-lg" title={title}>{title}</h1>
+          {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
         </div>
         {actions}
       </header>

@@ -34,6 +34,8 @@ export async function saveGenericItem(form: FormData) {
   // η μονάδα είναι από τον κοινό πίνακα της πλατφόρμας· σε επεξεργασία δέχομαι και ανενεργή (η τρέχουσα)
   const unit = (await db.unit.findFirst({ where: { id: d.data.baseUnitId, active: true } })) ?? (d.data.genericItemId ? await db.unit.findFirst({ where: { id: d.data.baseUnitId } }) : null);
   if (!unit) return fail("Άγνωστη μονάδα μέτρησης");
+  // Το απόθεμα γράφεται σε ακέραιες mg/ml/τεμάχια· τα kg/g/l ανήκουν μόνο στην είσοδο και την εμφάνιση.
+  if (unit.toBase !== 1) return fail("Για απόθεμα επίλεξε βασική μονάδα: mg, ml ή τεμάχιο");
   const vatRate = d.data.vatRateId ? await db.vatRate.findFirst({ where: { id: d.data.vatRateId } }) : null;
   if (d.data.vatRateId && !vatRate) return fail("Άγνωστος συντελεστής ΦΠΑ");
   const name = d.data.name;

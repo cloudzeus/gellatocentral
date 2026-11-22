@@ -563,7 +563,7 @@ model StockCountLine {
   expectedQty        Int
   actualQty          Int?
   differenceQty      Int?
-  unitCostHundredths Int
+  unitCostHundredths Int // snapshot σε εκατοστά λεπτού ανά 1.000 βασικές μονάδες
   reason             String?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
@@ -628,7 +628,7 @@ model StockTransferLine {
   sourceLotId        String?
   destinationLotId   String?
   quantity           Int // πάντα > 0, βασική μονάδα
-  unitCostHundredths Int // snapshot αποτίμησης, όχι νέα αγορά
+  unitCostHundredths Int // snapshot ανά 1.000 βασικές μονάδες, όχι νέα αγορά
   transfer           StockTransfer   @relation(fields: [transferId], references: [id], onDelete: Restrict)
   genericItem        GenericItem     @relation(fields: [genericItemId], references: [id], onDelete: Restrict)
   sourceLot          StockLot?       @relation("TransferSourceLot", fields: [sourceLotId], references: [id], onDelete: Restrict)
@@ -1397,7 +1397,7 @@ model GenericItem {
   name              String
   baseUnitId        String
   vatRateId         String? // συντελεστής ΦΠΑ αγοράς (προεπιλογή στις αγορές/συμφωνίες)
-  // Μέσο σταθμισμένο κόστος σε εκατοστά του λεπτού ανά βασική μονάδα — γράφεται στην αποδοχή τιμολογίου
+  // Μέσο σταθμισμένο κόστος σε εκατοστά λεπτού ανά 1.000 βασικές μονάδες — γράφεται στην αποδοχή τιμολογίου
   avgCostHundredths Int                   @default(0)
   trackStock        Boolean               @default(true) // false = κοστολογείται χωρίς απόθεμα (π.χ. νερό βρύσης)
   gramsPerPiece     Int? // για είδη σε τεμάχια: βάρος τεμαχίου σε g (π.χ. αυγό 55)

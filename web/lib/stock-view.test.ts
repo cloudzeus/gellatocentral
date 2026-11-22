@@ -1,20 +1,24 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { daysUntil, isExpired } from "./production.ts";
-import { expiryStatus, safeStockNumber, stockUnitCostHundredths, stockValueHundredths } from "./stock-view.ts";
+import { expiryStatus, safeStockNumber, stockDisplayUnit, stockUnitCostHundredths, stockValueHundredths } from "./stock-view.ts";
 
 const d = (value: string) => new Date(value);
 
-test("αποτίμηση: ποσότητα βάσης × κόστος βάσης και σωστή μονάδα εμφάνισης", () => {
-  // 2 kg = 2.000.000 mg · 5 εκατοστά λεπτού/mg = 1.000 € συνολικά.
-  assert.equal(stockValueHundredths(2_000_000, 5), 10_000_000);
-  // 5 εκατοστά λεπτού/mg = 5.000 εκατοστά λεπτού/g = 0,50 €/g.
-  assert.equal(stockUnitCostHundredths(5, 1_000), 5_000);
-  assert.equal(stockValueHundredths(0, 5), 0);
+test("αποτίμηση: κόστος ανά 1.000 βασικές μονάδες και σωστή μονάδα εμφάνισης", () => {
+  // 2 kg = 2.000.000 mg · 12 εκατοστά λεπτού/1.000 mg = 2,40 € συνολικά.
+  assert.equal(stockValueHundredths(2_000_000, 12), 24_000);
+  assert.equal(stockUnitCostHundredths(12, 1_000_000), 12_000); // 1,20 €/kg
+  assert.equal(stockDisplayUnit({ code: "mg", dimension: "mass", toBase: 1 }).code, "kg");
+  assert.equal(stockDisplayUnit({ code: "ml", dimension: "volume", toBase: 1 }).code, "l");
+  assert.equal(stockValueHundredths(-500_000, 12), -6_000);
+  assert.equal(stockValueHundredths(1, 500), 1);
+  assert.equal(stockValueHundredths(-1, 500), -1);
+  assert.equal(stockValueHundredths(0, 12), 0);
 });
 
 test("αποτίμηση: ακυρα δεδομένα και υπέρβαση safe integer απορρίπτονται", () => {
-  assert.throws(() => stockValueHundredths(Number.MAX_SAFE_INTEGER, 2));
+  assert.throws(() => stockValueHundredths(Number.MAX_SAFE_INTEGER, 2_000));
   assert.throws(() => stockValueHundredths(1.5, 2));
   assert.throws(() => stockValueHundredths(1, -2));
   assert.throws(() => stockUnitCostHundredths(5, 0));

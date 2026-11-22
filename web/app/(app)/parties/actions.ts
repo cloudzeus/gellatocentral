@@ -36,7 +36,7 @@ const schema = z.object({
   regionCode: text(10),
   cityId: text(30),
   areaId: text(30),
-  areaName: text(80),
+  areaName: text(80).optional().transform((v) => v ?? null),
   paymentTermsDays: z.string().trim().transform((v) => (v === "" ? null : Number(v))).refine((v) => v === null || (Number.isInteger(v) && v >= 0 && v <= 365), "Οι ημέρες πίστωσης είναι από 0 έως 365"),
   paymentMethodId: text(40), // id τρόπου πληρωμής από την κοινή λίστα (τα seeded είναι «pm_cash»…, όχι cuid)
   notes: text(1000),
@@ -125,7 +125,7 @@ const addressSchema = z.object({
   regionCode: text(10),
   cityId: text(30),
   areaId: text(30),
-  areaName: text(80),
+  areaName: text(80).optional().transform((v) => v ?? null),
   countryCode: z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/).default("GR"),
   phone: text(40),
   email,

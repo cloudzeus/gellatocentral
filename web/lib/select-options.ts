@@ -1,5 +1,8 @@
 export type SelectOption = [value: string, text: string, parentValue?: string];
 
+/** Το UI του Radix χρειάζεται μη κενό sentinel· προς τον server η επιλογή «—» παραμένει κενή. */
+export const submittedOption = (value: string | undefined) => value === "__empty__" ? "" : value;
+
 /** Ελληνική αναζήτηση χωρίς διάκριση πεζών και τόνων. */
 export const normalizeOption = (value: string) => value.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("el");
 export const filterOptions = (options: SelectOption[], term: string) => {

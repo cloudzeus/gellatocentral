@@ -13,7 +13,7 @@ import { Input } from "./shadcn/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./shadcn/tabs";
 import { btn, cn } from "./ui";
 
-export type Column = { key: string; label: string; numeric?: boolean; /** δεν κρύβεται (π.χ. η στήλη που ταυτοποιεί τη γραμμή) */ required?: boolean; /** ο server ξέρει να ταξινόμησει με αυτή τη στήλη (?sort=key) */ sortable?: boolean };
+export type Column = { key: string; label: string; numeric?: boolean; /** δεν κρύβεται (π.χ. η στήλη που ταυτοποιεί τη γραμμή) */ required?: boolean; /** ο server ξέρει να ταξινόμησει με αυτή τη στήλη (?sort=key) */ sortable?: boolean; /** επιτρέπει πολλές γραμμές στο desktop αντί για μία με έλλειψη */ wrap?: boolean };
 export type RowDetails = { label?: string; view: ReactNode; edit?: ReactNode };
 export type Row = { id: string; cells: Record<string, ReactNode>; menu?: ReactNode; /** γρήγορες ενέργειες με εικονίδια, πριν από το μενού */ actions?: ReactNode; /** accordion με Προβολή και, όταν επιτρέπεται, Αλλαγή */ details?: RowDetails };
 export type BulkAction = { value: string; label: string; confirm?: string; run: (ids: string[]) => Promise<void | string> };
@@ -322,7 +322,7 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
                       })} />
                     </td>
                     {visible.map((c, i) => (
-                      <td key={c.key} {...(i === 0 ? { "data-primary": true } : { "data-label": c.label })} style={prefs.pinned.includes(c.key) ? { left: leftOffsets[c.key] } : undefined} className={cn("px-4 py-2.5 md:truncate", pinClass(c.key), c.numeric && "text-right font-medium tabular-nums")}>
+                      <td key={c.key} {...(i === 0 ? { "data-primary": true } : { "data-label": c.label })} style={prefs.pinned.includes(c.key) ? { left: leftOffsets[c.key] } : undefined} className={cn("px-4 py-2.5", c.wrap ? "md:align-top md:whitespace-normal md:break-words" : "md:truncate", pinClass(c.key), c.numeric && "text-right font-medium tabular-nums")}>
                         {r.details && i === 0 ? (
                           <div className="flex min-w-0 items-center gap-2">
                             <button type="button" aria-expanded={open} aria-controls={`${id}-${r.id}-details`} aria-label={`${open ? "Σύμπτυξη" : "Ανάπτυξη"}: ${r.details.label ?? "γραμμής"}`} onClick={() => setExpanded(open ? null : r.id)} className={btn("ghost", "sm", "size-7 shrink-0 px-0")}><ChevronRight className={cn("transition-transform", open && "rotate-90")} /></button>

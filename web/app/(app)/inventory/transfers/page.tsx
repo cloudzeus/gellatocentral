@@ -6,7 +6,7 @@ import { Submit } from "@/components/submit";
 import { db } from "@/lib/db";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
 import { stockBalances } from "@/lib/stock-db";
-import { formatStockQuantity, formatStockValue, stockUnitCostHundredths } from "@/lib/stock-view";
+import { formatStockQuantity, formatStockValue, stockDisplayUnit, stockUnitCostHundredths } from "@/lib/stock-view";
 import { postTransfer } from "./actions";
 
 const field = "h-10 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
@@ -162,7 +162,7 @@ export default async function TransfersPage({ searchParams }: { searchParams: Pr
                           <li key={line.id}>
                             <span className="font-medium">{line.genericItem.name}</span> · {formatStockQuantity(line.quantity, line.genericItem.baseUnit.dimension)}
                             <span className="block text-xs text-muted-foreground">{line.sourceLot ? `Παρτίδα ${line.sourceLot.batchNumber ?? "χωρίς αριθμό"} → ${line.destinationLot?.batchNumber ?? "χωρίς αριθμό"}` : "Χωρίς παρτίδα"}</span>
-                            {line.unitCostHundredths > 0 ? <span className="block text-xs text-muted-foreground">Κόστος snapshot: {formatStockValue(stockUnitCostHundredths(line.unitCostHundredths, line.genericItem.baseUnit.toBase))} / {line.genericItem.baseUnit.code}</span> : null}
+                            {line.unitCostHundredths > 0 ? <span className="block text-xs text-muted-foreground">Κόστος snapshot: {formatStockValue(stockUnitCostHundredths(line.unitCostHundredths, stockDisplayUnit(line.genericItem.baseUnit).toBase))} / {stockDisplayUnit(line.genericItem.baseUnit).code}</span> : null}
                           </li>
                         ))}
                       </ul>

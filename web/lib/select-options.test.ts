@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { filterOptions, normalizeOption, optionDepth, treeOptions, type SelectOption } from "./select-options.ts";
+import { filterOptions, normalizeOption, optionDepth, submittedOption, treeOptions, type SelectOption } from "./select-options.ts";
+
+test("select options: το κενό sentinel υποβάλλεται ως κενή τιμή", () => {
+  assert.equal(submittedOption("__empty__"), "");
+  assert.equal(submittedOption("brand_1"), "brand_1");
+  assert.equal(submittedOption(undefined), undefined);
+});
 
 test("select options: η ελληνική αναζήτηση αγνοεί τόνους και πεζά-κεφαλαία", () => {
   const options: SelectOption[] = [["gr", "Ελλάδα"], ["cy", "Κύπρος"], ["it", "Ιταλία"]];

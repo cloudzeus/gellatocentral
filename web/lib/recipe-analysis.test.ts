@@ -177,7 +177,7 @@ test("κόστος ανά γραμμάριο από μέσο κόστος βασ
   // γάλα 12,5 εκατοστά/g (βασική g, toBase 1000 mg): 12500/mg... — εδώ η βασική του είδους είναι το g
   assert.equal(costPerGramHundredths({ avgCostHundredths: 12.5, baseUnit: { dimension: "mass", toBase: 1000 } }), 12.5);
   // αυγό 12 λεπτά (=1200 εκατοστά) το τεμάχιο των 55 g
-  assert.ok(Math.abs(costPerGramHundredths({ avgCostHundredths: 1200, baseUnit: { dimension: "count", toBase: 1 }, gramsPerPiece: 55 }) - 1200 / 55) < 1e-9);
+  assert.ok(Math.abs(costPerGramHundredths({ avgCostHundredths: 1_200_000, baseUnit: { dimension: "count", toBase: 1 }, gramsPerPiece: 55 }) - 1200 / 55) < 1e-9);
   // χωρίς βάρος τεμαχίου ή μηδενικό κόστος → 0
   assert.equal(costPerGramHundredths({ avgCostHundredths: 1200, baseUnit: { dimension: "count", toBase: 1 } }), 0);
   assert.equal(costPerGramHundredths({ avgCostHundredths: 0, baseUnit: { dimension: "mass", toBase: 1000 } }), 0);

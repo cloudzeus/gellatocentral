@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
 import { stockLotBalances, stockOverview } from "@/lib/stock-read";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
-import { expiryStatus, formatStockQuantity, formatStockValue, stockUnitCostHundredths, type ExpiryStatus } from "@/lib/stock-view";
+import { expiryStatus, formatStockQuantity, formatStockValue, stockDisplayUnit, stockUnitCostHundredths, type ExpiryStatus } from "@/lib/stock-view";
 
 const field = "h-10 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
 const th = "px-4 py-3 text-left text-xs font-semibold whitespace-nowrap text-muted-foreground";
@@ -114,7 +114,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                         <td className={`${td} font-semibold`}>{ctx.can("items.read") ? <Link href={`/items/${row.genericItemId}`} className="underline-offset-2 hover:underline">{row.itemName}</Link> : row.itemName}</td>
                         <td className={td}>{row.warehouseName}</td>
                         <td className={`${td} text-right font-semibold tabular-nums`}>{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</td>
-                        <td className={`${td} text-right tabular-nums`}>{row.unitCostHundredths > 0 ? <>{formatStockValue(stockUnitCostHundredths(row.unitCostHundredths, row.baseUnit.toBase))} <span className="text-xs text-muted-foreground">/ {row.baseUnit.code}</span></> : "—"}</td>
+                        <td className={`${td} text-right tabular-nums`}>{row.unitCostHundredths > 0 ? <>{formatStockValue(stockUnitCostHundredths(row.unitCostHundredths, stockDisplayUnit(row.baseUnit).toBase))} <span className="text-xs text-muted-foreground">/ {stockDisplayUnit(row.baseUnit).code}</span></> : "—"}</td>
                         <td className={`${td} text-right font-medium tabular-nums`}>{row.unitCostHundredths > 0 ? formatStockValue(row.valueHundredths) : "—"}</td>
                       </tr>
                     ))}

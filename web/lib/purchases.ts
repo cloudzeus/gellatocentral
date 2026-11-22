@@ -82,4 +82,8 @@ export function lineBaseQty(quantity: number, packQty: number, contentQty: numbe
 /** Τιμή ανά συσκευασία TradeItem από τη τιμή μονάδας παραστατικού (στρογγυλοποίηση στο λεπτό). */
 export const perPackCents = (unitPriceCents: number, packQty: number): number => Math.round(unitPriceCents / packQty);
 
+/** Ακέραια αποθήκευση κόστους σε εκατοστά λεπτού ανά 1.000 βασικές μονάδες. */
+export const purchaseUnitCostHundredths = (packPriceCents: number, contentQty: number): number =>
+  (packPriceCents * 100 * 1000) / contentQty;
+
 export class PurchaseError extends Error {}

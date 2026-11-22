@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore, type ChangeEventHandler } from "react";
-import { filterOptions, optionDepth, treeOptions, type SelectOption } from "@/lib/select-options";
+import { filterOptions, optionDepth, submittedOption, treeOptions, type SelectOption } from "@/lib/select-options";
 import { cn } from "@/lib/utils";
 import { Input } from "./shadcn/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./shadcn/select";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 const subscribe = () => () => {};
 
 const EMPTY = "__empty__";
-const toPrimitive = (value: string | undefined) => value === EMPTY ? "" : value;
+const toPrimitive = submittedOption;
 const toRadix = (value: string | undefined) => value === "" ? EMPTY : value;
 
 /** Native-form compatible combobox· η αναζήτηση αφορά μόνο το UI, η τιμή υποβάλλεται κανονικά στον server. */

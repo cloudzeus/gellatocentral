@@ -87,7 +87,7 @@ export async function planProduction(tx: DbLike, orgId: string, recipeId: string
       unitCode: g.baseUnit.code,
       grams,
       quantity,
-      costHundredths: Math.round(quantity * g.avgCostHundredths),
+      costHundredths: Math.round((quantity * g.avgCostHundredths) / 1000),
       allocations: g.trackStock ? null : [],
       shortfall: 0,
     };

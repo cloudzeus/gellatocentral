@@ -52,7 +52,7 @@ export async function stockOverview(tx: Pick<StockReadDb, "$queryRaw">, input: S
         m."genericItemId", gi."name" AS "itemName",
         SUM(m."quantity")::bigint AS quantity,
         gi."avgCostHundredths" AS "unitCostHundredths",
-        SUM(m."quantity"::bigint * gi."avgCostHundredths"::bigint)::bigint AS "valueHundredths",
+        ROUND(SUM(m."quantity"::numeric * gi."avgCostHundredths"::numeric) / 1000)::bigint AS "valueHundredths",
         u."code" AS "unitCode", u."dimension" AS "unitDimension", u."toBase" AS "unitToBase"
       FROM "StockMovement" m
       JOIN "GenericItem" gi ON gi."id" = m."genericItemId" AND gi."orgId" = m."orgId"

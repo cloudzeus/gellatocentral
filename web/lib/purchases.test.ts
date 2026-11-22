@@ -1,7 +1,7 @@
 // Tests για την αντιστοίχιση γραμμών τιμολογίου αγοράς και την αλυσίδα ποσοτήτων (lib/purchases.ts).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lineBaseQty, matchLine, normText, perPackCents, textScore, type MappingLite, type SupplierItemLite, type TradeItemLite } from "./purchases.ts";
+import { lineBaseQty, matchLine, normText, perPackCents, purchaseUnitCostHundredths, textScore, type MappingLite, type SupplierItemLite, type TradeItemLite } from "./purchases.ts";
 
 const SUP = "sup1";
 const supplierItems: SupplierItemLite[] = [
@@ -92,4 +92,9 @@ test("lineBaseQty: η αλυσίδα τεμάχια × packQty × contentQty", (
 test("perPackCents: τιμή μονάδας παραστατικού → τιμή ανά συσκευασία", () => {
   assert.equal(perPackCents(1_104, 12), 92); // 11,04 € το κιβώτιο των 12 → 0,92 € η φιάλη
   assert.equal(perPackCents(1_100, 12), 92); // 11,00 € → 91,67 λεπτά στρογγυλοποιούνται σε 92
+});
+
+test("κόστος αγοράς: το 1,20 €/kg δεν μηδενίζεται όταν η βάση είναι mg", () => {
+  assert.equal(purchaseUnitCostHundredths(120, 1_000_000), 12);
+  assert.equal(purchaseUnitCostHundredths(350, 100), 350_000); // 3,50 € ανά 100 τεμάχια
 });
