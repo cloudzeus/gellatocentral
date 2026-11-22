@@ -1,7 +1,7 @@
 export type SelectOption = [value: string, text: string, parentValue?: string];
 
 /** Ελληνική αναζήτηση χωρίς διάκριση πεζών και τόνων. */
-export const normalizeOption = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("el");
+export const normalizeOption = (value: string) => value.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("el");
 export const filterOptions = (options: SelectOption[], term: string) => {
   const needle = normalizeOption(term.trim());
   return needle ? options.filter(([, text]) => normalizeOption(text).includes(needle)) : options;
@@ -37,7 +37,8 @@ export function optionDepth(options: SelectOption[], option: SelectOption) {
   const byId = new Map(options.map((item) => [item[0], item]));
   let depth = 0;
   let parent = option[2];
-  const seen = new Set<string>();
+  // Η επιστροφή στο ίδιο κόμβο σταματά την κυκλική αλυσίδα χωρίς επιπλέον επίπεδο.
+  const seen = new Set<string>([option[0]]);
   while (parent && byId.has(parent) && !seen.has(parent)) {
     seen.add(parent);
     depth++;

@@ -37,7 +37,7 @@ export function Badge({ tone = "neutral", children }: { tone?: keyof typeof TONE
 export function Page({ section, title, description, actions, children }: { section: string; title: string; description?: string; actions?: ReactNode; children: ReactNode }) {
   return (
     <>
-      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 bg-background/70 px-4 py-3 backdrop-blur-xl backdrop-saturate-150 max-lg:pl-16 lg:px-8 print:hidden">
+      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 bg-background/70 px-4 py-2.5 backdrop-blur-xl backdrop-saturate-150 max-lg:pl-16 lg:px-8 print:hidden">
         <div className="min-w-0 flex-1 space-y-0.5">
           <p className="text-xs font-medium text-muted-foreground lg:text-xs">{section} › {title}</p>
           <h1 className="truncate text-xl leading-tight lg:text-2xl">{title}</h1>
@@ -45,7 +45,7 @@ export function Page({ section, title, description, actions, children }: { secti
         </div>
         {actions}
       </header>
-      <main className="flex-1 px-4 pt-6 pb-[calc(var(--bottom-nav-h,0px)+1.5rem)] lg:px-8 print:p-0">{children}</main>
+      <main className="flex-1 px-4 pt-5 pb-[calc(var(--bottom-nav-h,0px)+1.5rem)] lg:px-8 print:p-0">{children}</main>
     </>
   );
 }
@@ -89,7 +89,7 @@ export function Field({ label, hint, error, id: suppliedId, ...p }: { label: str
   const id = suppliedId ?? generatedId;
   const messageId = `${id}-message`;
   return (
-    <div className="min-w-0 space-y-1.5">
+    <div className="min-w-0 space-y-1">
       <FieldLabel id={id} label={label} required={p.required} hint={hint} hintId={messageId} />
       <Input id={id} aria-invalid={error ? true : undefined} aria-describedby={hint || error ? messageId : undefined} {...p} />
       {error ? <p className="text-xs font-medium text-destructive">{error}</p> : null}
@@ -103,7 +103,7 @@ export function TextareaField({ label, hint, error, id: suppliedId, ...p }: { la
   const id = suppliedId ?? generatedId;
   const messageId = `${id}-message`;
   return (
-    <div className="min-w-0 space-y-1.5">
+    <div className="min-w-0 space-y-1">
       <FieldLabel id={id} label={label} required={p.required} hint={hint} hintId={messageId} />
       <Textarea id={id} aria-invalid={error ? true : undefined} aria-describedby={hint || error ? messageId : undefined} {...p} />
       {error ? <p className="text-xs font-medium text-destructive">{error}</p> : null}
@@ -119,7 +119,7 @@ export function Select({ label, options, hint, id: suppliedId, onValueChange, ..
   const id = suppliedId ?? generatedId;
   const hintId = `${id}-hint`;
   return (
-    <div className="min-w-0 space-y-1.5">
+    <div className="min-w-0 space-y-1">
       <FieldLabel id={id} label={label} required={p.required} hint={hint} hintId={hintId} />
       {options.length > 15 ? (
         <SearchSelect id={id} name={p.name} options={options} defaultValue={singleValue(p.defaultValue)} value={singleValue(p.value)} required={p.required} disabled={p.disabled} onChange={p.onChange} onValueChange={onValueChange} ariaLabel={label} ariaDescribedBy={hint ? hintId : undefined} className={cn(FIELD, p.className)} />
@@ -136,7 +136,7 @@ export function MultiSelectField({ label, hint, error, id: suppliedId, ...p }: {
   const id = suppliedId ?? generatedId;
   const messageId = `${id}-message`;
   return (
-    <div className="min-w-0 space-y-1.5">
+    <div className="min-w-0 space-y-1">
       <FieldLabel id={id} label={label} required={p.required} hint={hint} hintId={messageId} />
       <MultiSelect id={id} ariaDescribedBy={hint || error ? messageId : undefined} {...p} />
       {error ? <p className="text-xs font-medium text-destructive">{error}</p> : null}

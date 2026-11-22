@@ -21,7 +21,7 @@ function DialogFrame({ title, description, wide, children, onSubmit }: { title: 
         expanded && "h-[calc(100dvh-1rem)] sm:h-[calc(100dvh-2rem)] sm:max-w-[calc(100vw-2rem)]",
       )}
     >
-      <div className="sticky top-0 z-20 flex items-start gap-3 border-b border-border/70 bg-card/95 px-4 py-4 backdrop-blur sm:px-5">
+      <div className="sticky top-0 z-20 flex items-start gap-2 border-b border-border/70 bg-card/95 px-4 py-3 backdrop-blur">
         <DialogHeader className="min-w-0 flex-1 gap-0.5 text-left">
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
@@ -29,7 +29,7 @@ function DialogFrame({ title, description, wide, children, onSubmit }: { title: 
         <button type="button" onClick={() => setExpanded((v) => !v)} aria-pressed={expanded} aria-label={expanded ? "Επαναφορά μεγέθους παραθύρου" : "Ανάπτυξη παραθύρου"} title={expanded ? "Επαναφορά μεγέθους" : "Ανάπτυξη"} className={btn("ghost", "sm")}>{expanded ? <Minimize2 /> : <Maximize2 />}</button>
         <DialogClose asChild><button type="button" aria-label="Κλείσιμο" className={btn("ghost", "sm")}><X /></button></DialogClose>
       </div>
-      <div className="p-4 sm:p-5">{children}</div>
+      <div className="p-4 [&_form.grid]:gap-3.5 [&_form_.grid]:gap-3.5">{children}</div>
     </DialogContent>
   );
 }

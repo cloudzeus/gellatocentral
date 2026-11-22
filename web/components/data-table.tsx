@@ -73,11 +73,11 @@ function ExpandedRow({ row, colSpan, tableId }: { row: Row; colSpan: number; tab
   if (!row.details) return null;
   return (
     <tr className="table-expansion border-t border-border/70 bg-secondary/25">
-      <td colSpan={colSpan} className="p-4 md:p-5">
+      <td colSpan={colSpan} className="p-3.5 md:p-4">
         <div id={`${tableId}-${row.id}-details`} role="region" aria-label={`Λεπτομέρειες: ${row.details.label ?? "γραμμής"}`}>
           {row.details.edit ? (
             <Tabs defaultValue="view">
-              <TabsList aria-label="Λειτουργία γραμμής" className="mb-4">
+              <TabsList aria-label="Λειτουργία γραμμής" className="mb-3">
                 <TabsTrigger value="view"><Eye /> Προβολή</TabsTrigger>
                 <TabsTrigger value="edit"><Pencil /> Αλλαγή</TabsTrigger>
               </TabsList>
@@ -285,7 +285,7 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
                   onDrop={() => { if (dragCol) moveColumn(dragCol, c.key); setDragCol(null); }}
                   onDragEnd={() => setDragCol(null)}
                   style={prefs.pinned.includes(c.key) ? { left: leftOffsets[c.key] } : undefined}
-                  className={cn("relative px-5 py-3 font-semibold select-none md:cursor-grab", pinClass(c.key, true), c.numeric && "text-right", dragCol === c.key && "opacity-40")}
+                  className={cn("relative px-4 py-2.5 font-semibold select-none md:cursor-grab", pinClass(c.key, true), c.numeric && "text-right", dragCol === c.key && "opacity-40")}
                 >
                   {listing && c.sortable ? (
                     <Link
@@ -322,7 +322,7 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
                       })} />
                     </td>
                     {visible.map((c, i) => (
-                      <td key={c.key} {...(i === 0 ? { "data-primary": true } : { "data-label": c.label })} style={prefs.pinned.includes(c.key) ? { left: leftOffsets[c.key] } : undefined} className={cn("px-5 py-3 md:truncate", pinClass(c.key), c.numeric && "text-right font-medium tabular-nums")}>
+                      <td key={c.key} {...(i === 0 ? { "data-primary": true } : { "data-label": c.label })} style={prefs.pinned.includes(c.key) ? { left: leftOffsets[c.key] } : undefined} className={cn("px-4 py-2.5 md:truncate", pinClass(c.key), c.numeric && "text-right font-medium tabular-nums")}>
                         {r.details && i === 0 ? (
                           <div className="flex min-w-0 items-center gap-2">
                             <button type="button" aria-expanded={open} aria-controls={`${id}-${r.id}-details`} aria-label={`${open ? "Σύμπτυξη" : "Ανάπτυξη"}: ${r.details.label ?? "γραμμής"}`} onClick={() => setExpanded(open ? null : r.id)} className={btn("ghost", "sm", "size-7 shrink-0 px-0")}><ChevronRight className={cn("transition-transform", open && "rotate-90")} /></button>
@@ -354,7 +354,7 @@ function Pager(listing: Listing) {
   const arrow = (to: number, label: string, icon: ReactNode) =>
     to < 1 || to > pages ? <span aria-hidden className={btn("outline", "sm", "pointer-events-none opacity-40")}>{icon}</span> : <Link href={href(to)} aria-label={label} className={btn("outline", "sm")}>{icon}</Link>;
   return (
-    <nav aria-label="Σελίδες" className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-5 py-3 text-sm text-muted-foreground">
+    <nav aria-label="Σελίδες" className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-4 py-2.5 text-sm text-muted-foreground">
       <span className="tabular-nums">{from}–{Math.min(total, from + pageSize - 1)} από {total}</span>
       <span className="flex items-center gap-2">
         {arrow(page - 1, "Προηγούμενη σελίδα", <ChevronLeft />)}
