@@ -1,6 +1,7 @@
 // OpenRouter (https://openrouter.ai/docs): συνομιλία και embeddings με το ίδιο κλειδί. Κλειδί και μοντέλα ορίζονται
 // στις Ρυθμίσεις. ΚΑΘΕ κείμενο που φεύγει από εδώ περνά πρώτα από το scrub(): email, τηλέφωνα, ΑΦΜ, κάρτες δεν στέλνονται.
 import { settings } from "../config";
+import { routingOptions } from "./openrouter-options";
 import { scrub } from "./rules";
 
 // OPENROUTER_ENDPOINT: μόνο για δοκιμές απέναντι σε τοπικό server
@@ -17,14 +18,12 @@ async function call(path: string, key: string, body: object) {
   if (!res.ok) throw new AiError(res.status === 401 ? "Το OpenRouter απέρριψε το κλειδί" : res.status === 402 ? "Το υπόλοιπο στο OpenRouter τελείωσε" : res.status === 404 ? "Το μοντέλο δεν βρέθηκε, ή κανένας πάροχός του δεν πληροί τη ρύθμιση «χωρίς διατήρηση δεδομένων»" : `Το OpenRouter απάντησε ${res.status}`);
   return (await res.json()) as Record<string, unknown>;
 }
-/** Μόνο πάροχοι που δεν κρατούν ούτε χρησιμοποιούν τα δεδομένα (όταν η ρύθμιση είναι «αυστηρή»). */
-const provider = (strict: boolean) => (strict ? { provider: { data_collection: "deny", zdr: true } } : {});
 
 /** Διανύσματα για κάθε κείμενο, με την ίδια σειρά. */
 export async function embed(texts: string[]): Promise<{ vectors: number[][]; model: string; costUsd: number }> {
   const c = await aiConfig();
   if (!c.memory) throw new AiError("Δεν έχει οριστεί κλειδί ή μοντέλο embeddings");
-  const j = await call("/embeddings", c.key, { model: c.embedModel, input: texts.map((t) => scrub(t).slice(0, 8000)), ...provider(c.strict) });
+  const j = await call("/embeddings", c.key, { model: c.embedModel, input: texts.map((t) => scrub(t).slice(0, 8000)), ...routingOptions(c.embedModel, c.strict) });
   const data = j.data as { embedding: number[]; index?: number }[] | undefined;
   if (!Array.isArray(data) || data.length !== texts.length) throw new AiError("Το OpenRouter δεν επέστρεψε διανύσματα");
   return { vectors: [...data].sort((a, b) => (a.index ?? 0) - (b.index ?? 0)).map((d) => d.embedding), model: c.embedModel, costUsd: Number((j.usage as { cost?: number } | undefined)?.cost) || 0 };
@@ -33,11 +32,11 @@ export async function embed(texts: string[]): Promise<{ vectors: number[][]; mod
 export async function chat(system: string, user: string): Promise<{ text: string; model: string; promptTokens: number; completionTokens: number; costUsd: number }> {
   const c = await aiConfig();
   if (!c.chat) throw new AiError("Δεν έχει οριστεί κλειδί ή μοντέλο συνομιλίας");
-  const j = await call("/chat/completions", c.key, { model: c.chatModel, messages: [{ role: "system", content: system }, { role: "user", content: scrub(user) }], temperature: 0.2, max_tokens: 6000, /* τα μοντέλα με σκέψη ξοδεύουν tokens πριν γράψουν */ usage: { include: true }, ...provider(c.strict) });
+  const j = await call("/chat/completions", c.key, { model: c.chatModel, messages: [{ role: "system", content: system }, { role: "user", content: scrub(user) }], temperature: 0.2, max_tokens: 6000, /* τα μοντέλα με σκέψη ξοδεύουν tokens πριν γράψουν */ usage: { include: true }, ...routingOptions(c.chatModel, c.strict) });
   const text = (j.choices as { message?: { content?: string } }[] | undefined)?.[0]?.message?.content;
   if (!text) throw new AiError("Το μοντέλο δεν έδωσε απάντηση");
   const u = (j.usage ?? {}) as { prompt_tokens?: number; completion_tokens?: number; cost?: number };
-  return { text, model: c.chatModel, promptTokens: u.prompt_tokens ?? 0, completionTokens: u.completion_tokens ?? 0, costUsd: Number(u.cost) || 0 };
+  return { text, model: typeof j.model === "string" ? j.model : c.chatModel, promptTokens: u.prompt_tokens ?? 0, completionTokens: u.completion_tokens ?? 0, costUsd: Number(u.cost) || 0 };
 }
 
 /** Μοντέλο όρασης: μια εικόνα (data URL) και οδηγία εξαγωγής. Η εικόνα δεν περνά από scrub — δεν είναι κείμενο. */
@@ -53,12 +52,12 @@ export async function vision(system: string, prompt: string, imageDataUrl: strin
     temperature: 0.1,
     max_tokens: 4000,
     usage: { include: true },
-    ...provider(c.strict),
+    ...routingOptions(c.chatModel, c.strict),
   });
   const text = (j.choices as { message?: { content?: string } }[] | undefined)?.[0]?.message?.content;
   if (!text) throw new AiError("Το μοντέλο δεν έδωσε απάντηση");
   const u = (j.usage ?? {}) as { prompt_tokens?: number; completion_tokens?: number; cost?: number };
-  return { text, model: c.chatModel, promptTokens: u.prompt_tokens ?? 0, completionTokens: u.completion_tokens ?? 0, costUsd: Number(u.cost) || 0 };
+  return { text, model: typeof j.model === "string" ? j.model : c.chatModel, promptTokens: u.prompt_tokens ?? 0, completionTokens: u.completion_tokens ?? 0, costUsd: Number(u.cost) || 0 };
 }
 
 /** Δοκιμή: ένα μικρό διάνυσμα και μια λέξη από το μοντέλο συνομιλίας. */

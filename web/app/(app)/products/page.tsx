@@ -5,9 +5,9 @@ import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
 import { Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
-import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { filterParam, listParams } from "@/lib/paging";
+import { getProductPageData } from "@/lib/product-catalog";
 import { activateProducts, deleteProduct, deleteProducts, hideProducts, saveCategory, saveProduct, toggleProduct } from "./actions";
 
 // Ο κατάλογος του ταμείου: server-side φίλτρα και προσαρμόσιμες στήλες, με την επεξεργασία μέσα στη γραμμή.
@@ -15,29 +15,18 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
   const { org, can } = await currentOrg("products.read");
   const q = await searchParams;
   const list = listParams(q, 50, ["name", "category", "price", "vat", "status"]);
-  const [categories, vatRates] = await Promise.all([
-    db.category.findMany({ where: { orgId: org.id }, orderBy: [{ position: "asc" }, { name: "asc" }] }),
-    db.vatRate.findMany({ where: { active: true }, orderBy: { rate: "desc" } }),
-  ]);
-  const category = filterParam(q, "category", categories.map((c) => c.id));
   // Τα κρυφά βγαίνουν από την καθημερινή λίστα· παραμένουν διαθέσιμα από το φίλτρο κατάστασης.
   const status = filterParam(q, "status", ["active", "hidden"]) ?? "active";
-  const where = {
+  const { categories, vatRates, category, products, total } = await getProductPageData({
     orgId: org.id,
-    ...(category ? { categoryId: category } : {}),
-    active: status === "active",
-    ...(list.q ? { OR: [{ name: { contains: list.q, mode: "insensitive" as const } }, { category: { name: { contains: list.q, mode: "insensitive" as const } } }] } : {}),
-  };
-  const direction = list.sort ? list.dir : "asc";
-  const orderBy = list.sort === "category" ? [{ category: { position: direction } }, { category: { name: direction } }]
-    : list.sort === "price" ? { priceCents: direction }
-      : list.sort === "vat" ? { vatRate: { rate: direction } }
-        : list.sort === "status" ? { active: direction }
-          : { name: direction };
-  const [products, total] = await Promise.all([
-    db.product.findMany({ where, orderBy, skip: list.skip, take: list.take, include: { category: true, vatRate: true } }),
-    db.product.count({ where }),
-  ]);
+    q: list.q,
+    categoryParam: typeof q.category === "string" ? q.category : "",
+    status,
+    sort: list.sort,
+    direction: list.sort ? list.dir : "asc",
+    skip: list.skip,
+    take: list.take,
+  });
   const fallbackRate = vatRates.find((v) => v.rate === 13) ?? vatRates[0];
 
   const categoryForm = (c?: (typeof categories)[number]) => (

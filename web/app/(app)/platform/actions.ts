@@ -6,7 +6,7 @@ import { pingAi } from "@/lib/ai/openrouter";
 import { cleanRemoteId } from "@/lib/remote";
 import { type Group, GROUPS, saveGroup } from "@/lib/config";
 import { ping } from "@/lib/storage/bunny";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { randomInt } from "node:crypto";
@@ -23,6 +23,7 @@ import { assertWarehouseAllowedForStore, attachWarehouse, WAREHOUSE_ERROR_MESSAG
 import { isRefList, REF_LISTS } from "@/lib/refs";
 import { isModule } from "@/lib/modules";
 import { db } from "@/lib/db";
+import { VAT_RATES_TAG } from "@/lib/product-catalog";
 import { ensureGeoArea, validGeoIds } from "@/lib/geo";
 import { cleanCoords } from "@/lib/parties";
 import { appUrl, billingRecipients, platformSettings, sendMail } from "@/lib/mail/send";
@@ -935,6 +936,7 @@ export async function saveVatRate(form: FormData) {
   } else {
     await db.vatRate.create({ data: { name: d.data.name, rate: d.data.rate } });
   }
+  updateTag(VAT_RATES_TAG);
   vatBack("saved=1");
 }
 /** Συντελεστής που μπορεί να χρησιμοποιείται δεν σβήνεται: κρύβεται από τις νέες καταχωρίσεις. */
@@ -943,6 +945,7 @@ export async function toggleVatRate(rateId: string) {
   const r = await db.vatRate.findUnique({ where: { id: rateId } });
   if (!r) return;
   await db.vatRate.update({ where: { id: r.id }, data: { active: !r.active } });
+  updateTag(VAT_RATES_TAG);
   vatBack("saved=1");
 }
 
@@ -953,6 +956,7 @@ async function setVatRatesActive(ids: string[], active: boolean) {
   await requirePlatform("settings.edit");
   const unique = [...new Set(parsed.data)];
   const result = await db.vatRate.updateMany({ where: { id: { in: unique } }, data: { active } });
+  updateTag(VAT_RATES_TAG);
   revalidatePath("/", "layout");
   if (result.count !== unique.length) return "Ορισμένοι συντελεστές δεν βρέθηκαν· ανανέωσε τη λίστα";
 }

@@ -3,6 +3,7 @@
 // Τα μυστικά πεδία γράφονται αλλά δεν διαβάζονται ποτέ πίσω: η οθόνη δείχνει μόνο αν έχουν οριστεί.
 import { CircleAlert, CircleCheck } from "lucide-react";
 import { saveConnection, testConnection } from "@/app/(app)/platform/actions";
+import { AUTO_MODEL, modelChoices, type ModelOption } from "@/lib/ai/openrouter-options";
 import { fieldsOf, type Group, GROUPS, type SettingKey, settings } from "@/lib/config";
 import { Modal } from "./modal";
 import { Submit } from "./submit";
@@ -19,8 +20,12 @@ const NEEDS: Record<Group, { keys: SettingKey[]; missing: string; test?: string 
   app: { keys: ["APP_URL"], missing: "Χωρίς διεύθυνση, οι σύνδεσμοι στα email δείχνουν στο localhost" },
 };
 
+// Ένα αποθηκευμένο μοντέλο παραμένει ορατό ακόμη κι αν αποσυρθεί προσωρινά από τον κατάλογο.
+const keepCurrent = (options: ModelOption[], current: string): ModelOption[] => current && !options.some(([value]) => value === current) ? [[current, `${current} (αποθηκευμένο)`], ...options] : options;
+
 export async function Connections({ q }: { q: Record<string, string | string[] | undefined> }) {
   const all = await settings(...(Object.keys(GROUPS) as Group[]).flatMap((g) => fieldsOf(g).map(([k]) => k)));
+  const openRouter = await modelChoices(all.OPENROUTER_API_KEY);
   return (
     <>
       {(Object.keys(GROUPS) as Group[]).map((g) => {
@@ -38,12 +43,15 @@ export async function Connections({ q }: { q: Record<string, string | string[] |
               {need.test ? <form action={testConnection.bind(null, g)}><Submit className={btn("outline")}>{need.test}</Submit></form> : null}
               <Modal label="Αλλαγή" title={group.title} description={group.hint}>
                 <form key={fields.map(([k, d]) => ("secret" in d ? !!all[k] : all[k])).join()} action={saveConnection.bind(null, g)} className="grid gap-4 [&>button]:justify-self-end">
-                  {fields.map(([k, d]) =>
-                    d.options ? <Select key={k} label={d.label} name={k} defaultValue={all[k] || d.options[0][0]} options={d.options} />
+                  {g === "openrouter" && openRouter.failed.length ? <p role="alert" className="rounded-lg bg-gold/10 px-3 py-2 text-sm text-gold-ink">Δεν φορτώθηκε η λίστα μοντέλων {openRouter.failed.join(" και ")}. Συμπλήρωσε το αντίστοιχο ID χειροκίνητα ή ξαναδοκίμασε σε λίγο.</p> : null}
+                  {fields.map(([k, d]) => {
+                    const loaded = k === "OPENROUTER_CHAT_MODEL" ? openRouter.chat : k === "OPENROUTER_EMBED_MODEL" ? openRouter.embed : undefined;
+                    const options = loaded ? keepCurrent(loaded, all[k]) : d.options;
+                    return options?.length ? <Select key={k} label={d.label} name={k} defaultValue={all[k] || options[0][0]} options={options} hint={d.hint} />
                     // τα μυστικά δεν γεμίζουν ποτέ τη φόρμα: κενό σημαίνει «μένει όπως είναι»
                     : d.secret ? <Field key={k} label={d.label} name={k} type="password" autoComplete="off" maxLength={400} placeholder={all[k] ? "Ορισμένο · άφησέ το κενό για να μείνει το ίδιο" : ""} hint={`${d.hint ? `${d.hint}. ` : ""}Αποθηκεύεται και δεν εμφανίζεται ξανά στην οθόνη`} />
-                    : <Field key={k} label={d.label} name={k} maxLength={400} defaultValue={all[k]} placeholder={d.placeholder} hint={d.hint} />,
-                  )}
+                    : <Field key={k} label={d.label} name={k} maxLength={400} defaultValue={all[k]} placeholder={d.placeholder} hint={d.hint} />;
+                  })}
                   <Submit className={btn("default")}>Αποθήκευση</Submit>
                 </form>
               </Modal>
@@ -55,6 +63,7 @@ export async function Connections({ q }: { q: Record<string, string | string[] |
                   <dt className="text-xs font-medium text-muted-foreground">{d.label}</dt>
                   <dd className="truncate font-semibold">
                     {d.secret ? <Badge tone={all[k] ? "success" : "warning"}>{all[k] ? "Ορισμένο" : "Δεν έχει οριστεί"}</Badge>
+                      : k === "OPENROUTER_CHAT_MODEL" && all[k] === AUTO_MODEL ? "Αυτόματη · χαμηλότερο κόστος"
                       : d.options ? (d.options.find(([v]) => v === all[k]) ?? d.options[0])[1]
                       : all[k] || <span className="font-normal text-muted-foreground">Δεν έχει οριστεί</span>}
                   </dd>

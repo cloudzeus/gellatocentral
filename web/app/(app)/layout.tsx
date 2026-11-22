@@ -18,7 +18,7 @@ import { endTenantAccess } from "./platform/actions";
 export const instant = false;
 
 // Σελίδες της κονσόλας που βλέπει μόνο όποιος διαχειρίζεται την πλατφόρμα (Super Admin)
-const SUPER_ONLY = ["/platform/settings", "/platform/refs", "/platform/vat-rates", "/platform/payment-methods", "/platform/document-types", "/platform/infrastructure", "/platform/security", "/platform/continuity"];
+const SUPER_ONLY = ["/platform/settings", "/platform/refs", "/platform/vat-rates", "/platform/currencies", "/platform/payment-methods", "/platform/document-types", "/platform/infrastructure", "/platform/security", "/platform/continuity"];
 
 /** Τι επιτρέπει ο ρόλος του χρήστη και τα στοιχεία του για το κάτω μέρος του μενού. */
 async function navFor() {
