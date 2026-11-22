@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { planProductDeletion } from "@/lib/products";
 
 // Μετά από αλλαγή στον κατάλογο: και η οθόνη προϊόντων και το web ταμείο ξαναδιαβάζουν.
 const back = (q = ""): never => {
@@ -70,4 +71,38 @@ export async function activateProducts(ids: string[]) {
 
 export async function hideProducts(ids: string[]) {
   return setProductsActive(ids, false);
+}
+
+/** Διαγραφή μόνο εντός tenant· με πωλήσεις γίνεται απόκρυψη και οι δύο αλλαγές κλειδώνουν ατομικά. */
+async function removeProducts(orgId: string, ids: string[]) {
+  const products = await db.product.findMany({
+    where: { id: { in: ids }, orgId },
+    select: { id: true, _count: { select: { lines: true } } },
+  });
+  const plan = planProductDeletion(ids, products);
+  if (plan.missingIds.length) return plan;
+  await db.$transaction([
+    db.product.updateMany({ where: { id: { in: plan.hideIds }, orgId }, data: { active: false } }),
+    db.product.deleteMany({ where: { id: { in: plan.deleteIds }, orgId } }),
+  ]);
+  revalidatePath("/products");
+  revalidatePath("/pos");
+  return plan;
+}
+
+export async function deleteProduct(productId: string) {
+  const parsed = z.string().cuid().safeParse(productId);
+  if (!parsed.success) return fail("Άγνωστο προϊόν");
+  const { org } = await currentOrg("products.edit");
+  const result = await removeProducts(org.id, [parsed.data]);
+  if (result.missingIds.length) return fail("Το προϊόν δεν βρέθηκε στην επιχείρηση· ανανέωσε τη λίστα");
+  back(result.deleteIds.length ? "?deleted=1" : "?hidden=1");
+}
+
+export async function deleteProducts(ids: string[]) {
+  const parsed = z.array(z.string().cuid()).min(1).max(200).safeParse(ids);
+  if (!parsed.success) return "Η επιλογή προϊόντων δεν είναι έγκυρη";
+  const { org } = await currentOrg("products.edit");
+  const result = await removeProducts(org.id, [...new Set(parsed.data)]);
+  if (result.missingIds.length) return "Ορισμένα προϊόντα δεν βρέθηκαν στην επιχείρηση· ανανέωσε τη λίστα";
 }

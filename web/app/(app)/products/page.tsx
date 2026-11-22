@@ -1,4 +1,4 @@
-import { FolderPlus, Pencil, Plus } from "lucide-react";
+import { FolderPlus, Pencil, Plus, Trash2 } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
@@ -8,7 +8,7 @@ import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { filterParam, listParams } from "@/lib/paging";
-import { activateProducts, hideProducts, saveCategory, saveProduct, toggleProduct } from "./actions";
+import { activateProducts, deleteProduct, deleteProducts, hideProducts, saveCategory, saveProduct, toggleProduct } from "./actions";
 
 // Ο κατάλογος του ταμείου: server-side φίλτρα και προσαρμόσιμες στήλες, με την επεξεργασία μέσα στη γραμμή.
 export default async function ProductsPage({ searchParams }: PageProps<"/products">) {
@@ -20,11 +20,12 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
     db.vatRate.findMany({ where: { active: true }, orderBy: { rate: "desc" } }),
   ]);
   const category = filterParam(q, "category", categories.map((c) => c.id));
-  const status = filterParam(q, "status", ["active", "hidden"]);
+  // Τα κρυφά βγαίνουν από την καθημερινή λίστα· παραμένουν διαθέσιμα από το φίλτρο κατάστασης.
+  const status = filterParam(q, "status", ["active", "hidden"]) ?? "active";
   const where = {
     orgId: org.id,
     ...(category ? { categoryId: category } : {}),
-    ...(status ? { active: status === "active" } : {}),
+    active: status === "active",
     ...(list.q ? { OR: [{ name: { contains: list.q, mode: "insensitive" as const } }, { category: { name: { contains: list.q, mode: "insensitive" as const } } }] } : {}),
   };
   const direction = list.sort ? list.dir : "asc";
@@ -71,16 +72,19 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
       <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
         {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Ο κατάλογος ενημερώθηκε</p> : null}
+        {q.deleted ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Το προϊόν διαγράφηκε οριστικά</p> : null}
+        {q.hidden ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Το προϊόν έχει πωλήσεις, οπότε αποκρύφτηκε αντί να διαγραφεί</p> : null}
         <Card>
           <DataTable
             id="products"
             bulkActions={can("products.edit") ? [
               { value: "activate", label: "Ενεργοποίηση επιλεγμένων", run: activateProducts },
               { value: "hide", label: "Απόκρυψη επιλεγμένων", confirm: "Απόκρυψη των επιλεγμένων προϊόντων από το ταμείο;", run: hideProducts },
+              { value: "delete", label: "Διαγραφή επιλεγμένων", confirm: "Τα προϊόντα χωρίς πωλήσεις θα διαγραφούν οριστικά. Όσα έχουν πωλήσεις θα αποκρυφτούν για να μείνει ανέπαφο το ιστορικό. Να συνεχιστεί;", run: deleteProducts },
             ] : []}
             listing={{ ...list, total, placeholder: "Προϊόν ή κατηγορία…", filters: [
               { key: "category", label: "Κατηγορία", value: category, options: categories.map((c): [string, string] => [c.id, c.name]) },
-              { key: "status", label: "Κατάσταση", value: status, options: [["active", "Ενεργά"], ["hidden", "Κρυφά"]] },
+              { key: "status", label: "Κατάσταση", value: status, showAll: false, options: [["active", "Ενεργά"], ["hidden", "Κρυφά"]] },
             ] }}
             empty={categories.length ? "Κανένα προϊόν ακόμα. Πρόσθεσε το πρώτο με «Νέο προϊόν»" : "Καμία κατηγορία ακόμα. Ξεκίνα με «Νέα κατηγορία»"}
             columns={[
@@ -109,7 +113,17 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
                 </dl>,
                 edit: can("products.edit") ? productForm(p) : undefined,
               },
-              menu: can("products.edit") ? <form action={toggleProduct.bind(null, p.id)}><Submit className={menuItem}>{p.active ? "Απόκρυψη από το ταμείο" : "Εμφάνιση ξανά"}</Submit></form> : undefined,
+              menu: can("products.edit") ? (
+                <>
+                  <form action={toggleProduct.bind(null, p.id)}><Submit className={menuItem}>{p.active ? "Απόκρυψη από το ταμείο" : "Εμφάνιση ξανά"}</Submit></form>
+                  <Modal menuItem label={<><Trash2 /> Διαγραφή</>} title={`Διαγραφή: ${p.name}`} description="Αν υπάρχουν πωλήσεις, το προϊόν θα αποκρυφτεί αντί να διαγραφεί.">
+                    <form action={deleteProduct.bind(null, p.id)} className="grid gap-4 [&>button]:justify-self-end">
+                      <p className="text-sm text-muted-foreground">Χωρίς ιστορικό πωλήσεων η διαγραφή είναι οριστική και δεν αναιρείται.</p>
+                      <Submit pendingText="Διαγραφή…" className={btn("destructive")}><Trash2 /> Διαγραφή προϊόντος</Submit>
+                    </form>
+                  </Modal>
+                </>
+              ) : undefined,
             }))}
           />
         </Card>
@@ -121,7 +135,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
             </div>
           </Card>
         ) : null}
-        <p className="text-xs text-muted-foreground">Ένα προϊόν δεν σβήνεται, μόνο κρύβεται από το ταμείο: οι αποδείξεις που έχουν εκδοθεί κρατούν την τιμή και τον ΦΠΑ της στιγμής τους</p>
+        <p className="text-xs text-muted-foreground">Τα προϊόντα χωρίς πωλήσεις διαγράφονται οριστικά. Όσα έχουν πουληθεί αποκρύπτονται, ώστε οι αποδείξεις να κρατούν την τιμή και τον ΦΠΑ της στιγμής τους· τα βρίσκεις από το φίλτρο «Κατάσταση: Κρυφά»</p>
       </div>
     </Page>
   );

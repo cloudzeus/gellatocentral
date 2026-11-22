@@ -36,7 +36,7 @@ function useDismiss(open: boolean, close: () => void, ...inside: React.RefObject
   }, [open]);
 }
 
-export type Filter = { key: string; label: string; value?: string; options: [value: string, text: string][] };
+export type Filter = { key: string; label: string; value?: string; options: [value: string, text: string][]; /** απόκρυψη της επιλογής «όλα» όταν η λίστα έχει πάντα κατάσταση */ showAll?: boolean };
 /** `total` = όλες οι γραμμές που ταιριάζουν στην αναζήτηση (όχι μόνο της σελίδας). */
 export type Listing = { q: string; page: number; pageSize: number; total: number; placeholder: string; sort?: string; dir?: "asc" | "desc"; filters?: Filter[]; /** κοινή αναζήτηση εκτός πίνακα, π.χ. δύο συνδεδεμένα αποτελέσματα */ showSearch?: boolean; /** πρόσθετη server κατάσταση, π.χ. επιλεγμένη λίστα αναφοράς */ params?: Record<string, string | undefined>; /** διαφορετικά URL keys όταν συνυπάρχουν πίνακες στην ίδια σελίδα */ keys?: { q?: string; sort?: string; dir?: string; page?: string } };
 
@@ -55,7 +55,7 @@ function ListingFilter({ filter }: { filter: Filter }) {
     if (form) setTimeout(() => form.requestSubmit(), 0);
   };
   const className = cn("h-9 max-w-44 rounded-lg border bg-card px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:h-11", filter.value ? "border-primary font-medium" : "border-input text-muted-foreground");
-  const options: [string, string][] = [["", `${filter.label}: όλα`], ...filter.options];
+  const options: [string, string][] = [...(filter.showAll === false ? [] : [["", `${filter.label}: όλα`] as [string, string]]), ...filter.options];
   return (
     <span ref={root} className="contents">
       {filter.options.length > 15 ? (
