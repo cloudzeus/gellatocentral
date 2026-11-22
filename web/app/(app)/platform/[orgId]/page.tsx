@@ -23,7 +23,7 @@ import { canDelete, CLOSING_DAYS, orgState } from "@/lib/org-state";
 import { billableStores, nextCharge, planOf } from "@/lib/plan-data";
 import { daysBetween, MIN_PAUSE_DAYS, monthlyPreview } from "@/lib/plans";
 import { setupSteps } from "@/lib/setup";
-import { addDevice, addPrinter, addStore, addUser, addWarehouse, issueCharge, issuePairCode, markChargePaid, removeMember, revokeDevice, saveOrgProfile, setRemoteId, startRemote, saveSubscription, saveViva, toggleActive, updateDevice, cancelClosing, deleteOrg, resumeOrg, startClosing, suspendOrg } from "../actions";
+import { addDevice, addPrinter, addStore, addUser, addWarehouse, issueCharge, issuePairCode, markChargePaid, removeMember, resetMemberPassword, revokeDevice, saveOrgProfile, setRemoteId, startRemote, startTenantAccess, saveSubscription, saveViva, toggleActive, updateDevice, cancelClosing, deleteOrg, resumeOrg, startClosing, suspendOrg } from "../actions";
 import { STATUS } from "../status";
 import { Submit } from "@/components/submit";
 
@@ -482,6 +482,23 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                     <p className="text-xs text-muted-foreground">{m.user.email} · {m.stores.length ? m.stores.map((s) => s.store.name).join(", ") : "Όλα τα καταστήματα"}</p>
                   </div>
                   <Badge tone={m.role.locked ? "success" : "neutral"}>{m.role.name}</Badge>
+                  {!m.user.disabledAt && !m.user.platformRole && me.can("users.edit") ? (
+                    <Modal label="Νέος κωδικός" size="sm" title={`Νέος κωδικός: ${m.user.name}`} description="Οι ανοιχτές συνεδρίες και οι παλιοί σύνδεσμοι επαναφοράς θα ακυρωθούν.">
+                      <form action={resetMemberPassword.bind(null, org.id, m.id)} className={form}>
+                        <Field label="Νέος κωδικός" name="password" type="password" required minLength={10} maxLength={200} autoComplete="new-password" />
+                        <Field label="Επανάληψη κωδικού" name="confirmation" type="password" required minLength={10} maxLength={200} autoComplete="new-password" />
+                        <Submit className={btn("default")}>Αλλαγή κωδικού</Submit>
+                      </form>
+                    </Modal>
+                  ) : null}
+                  {!m.user.disabledAt && !m.user.platformRole && me.can("support.tenant") ? (
+                    <Modal label="Είσοδος" size="sm" variant="default" title={`Είσοδος ως ${m.user.name}`} description={`Πρόσβαση στο ${org.name} με τα δικαιώματα αυτού του χρήστη, για έως 2 ώρες. Η έναρξη και η λήξη καταγράφονται.`}>
+                      <form action={startTenantAccess.bind(null, org.id, m.id)} className="grid gap-4 [&>button]:justify-self-end">
+                        <Field label="Λόγος εισόδου" name="reason" required minLength={5} maxLength={300} autoComplete="off" placeholder="π.χ. Έλεγχος απογραφών μετά από αίτημα πελάτη" hint="Καταγράφεται στο ιστορικό πρόσβασης της επιχείρησης" />
+                        <Submit className={btn("default")}>Έναρξη ελεγχόμενης εισόδου</Submit>
+                      </form>
+                    </Modal>
+                  ) : null}
                   <form action={removeMember.bind(null, org.id, m.id)}><Submit className={btn("ghost", "sm")}>Αφαίρεση πρόσβασης</Submit></form>
                 </li>
               ))}

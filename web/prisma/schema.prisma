@@ -153,7 +153,8 @@ model User {
   stockTransfers   StockTransfer[]
   countsCreated    StockCount[]          @relation("CountCreatedBy")
   countsFinalized  StockCount[]          @relation("CountFinalizedBy")
-  sessions         Session[]
+  sessions         Session[]              @relation("SessionUser")
+  impersonations   Session[]              @relation("SessionImpersonator")
   resets           PasswordReset[]
   staffGroups      StaffGroupMember[]
   storeAccesses    StaffStoreAccess[]
@@ -219,15 +220,19 @@ model PlatformSettings {
 }
 
 model Session {
-  id        String   @id @default(cuid())
-  tokenHash String   @unique // sha256 του cookie· το ίδιο το token δεν αποθηκεύεται
-  userId    String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  userAgent String? // για τη λίστα «Συνδέσεις» του χρήστη
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  tokenHash      String   @unique // sha256 του cookie· το ίδιο το token δεν αποθηκεύεται
+  userId         String
+  // Προσωρινή πρόσβαση υποστήριξης: το userId είναι του tenant, εδώ μένει ο πραγματικός admin.
+  impersonatorId String?
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  userAgent      String? // για τη λίστα «Συνδέσεις» του χρήστη
+  user           User     @relation("SessionUser", fields: [userId], references: [id], onDelete: Cascade)
+  impersonator   User?    @relation("SessionImpersonator", fields: [impersonatorId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([impersonatorId])
 }
 
 model Membership {

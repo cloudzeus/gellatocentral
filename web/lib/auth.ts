@@ -11,6 +11,7 @@ import { expandOrg, orgPermissionsOf, type Permission, permissionFor, platformCa
 
 const COOKIE = "gs_session";
 const DAYS = 14;
+const SUPPORT_HOURS = 2;
 const sha = (v: string) => createHash("sha256").update(v).digest("hex");
 
 export async function startSession(userId: string) {
@@ -27,18 +28,37 @@ export async function endSession() {
   jar.delete(COOKIE);
 }
 
+/** Η ίδια ασφαλής συνεδρία αλλάζει πρόσωπο προσωρινά· το cookie και ο admin επιστρέφουν με το τέλος. */
+export async function startTenantSession(userId: string, actorId: string) {
+  const tokenHash = await currentTokenHash();
+  if (!tokenHash) return false;
+  const session = await db.session.findUnique({ where: { tokenHash }, select: { expiresAt: true } });
+  if (!session) return false;
+  const expiresAt = new Date(Math.min(session.expiresAt.getTime(), Date.now() + SUPPORT_HOURS * 3600_000));
+  const updated = await db.session.updateMany({ where: { tokenHash, userId: actorId, impersonatorId: null }, data: { userId, impersonatorId: actorId, expiresAt } });
+  return updated.count === 1;
+}
+
+/** Επιστροφή στον πραγματικό λογαριασμό πλατφόρμας, μόνο όταν ταιριάζουν admin και tenant της συνεδρίας. */
+export async function endTenantSession(userId: string, actorId: string) {
+  const tokenHash = await currentTokenHash();
+  if (!tokenHash) return false;
+  const updated = await db.session.updateMany({ where: { tokenHash, userId, impersonatorId: actorId }, data: { userId: actorId, impersonatorId: null, expiresAt: new Date(Date.now() + DAYS * 864e5) } });
+  return updated.count === 1;
+}
+
 /** Ο συνδεδεμένος χρήστης με τη συμμετοχή, τον ρόλο, τις ομάδες και τα καταστήματά του, ή null. */
 export const getUser = cache(async () => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   const session = await db.session.findUnique({
     where: { tokenHash: sha(token) },
-    include: { user: { include: { memberships: { include: { org: true, role: true, stores: true, warehouses: true, groups: { include: { group: true } } } }, staffRole: true, staffGroups: { include: { group: true } } } } },
+    include: { impersonator: true, user: { include: { memberships: { include: { org: true, role: true, stores: true, warehouses: true, groups: { include: { group: true } } } }, staffRole: true, staffGroups: { include: { group: true } } } } },
   });
   // απενεργοποιημένος χρήστης δεν μπαίνει, ακόμα κι αν έμεινε κάποια συνεδρία
   if (!session || session.expiresAt <= new Date() || session.user.disabledAt) return null;
   if (session.user.platformRole) await loadPlatformRoles();
-  return session.user;
+  return { ...session.user, impersonator: session.impersonator };
 });
 /** Το sha256 της τρέχουσας συνεδρίας, για να ξεχωρίζει «αυτή η συσκευή» από τις άλλες. */
 export async function currentTokenHash() {

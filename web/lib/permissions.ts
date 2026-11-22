@@ -15,6 +15,7 @@ export const ACTION_LABEL = {
   pause: "Εποχιακή παύση",
   manage: "Διαχείριση όλων",
   remote: "Απομακρυσμένη σύνδεση",
+  tenant: "Είσοδος σε επιχείρηση",
   tickets: "Αιτήματα",
   kb: "Βάση γνώσεων",
   transfer: "Μεταφορά",
@@ -171,7 +172,7 @@ export const PLATFORM_AREAS = [
   { key: "setup", group: "Συνδρομητές", label: "Αρχικοποίηση", hint: "Στοιχεία, Viva, καταστήματα, αποθήκες, εκτυπωτές, ταμεία του συνδρομητή", actions: ["edit"] },
   { key: "users", group: "Συνδρομητές", label: "Χρήστες συνδρομητών", hint: "Προσκλήσεις και ρόλοι στους λογαριασμούς των πελατών", actions: ["read", "add", "edit", "delete"] },
   { key: "parties", group: "Συνδρομητές", label: "Συναλλασσόμενοι συνδρομητών", hint: "Πελάτες και προμηθευτές των πελατών μας — δίνεται μόνο χειροκίνητα", actions: ["read"] },
-  { key: "support", group: "Υποστήριξη", label: "Υποστήριξη πελατών", hint: "Αιτήματα, βάση γνώσεων, απομακρυσμένη σύνδεση σε συσκευές", actions: ["tickets", "kb", "remote"] },
+  { key: "support", group: "Υποστήριξη", label: "Υποστήριξη πελατών", hint: "Αιτήματα, βάση γνώσεων, απομακρυσμένη σύνδεση σε συσκευές και ελεγχόμενη είσοδος σε επιχείρηση", actions: ["tickets", "kb", "remote", "tenant"] },
   { key: "staff", group: "Πλατφόρμα", label: "Προσωπικό πλατφόρμας", hint: "Μέλη, ρόλοι, ομάδες και πρόσβαση σε καταστήματα πελατών", actions: ["read", "add", "edit", "delete"] },
   { key: "settings", group: "Πλατφόρμα", label: "Ρυθμίσεις πλατφόρμας", hint: "Email, λίστες αναφοράς, υποδομή, ασφάλεια και συνέχεια λειτουργίας", actions: ["read", "edit"] },
   { key: "gdpr", group: "Πλατφόρμα", label: "GDPR πλατφόρμας", hint: "Συναινέσεις, αιτήματα διαγραφής, ημερολόγιο", actions: ["read", "edit"] },
@@ -209,7 +210,7 @@ export const PLATFORM_ROLES: Record<PlatformRoleKey, { label: string; hint: stri
   SUPER_ADMIN: { label: "Super Admin", hint: "Όλα, μαζί με ρυθμίσεις και προσωπικό", permissions: ALL_PLATFORM_PERMISSIONS },
   MANAGER: { label: "Manager", hint: "Συνδρομητές, συνδρομές και αρχικοποίηση", permissions: expandPlatform(["orgs.view", "orgs.create", "billing.manage", "setup.manage", "users.manage", "gdpr.manage", "support.remote", "support.tickets", "support.kb"]) },
   STAFF: { label: "Υπάλληλος εφαρμογής", hint: "Αρχικοποίηση συνδρομητών, χωρίς χρεώσεις", permissions: expandPlatform(["orgs.view", "setup.manage", "users.manage", "support.remote", "support.tickets"]) },
-  SUPPORT: { label: "Υπάλληλος υποστήριξης", hint: "Βλέπει τους συνδρομητές και βοηθά τους χρήστες τους", permissions: expandPlatform(["orgs.view", "users.manage", "support.remote", "support.tickets"]) },
+  SUPPORT: { label: "Υπάλληλος υποστήριξης", hint: "Βλέπει τους συνδρομητές και βοηθά τους χρήστες τους", permissions: expandPlatform(["orgs.view", "users.manage", "support.remote", "support.tickets", "support.tenant"]) },
 };
 
 // Οι ρόλοι του προσωπικού έχουν τα παραπάνω δικαιώματα ως αφετηρία· ο Super Admin μπορεί να τα αλλάξει από τις Ρυθμίσεις.

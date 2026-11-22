@@ -16,6 +16,8 @@ export const ACCESS_ACTIONS = {
   "user.groups": "Αλλαγή ομάδων χρήστη",
   "staff.access": "Πρόσβαση προσωπικού σε πελάτη",
   "staff.access_removed": "Αφαίρεση πρόσβασης προσωπικού σε πελάτη",
+  "support.tenant_started": "Είσοδος υποστήριξης στο tenant",
+  "support.tenant_ended": "Έξοδος υποστήριξης από το tenant",
   "store.paused": "Εποχιακή παύση καταστήματος",
   "store.resumed": "Άνοιγμα καταστήματος μετά από παύση",
   "plan.changed": "Αλλαγή πακέτου συνδρομής",

@@ -12,7 +12,7 @@ import { z } from "zod";
 import { randomInt } from "node:crypto";
 import { validAfm } from "@/lib/afm";
 import { logAccess } from "@/lib/access-log";
-import { requirePlatform } from "@/lib/auth";
+import { endTenantSession, getUser, requirePlatform, startTenantSession } from "@/lib/auth";
 import { permissionDiff } from "@/lib/access";
 import { canGrant, isPermission, isPlatformPermission, normalize, normalizePlatform, permissionLabel as orgPermLabel, PLATFORM_PERMISSIONS, PLATFORM_ROLES, platformPermissionsOf, type PlatformRoleKey, staffPermissions, staffRoleLabel, SYSTEM_ROLES } from "@/lib/permissions";
 import { savePlatformRoles, storedPlatformRoles } from "@/lib/platform-roles";
@@ -411,6 +411,48 @@ export async function removeMember(orgId: string, membershipId: string) {
     await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "user.removed", target: `${m.user.name} · ${m.user.email}`, detail: `Ρόλος: ${m.role.name}` });
   }
   done(orgId, "users");
+}
+
+/** Νέος κωδικός από προσωπικό πλατφόρμας· ακυρώνει παλιές συνεδρίες και συνδέσμους επαναφοράς. */
+export async function resetMemberPassword(orgId: string, membershipId: string, form: FormData) {
+  const admin = await requirePlatform("users.edit");
+  const back = `/platform/${id.parse(orgId)}`;
+  const d = read(z.object({
+    password: z.string().min(10, "Ο κωδικός θέλει τουλάχιστον 10 χαρακτήρες").max(200),
+    confirmation: z.string(),
+  }).refine((v) => v.password === v.confirmation, "Οι δύο κωδικοί δεν ταιριάζουν"), form, back);
+  const m = await db.membership.findFirst({ where: { id: id.parse(membershipId), orgId, user: { disabledAt: null, platformRole: null } }, include: { user: true } });
+  if (!m) redirect(`${back}?error=${encodeURIComponent("Ο χρήστης δεν βρέθηκε ή δεν επιτρέπεται αλλαγή κωδικού")}#users`);
+  await db.$transaction([
+    db.user.update({ where: { id: m.userId }, data: { passwordHash: hashPassword(d.password), failedLogins: 0, lockedUntil: null } }),
+    db.session.deleteMany({ where: { userId: m.userId } }),
+    db.passwordReset.deleteMany({ where: { userId: m.userId } }),
+  ]);
+  await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "user.password", target: `${m.user.name} · ${m.user.email}`, detail: "Ο κωδικός άλλαξε από την πλατφόρμα· οι προηγούμενες συνεδρίες ακυρώθηκαν" });
+  done(orgId, "users");
+}
+
+/** Χρονικά περιορισμένη είσοδος χωρίς κωδικό, μόνο με αιτιολογία και ιχνηλασιμότητα. */
+export async function startTenantAccess(orgId: string, membershipId: string, form: FormData) {
+  const admin = await requirePlatform("support.tenant");
+  const back = `/platform/${id.parse(orgId)}`;
+  const d = read(z.object({ reason: z.string().trim().min(5, "Γράψε τον λόγο της εισόδου").max(300) }), form, back);
+  const m = await db.membership.findFirst({ where: { id: id.parse(membershipId), orgId, user: { disabledAt: null, platformRole: null } }, include: { user: true } });
+  if (!m || !(await startTenantSession(m.userId, admin.id))) redirect(`${back}?error=${encodeURIComponent("Δεν ήταν δυνατή η είσοδος· ανανέωσε τη σελίδα και δοκίμασε ξανά")}#users`);
+  await logAccess({ orgId, actorName: `${admin.name} (πλατφόρμα)`, action: "support.tenant_started", target: `${m.user.name} · ${m.user.email}`, detail: `${d.reason} · μέγιστη διάρκεια 2 ώρες` });
+  revalidatePath("/", "layout");
+  redirect("/");
+}
+
+/** Η έξοδος υποστήριξης επαναφέρει τον πραγματικό λογαριασμό, όχι νέο cookie. */
+export async function endTenantAccess() {
+  const user = await getUser();
+  const m = user?.memberships[0];
+  if (!user?.impersonator || !m) redirect("/platform");
+  if (!(await endTenantSession(user.id, user.impersonator.id))) redirect("/");
+  await logAccess({ orgId: m.orgId, actorName: `${user.impersonator.name} (πλατφόρμα)`, action: "support.tenant_ended", target: `${user.name} · ${user.email}`, detail: `Επιστροφή από ${m.org.name}` });
+  revalidatePath("/", "layout");
+  redirect(`/platform/${m.orgId}?saved=users#users`);
 }
 
 // ---- Στοιχεία επικοινωνίας και email ανά πελάτη ----

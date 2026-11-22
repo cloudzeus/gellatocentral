@@ -93,6 +93,10 @@ test("ρόλοι πλατφόρμας", () => {
   assert.equal(platformCan("STAFF", "billing.read"), false);
   assert.equal(platformCan("STAFF", "setup.edit"), true);
   assert.equal(platformCan("SUPPORT", "setup.edit"), false);
+  assert.equal(platformCan("SUPER_ADMIN", "support.tenant"), true);
+  assert.equal(platformCan("SUPPORT", "support.tenant"), true);
+  assert.equal(platformCan("MANAGER", "support.tenant"), false);
+  assert.equal(platformCan("STAFF", "support.tenant"), false);
   assert.equal(platformCan(null, "orgs.read"), false);
   for (const r of Object.values(PLATFORM_ROLES)) assert.ok(r.permissions.includes("orgs.read"));
   assert.deepEqual(PLATFORM_ROLES.SUPER_ADMIN.permissions, ALL_PLATFORM_PERMISSIONS);

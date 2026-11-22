@@ -12,6 +12,7 @@ import { ALL_ITEMS } from "@/lib/nav";
 import { pathOpen } from "@/lib/modules";
 import { accessFor } from "@/lib/plan-data";
 import { logout } from "../login/actions";
+import { endTenantAccess } from "./platform/actions";
 
 // Κάθε σελίδα εδώ είναι ζωντανά δεδομένα μιας επιχείρησης: δεν ζητάμε «στιγμιαία» πλοήγηση από cache.
 export const instant = false;
@@ -69,6 +70,21 @@ async function OfflineSessionGuard() {
 }
 
 const bar = "flex items-start gap-3 border-b px-6 py-3 text-sm print:hidden max-lg:pl-16";
+
+/** Ο admin βλέπει πάντα σε ποιο tenant και ως ποιος χρήστης έχει μπει, με άμεση έξοδο. */
+async function SupportBanner() {
+  const user = await getUser();
+  const m = user?.memberships[0];
+  if (!user?.impersonator || !m) return null;
+  return (
+    <div role="alert" className={`${bar} border-gold/40 bg-gold/10`}>
+      <CircleAlert className="mt-0.5 size-4 shrink-0 text-gold-ink" aria-hidden />
+      <p className="min-w-0 flex-1"><b>Είσοδος υποστήριξης:</b> {user.impersonator.name} στην επιχείρηση «{m.org.name}» ως {user.name}. Η πρόσβαση διαρκεί έως 2 ώρες και καταγράφεται.</p>
+      <form action={endTenantAccess}><button className="shrink-0 font-semibold underline">Επιστροφή στην πλατφόρμα</button></form>
+    </div>
+  );
+}
+
 /**
  * Ό,τι περιορίζει την επιχείρηση το λέμε σε κάθε σελίδα, μαζί με το τι κάνει ο χρήστης μετά: κλείσιμο, αναστολή,
  * απλήρωτη συνδρομή (ή περίοδος χάριτος) και εποχιακή παύση καταστήματος.
@@ -132,6 +148,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       </Suspense>
       <Suspense fallback={null}><OfflineSessionGuard /></Suspense>
       <div className="flex min-w-0 flex-1 flex-col">
+        <Suspense fallback={null}><SupportBanner /></Suspense>
         <Suspense fallback={null}><StateBanner /></Suspense>
         {children}
       </div>
