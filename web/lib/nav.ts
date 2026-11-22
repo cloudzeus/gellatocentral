@@ -42,7 +42,7 @@ export const NAV: { title: string; icon: LucideIcon; group?: boolean; items: Nav
       { to: "/inventory/stock", label: "Απόθεμα", icon: Boxes, ready: true },
       { to: "/inventory/transfers", label: "Μεταφορές", icon: ArrowRightLeft, ready: true },
       { to: "/purchases", label: "Τιμολόγια αγοράς", icon: Truck, ready: true },
-      { to: "/counts", label: "Απογραφές", icon: ClipboardCheck },
+      { to: "/counts", label: "Απογραφές", icon: ClipboardCheck, ready: true },
       { to: "/orders", label: "Παραγγελίες υλών", icon: ClipboardList },
     ],
   },

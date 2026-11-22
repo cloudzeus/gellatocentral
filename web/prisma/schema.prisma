@@ -68,6 +68,11 @@ enum SubscriptionStatus {
   CANCELLED
 }
 
+enum StockCountStatus {
+  DRAFT
+  FINALIZED
+}
+
 model Organization {
   id              String     @id @default(cuid())
   name            String
@@ -113,6 +118,7 @@ model Organization {
   purchaseDocs         PurchaseDoc[]
   stockLots            StockLot[]
   stockTransfers       StockTransfer[]
+  stockCounts          StockCount[]
   usageEvents          UsageEvent[]
   tickets              Ticket[]
   documentSeries       DocumentSeries[]
@@ -143,6 +149,8 @@ model User {
   auditEvents      AuditEvent[]
   stockMovements   StockMovement[]
   stockTransfers   StockTransfer[]
+  countsCreated    StockCount[]          @relation("CountCreatedBy")
+  countsFinalized  StockCount[]          @relation("CountFinalizedBy")
   sessions         Session[]
   resets           PasswordReset[]
   staffGroups      StaffGroupMember[]
@@ -331,6 +339,7 @@ model Store {
   pauses           StorePause[]
   documentSeries   DocumentSeries[]
   stockTransfers   StockTransfer[]
+  stockCounts      StockCount[]
 
   @@index([orgId])
 }
@@ -404,6 +413,7 @@ model Warehouse {
   deviceDefaults       Device[]              @relation("DeviceDefaultWarehouse")
   sourceTransfers      StockTransfer[]       @relation("TransferSource")
   destinationTransfers StockTransfer[]       @relation("TransferDestination")
+  stockCounts          StockCount[]
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -474,6 +484,8 @@ model StockMovement {
   createdBy      User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
   transfer       StockTransfer?     @relation(fields: [transferId], references: [id], onDelete: Restrict)
   transferLine   StockTransferLine? @relation(fields: [transferLineId], references: [id], onDelete: Restrict)
+  count          StockCount?        @relation(fields: [countId], references: [id], onDelete: Restrict)
+  countLine      StockCountLine?    @relation(fields: [countLineId], references: [id], onDelete: Restrict)
 
   @@unique([orgId, transferLineId, warehouseId])
   @@index([orgId, warehouseId, occurredAt])
@@ -484,6 +496,60 @@ model StockMovement {
   @@index([orgId, transferId])
   @@index([orgId, countId])
   @@index([lotId])
+}
+
+// Η απογραφή παγώνει το snapshot· μετά την οριστικοποίηση δεν αλλάζουν header ή γραμμές.
+model StockCount {
+  id              String           @id @default(cuid())
+  orgId           String
+  storeId         String?
+  warehouseId     String
+  countedOn       DateTime         @db.Date
+  snapshotAt      DateTime
+  status          StockCountStatus @default(DRAFT)
+  clientKey       String
+  requestHash     String
+  note            String?
+  createdById     String?
+  createdByName   String
+  finalizedById   String?
+  finalizedByName String?
+  finalizedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  org             Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  store           Store?           @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  warehouse       Warehouse        @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  createdBy       User?            @relation("CountCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  finalizedBy     User?            @relation("CountFinalizedBy", fields: [finalizedById], references: [id], onDelete: SetNull)
+  lines           StockCountLine[]
+  movements       StockMovement[]
+
+  @@unique([orgId, clientKey])
+  @@index([orgId, warehouseId, countedOn, status])
+  @@index([orgId, storeId, countedOn])
+}
+
+model StockCountLine {
+  id                 String         @id @default(cuid())
+  orgId              String
+  countId            String
+  genericItemId      String
+  lotId              String?
+  expectedQty        Int
+  actualQty          Int?
+  differenceQty      Int?
+  unitCostHundredths Int
+  reason             String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  count              StockCount     @relation(fields: [countId], references: [id], onDelete: Restrict)
+  genericItem        GenericItem    @relation(fields: [genericItemId], references: [id], onDelete: Restrict)
+  lot                StockLot?      @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  movement           StockMovement?
+
+  @@unique([orgId, countId, genericItemId, lotId])
+  @@index([orgId, genericItemId])
 }
 
 // Άμεση, οριστική μεταφορά: η ύπαρξή του σημαίνει posted και δημιουργείται μαζί με όλες τις κινήσεις.
@@ -551,6 +617,7 @@ model StockLot {
   productionItems          ProductionBatchItem[]
   transferSourceLines      StockTransferLine[]   @relation("TransferSourceLot")
   transferDestinationLines StockTransferLine[]   @relation("TransferDestinationLot")
+  countLines               StockCountLine[]
 
   @@unique([orgId, genericItemId, warehouseId, batchNumber])
   @@index([orgId, expiresAt])
@@ -1305,6 +1372,7 @@ model GenericItem {
   recipeItems       RecipeItem[]
   productionItems   ProductionBatchItem[]
   transferLines     StockTransferLine[]
+  countLines        StockCountLine[]
 
   @@unique([orgId, name])
   @@index([orgId, active])
