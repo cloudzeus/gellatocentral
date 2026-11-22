@@ -10,6 +10,9 @@ export type UnitLike = {
   toBase: number; // πόσες βασικές μονάδες είναι η μία (g: 1000, kg: 1_000_000, pcs: 1)
 };
 
+/** Κλίμακα ακέραιου κόστους: μάζα ανά kg, όγκος ανά l, τεμάχια ανά 1.000 (σε εκατοστά λεπτού). */
+export const stockCostScale = (dimension: string): number => dimension === "mass" ? 1_000_000 : 1_000;
+
 /** Ποσότητα σε μονάδα → ακέραιες βασικές μονάδες. Ο πολλαπλασιασμός είναι πάντα ακέραιος. */
 export function toBaseUnits(qty: number, unit: UnitLike): number {
   if (!Number.isInteger(qty)) throw new Error(`η ποσότητα σε ${unit.code} πρέπει να είναι ακέραια (δόθηκε ${qty})`);

@@ -94,7 +94,11 @@ test("perPackCents: τιμή μονάδας παραστατικού → τιμ�
   assert.equal(perPackCents(1_100, 12), 92); // 11,00 € → 91,67 λεπτά στρογγυλοποιούνται σε 92
 });
 
-test("κόστος αγοράς: το 1,20 €/kg δεν μηδενίζεται όταν η βάση είναι mg", () => {
-  assert.equal(purchaseUnitCostHundredths(120, 1_000_000), 12);
-  assert.equal(purchaseUnitCostHundredths(350, 100), 350_000); // 3,50 € ανά 100 τεμάχια
+test("κόστος αγοράς: ακρίβεια €/kg και ακριβής σταθμισμένος μέσος στη βάση mg", () => {
+  const first = purchaseUnitCostHundredths(120, 1_000_000, "mass");
+  const second = purchaseUnitCostHundredths(135, 1_000_000, "mass");
+  assert.equal(first, 12_000);
+  assert.equal(second, 13_500);
+  assert.equal(Math.round((12_000_000 * first + 8_000_000 * second) / 20_000_000), 12_600); // 1,26 €/kg
+  assert.equal(purchaseUnitCostHundredths(350, 100, "count"), 350_000); // 3,50 € ανά 100 τεμάχια
 });

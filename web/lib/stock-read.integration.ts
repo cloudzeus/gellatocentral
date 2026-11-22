@@ -65,14 +65,14 @@ test("PostgreSQL STK-02: aggregation, valuation, search, scope και pagination
   const f = await fixture();
   const foreign = await fixture();
   try {
-    await write(f, 1_000);
-    await write(f, 500, { warehouseId: f.otherWarehouseId });
-    await write(f, 200, { genericItemId: f.otherGenericItemId });
+    await write(f, 1_000_000);
+    await write(f, 500_000, { warehouseId: f.otherWarehouseId });
+    await write(f, 200_000, { genericItemId: f.otherGenericItemId });
 
     const first = await stockOverview(db, readInput(f, [f.warehouseId], { take: 1 }));
     assert.equal(first.total, 2);
     assert.equal(first.rows.length, 1);
-    assert.equal(first.totalValueHundredths, Math.round((1_000 * 125 + 200 * 250) / 1000));
+    assert.equal(first.totalValueHundredths, Math.round((1_000_000 * 125 + 200_000 * 250) / 1_000_000));
     const second = await stockOverview(db, readInput(f, [f.warehouseId], { skip: 1, take: 1 }));
     assert.equal(second.total, 2);
     assert.equal(second.rows.length, 1);
@@ -80,7 +80,7 @@ test("PostgreSQL STK-02: aggregation, valuation, search, scope και pagination
 
     const search = await stockOverview(db, readInput(f, [f.warehouseId, f.otherWarehouseId], { q: "γάλα" }));
     assert.equal(search.total, 2);
-    assert.deepEqual(search.rows.map((row) => row.quantity).sort((a, b) => a - b), [500, 1_000]);
+    assert.deepEqual(search.rows.map((row) => row.quantity).sort((a, b) => a - b), [500_000, 1_000_000]);
     const central = await stockOverview(db, readInput(f, [f.warehouseId], { q: "γάλα" }));
     assert.equal(central.total, 1);
     assert.equal(central.rows[0]!.valueHundredths, 125);

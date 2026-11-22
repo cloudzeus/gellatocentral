@@ -174,8 +174,8 @@ test("τεμάχια από γραμμάρια", () => {
 });
 
 test("κόστος ανά γραμμάριο από μέσο κόστος βασικής μονάδας", () => {
-  // γάλα 12,5 εκατοστά/g (βασική g, toBase 1000 mg): 12500/mg... — εδώ η βασική του είδους είναι το g
-  assert.equal(costPerGramHundredths({ avgCostHundredths: 12.5, baseUnit: { dimension: "mass", toBase: 1000 } }), 12.5);
+  // 12.500 εκατοστά/kg = 12,5 εκατοστά/g, με βασική μονάδα mg.
+  assert.equal(costPerGramHundredths({ avgCostHundredths: 12_500, baseUnit: { dimension: "mass", toBase: 1_000_000 } }), 12.5);
   // αυγό 12 λεπτά (=1200 εκατοστά) το τεμάχιο των 55 g
   assert.ok(Math.abs(costPerGramHundredths({ avgCostHundredths: 1_200_000, baseUnit: { dimension: "count", toBase: 1 }, gramsPerPiece: 55 }) - 1200 / 55) < 1e-9);
   // χωρίς βάρος τεμαχίου ή μηδενικό κόστος → 0

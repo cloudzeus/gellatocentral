@@ -5,23 +5,24 @@ import { expiryStatus, safeStockNumber, stockDisplayUnit, stockUnitCostHundredth
 
 const d = (value: string) => new Date(value);
 
-test("αποτίμηση: κόστος ανά 1.000 βασικές μονάδες και σωστή μονάδα εμφάνισης", () => {
-  // 2 kg = 2.000.000 mg · 12 εκατοστά λεπτού/1.000 mg = 2,40 € συνολικά.
-  assert.equal(stockValueHundredths(2_000_000, 12), 24_000);
-  assert.equal(stockUnitCostHundredths(12, 1_000_000), 12_000); // 1,20 €/kg
+test("αποτίμηση: κλίμακα ανά διάσταση και σωστή μονάδα εμφάνισης", () => {
+  assert.equal(stockValueHundredths(2_000_000, 12_000, "mass"), 24_000); // 2 kg × 1,20 €/kg
+  assert.equal(stockUnitCostHundredths(12_000, 1_000_000, "mass"), 12_000);
+  assert.equal(stockValueHundredths(2_000, 12_000, "volume"), 24_000); // 2 l × 1,20 €/l
+  assert.equal(stockUnitCostHundredths(350_000, 1, "count"), 350); // 0,035 €/τεμ.
   assert.equal(stockDisplayUnit({ code: "mg", dimension: "mass", toBase: 1 }).code, "kg");
   assert.equal(stockDisplayUnit({ code: "ml", dimension: "volume", toBase: 1 }).code, "l");
-  assert.equal(stockValueHundredths(-500_000, 12), -6_000);
-  assert.equal(stockValueHundredths(1, 500), 1);
-  assert.equal(stockValueHundredths(-1, 500), -1);
-  assert.equal(stockValueHundredths(0, 12), 0);
+  assert.equal(stockValueHundredths(-500_000, 12_000, "mass"), -6_000);
+  assert.equal(stockValueHundredths(1, 500, "count"), 1);
+  assert.equal(stockValueHundredths(-1, 500, "count"), -1);
+  assert.equal(stockValueHundredths(0, 12_000, "mass"), 0);
 });
 
 test("αποτίμηση: ακυρα δεδομένα και υπέρβαση safe integer απορρίπτονται", () => {
-  assert.throws(() => stockValueHundredths(Number.MAX_SAFE_INTEGER, 2_000));
-  assert.throws(() => stockValueHundredths(1.5, 2));
-  assert.throws(() => stockValueHundredths(1, -2));
-  assert.throws(() => stockUnitCostHundredths(5, 0));
+  assert.throws(() => stockValueHundredths(Number.MAX_SAFE_INTEGER, 2_000, "count"));
+  assert.throws(() => stockValueHundredths(1.5, 2, "mass"));
+  assert.throws(() => stockValueHundredths(1, -2, "mass"));
+  assert.throws(() => stockUnitCostHundredths(5, 0, "mass"));
   assert.throws(() => safeStockNumber(BigInt(Number.MAX_SAFE_INTEGER) + 1n));
 });
 

@@ -1,6 +1,6 @@
 // Καθαρή λογική προβολής αποθέματος: ασφαλής αποτίμηση και ημερολογιακές λήξεις Ελλάδας.
 import { daysUntil } from "./production.ts";
-import { formatBaseQty, type UnitLike } from "./units.ts";
+import { formatBaseQty, stockCostScale, type UnitLike } from "./units.ts";
 
 const VIEW_UNITS: Record<string, UnitLike[]> = {
   mass: [{ code: "kg", dimension: "mass", toBase: 1_000_000 }, { code: "g", dimension: "mass", toBase: 1_000 }, { code: "mg", dimension: "mass", toBase: 1 }],
@@ -18,27 +18,27 @@ export function safeStockNumber(value: number | bigint): number {
   return result;
 }
 
-/** Στρογγυλοποίηση κόστους από 1.000 βασικές μονάδες, συμμετρική και για αρνητική διαφορά απογραφής. */
-function fromThousandBaseUnits(value: bigint): number {
+/** Στρογγυλοποίηση από την κλίμακα αποθήκευσης, συμμετρική και για αρνητική διαφορά απογραφής. */
+function fromCostScale(value: bigint, scale: bigint): number {
   const sign = value < 0n ? -1n : 1n;
   const absolute = value < 0n ? -value : value;
-  return safeStockNumber(sign * ((absolute + 500n) / 1000n));
+  return safeStockNumber(sign * ((absolute + scale / 2n) / scale));
 }
 
-/** Αξία σε εκατοστά λεπτού: ποσότητα βάσης × κόστος ανά 1.000 βασικές μονάδες. */
-export function stockValueHundredths(quantity: number, unitCostHundredths: number): number {
+/** Αξία σε εκατοστά λεπτού με την κλίμακα κόστους της διάστασης. */
+export function stockValueHundredths(quantity: number, unitCostHundredths: number, dimension: string): number {
   if (!Number.isSafeInteger(quantity) || !Number.isSafeInteger(unitCostHundredths) || unitCostHundredths < 0) {
     throw new Error("μη έγκυρη ποσότητα ή κόστος αποθέματος");
   }
-  return fromThousandBaseUnits(BigInt(quantity) * BigInt(unitCostHundredths));
+  return fromCostScale(BigInt(quantity) * BigInt(unitCostHundredths), BigInt(stockCostScale(dimension)));
 }
 
-/** Το αποθηκευμένο κόστος είναι ανά 1.000 mg/ml/τεμ· για την οθόνη μετατρέπεται στη μονάδα κατανάλωσης. */
-export function stockUnitCostHundredths(baseUnitCostHundredths: number, toBase: number): number {
+/** Για την οθόνη το αποθηκευμένο κόστος μετατρέπεται σε kg/l/τεμάχιο. */
+export function stockUnitCostHundredths(baseUnitCostHundredths: number, toBase: number, dimension: string): number {
   if (!Number.isSafeInteger(baseUnitCostHundredths) || baseUnitCostHundredths < 0 || !Number.isSafeInteger(toBase) || toBase < 1) {
     throw new Error("μη έγκυρη μονάδα ή κόστος αποθέματος");
   }
-  return fromThousandBaseUnits(BigInt(baseUnitCostHundredths) * BigInt(toBase));
+  return fromCostScale(BigInt(baseUnitCostHundredths) * BigInt(toBase), BigInt(stockCostScale(dimension)));
 }
 
 /** Το κόστος εμφανίζεται ανά kg/l/τεμάχιο, όχι ανά μικροσκοπική βασική μονάδα. */

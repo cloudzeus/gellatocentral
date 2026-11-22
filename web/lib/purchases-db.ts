@@ -41,7 +41,7 @@ export async function postPurchase(ctx: StockContext, docId: string) {
         const qtyBase = lineBaseQty(line.quantity, packQty, content);
         const generic = line.genericItem!;
         const perPack = perPackCents(line.unitPriceCents, packQty);
-        const pH = purchaseUnitCostHundredths(perPack, content);
+        const pH = purchaseUnitCostHundredths(perPack, content, generic.baseUnit.dimension);
         // Q είναι το απόθεμα ΠΡΙΝ από την είσοδο. Serializable + πλήρες retry εμποδίζουν χαμένη ενημέρωση κόστους.
         const stock = generic.trackStock ? await genericStockBalance(tx, orgId, generic.id) : 0;
 
@@ -73,7 +73,7 @@ export async function postPurchase(ctx: StockContext, docId: string) {
           });
         }
 
-        // Μέσο σταθμισμένο κόστος (εκατοστά λεπτού ανά 1.000 βασικές μονάδες): A′ = (Q·A + q·p)/(Q+q).
+        // Μέσο σταθμισμένο κόστος (εκατοστά λεπτού ανά kg/l ή 1.000 τεμ.): A′ = (Q·A + q·p)/(Q+q).
         if (pH > 0) {
           const next = !generic.trackStock || stock <= 0
             ? Math.round(pH)

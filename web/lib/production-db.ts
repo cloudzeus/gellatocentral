@@ -9,7 +9,7 @@ import { allocateFefo, fefoShortfall, nextBatchNumber, type FefoAllocation, type
 import { postStockMovement, STOCK_ERROR_MESSAGE, StockError } from "./stock-db";
 import { stockTransaction } from "./stock-transaction";
 import { assertStockScope, STOCK_SCOPE_ERROR_MESSAGE, StockScopeError, type StockContext } from "./stock-scope";
-import { gramsToBaseQty } from "./units";
+import { gramsToBaseQty, stockCostScale } from "./units";
 
 export class ProductionError extends Error {}
 
@@ -87,7 +87,7 @@ export async function planProduction(tx: DbLike, orgId: string, recipeId: string
       unitCode: g.baseUnit.code,
       grams,
       quantity,
-      costHundredths: Math.round((quantity * g.avgCostHundredths) / 1000),
+      costHundredths: Math.round((quantity * g.avgCostHundredths) / stockCostScale(g.baseUnit.dimension)),
       allocations: g.trackStock ? null : [],
       shortfall: 0,
     };

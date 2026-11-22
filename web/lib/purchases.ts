@@ -3,6 +3,7 @@
 // η αποδοχή παραλαβής (παρτίδα + κίνηση + τιμή σε συναλλαγή) είναι στο lib/purchases-db.ts.
 
 import { parseGs1 } from "./gs1.ts"; // με επέκταση: το module φορτώνεται και από node --test
+import { stockCostScale } from "./units.ts";
 
 // ---- Καθαρά: αντιστοίχιση γραμμής ------------------------------------------
 
@@ -82,8 +83,8 @@ export function lineBaseQty(quantity: number, packQty: number, contentQty: numbe
 /** Τιμή ανά συσκευασία TradeItem από τη τιμή μονάδας παραστατικού (στρογγυλοποίηση στο λεπτό). */
 export const perPackCents = (unitPriceCents: number, packQty: number): number => Math.round(unitPriceCents / packQty);
 
-/** Ακέραια αποθήκευση κόστους σε εκατοστά λεπτού ανά 1.000 βασικές μονάδες. */
-export const purchaseUnitCostHundredths = (packPriceCents: number, contentQty: number): number =>
-  (packPriceCents * 100 * 1000) / contentQty;
+/** Ακέραια αποθήκευση κόστους με την κλίμακα της διάστασης, χωρίς απώλεια σε mg/ml. */
+export const purchaseUnitCostHundredths = (packPriceCents: number, contentQty: number, dimension: string): number =>
+  (packPriceCents * 100 * stockCostScale(dimension)) / contentQty;
 
 export class PurchaseError extends Error {}

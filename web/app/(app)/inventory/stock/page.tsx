@@ -114,7 +114,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                         <td className={`${td} font-semibold`}>{ctx.can("items.read") ? <Link href={`/items/${row.genericItemId}`} className="underline-offset-2 hover:underline">{row.itemName}</Link> : row.itemName}</td>
                         <td className={td}>{row.warehouseName}</td>
                         <td className={`${td} text-right font-semibold tabular-nums`}>{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</td>
-                        <td className={`${td} text-right tabular-nums`}>{row.unitCostHundredths > 0 ? <>{formatStockValue(stockUnitCostHundredths(row.unitCostHundredths, stockDisplayUnit(row.baseUnit).toBase))} <span className="text-xs text-muted-foreground">/ {stockDisplayUnit(row.baseUnit).code}</span></> : "—"}</td>
+                        <td className={`${td} text-right tabular-nums`}>{row.unitCostHundredths > 0 ? <>{formatStockValue(stockUnitCostHundredths(row.unitCostHundredths, stockDisplayUnit(row.baseUnit).toBase, row.baseUnit.dimension))} <span className="text-xs text-muted-foreground">/ {stockDisplayUnit(row.baseUnit).code}</span></> : "—"}</td>
                         <td className={`${td} text-right font-medium tabular-nums`}>{row.unitCostHundredths > 0 ? formatStockValue(row.valueHundredths) : "—"}</td>
                       </tr>
                     ))}

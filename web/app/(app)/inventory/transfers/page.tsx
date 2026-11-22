@@ -162,7 +162,7 @@ export default async function TransfersPage({ searchParams }: { searchParams: Pr
                           <li key={line.id}>
                             <span className="font-medium">{line.genericItem.name}</span> · {formatStockQuantity(line.quantity, line.genericItem.baseUnit.dimension)}
                             <span className="block text-xs text-muted-foreground">{line.sourceLot ? `Παρτίδα ${line.sourceLot.batchNumber ?? "χωρίς αριθμό"} → ${line.destinationLot?.batchNumber ?? "χωρίς αριθμό"}` : "Χωρίς παρτίδα"}</span>
-                            {line.unitCostHundredths > 0 ? <span className="block text-xs text-muted-foreground">Κόστος snapshot: {formatStockValue(stockUnitCostHundredths(line.unitCostHundredths, stockDisplayUnit(line.genericItem.baseUnit).toBase))} / {stockDisplayUnit(line.genericItem.baseUnit).code}</span> : null}
+                            {line.unitCostHundredths > 0 ? <span className="block text-xs text-muted-foreground">Κόστος snapshot: {formatStockValue(stockUnitCostHundredths(line.unitCostHundredths, stockDisplayUnit(line.genericItem.baseUnit).toBase, line.genericItem.baseUnit.dimension))} / {stockDisplayUnit(line.genericItem.baseUnit).code}</span> : null}
                           </li>
                         ))}
                       </ul>
