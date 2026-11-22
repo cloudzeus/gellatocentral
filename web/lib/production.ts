@@ -2,9 +2,12 @@
 // πρώτα λήγει, πρώτη καταναλώνεται· χωρίς λήξη στο τέλος, παλιότερη πρώτη). Κανένα I/O —
 // η ατομική εκτέλεση σε βάση είναι στο lib/production-db.ts. Δοκιμάζεται με node --test.
 
-export const daysUntil = (date: Date | null) => date ? Math.ceil((date.getTime() - Date.now()) / 86_400_000) : null;
-export const isExpired = (expiresAt: Date | null) => {
-  const days = daysUntil(expiresAt);
+const DAY_MS = 86_400_000;
+const athensDay = (date: Date) => date.toLocaleDateString("sv-SE", { timeZone: "Europe/Athens" });
+/** Ημερολογιακές ημέρες Ελλάδας· η κατάσταση λήξης δεν βασίζεται σε κυλιόμενο 24ωρο. */
+export const daysUntil = (date: Date | null, now = new Date()) => date ? Math.round((Date.parse(athensDay(date)) - Date.parse(athensDay(now))) / DAY_MS) : null;
+export const isExpired = (expiresAt: Date | null, now = new Date()) => {
+  const days = daysUntil(expiresAt, now);
   return days !== null && days < 0;
 };
 
@@ -29,7 +32,7 @@ export function allocateFefo(lots: readonly LotStock[], qty: number): FefoAlloca
   if (!Number.isInteger(qty) || qty < 1) throw new Error(`η ποσότητα κατανάλωσης πρέπει να είναι θετικός ακέραιος (δόθηκε ${qty})`);
   const sorted = [...lots]
     .filter((l) => l.available > 0)
-    .sort((a, b) => (a.expiresAt?.getTime() ?? Number.POSITIVE_INFINITY) - (b.expiresAt?.getTime() ?? Number.POSITIVE_INFINITY));
+    .sort((a, b) => ((a.expiresAt?.getTime() ?? Number.POSITIVE_INFINITY) - (b.expiresAt?.getTime() ?? Number.POSITIVE_INFINITY)) || a.id.localeCompare(b.id));
   let remaining = qty;
   const out: FefoAllocation[] = [];
   for (const lot of sorted) {

@@ -6,8 +6,11 @@ import { z } from "zod";
 import { currentOrg } from "@/lib/auth";
 import { compositionCopyData, compositionFromForm } from "@/lib/composition";
 import { db } from "@/lib/db";
-import { addStockMovement } from "@/lib/warehouses";
 import { parseGs1 } from "@/lib/gs1";
+import { requireStockContext } from "@/lib/stock-context";
+import { postStockMovement, STOCK_ERROR_MESSAGE, StockError } from "@/lib/stock-db";
+import { stockTransaction } from "@/lib/stock-transaction";
+import { assertStockScope, STOCK_SCOPE_ERROR_MESSAGE, StockScopeError } from "@/lib/stock-scope";
 
 // Μετά από αλλαγή: και η λίστα και η καρτέλα είδους ξαναδιαβάζουν.
 const back = (path = "/items", q = ""): never => {
@@ -202,23 +205,36 @@ export async function hideSupplierItems(genericItemId: string, ids: string[]) {
   return setSupplierItemsActive(genericItemId, ids, false);
 }
 
-/** Διόρθωση αποθέματος: χειροκίνητη κίνηση ± σε βασική μονάδα με αιτιολογία (append-only, πηγή «manual»). */
+/** Διόρθωση αποθέματος: κοινός writer, φρέσκο warehouse scope και actor snapshot στο ίδιο transaction. */
 export async function addCorrection(form: FormData) {
   const raw = Object.fromEntries(form);
   const genericItemId = String(raw.genericItemId ?? "");
   const path = `/items/${genericItemId}`;
   const d = z.object({ genericItemId: z.string().min(1), warehouseId: z.string().min(1), note: z.string().trim().min(3, "Γράψε αιτιολογία, π.χ. «σπασίματα»").max(120) }).safeParse(raw);
   if (!d.success) return fail(d.error.issues[0].message, path);
-  const { org } = await currentOrg("warehouses.edit");
+  const ctx = await requireStockContext("warehouses.edit", { warehouseId: d.data.warehouseId, forWrite: true });
   const qty = Number(String(raw.qty ?? "").replace(",", "."));
   if (!Number.isInteger(qty) || qty === 0) return fail("Η ποσότητα διόρθωσης είναι μη μηδενικός ακέραιος στη βασική μονάδα (π.χ. -500 για μισό κιλό λιγότερο)", path);
-  const generic = await db.genericItem.findFirst({ where: { id: d.data.genericItemId, orgId: org.id } });
-  const warehouse = await db.warehouse.findFirst({ where: { id: d.data.warehouseId, orgId: org.id } });
-  if (!generic || !warehouse) return fail("Άγνωστο είδος ή αποθήκη", path);
+  const generic = await db.genericItem.findFirst({ where: { id: d.data.genericItemId, orgId: ctx.orgId } });
+  if (!generic) return fail("Άγνωστο είδος", path);
   try {
-    await addStockMovement(db, { orgId: org.id, warehouseId: warehouse.id, quantity: qty, genericItemId: generic.id, source: "manual", note: d.data.note });
-  } catch {
-    return fail("Η διόρθωση θα οδηγούσε σε αρνητικό απόθεμα", path);
+    await stockTransaction(async (tx) => {
+      await assertStockScope(tx, ctx, { warehouseId: d.data.warehouseId, forWrite: true });
+      await postStockMovement(tx, {
+        orgId: ctx.orgId,
+        warehouseId: d.data.warehouseId,
+        quantity: qty,
+        genericItemId: generic.id,
+        lotId: null,
+        source: "manual",
+        note: d.data.note,
+        actor: { id: ctx.userId, name: ctx.userName },
+      });
+    });
+  } catch (error) {
+    if (error instanceof StockError) return fail(STOCK_ERROR_MESSAGE[error.code], path);
+    if (error instanceof StockScopeError) return fail(STOCK_SCOPE_ERROR_MESSAGE[error.code], path);
+    throw error;
   }
   back(path, "?saved=1");
 }

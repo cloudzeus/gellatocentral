@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addStockMovement, attachWarehouse, detachWarehouse, resolveWarehouseId, setDefaultWarehouse, WarehouseError, type WarehouseDb } from "./warehouses.ts";
+import { attachWarehouse, detachWarehouse, resolveWarehouseId, setDefaultWarehouse, WarehouseError, type WarehouseDb } from "./warehouses.ts";
 
 // Υποκατάστατη «βάση» στη μνήμη: υλοποιεί μόνο ό,τι ακουμπά το lib/warehouses.
 function fakeDb() {
@@ -157,17 +157,6 @@ test("ανενεργά: απορρίπτονται σε σύνδεση και ε
   await attachWarehouse(db, { orgId: "org1", storeId: "st2", warehouseId: "wh1" });
   warehouses.get("wh1")!.active = false;
   assert.equal(await resolveWarehouseId(db, { orgId: "org1", storeId: "st2" }).catch(code), "DEFAULT_WAREHOUSE_REQUIRED"); // ανενεργή δεν προσφέρεται ως fallback
-});
-
-test("κινήσεις αποθέματος: το αρνητικό υπόλοιπο απαγορεύεται", async () => {
-  const { db, movements } = seed();
-  const base = { orgId: "org1", storeId: "st1", warehouseId: "wh1", documentId: "doc1" };
-  await addStockMovement(db, { ...base, lineId: "l1", quantity: 10 });
-  await addStockMovement(db, { ...base, lineId: "l2", quantity: -4 });
-  assert.equal(await addStockMovement(db, { ...base, lineId: "l3", quantity: -7 }).catch(code), "NEGATIVE_STOCK_NOT_ALLOWED");
-  await addStockMovement(db, { ...base, lineId: "l4", quantity: -6 }); // ακριβώς μηδέν: επιτρέπεται
-  assert.equal(movements.length, 3);
-  assert.ok(movements.every((m) => m.warehouseId === "wh1")); // κάθε κίνηση κρατά το τελικό warehouseId
 });
 
 test("κεντρική αποθήκη σε πολλά καταστήματα", async () => {

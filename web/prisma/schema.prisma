@@ -91,6 +91,8 @@ model Organization {
 
   stores               Store[]
   warehouses           Warehouse[]
+  warehouseMemberships MembershipWarehouse[]
+  auditEvents          AuditEvent[]
   printers             Printer[]
   members              Membership[]
   roles                OrgRole[]
@@ -122,25 +124,27 @@ model Organization {
 }
 
 model User {
-  id            String             @id @default(cuid())
-  email         String             @unique
-  name          String
-  passwordHash  String?
+  id               String                @id @default(cuid())
+  email            String                @unique
+  name             String
+  passwordHash     String?
   // Προσωπικό της πλατφόρμας: βλέπει την κονσόλα συνδρομητών, δεν ανήκει σε επιχείρηση. Κενό = χρήστης συνδρομητή.
-  platformRole  PlatformRole?
-  failedLogins  Int                @default(0)
-  lockedUntil   DateTime?
+  platformRole     PlatformRole?
+  failedLogins     Int                   @default(0)
+  lockedUntil      DateTime?
   // Δικός σας ρόλος προσωπικού (φτιαγμένος από την οθόνη). Όταν υπάρχει, τα δικαιώματα έρχονται από αυτόν και το platformRole μένει STAFF.
-  staffRoleId   String?
-  staffRole     StaffRole?         @relation(fields: [staffRoleId], references: [id], onDelete: Restrict)
-  disabledAt    DateTime? // απενεργοποιημένος: δεν συνδέεται, αλλά μένει στο ιστορικό
-  lastLoginAt   DateTime?
-  createdAt     DateTime           @default(now())
-  memberships   Membership[]
-  sessions      Session[]
-  resets        PasswordReset[]
-  staffGroups   StaffGroupMember[]
-  storeAccesses StaffStoreAccess[]
+  staffRoleId      String?
+  staffRole        StaffRole?            @relation(fields: [staffRoleId], references: [id], onDelete: Restrict)
+  disabledAt       DateTime? // απενεργοποιημένος: δεν συνδέεται, αλλά μένει στο ιστορικό
+  lastLoginAt      DateTime?
+  createdAt        DateTime              @default(now())
+  memberships      Membership[]
+  auditEvents      AuditEvent[]
+  stockMovements   StockMovement[]
+  sessions         Session[]
+  resets           PasswordReset[]
+  staffGroups      StaffGroupMember[]
+  storeAccesses    StaffStoreAccess[]
   tablePreferences UserTablePreference[]
 }
 
@@ -215,16 +219,17 @@ model Session {
 }
 
 model Membership {
-  id     String            @id @default(cuid())
-  orgId  String
-  userId String
-  roleId String
-  org    Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  user   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role   OrgRole           @relation(fields: [roleId], references: [id])
+  id         String                @id @default(cuid())
+  orgId      String
+  userId     String
+  roleId     String
+  org        Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       OrgRole               @relation(fields: [roleId], references: [id])
   // Πολλαπλά καταστήματα και ομάδες· τα δικαιώματα του μέλους είναι η ΕΝΩΣΗ ρόλου + ομάδων
-  stores MembershipStore[]
-  groups MembershipGroup[]
+  stores     MembershipStore[]
+  warehouses MembershipWarehouse[]
+  groups     MembershipGroup[]
 
   @@unique([orgId, userId])
 }
@@ -251,6 +256,21 @@ model MembershipStore {
   store        Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@id([membershipId, storeId])
+}
+
+// Ρητή πρόσβαση σε αποθήκη. Κενό = όλες εντός του store scope· ρητή γραμμή επιτρέπει και standalone εργαστήριο.
+model MembershipWarehouse {
+  orgId        String
+  membershipId String
+  warehouseId  String
+  createdAt    DateTime     @default(now())
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  membership   Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  warehouse    Warehouse    @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@id([membershipId, warehouseId])
+  @@index([orgId, warehouseId])
+  @@index([warehouseId])
 }
 
 model MembershipGroup {
@@ -361,26 +381,49 @@ model Device {
 }
 
 model Warehouse {
-  id                String            @id @default(cuid())
+  id                String                @id @default(cuid())
   orgId             String
   // Κωδικός ανά επιχείρηση (π.χ. CENTRAL)· προαιρετικός, βοηθά σε αναφορές και εντάξεις
   code              String?
   name              String
-  active            Boolean           @default(true)
-  createdAt         DateTime          @default(now())
-  org               Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  device            Device?           @relation("DeviceWarehouse") // όταν ο χώρος ΕΙΝΑΙ μια συσκευή (ψυγείο, αυτόματος πωλητής)
+  active            Boolean               @default(true)
+  createdAt         DateTime              @default(now())
+  org               Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  device            Device?               @relation("DeviceWarehouse") // όταν ο χώρος ΕΙΝΑΙ μια συσκευή (ψυγείο, αυτόματος πωλητής)
   // Το απόθεμα ανήκει στην αποθήκη, όχι στο κατάστημα. Ποια καταστήματα εξυπηρετεί (και ποια είναι
   // η προεπιλογή του καθενός) λέει το StoreWarehouse — έτσι μία κεντρική αποθήκη καλύπτει πολλά καταστήματα.
   stores            StoreWarehouse[]
+  memberships       MembershipWarehouse[]
   movements         StockMovement[]
   lots              StockLot[]
   purchases         PurchaseDoc[]
   productionBatches ProductionBatch[]
-  deviceDefaults    Device[]          @relation("DeviceDefaultWarehouse")
+  deviceDefaults    Device[]              @relation("DeviceDefaultWarehouse")
 
   @@unique([orgId, code])
   @@index([orgId])
+}
+
+// Αμετάβλητο επιχειρησιακό ίχνος. Τα store/warehouse IDs μένουν ως ιστορική αναφορά ακόμη κι αν αφαιρεθεί η οντότητα.
+model AuditEvent {
+  id          String       @id @default(cuid())
+  orgId       String
+  actorId     String?
+  actorName   String
+  action      String
+  entityType  String
+  entityId    String
+  storeId     String?
+  warehouseId String?
+  reason      String?
+  metadata    Json?
+  createdAt   DateTime     @default(now())
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor       User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, entityType, entityId, createdAt])
+  @@index([orgId, createdAt])
+  @@index([orgId, warehouseId, createdAt])
 }
 
 // Σύνδεση καταστήματος με αποθήκη: ποιες αποθήκες επιτρέπονται στο κατάστημα, με ποια σειρά,
@@ -402,25 +445,37 @@ model StoreWarehouse {
 // Η γραμμή κρατά πάντα το ΤΕΛΙΚΟ warehouseId (βλ. resolveWarehouseId) — ποτέ δεν συμπεραίνεται από το κατάστημα.
 // documentId/lineId: το παραστατικό που την προκάλεσε (πώληση ή PurchaseDoc/PurchaseLine)· κενά σε χειροκίνητες διορθώσεις.
 model StockMovement {
-  id            String    @id @default(cuid())
-  orgId         String
-  storeId       String? // πώληση: το κατάστημα· αγορά/διόρθωση: κενό (η κίνηση είναι της αποθήκης)
-  warehouseId   String
-  documentId    String?
-  lineId        String?
-  quantity      Int // θετικό = είσοδος, αρνητικό = έξοδος — σε βασική μονάδα του genericItemId
-  genericItemId String? // σε ποιο γενικό είδος ανήκει η ποσότητα (αγορές/διορθώσεις· οι παλιές πωλήσεις δεν έχουν)
-  lotId         String? // η παρτίδα (StockLot) — κενό για είδη χωρίς παρτίδες
-  source        String    @default("sale") // sale | purchase | production | manual (διόρθωση)
-  note          String? // αιτιολογία διόρθωσης («σπασίματα», «μέτρηση απογραφής»…)
-  createdByName String? // ποιος την έκανε (audit στις χειροκίνητες διορθώσεις)
-  occurredAt    DateTime  @default(now())
-  warehouse     Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  lot           StockLot? @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  id             String    @id @default(cuid())
+  orgId          String
+  storeId        String? // πώληση: το κατάστημα· αγορά/διόρθωση: κενό (η κίνηση είναι της αποθήκης)
+  warehouseId    String
+  documentId     String?
+  lineId         String?
+  transferId     String? // typed σύνδεση· η FK προστίθεται μαζί με το StockTransfer
+  transferLineId String?
+  countId        String? // typed σύνδεση· η FK προστίθεται μαζί με το StockCount
+  countLineId    String?   @unique
+  quantity       Int // θετικό = είσοδος, αρνητικό = έξοδος — σε βασική μονάδα του genericItemId
+  genericItemId  String? // σε ποιο γενικό είδος ανήκει η ποσότητα· κενό μόνο σε legacy sale recording
+  lotId          String? // η παρτίδα (StockLot) — κενό για είδη χωρίς παρτίδες
+  source         String    @default("sale") // sale | purchase | production | manual | transfer | count
+  note           String? // αιτιολογία διόρθωσης («σπασίματα», «μέτρηση απογραφής»…)
+  createdById    String?
+  createdByName  String? // snapshot ονόματος· μένει και αν διαγραφεί ο χρήστης
+  occurredAt     DateTime  @default(now()) // επιχειρησιακή ημερομηνία, μπορεί να είναι παλιότερη
+  recordedAt     DateTime  @default(now()) // πραγματική εγγραφή από τη βάση, για snapshot conflict checks
+  warehouse      Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  lot            StockLot? @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  createdBy      User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
+  @@unique([orgId, transferLineId, warehouseId])
   @@index([orgId, warehouseId, occurredAt])
   @@index([orgId, storeId, occurredAt])
   @@index([orgId, genericItemId, occurredAt])
+  @@index([orgId, warehouseId, genericItemId, lotId])
+  @@index([orgId, warehouseId, recordedAt])
+  @@index([orgId, transferId])
+  @@index([orgId, countId])
   @@index([lotId])
 }
 

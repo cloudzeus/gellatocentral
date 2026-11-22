@@ -17,6 +17,10 @@ export const ACTION_LABEL = {
   remote: "Απομακρυσμένη σύνδεση",
   tickets: "Αιτήματα",
   kb: "Βάση γνώσεων",
+  transfer: "Μεταφορά",
+  finalize: "Οριστικοποίηση",
+  correct: "Διόρθωση αποθέματος",
+  cancel: "Ακύρωση",
 } as const;
 export type Action = keyof typeof ACTION_LABEL;
 
@@ -29,12 +33,22 @@ export const AREAS = [
   { key: "receipts", group: "Ταμείο & τιμολόγηση", label: "Αποδείξεις", hint: "Όσες έχουν εκδοθεί", actions: ["read", "reissue"] },
   { key: "devices", group: "Ταμείο & τιμολόγηση", label: "Συσκευές", hint: "Ταμεία, ψυγεία και εκτυπωτές (η προσθήκη ταμείου αλλάζει τη χρέωση)", actions: ["read", "add", "edit", "delete"] },
   { key: "warehouses", group: "Αποθήκη & αγορές", label: "Αποθήκες", hint: "Αποθηκευτικοί χώροι, σύνδεσή τους με καταστήματα και προεπιλογές", actions: ["read", "add", "edit"] },
+  { key: "stock", group: "Αποθήκη & αγορές", label: "Απόθεμα", hint: "Υπόλοιπα ανά είδος και παρτίδα, μεταφορές και αιτιολογημένες διορθώσεις", actions: ["read", "transfer", "correct"] },
+  { key: "counts", group: "Αποθήκη & αγορές", label: "Απογραφές", hint: "Προσχέδια, μετρήσεις και οριστικοποίηση διαφορών αποθέματος", actions: ["read", "add", "edit", "finalize"] },
+  { key: "orders", group: "Αποθήκη & αγορές", label: "Παραγγελίες υλών", hint: "Παραγγελίες προς προμηθευτές και παρακολούθηση παραλαβών", actions: ["read", "add", "edit"] },
   { key: "purchases", group: "Αποθήκη & αγορές", label: "Τιμολόγια αγοράς", hint: "Παραλαβές από προμηθευτές: αντιστοίχιση γραμμών, παρτίδες και είσοδος αποθέματος", actions: ["read", "add", "edit"] },
   { key: "parties", group: "Πελάτες & πωλήσεις", label: "Συναλλασσόμενοι", hint: "Πελάτες, προμηθευτές, franchisees και συνεργάτες: καρτέλες, αρχεία και συναινέσεις τους", actions: ["read", "add", "edit", "delete"] },
+  { key: "wholesale", group: "Πελάτες & πωλήσεις", label: "Χονδρική", hint: "Παραγγελίες πελατών και διαχείριση χονδρικών πωλήσεων", actions: ["read", "add", "edit"] },
+  { key: "invoices", group: "Πελάτες & πωλήσεις", label: "Παραστατικά χονδρικής", hint: "Έκδοση και ακύρωση παραστατικών χονδρικής", actions: ["read", "add", "edit", "cancel"] },
   { key: "products", group: "Συνταγολόγιο", label: "Προϊόντα & κατηγορίες", hint: "Ο κατάλογος του ταμείου: τιμή και συντελεστής ΦΠΑ ανά προϊόν", actions: ["read", "add", "edit"] },
   { key: "items", group: "Συνταγολόγιο", label: "Γενικά είδη", hint: "Τα είδη των συνταγών και η σύνδεσή τους με εμπορικά είδη και προμηθευτές", actions: ["read", "add", "edit"] },
   { key: "recipes", group: "Συνταγολόγιο", label: "Συνταγές", hint: "Συνταγές παγωτού: γραμμές σε γραμμάρια, τεχνική ανάλυση (PAC/POD) και κόστος", actions: ["read", "add", "edit"] },
   { key: "production", group: "Παραγωγή", label: "Παραγωγή", hint: "Παρτίδες παραγωγής: FEFO κατανάλωση υλικών από το απόθεμα και ιχνηλασιμότητα", actions: ["read", "add"] },
+  { key: "haccp", group: "Παραγωγή", label: "HACCP", hint: "Έλεγχοι, μετρήσεις, αποκλίσεις και διορθωτικές ενέργειες", actions: ["read", "add", "edit"] },
+  { key: "staff", group: "Ομάδα & αναφορές", label: "Προσωπικό", hint: "Εργαζόμενοι, τμήματα και βάρδιες", actions: ["read", "add", "edit", "delete"] },
+  { key: "reports", group: "Ομάδα & αναφορές", label: "Αναφορές", hint: "Επιχειρησιακές αναφορές και συγκεντρωτική εικόνα", actions: ["read"] },
+  { key: "finance", group: "Οικονομικά", label: "Οικονομικά", hint: "Έσοδα, έξοδα και ταμειακή εικόνα", actions: ["read", "edit"] },
+  { key: "vitrine", group: "Πελάτες & πωλήσεις", label: "Βιτρίνα", hint: "Δημοσιευμένη παρουσίαση προϊόντων και διαθεσιμότητας", actions: ["read", "edit"] },
   { key: "tickets", group: "Υποστήριξη", label: "Αιτήματα υποστήριξης", hint: "Βλέπει και απαντά στα αιτήματα όλης της επιχείρησης (ο καθένας βλέπει πάντα τα δικά του)", actions: ["manage"] },
   { key: "billing", group: "Ρυθμίσεις", label: "Συνδρομή", hint: "Το κόστος της συνδρομής και η πληρωμή της", actions: ["read"] },
   { key: "stores", group: "Ρυθμίσεις", label: "Εποχιακή παύση καταστημάτων", hint: "Κλείνει και ανοίγει ξανά ένα κατάστημα για την περίοδο που δεν λειτουργεί (αλλάζει τη χρέωση)", actions: ["pause"] },
@@ -87,15 +101,60 @@ export const expandOrg = (keys: readonly string[]): Permission[] => normalize(ke
 export const orgPermissionsOf = (role: { locked: boolean; permissions: string[] }): Permission[] => (role.locked ? ALL_PERMISSIONS : expandOrg(role.permissions));
 
 /** Ποιο δικαίωμα (το read της περιοχής) θέλει κάθε σελίδα. Ό,τι δεν αναφέρεται θέλει τον πίνακα ελέγχου. */
-const PAGE: Record<string, Permission> = { "/pos": "pos.use", "/receipts": "receipts.read", "/devices": "devices.read", "/inventory": "warehouses.read", "/purchases": "purchases.read", "/billing": "billing.read", "/users": "users.read", "/gdpr": "gdpr.read", "/customers": "parties.read", "/parties": "parties.read", "/products": "products.read", "/items": "items.read", "/recipes": "recipes.read", "/production": "production.read", "/traceability": "production.read" };
-export const permissionFor = (path: string): Permission => PAGE[Object.keys(PAGE).find((p) => path === p || path.startsWith(`${p}/`)) ?? ""] ?? "dashboard.read";
+const PAGE: Record<string, Permission> = {
+  "/pos": "pos.use",
+  "/receipts": "receipts.read",
+  "/devices": "devices.read",
+  "/inventory/stock": "stock.read",
+  "/inventory/transfers": "stock.read",
+  "/inventory/warehouses": "warehouses.read",
+  "/inventory": "warehouses.read",
+  "/counts": "counts.read",
+  "/orders": "orders.read",
+  "/purchases": "purchases.read",
+  "/billing": "billing.read",
+  "/users": "users.read",
+  "/gdpr": "gdpr.read",
+  "/customers": "parties.read",
+  "/parties": "parties.read",
+  "/products": "products.read",
+  "/items": "items.read",
+  "/materials": "items.read",
+  "/recipes": "recipes.read",
+  "/production": "production.read",
+  "/traceability": "production.read",
+  "/haccp": "haccp.read",
+  "/wholesale-orders": "wholesale.read",
+  "/invoices": "invoices.read",
+  "/vitrine": "vitrine.read",
+  "/staff": "staff.read",
+  "/reports": "reports.read",
+  "/finance": "finance.read",
+};
+export const permissionFor = (path: string): Permission => {
+  // Το πιο ειδικό route υπερισχύει: /inventory/stock δεν πρέπει να κληρονομεί warehouses.read.
+  const page = Object.keys(PAGE).filter((p) => path === p || path.startsWith(`${p}/`)).sort((a, b) => b.length - a.length)[0] ?? "";
+  return PAGE[page] ?? "dashboard.read";
+};
 
 /** Οι τρεις ρόλοι που αποκτά κάθε νέα επιχείρηση. Ο «Επιχειρηματίας» είναι κλειδωμένος: έχει πάντα όλα τα δικαιώματα. */
 export const SYSTEM_ROLES: { name: string; permissions: Permission[]; locked: boolean }[] = [
   { name: "Επιχειρηματίας", permissions: ALL_PERMISSIONS, locked: true },
   {
     name: "Manager",
-    permissions: ["dashboard.read", "pos.use", "receipts.read", "receipts.reissue", "devices.read", "devices.add", "devices.edit", "devices.delete", "warehouses.read", "warehouses.add", "warehouses.edit", "purchases.read", "purchases.add", "purchases.edit", "parties.read", "parties.add", "parties.edit", "parties.delete", "products.read", "products.add", "products.edit", "items.read", "items.add", "items.edit", "recipes.read", "recipes.add", "recipes.edit", "production.read", "production.add", "tickets.manage"],
+    permissions: [
+      "dashboard.read", "pos.use", "receipts.read", "receipts.reissue",
+      "devices.read", "devices.add", "devices.edit", "devices.delete",
+      "warehouses.read", "warehouses.add", "warehouses.edit",
+      "stock.read", "stock.transfer", "stock.correct",
+      "counts.read", "counts.add", "counts.edit", "counts.finalize",
+      "purchases.read", "purchases.add", "purchases.edit",
+      "parties.read", "parties.add", "parties.edit", "parties.delete",
+      "products.read", "products.add", "products.edit",
+      "items.read", "items.add", "items.edit",
+      "recipes.read", "recipes.add", "recipes.edit",
+      "production.read", "production.add", "tickets.manage",
+    ],
     locked: false,
   },
   { name: "Υπάλληλος", permissions: ["pos.use", "receipts.read"], locked: false },

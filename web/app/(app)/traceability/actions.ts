@@ -5,9 +5,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { correctionBaseQty } from "@/lib/stock-correction";
+import { requireStockContext } from "@/lib/stock-context";
+import { postStockMovement, stockBalance, STOCK_ERROR_MESSAGE, StockError } from "@/lib/stock-db";
+import { stockTransaction } from "@/lib/stock-transaction";
+import { assertStockScope, STOCK_SCOPE_ERROR_MESSAGE, StockScopeError } from "@/lib/stock-scope";
 
 export async function correctLotStock(form: FormData) {
   const lotId = String(form.get("lotId") ?? "");
@@ -26,33 +29,41 @@ export async function correctLotStock(form: FormData) {
   if (!d.success) return fail(d.error.issues[0].message);
   const amount = Number(String(form.get("amount") ?? "").replace(",", "."));
 
-  const { org, user } = await currentOrg("warehouses.edit");
+  const ctx = await requireStockContext("warehouses.edit");
   const lot = await db.stockLot.findFirst({
-    where: { id: d.data.lotId, orgId: org.id },
+    where: { id: d.data.lotId, orgId: ctx.orgId },
     include: { genericItem: { include: { baseUnit: true } } },
   });
   if (!lot) return fail("Άγνωστη παρτίδα");
+  await assertStockScope(db, ctx, { warehouseId: lot.warehouseId, forWrite: true });
 
-  const sum = await db.stockMovement.aggregate({ where: { orgId: org.id, lotId: lot.id }, _sum: { quantity: true } });
+  const remaining = await stockBalance(db, { orgId: ctx.orgId, warehouseId: lot.warehouseId, genericItemId: lot.genericItemId, lotId: lot.id });
   let quantity: number;
   try {
-    quantity = correctionBaseQty({ direction: d.data.direction, amount, dimension: lot.genericItem.baseUnit.dimension, remaining: sum._sum.quantity ?? 0 });
+    quantity = correctionBaseQty({ direction: d.data.direction, amount, dimension: lot.genericItem.baseUnit.dimension, remaining });
   } catch (e) {
     return fail((e as Error).message);
   }
 
-  await db.stockMovement.create({
-    data: {
-      orgId: org.id,
-      warehouseId: lot.warehouseId,
-      lotId: lot.id,
-      genericItemId: lot.genericItemId,
-      quantity,
-      source: "manual",
-      note: d.data.note,
-      createdByName: user.name,
-    },
-  });
+  try {
+    await stockTransaction(async (tx) => {
+      await assertStockScope(tx, ctx, { warehouseId: lot.warehouseId, forWrite: true });
+      await postStockMovement(tx, {
+        orgId: ctx.orgId,
+        warehouseId: lot.warehouseId,
+        lotId: lot.id,
+        genericItemId: lot.genericItemId,
+        quantity,
+        source: "manual",
+        note: d.data.note,
+        actor: { id: ctx.userId, name: ctx.userName },
+      });
+    });
+  } catch (error) {
+    if (error instanceof StockError) return fail(STOCK_ERROR_MESSAGE[error.code]);
+    if (error instanceof StockScopeError) return fail(STOCK_SCOPE_ERROR_MESSAGE[error.code]);
+    throw error;
+  }
   revalidatePath(path);
   redirect(`${path}?saved=1`);
 }

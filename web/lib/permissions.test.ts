@@ -24,6 +24,14 @@ test("δικαίωμα ανά σελίδα", () => {
   assert.equal(permissionFor("/receipts/abc"), "receipts.read");
   assert.equal(permissionFor("/"), "dashboard.read");
   assert.equal(permissionFor("/recipes"), "recipes.read");
+  assert.equal(permissionFor("/materials"), "items.read");
+  assert.equal(permissionFor("/inventory/stock"), "stock.read");
+  assert.equal(permissionFor("/inventory/stock/lots/abc"), "stock.read");
+  assert.equal(permissionFor("/inventory/transfers/abc"), "stock.read");
+  assert.equal(permissionFor("/inventory/warehouses/abc"), "warehouses.read");
+  assert.equal(permissionFor("/counts/abc"), "counts.read");
+  assert.equal(permissionFor("/haccp/checks"), "haccp.read");
+  assert.equal(permissionFor("/invoices/abc"), "invoices.read");
   assert.equal(permissionFor("/posters"), "dashboard.read"); // όχι «ξεκινά με /pos»
   assert.equal(permissionFor("/customers/abc"), "parties.read");
   assert.equal(permissionFor("/gdpr/consents"), "gdpr.read");
@@ -33,12 +41,20 @@ test("ρόλοι συστήματος", () => {
   assert.deepEqual(SYSTEM_ROLES[0].permissions, ALL_PERMISSIONS);
   assert.ok(SYSTEM_ROLES[0].locked);
   assert.ok(!SYSTEM_ROLES[1].permissions.includes("users.read"));
+  for (const p of ["stock.read", "stock.transfer", "stock.correct", "counts.read", "counts.add", "counts.edit", "counts.finalize"]) assert.ok(SYSTEM_ROLES[1].permissions.includes(p as (typeof ALL_PERMISSIONS)[number]));
+  assert.ok(!SYSTEM_ROLES[1].permissions.includes("wholesale.read"));
   assert.deepEqual(SYSTEM_ROLES[2].permissions, ["pos.use", "receipts.read"]);
+});
+
+test("κάθε δικαίωμα ορίζεται μία φορά", () => {
+  assert.equal(new Set(ALL_PERMISSIONS).size, ALL_PERMISSIONS.length);
 });
 
 test("normalize: άλλη ενέργεια σε περιοχή φέρνει αυτόματα το read της", () => {
   assert.deepEqual(normalize(["devices.edit"]), ["devices.edit", "devices.read"]);
   assert.deepEqual(normalize(["receipts.reissue"]), ["receipts.reissue", "receipts.read"]);
+  assert.deepEqual(normalize(["stock.transfer"]), ["stock.transfer", "stock.read"]);
+  assert.deepEqual(normalize(["counts.finalize"]), ["counts.finalize", "counts.read"]);
   assert.deepEqual(normalize(["pos.use"]), ["pos.use"]); // η περιοχή δεν έχει read
   assert.deepEqual(normalize(["άκυρο", "gdpr.edit"]), ["gdpr.edit", "gdpr.read"]); // άγνωστα πετιούνται
 });

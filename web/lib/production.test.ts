@@ -20,6 +20,11 @@ test("FEFO: πρώτα η παρτίδα που λήγει νωρίτερα", ()
   ]);
 });
 
+test("FEFO: ίδια λήξη λύνεται με σταθερό lot id", () => {
+  const lots = [lot("b", "2026-06-01", 20), lot("a", "2026-06-01", 20)];
+  assert.deepEqual(allocateFefo(lots, 30), [{ lotId: "a", qty: 20 }, { lotId: "b", qty: 10 }]);
+});
+
 test("FEFO: παρτίδες με μηδενικό υπόλοιπο αγνοούνται", () => {
   const lots = [lot("a", "2026-01-01", 0), lot("b", "2026-02-01", 30)];
   assert.deepEqual(allocateFefo(lots, 10), [{ lotId: "b", qty: 10 }]);

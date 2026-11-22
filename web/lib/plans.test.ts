@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { allowedPermissions, moduleOfPath, pathOpen } from "./modules.ts";
+import { allowedPermissions, MODULES, moduleOfPath, moduleOfPermission, pathOpen } from "./modules.ts";
+import { ALL_PERMISSIONS, permissionFor } from "./permissions.ts";
 import { chargeFor, monthlyPreview, pauseDaysLeft, pauseSettlement, storeMonthly } from "./plans.ts";
 
 const plan = { storeCents: 5900, devicePrices: { POS_WEB: 1500, POS_ANDROID: 2000, FRIDGE: 300 }, pausePercent: 30 };
@@ -65,11 +66,35 @@ test("τρέχουσα μηνιαία εικόνα και υπόλοιπο ημ�
 test("ενότητες πακέτου: κλείνουν δικαιώματα και σελίδες", () => {
   const role = ["dashboard.read", "pos.use", "receipts.read", "users.read", "billing.read"];
   assert.deepEqual(allowedPermissions(role, ["receipts"]), ["receipts.read", "users.read", "billing.read"]); // χρήστες και συνδρομή πάντα ανοιχτά
+  assert.deepEqual(allowedPermissions(["stock.transfer", "counts.finalize", "users.read"], ["inventory"]), ["stock.transfer", "counts.finalize", "users.read"]);
+  assert.deepEqual(allowedPermissions(["stock.transfer", "counts.finalize", "users.read"], []), ["users.read"]);
   assert.equal(moduleOfPath("/pos"), "pos");
   assert.equal(moduleOfPath("/"), "dashboard");
   assert.equal(moduleOfPath("/billing"), null);
   assert.equal(pathOpen("/customers/abc", ["pos"]), false);
+  assert.equal(pathOpen("/inventory/stock", ["inventory"]), true);
+  assert.equal(pathOpen("/inventory/stock", []), false);
   assert.equal(pathOpen("/support", []), true);
+});
+
+test("κάθε operational δικαίωμα ανήκει σε ακριβώς ένα module", () => {
+  const alwaysOpen = new Set(["tickets.manage", "billing.read", "stores.pause"]);
+  const expected = ALL_PERMISSIONS.filter((p) => !alwaysOpen.has(p) && !p.startsWith("users.") && !p.startsWith("gdpr."));
+  const mapped = Object.values(MODULES).flatMap((m) => [...m.permissions]);
+  assert.equal(new Set(mapped).size, mapped.length, "το ίδιο permission δηλώθηκε σε δύο modules");
+  assert.deepEqual([...mapped].sort(), [...expected].sort());
+  for (const p of expected) assert.notEqual(moduleOfPermission(p), null, p);
+});
+
+test("κάθε module path συμφωνεί με το δικαίωμα και το package του", () => {
+  for (const [module, definition] of Object.entries(MODULES)) {
+    for (const path of definition.paths) {
+      assert.equal(moduleOfPath(path), module, path);
+      assert.equal(moduleOfPermission(permissionFor(path)), module, path);
+      assert.equal(pathOpen(path, [module]), true, path);
+      assert.equal(pathOpen(path, []), false, path);
+    }
+  }
 });
 
 test("ημέρες παύσης πριν αρχίσει η χρέωση (δωρεάν δοκιμή) δεν δίνουν έκπτωση", () => {

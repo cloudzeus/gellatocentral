@@ -33,7 +33,7 @@ export const getUser = cache(async () => {
   if (!token) return null;
   const session = await db.session.findUnique({
     where: { tokenHash: sha(token) },
-    include: { user: { include: { memberships: { include: { org: true, role: true, stores: true, groups: { include: { group: true } } } }, staffRole: true, staffGroups: { include: { group: true } } } } },
+    include: { user: { include: { memberships: { include: { org: true, role: true, stores: true, warehouses: true, groups: { include: { group: true } } } }, staffRole: true, staffGroups: { include: { group: true } } } } },
   });
   // απενεργοποιημένος χρήστης δεν μπαίνει, ακόμα κι αν έμεινε κάποια συνεδρία
   if (!session || session.expiresAt <= new Date() || session.user.disabledAt) return null;
@@ -71,15 +71,16 @@ export const memberPermissions = (m: { role: { locked: boolean; permissions: str
 /**
  * Η επιχείρηση του χρήστη, ο ρόλος και τα δικαιώματά του. Με `needs` ελέγχει και ότι έχει το δικαίωμα
  * για τη σελίδα/ενέργεια. Καλείται σε ΚΑΘΕ σελίδα και server action, όχι μόνο για το μενού.
- * storeIds: τα καταστήματα του μέλους· κενός πίνακας = όλα.
+ * storeIds/warehouseIds: ρητοί περιορισμοί του μέλους· κενός πίνακας = όλα εντός του αντίστοιχου scope.
  */
 export const currentOrg = cache(async (needs?: Permission) => {
   const user = await requireUser();
   const m = user.memberships[0];
   if (!m) redirect(user.platformRole ? "/platform" : "/login");
   const storeIds = m.stores.map((s) => s.storeId);
+  const warehouseIds = m.warehouses.map((w) => w.warehouseId);
   const access = await accessFor(m.orgId, storeIds);
   const permissions = memberPermissions(m, access.open);
   if (needs && !permissions.includes(needs)) redirect(home(permissions) ?? "/account");
-  return { user, membership: m, role: m.role, permissions, can: (p: Permission) => permissions.includes(p), org: m.org, storeIds, access };
+  return { user, membership: m, role: m.role, permissions, can: (p: Permission) => permissions.includes(p), org: m.org, storeIds, warehouseIds, access };
 });

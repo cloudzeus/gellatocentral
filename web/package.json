@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test \"lib/**/*.test.ts\"",
+    "test:stock-integration": "tsx --test lib/stock-db.integration.ts lib/stock-read.integration.ts",
     "backup": "tsx scripts/backup.ts",
     "postinstall": "prisma generate"
   },

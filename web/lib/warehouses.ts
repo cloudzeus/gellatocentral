@@ -148,34 +148,4 @@ export async function detachWarehouse(tx: WarehouseDb, input: { orgId: string; s
   }
 }
 
-/** Τρέχον απόθεμα αποθήκης: άθροισμα όλων των κινήσεων (μόνο προσθήκες γίνονται). */
-export async function stockLevel(tx: WarehouseDb, warehouseId: string): Promise<number> {
-  const sum = await tx.stockMovement.aggregate({ where: { warehouseId }, _sum: { quantity: true } });
-  return sum._sum.quantity ?? 0;
-}
-
-/**
- * Καταγραφή κίνησης αποθέματος. Πριν γραφτεί, έχει ήδη τρέξει resolveWarehouseId:
- * το warehouseId εδώ είναι το ΤΕΛΙΚΟ. Αρνητικό υπόλοιπο δεν επιτρέπεται.
- * Πώληση: storeId/documentId/lineId συμπληρωμένα· αγορά: documentId/lineId του PurchaseDoc·
- * διόρθωση: source "manual" με αιτιολογία στο note, χωρίς παραστατικό.
- */
-export async function addStockMovement(
-  tx: WarehouseDb,
-  input: {
-    orgId: string;
-    warehouseId: string;
-    quantity: number;
-    storeId?: string | null;
-    documentId?: string | null;
-    lineId?: string | null;
-    genericItemId?: string | null;
-    lotId?: string | null;
-    source?: string;
-    note?: string | null;
-    occurredAt?: Date;
-  },
-) {
-  if (input.quantity < 0 && (await stockLevel(tx, input.warehouseId)) + input.quantity < 0) throw new WarehouseError("NEGATIVE_STOCK_NOT_ALLOWED");
-  return tx.stockMovement.create({ data: { ...input } });
-}
+// Οι εγγραφές αποθέματος γίνονται μόνο από lib/stock-db.ts (κοινό lock/balance contract).

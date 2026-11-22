@@ -38,7 +38,8 @@ export const NAV: { title: string; icon: LucideIcon; group?: boolean; items: Nav
   {
     title: "Αποθήκη & αγορές", icon: Warehouse,
     items: [
-      { to: "/inventory", label: "Αποθήκη", icon: Warehouse, ready: true },
+      { to: "/inventory", label: "Αποθήκες", icon: Warehouse, ready: true },
+      { to: "/inventory/stock", label: "Απόθεμα", icon: Boxes, ready: true },
       { to: "/purchases", label: "Τιμολόγια αγοράς", icon: Truck, ready: true },
       { to: "/counts", label: "Απογραφές", icon: ClipboardCheck },
       { to: "/orders", label: "Παραγγελίες υλών", icon: ClipboardList },

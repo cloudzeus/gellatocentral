@@ -10,6 +10,7 @@ import { scanPurchaseInvoice } from "@/lib/ai/ocr-scan";
 import { importMyIncome } from "@/lib/mydata-income";
 import { matchLine } from "@/lib/purchases";
 import { postPurchase } from "@/lib/purchases-db";
+import { requireStockContext } from "@/lib/stock-context";
 
 const back = (path: string, q = ""): never => {
   revalidatePath("/purchases");
@@ -161,9 +162,9 @@ export async function removeLines(docId: string, ids: string[]) {
 
 /** Αποδοχή: παρτίδες + αποθέματα + τιμές, όλα σε μία συναλλαγή (lib/purchases-db.ts). */
 export async function postDoc(docId: string) {
-  const { org } = await currentOrg("purchases.edit");
+  const ctx = await requireStockContext("purchases.edit");
   try {
-    await postPurchase(org.id, docId);
+    await postPurchase(ctx, docId);
   } catch (e) {
     return fail(e instanceof Error ? e.message : "Η καταχώριση απέτυχε", `/purchases/${docId}`);
   }

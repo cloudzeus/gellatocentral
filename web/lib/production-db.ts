@@ -4,8 +4,11 @@
 // Ο σχεδιασμός (planProduction) είναι κοινός με την προεπισκόπηση: ο χρήστης βλέπει ΠΡΙΝ
 // το κλείσιμο ποιες παρτίδες — και από ποιον προμηθευτή — θα καταναλωθούν.
 
-import { db } from "./db";
+import type { db } from "./db";
 import { allocateFefo, fefoShortfall, nextBatchNumber, type FefoAllocation, type LotStock } from "./production";
+import { postStockMovement, STOCK_ERROR_MESSAGE, StockError } from "./stock-db";
+import { stockTransaction } from "./stock-transaction";
+import { assertStockScope, STOCK_SCOPE_ERROR_MESSAGE, StockScopeError, type StockContext } from "./stock-scope";
 import { gramsToBaseQty } from "./units";
 
 export class ProductionError extends Error {}
@@ -131,56 +134,57 @@ export interface CloseProductionInput {
   batchNumber?: string | null;
   note?: string | null;
   producedAt?: Date;
-  createdByName?: string | null;
 }
 
-export async function closeProductionBatch(orgId: string, input: CloseProductionInput) {
-  return db.$transaction(async (tx) => {
-    const plan = await planProduction(tx, orgId, input.recipeId, input.warehouseId, input.quantityGrams);
-    const short = plan.lines.find((l) => l.shortfall > 0);
-    if (short) throw new ProductionError(`Δεν φτάνει το απόθεμα για «${short.name}» — λείπουν ${short.shortfall} ${short.unitCode} στην αποθήκη «${plan.warehouse.name}»`);
+export async function closeProductionBatch(ctx: StockContext, input: CloseProductionInput) {
+  const orgId = ctx.orgId;
+  try {
+    return await stockTransaction(async (tx) => {
+      await assertStockScope(tx, ctx, { warehouseId: input.warehouseId, forWrite: true });
+      const plan = await planProduction(tx, orgId, input.recipeId, input.warehouseId, input.quantityGrams);
+      const short = plan.lines.find((l) => l.shortfall > 0);
+      if (short) throw new ProductionError(`Δεν φτάνει το απόθεμα για «${short.name}» — λείπουν ${short.shortfall} ${short.unitCode} στην αποθήκη «${plan.warehouse.name}»`);
 
-    const at = input.producedAt ?? new Date();
-    let batchNumber = input.batchNumber?.trim() || "";
-    if (!batchNumber) {
-      const dayStart = new Date(at.getFullYear(), at.getMonth(), at.getDate());
-      const todayCount = await tx.productionBatch.count({ where: { orgId, producedAt: { gte: dayStart } } });
-      batchNumber = nextBatchNumber(at, todayCount + 1);
-    }
+      const at = input.producedAt ?? new Date();
+      let batchNumber = input.batchNumber?.trim() || "";
+      if (!batchNumber) {
+        const dayStart = new Date(at.getFullYear(), at.getMonth(), at.getDate());
+        const todayCount = await tx.productionBatch.count({ where: { orgId, producedAt: { gte: dayStart } } });
+        batchNumber = nextBatchNumber(at, todayCount + 1);
+      }
 
-    const batch = await tx.productionBatch.create({
-      data: {
-        orgId,
-        recipeId: plan.recipe.id,
-        warehouseId: plan.warehouse.id,
-        batchNumber,
-        quantityGrams: plan.quantityGrams,
-        costHundredths: plan.costHundredths,
-        note: input.note || null,
-        producedAt: at,
-        createdByName: input.createdByName || null,
-      },
-    });
+      const batch = await tx.productionBatch.create({
+        data: {
+          orgId,
+          recipeId: plan.recipe.id,
+          warehouseId: plan.warehouse.id,
+          batchNumber,
+          quantityGrams: plan.quantityGrams,
+          costHundredths: plan.costHundredths,
+          note: input.note || null,
+          producedAt: at,
+          createdByName: ctx.userName,
+        },
+      });
 
-    for (const line of plan.lines) {
-      // γραμμή ανά FEFO ανάλωση: η ιχνηλασιμότητα θέλει να ξέρουμε ποια παρτίδα (και ποιος
-      // προμηθευτής, μέσω του τιμολογίου της) μπήκε στην παραγωγή
-      const splits = line.allocations?.length ? line.allocations : [{ lotId: null as string | null, qty: 0, lot: null as ProductionLotInfo | null }];
-      for (const a of splits) {
-        const item = await tx.productionBatchItem.create({
-          data: {
-            orgId,
-            batchId: batch.id,
-            genericItemId: line.genericItemId,
-            grams: line.grams,
-            quantity: a.qty,
-            lotId: a.lotId,
-            costHundredths: a.lotId ? Math.round(a.qty * (line.quantity > 0 ? line.costHundredths / line.quantity : 0)) : line.costHundredths,
-          },
-        });
-        if (a.lotId) {
-          await tx.stockMovement.create({
+      for (const line of plan.lines) {
+        // γραμμή ανά FEFO ανάλωση: η ιχνηλασιμότητα θέλει να ξέρουμε ποια παρτίδα (και ποιος
+        // προμηθευτής, μέσω του τιμολογίου της) μπήκε στην παραγωγή
+        const splits = line.allocations?.length ? line.allocations : [{ lotId: null as string | null, qty: 0, lot: null as ProductionLotInfo | null }];
+        for (const a of splits) {
+          const item = await tx.productionBatchItem.create({
             data: {
+              orgId,
+              batchId: batch.id,
+              genericItemId: line.genericItemId,
+              grams: line.grams,
+              quantity: a.qty,
+              lotId: a.lotId,
+              costHundredths: a.lotId ? Math.round(a.qty * (line.quantity > 0 ? line.costHundredths / line.quantity : 0)) : line.costHundredths,
+            },
+          });
+          if (a.lotId) {
+            await postStockMovement(tx, {
               orgId,
               warehouseId: plan.warehouse.id,
               documentId: batch.id,
@@ -190,12 +194,17 @@ export async function closeProductionBatch(orgId: string, input: CloseProduction
               lotId: a.lotId,
               source: "production",
               occurredAt: at,
-            },
-          });
+              actor: { id: ctx.userId, name: ctx.userName },
+            });
+          }
         }
       }
-    }
 
-    return batch;
-  });
+      return batch;
+    });
+  } catch (error) {
+    if (error instanceof StockError) throw new ProductionError(STOCK_ERROR_MESSAGE[error.code]);
+    if (error instanceof StockScopeError) throw new ProductionError(STOCK_SCOPE_ERROR_MESSAGE[error.code]);
+    throw error;
+  }
 }

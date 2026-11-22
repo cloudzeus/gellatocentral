@@ -7,12 +7,28 @@ export const MODULES = {
   pos: { label: "Ταμείο και συσκευές", hint: "Έκδοση αποδείξεων, ταμεία, εκτυπωτές, ψυγεία", permissions: ["pos.use", "devices.read", "devices.add", "devices.edit", "devices.delete"], paths: ["/pos", "/devices"] },
   receipts: { label: "Αποδείξεις", hint: "Προβολή και επανεκτύπωση όσων έχουν εκδοθεί", permissions: ["receipts.read", "receipts.reissue"], paths: ["/receipts"] },
   customers: { label: "Συναλλασσόμενοι", hint: "Πελάτες, προμηθευτές, franchisees, συνεργάτες: καρτέλες, αρχεία και συναινέσεις", permissions: ["parties.read", "parties.add", "parties.edit", "parties.delete"], paths: ["/parties", "/customers"] },
-  recipes: { label: "Συνταγολόγιο", hint: "Α΄ ύλες, συνταγές, προϊόντα", permissions: ["items.read", "items.add", "items.edit"], paths: ["/materials", "/recipes", "/products", "/items"] },
-  production: { label: "Παραγωγή", hint: "Παραγωγή, HACCP, ιχνηλασιμότητα", permissions: [], paths: ["/production", "/haccp", "/traceability"] },
-  inventory: { label: "Αποθήκη και αγορές", hint: "Αποθήκη, απογραφές, τιμολόγια αγοράς, παραγγελίες υλών", permissions: ["purchases.read", "purchases.add", "purchases.edit"], paths: ["/inventory", "/counts", "/orders", "/purchases"] },
-  wholesale: { label: "Χονδρική", hint: "Παραγγελίες πελατών, παραστατικά, βιτρίνα", permissions: [], paths: ["/wholesale-orders", "/invoices", "/vitrine"] },
-  team: { label: "Ομάδα και αναφορές", hint: "Προσωπικό, βάρδιες, αναφορές", permissions: [], paths: ["/staff", "/reports"] },
-  finance: { label: "Οικονομικά", hint: "Έσοδα, έξοδα, ταμειακή εικόνα", permissions: [], paths: ["/finance"] },
+  recipes: {
+    label: "Συνταγολόγιο",
+    hint: "Α΄ ύλες, συνταγές, προϊόντα",
+    permissions: ["items.read", "items.add", "items.edit", "recipes.read", "recipes.add", "recipes.edit", "products.read", "products.add", "products.edit"],
+    paths: ["/materials", "/recipes", "/products", "/items"],
+  },
+  production: { label: "Παραγωγή", hint: "Παραγωγή, HACCP, ιχνηλασιμότητα", permissions: ["production.read", "production.add", "haccp.read", "haccp.add", "haccp.edit"], paths: ["/production", "/haccp", "/traceability"] },
+  inventory: {
+    label: "Αποθήκη και αγορές",
+    hint: "Αποθήκη, απογραφές, τιμολόγια αγοράς, παραγγελίες υλών",
+    permissions: [
+      "warehouses.read", "warehouses.add", "warehouses.edit",
+      "stock.read", "stock.transfer", "stock.correct",
+      "counts.read", "counts.add", "counts.edit", "counts.finalize",
+      "orders.read", "orders.add", "orders.edit",
+      "purchases.read", "purchases.add", "purchases.edit",
+    ],
+    paths: ["/inventory", "/counts", "/orders", "/purchases"],
+  },
+  wholesale: { label: "Χονδρική", hint: "Παραγγελίες πελατών, παραστατικά, βιτρίνα", permissions: ["wholesale.read", "wholesale.add", "wholesale.edit", "invoices.read", "invoices.add", "invoices.edit", "invoices.cancel", "vitrine.read", "vitrine.edit"], paths: ["/wholesale-orders", "/invoices", "/vitrine"] },
+  team: { label: "Ομάδα και αναφορές", hint: "Προσωπικό, βάρδιες, αναφορές", permissions: ["staff.read", "staff.add", "staff.edit", "staff.delete", "reports.read"], paths: ["/staff", "/reports"] },
+  finance: { label: "Οικονομικά", hint: "Έσοδα, έξοδα, ταμειακή εικόνα", permissions: ["finance.read", "finance.edit"], paths: ["/finance"] },
 } as const satisfies Record<string, { label: string; hint: string; permissions: readonly Permission[]; paths: readonly string[] }>;
 export type ModuleKey = keyof typeof MODULES;
 export const ALL_MODULES = Object.keys(MODULES) as ModuleKey[];
