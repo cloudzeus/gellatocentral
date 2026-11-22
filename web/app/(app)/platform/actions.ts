@@ -921,6 +921,60 @@ export async function hideVatRates(ids: string[]) {
   return setVatRatesActive(ids, false);
 }
 
+// ---- Νομίσματα (Common Tables, κοινά για όλους τους συνδρομητές) ----
+const currencyBack = (q: string): never => {
+  revalidatePath("/", "layout");
+  redirect(`/platform/currencies?${q}`);
+};
+
+export async function saveCurrency(form: FormData) {
+  await requirePlatform("settings.edit");
+  const d = z.object({
+    currencyId: z.string().max(40),
+    code: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, "Ο κωδικός ISO 4217 είναι 3 λατινικά γράμματα, π.χ. EUR"),
+    name: z.string().trim().min(1, "Γράψε ονομασία").max(60),
+    symbol: z.string().trim().min(1, "Γράψε σύμβολο").max(12),
+    sort: z.string().trim().transform((v) => (v === "" ? 100 : Number(v))).refine((v) => Number.isInteger(v) && v >= 0 && v <= 9999, "Η σειρά είναι ακέραιος 0–9999"),
+  }).safeParse(Object.fromEntries(form));
+  if (!d.success) return currencyBack(`error=${encodeURIComponent(d.error.issues[0].message)}`);
+  const { currencyId, code, ...fields } = d.data;
+  if (currencyId) {
+    const existing = await db.currency.findUnique({ where: { id: currencyId } });
+    if (!existing) return currencyBack("error=");
+    // Ο ISO κωδικός είναι μόνιμη αναφορά· δεν αλλάζει από την οθόνη.
+    await db.currency.update({ where: { id: existing.id }, data: fields });
+  } else {
+    if (await db.currency.findUnique({ where: { code } })) return currencyBack(`error=${encodeURIComponent(`Υπάρχει ήδη νόμισμα με κωδικό «${code}»`)}`);
+    await db.currency.create({ data: { ...fields, code } });
+  }
+  currencyBack("saved=1");
+}
+
+/** Νόμισμα που μπορεί να χρησιμοποιείται δεν σβήνεται: κρύβεται από τις νέες καταχωρίσεις. */
+export async function toggleCurrency(currencyId: string) {
+  await requirePlatform("settings.edit");
+  const c = await db.currency.findUnique({ where: { id: z.string().min(1).max(40).parse(currencyId) } });
+  if (!c) return;
+  await db.currency.update({ where: { id: c.id }, data: { active: !c.active } });
+  currencyBack("saved=1");
+}
+
+async function setCurrenciesActive(ids: string[], active: boolean) {
+  const parsed = bulkRefIds.safeParse(ids);
+  if (!parsed.success) return "Η επιλογή νομισμάτων δεν είναι έγκυρη";
+  await requirePlatform("settings.edit");
+  const unique = [...new Set(parsed.data)];
+  const result = await db.currency.updateMany({ where: { id: { in: unique } }, data: { active } });
+  revalidatePath("/", "layout");
+  if (result.count !== unique.length) return "Ορισμένα νομίσματα δεν βρέθηκαν· ανανέωσε τη λίστα";
+}
+export async function activateCurrencies(ids: string[]) {
+  return setCurrenciesActive(ids, true);
+}
+export async function hideCurrencies(ids: string[]) {
+  return setCurrenciesActive(ids, false);
+}
+
 // ---- Τρόποι πληρωμής (κοινοί για όλη την πλατφόρμα· προεπιλογή όσοι υποστηρίζει η Viva) ----
 const pmBack = (q: string): never => {
   revalidatePath("/", "layout");

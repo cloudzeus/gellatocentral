@@ -1,6 +1,6 @@
 import {
   BarChart3, BookOpen, Boxes, Building2, CalendarDays, ChefHat, ClipboardCheck, ClipboardList, Contact, CreditCard,
-  ArrowRightLeft, Database, Factory, FileText, Gauge, Inbox, Landmark, LayoutDashboard, MonitorSmartphone, Package, Percent, ReceiptText, ScanSearch, Server, Settings, ShieldCheck, LifeBuoy,
+  ArrowRightLeft, Coins, Database, Factory, FileText, Gauge, Inbox, Landmark, LayoutDashboard, MonitorSmartphone, Package, Percent, ReceiptText, ScanSearch, Server, Settings, ShieldCheck, LifeBuoy,
   ShoppingCart, Store, TabletSmartphone, ThermometerSnowflake, Truck, Users, Warehouse, type LucideIcon,
 } from "lucide-react";
 
@@ -86,6 +86,7 @@ export const NAV: { title: string; icon: LucideIcon; group?: boolean; items: Nav
     title: "Common Tables", icon: Database, group: true,
     items: [
       { to: "/platform/vat-rates", label: "Συντελεστές ΦΠΑ", icon: Percent, ready: true },
+      { to: "/platform/currencies", label: "Νομίσματα", icon: Coins, ready: true },
       { to: "/platform/payment-methods", label: "Τρόποι πληρωμής", icon: CreditCard, ready: true },
       { to: "/platform/document-types", label: "Τύποι παραστατικών", icon: FileText, ready: true },
       { to: "/platform/catalog", label: "Κατάλογος ειδών", icon: Boxes, ready: true },

@@ -1396,6 +1396,20 @@ model SupplierItemPrice {
   @@index([supplierItemId, validFrom])
 }
 
+// Νομίσματα ISO 4217, κοινά για όλη την πλατφόρμα. Το σύμβολο χρησιμοποιείται
+// σε φόρμες και εκτυπώσεις· ο κωδικός μένει σταθερός για μελλοντικές αναφορές παραστατικών.
+model Currency {
+  id        String   @id @default(cuid())
+  code      String   @unique // ISO 4217 alpha-3: EUR, USD, GBP…
+  name      String // ελληνική ονομασία
+  symbol    String // €, $, £, CHF…
+  active    Boolean  @default(true)
+  sort      Int      @default(100)
+  createdAt DateTime @default(now())
+
+  @@index([active, sort, code])
+}
+
 // Τρόποι πληρωμής, κοινοί για όλη την πλατφόρμα (χωρίς orgId). Προεπιλογή: όσοι υποστηρίζει η Viva·
 // ο κεντρικός διαχειριστής προσθέτει και άλλους. Τα system είναι seeded και δεν διαγράφονται·
 // κλειδωμένα code και αντιστοιχίσεις, αλλάζει μόνο το active και η εμφάνιση στο ταμείο.
@@ -1426,7 +1440,7 @@ model PaymentMethod {
 
 // Λίστες αναφοράς, κοινές για όλους: ΔΟΥ, όροι πληρωμής, μονάδες μέτρησης.
 // (Χώρες και γεωγραφία ζουν στα Geo* μοντέλα παραπάνω· οι συντελεστές ΦΠΑ στο VatRate,
-// οι τρόποι πληρωμής στο PaymentMethod.)
+// τα νομίσματα στο Currency και οι τρόποι πληρωμής στο PaymentMethod.)
 // Τις ορίζει μία φορά η πλατφόρμα· οι επιχειρήσεις διαλέγουν από αυτές.
 model RefItem {
   id     String  @id @default(cuid())
