@@ -1,14 +1,15 @@
-import { Building2, CalendarClock, Check, Download, Landmark, Mail, MapPin, Pencil, Phone, Plus, Star, Trash2, Truck, UserMinus, UserPlus } from "lucide-react";
+import { Building2, CalendarClock, Check, Download, Landmark, Mail, MapPin, PackageSearch, Pencil, Phone, Plus, ReceiptText, Star, Trash2, Truck, UserMinus, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AddressField } from "@/components/address-field";
 import { ActivityForm } from "@/components/crm/activity-form";
 import { QuickActions } from "@/components/crm/quick-actions";
 import { Timeline } from "@/components/crm/timeline";
+import { DataTable } from "@/components/data-table";
 import { Files } from "@/components/files";
 import { GeoCascade } from "@/components/geo-fields";
 import { Modal } from "@/components/modal";
-import { RoleBadges } from "@/components/party-bits";
+import { PartyIdentity } from "@/components/party-identity";
 import { Checkbox } from "@/components/shadcn/checkbox";
 import { PartyForm } from "@/components/party-form";
 import { PartyMap, type MapPoint } from "@/components/party-map";
@@ -24,6 +25,8 @@ import { geoBreadcrumb, type GeoBreadcrumb } from "@/lib/geo";
 import { euro } from "@/lib/money";
 import { ADDRESS_KINDS, type AddressKind, distanceKm, roleText, showIban } from "@/lib/parties";
 import { partyScope } from "@/lib/party-scope";
+import { calculatePurchaseDocument } from "@/lib/purchase-document";
+import { resolvePrice } from "@/lib/purchase-pricing";
 import { partyRefs } from "@/lib/refs";
 import { ACTIVE as OPEN_TICKETS } from "@/lib/support/rules";
 import { STATUS as SUBSCRIPTION } from "../../platform/status";
@@ -34,7 +37,8 @@ const SAVED: Record<string, string> = { "1": "Τα στοιχεία αποθηκ
 const sub = "grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end";
 const coordText = (lat: number | null, lng: number | null) => (lat != null && lng != null ? `${lat.toFixed(4).replace(".", ",")} · ${lng.toFixed(4).replace(".", ",")}` : null);
 const KIND_OPTIONS = Object.entries(ADDRESS_KINDS) as [string, string][];
-const TABS = { overview: "Επισκόπηση", contacts: "Επαφές", places: "Διευθύνσεις & χάρτης", files: "Αρχεία", details: "Στοιχεία & τράπεζες" } as const;
+const TABS = { overview: "Επισκόπηση", transactions: "Είδη & αγορές", contacts: "Επαφές", places: "Διευθύνσεις & χάρτης", files: "Αρχεία", details: "Στοιχεία & τράπεζες" } as const;
+const PURCHASE_STATUS = { DRAFT: { label: "Πρόχειρο", tone: "warning" }, POSTED: { label: "Καταχωρημένο", tone: "success" }, CANCELLED: { label: "Ακυρωμένο", tone: "neutral" } } as const;
 type Tab = keyof typeof TABS;
 const INPUT = "h-9 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
 type Channel = { id: string; kind: string; value: string; label: string | null; isPrimary: boolean };
@@ -50,12 +54,13 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
       contacts: { orderBy: [{ active: "desc" }, { isPrimary: "desc" }, { person: { name: "asc" } }], include: { address: true, person: { include: { channels: { orderBy: [{ isPrimary: "desc" }, { kind: "desc" }] }, links: { include: { party: { select: { id: true, name: true } } } } } } } },
       channels: { orderBy: [{ kind: "desc" }, { isPrimary: "desc" }, { id: "asc" }], include: { address: true } },
       bankAccounts: { orderBy: [{ isPrimary: "desc" }, { bank: "asc" }] },
+      _count: { select: { purchaseDocs: true, supplierItems: true } },
       linkedOrg: { select: { id: true, subscription: { include: { plan: { select: { name: true } }, charges: { where: { paidAt: null } } } } } },
     },
   });
   if (!party) notFound();
   const q = await searchParams;
-  const tab: Tab = typeof q.tab === "string" && q.tab in TABS ? (q.tab as Tab) : "overview";
+  const requestedTab: Tab = typeof q.tab === "string" && q.tab in TABS ? (q.tab as Tab) : "overview";
   const show: TimelineFilter = typeof q.show === "string" && q.show in TIMELINE_FILTERS ? (q.show as TimelineFilter) : "all";
   const now = new Date();
   const base = `${scope.base}/${party.id}`;
@@ -69,13 +74,17 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
     }),
   );
   const tenant = scope.orgId ? await currentOrg("parties.read") : null;
+  const canSeePurchases = Boolean(scope.orgId && tenant?.permissions.includes("purchases.read"));
+  const tab: Tab = requestedTab === "transactions" && !canSeePurchases ? "overview" : requestedTab;
   const [consents, request, stores] = tenant
     ? await Promise.all([consentsOf("customer", party.id), db.erasureRequest.findFirst({ where: { orgId: tenant.org.id, subjectType: "customer", subjectId: party.id, status: "PENDING" } }), db.store.findMany({ where: { orgId: tenant.org.id, active: true, latitude: { not: null }, longitude: { not: null } } })])
     : [[], null, []];
-  const [events, persons, openTickets] = await Promise.all([
+  const [events, persons, openTickets, purchases, supplierItems] = await Promise.all([
     partyEvents(party),
     tab === "contacts" && scope.canEdit ? db.person.findMany({ where: { orgId: scope.orgId, links: { none: { partyId: party.id } } }, orderBy: { name: "asc" }, take: 300, include: { links: { take: 2, include: { party: { select: { name: true } } } } } }) : [],
     !scope.orgId && party.linkedOrgId ? db.ticket.count({ where: { orgId: party.linkedOrgId, status: { in: OPEN_TICKETS } } }) : 0,
+    canSeePurchases ? db.purchaseDoc.findMany({ where: { orgId: scope.orgId!, supplierId: party.id }, orderBy: [{ issuedAt: "desc" }, { createdAt: "desc" }], take: 100, include: { warehouse: { select: { name: true } }, lines: { select: { quantity: true, unitPriceCents: true, discountBps: true, vatRate: true } } } }) : Promise.resolve([]),
+    canSeePurchases ? db.supplierItem.findMany({ where: { orgId: scope.orgId!, supplierId: party.id }, orderBy: [{ active: "desc" }, { tradeItem: { name: "asc" } }], take: 200, include: { tradeItem: { select: { id: true, name: true, ean: true } }, prices: { orderBy: [{ validFrom: "desc" }, { createdAt: "desc" }] } } }) : Promise.resolve([]),
   ]);
   const marketing = currentConsents(consents).get("customer_marketing");
   const method = refs.methods.find(([c]) => c === party.paymentMethodId)?.[1];
@@ -182,19 +191,33 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
     </form>
   );
 
+  const supplierRows = supplierItems.map((item) => ({ ...item, current: resolvePrice(item.prices, item.packQty, now) }));
+
   return (
-    <Page section={`${scope.section} › Συναλλασσόμενοι`} title={party.name} description={[party.tradeName, party.city, roleText(party.roles)].filter(Boolean).join(" · ")}
-      actions={<><RoleBadges roles={party.roles} /><Badge tone={party.active ? "success" : "neutral"}>{party.active ? "Ενεργός" : "Ανενεργός"}</Badge>{party.linkedOrg ? <Link href={`/platform/${party.linkedOrg.id}`} className={btn("outline")}>Σελίδα συνδρομητή</Link> : null}<Link href={scope.base} className={btn("outline")}>Όλοι</Link></>}>
+    <Page section={`${scope.section} › Συναλλασσόμενοι`} title={party.name} description={[party.city, roleText(party.roles)].filter(Boolean).join(" · ")}
+      actions={<>{party.linkedOrg ? <Link href={`/platform/${party.linkedOrg.id}`} className={btn("outline")}>Σελίδα συνδρομητή</Link> : null}<Link href={scope.base} className={btn("outline")}>Όλοι</Link></>}>
       <datalist id="channel-labels">{CHANNEL_LABELS.map((l) => <option key={l} value={l} />)}</datalist>
       <div className={cn("max-w-7xl space-y-4", scope.canEdit && "max-md:pb-16")}>
         {typeof q.saved === "string" && SAVED[q.saved] ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{SAVED[q.saved]}</p> : null}
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν έγινε: {q.error.slice(0, 220)}</p> : null}
 
+        <PartyIdentity
+          name={party.name} tradeName={party.tradeName} roles={party.roles} roleLabel={roleText(party.roles)} active={party.active}
+          vatNumber={party.vatNumber} countryCode={party.countryCode} taxOffice={party.taxOffice} profession={party.profession}
+          address={party.address} postalCode={party.postalCode} city={party.city} region={party.region}
+          phone={phone} email={email} website={party.website}
+          payment={[method, party.paymentTermsDays != null ? (party.paymentTermsDays ? `${party.paymentTermsDays} ημέρες πίστωση` : "Μετρητοίς") : null].filter(Boolean).join(" · ") || null}
+          notes={party.notes} verifiedAt={party.vatCheckedAt ? day.format(party.vatCheckedAt) : null} complete={!missing.length}
+          contacts={working.length} places={placeCount} purchases={party._count.purchaseDocs} supplierItems={party._count.supplierItems}
+          transactionsHref={canSeePurchases ? href("transactions") : null}
+          actions={scope.canEdit ? <Modal wide label={<><Pencil /> Επεξεργασία στοιχείων</>} title="Στοιχεία συναλλασσόμενου"><PartyForm action={saveParty.bind(null, party.id)} party={party} refs={refs} geo={{ breadcrumb: crumbs.get("hq"), cityId: party.cityId, city: party.city, areaId: party.areaId, areaName: party.geoArea?.name ?? null, regionText: party.region }} /></Modal> : undefined}
+        />
+
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <nav aria-label="Ενότητες καρτέλας" className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
-            {(Object.keys(TABS) as Tab[]).map((t) => (
+            {(Object.keys(TABS) as Tab[]).filter((t) => t !== "transactions" || canSeePurchases).map((t) => (
               <Link key={t} href={href(t)} aria-current={tab === t ? "page" : undefined} className={cn("inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium pointer-coarse:min-h-11", tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary")}>
-                {TABS[t]}{t === "contacts" ? <span className="tabular-nums opacity-70">{working.length}</span> : t === "places" ? <span className="tabular-nums opacity-70">{placeCount}</span> : null}
+                {TABS[t]}{t === "contacts" ? <span className="tabular-nums opacity-70">{working.length}</span> : t === "places" ? <span className="tabular-nums opacity-70">{placeCount}</span> : t === "transactions" ? <span className="tabular-nums opacity-70">{party._count.purchaseDocs}</span> : null}
               </Link>
             ))}
           </nav>
@@ -293,6 +316,98 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
               </div>
             </div>
           </>
+        ) : null}
+
+        {tab === "transactions" && canSeePurchases ? (
+          <div className="grid gap-4">
+            <Card className="overflow-hidden">
+              <div className="flex flex-wrap items-center gap-3 px-5 py-4">
+                <div className="min-w-0 basis-64 flex-1"><h2 className="flex items-center gap-2 text-lg"><PackageSearch className="size-5 text-muted-foreground" /> Είδη & τιμές προμηθευτή</h2><p className="mt-1 text-sm text-muted-foreground">Κωδικοί, barcode, συσκευασίες παραγγελίας και ισχύουσα τιμή προ ΦΠΑ. Διαχειρίζονται από την καρτέλα είδους.</p></div>
+                <Link href="/items" className={btn("outline", "sm")}>Διαχείριση ειδών</Link>
+              </div>
+              <DataTable
+                id={`party-supplier-items-${party.id}`}
+                empty="Δεν έχουν συνδεθεί είδη με αυτόν τον προμηθευτή."
+                columns={[
+                  { key: "item", label: "Είδος", required: true, wrap: true },
+                  { key: "code", label: "Κωδικός προμηθευτή", wrap: true },
+                  { key: "barcode", label: "Barcode", wrap: true },
+                  { key: "pack", label: "Συσκευασίες / παραγγελία", numeric: true },
+                  { key: "price", label: "Ισχύουσα τιμή προ ΦΠΑ", numeric: true },
+                  { key: "status", label: "Κατάσταση" },
+                ]}
+                rows={supplierRows.map((item) => ({
+                  id: item.id,
+                  cells: {
+                    item: <span className="font-semibold leading-snug">{item.tradeItem.name}</span>,
+                    code: item.supplierCode ?? "—",
+                    barcode: <span className="break-all font-mono text-xs">{item.barcode ?? item.tradeItem.ean ?? "—"}</span>,
+                    pack: item.packQty,
+                    price: item.current ? <span className="whitespace-nowrap font-semibold">{euro(item.current.priceCents)}</span> : "—",
+                    status: <Badge tone={item.active ? "success" : "neutral"}>{item.active ? "Ενεργό" : "Ανενεργό"}</Badge>,
+                  },
+                  details: {
+                    label: item.tradeItem.name,
+                    view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <div><dt className="text-xs text-muted-foreground">Είδος</dt><dd className="mt-1 font-semibold break-words">{item.tradeItem.name}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Τιμή</dt><dd className="mt-1 font-semibold">{item.current ? `${euro(item.current.priceCents)} / συσκευασία` : "Δεν έχει καταχωριστεί"}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Ισχύει από</dt><dd className="mt-1 font-semibold">{item.current ? day.format(item.current.validFrom) : "—"}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Συμφωνία</dt><dd className="mt-1 font-semibold">{item.current?.minPackQty ? `Από ${item.current.minPackQty} συσκευασίες` : "Τιμοκατάλογος"}</dd></div>
+                    </dl>,
+                  },
+                }))}
+              />
+            </Card>
+
+            <Card className="overflow-hidden">
+              <div className="flex flex-wrap items-center gap-3 px-5 py-4">
+                <div className="min-w-0 basis-64 flex-1"><h2 className="flex items-center gap-2 text-lg"><ReceiptText className="size-5 text-muted-foreground" /> Ιστορικό παραστατικών</h2><p className="mt-1 text-sm text-muted-foreground">Τα {purchases.length} πιο πρόσφατα από {party._count.purchaseDocs} συνολικά · καθαρή αξία, ΦΠΑ και γενικό σύνολο από τις πραγματικές γραμμές.</p></div>
+                <Link href={`/purchases?supplier=${party.id}`} className={btn("outline", "sm")}>Όλες οι αγορές</Link>
+              </div>
+              <DataTable
+                id={`party-purchases-${party.id}`}
+                empty="Δεν υπάρχει παραστατικό αγοράς από αυτόν τον προμηθευτή."
+                columns={[
+                  { key: "number", label: "Παραστατικό", required: true, wrap: true },
+                  { key: "issuedAt", label: "Ημερομηνία" },
+                  { key: "warehouse", label: "Αποθήκη", wrap: true },
+                  { key: "lines", label: "Γραμμές", numeric: true },
+                  { key: "net", label: "Καθαρή αξία", numeric: true },
+                  { key: "vat", label: "ΦΠΑ", numeric: true },
+                  { key: "total", label: "Γενικό σύνολο", numeric: true },
+                  { key: "status", label: "Κατάσταση" },
+                ]}
+                rows={purchases.map((doc) => {
+                  const totals = calculatePurchaseDocument(doc.lines, doc);
+                  return {
+                    id: doc.id,
+                    cells: {
+                      number: <Link href={`/purchases/${doc.id}`} className="font-semibold underline-offset-4 hover:underline">{doc.number ?? "Χωρίς αριθμό"}</Link>,
+                      issuedAt: <span className="whitespace-nowrap">{doc.issuedAt ? day.format(doc.issuedAt) : "—"}</span>,
+                      warehouse: doc.warehouse.name,
+                      lines: doc.lines.length,
+                      net: <span className="whitespace-nowrap">{euro(totals.totalNetCents)}</span>,
+                      vat: <span className="whitespace-nowrap">{euro(totals.totalVatCents)}</span>,
+                      total: <span className="whitespace-nowrap font-semibold">{euro(totals.totalCents)}</span>,
+                      status: <Badge tone={PURCHASE_STATUS[doc.status].tone}>{PURCHASE_STATUS[doc.status].label}</Badge>,
+                    },
+                    details: {
+                      label: doc.number ?? doc.id,
+                      view: <div className="grid gap-4">
+                        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                          <div><dt className="text-xs text-muted-foreground">Πηγή</dt><dd className="mt-1 font-semibold">{doc.source === "ocr" ? "OCR · απαιτεί έλεγχο" : doc.source === "mydata" ? "myDATA" : "Χειροκίνητη καταχώριση"}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">Αποθήκη παραλαβής</dt><dd className="mt-1 font-semibold">{doc.warehouse.name}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">ΜΑΡΚ</dt><dd className="mt-1 break-all font-semibold">{doc.mydataMark ?? "—"}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">Σημείωση</dt><dd className="mt-1 break-words font-semibold">{doc.note ?? "—"}</dd></div>
+                        </dl>
+                        <div><Link href={`/purchases/${doc.id}`} className={btn("outline", "sm")}>Πλήρες παραστατικό & γραμμές</Link></div>
+                      </div>,
+                    },
+                  };
+                })}
+              />
+            </Card>
+          </div>
         ) : null}
 
         {tab === "contacts" ? (

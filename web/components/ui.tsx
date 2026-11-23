@@ -40,7 +40,7 @@ export function Page({ section, title, description, actions, children }: { secti
       <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 bg-background/70 px-4 py-2 backdrop-blur-xl backdrop-saturate-150 max-lg:pl-16 lg:px-8 print:hidden">
         <div className="min-w-0 flex-1 space-y-0.5">
           <p className="text-2xs font-medium text-muted-foreground">{section}</p>
-          <h1 className="truncate text-base font-semibold leading-tight lg:text-lg" title={title}>{title}</h1>
+          <h1 className="break-words text-base font-semibold leading-tight lg:text-lg" title={title}>{title}</h1>
           {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
         </div>
         {actions}

@@ -80,8 +80,9 @@ export function lineBaseQty(quantity: number, packQty: number, contentQty: numbe
   return quantity * packQty * contentQty;
 }
 
-/** Τιμή ανά συσκευασία TradeItem από τη τιμή μονάδας παραστατικού (στρογγυλοποίηση στο λεπτό). */
-export const perPackCents = (unitPriceCents: number, packQty: number): number => Math.round(unitPriceCents / packQty);
+/** Τιμή ανά συσκευασία TradeItem μετά την έκπτωση γραμμής (στρογγυλοποίηση στο λεπτό). */
+export const perPackCents = (unitPriceCents: number, packQty: number, discountBps = 0): number =>
+  Math.round((unitPriceCents * (10_000 - discountBps)) / (10_000 * packQty));
 
 /** Ακέραια αποθήκευση κόστους με την κλίμακα της διάστασης, χωρίς απώλεια σε mg/ml. */
 export const purchaseUnitCostHundredths = (packPriceCents: number, contentQty: number, dimension: string): number =>

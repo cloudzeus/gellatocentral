@@ -40,7 +40,7 @@ export async function postPurchase(ctx: StockContext, docId: string) {
         }
         const qtyBase = lineBaseQty(line.quantity, packQty, content);
         const generic = line.genericItem!;
-        const perPack = perPackCents(line.unitPriceCents, packQty);
+        const perPack = perPackCents(line.unitPriceCents, packQty, line.discountBps);
         const pH = purchaseUnitCostHundredths(perPack, content, generic.baseUnit.dimension);
         // Q είναι το απόθεμα ΠΡΙΝ από την είσοδο. Serializable + πλήρες retry εμποδίζουν χαμένη ενημέρωση κόστους.
         const stock = generic.trackStock ? await genericStockBalance(tx, orgId, generic.id) : 0;

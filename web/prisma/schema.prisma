@@ -673,22 +673,32 @@ enum PurchaseStatus {
 // Τιμολόγιο αγοράς από προμηθευτή (χειροκίνητο/σκαναρισμένο τώρα, μηχανογραφημένο από myDATA αργότερα).
 // Δεν είναι FiscalDocument: εκείνο είναι τα παραστατικά που ΕΚΔΙΔΟΥΜΕ εμείς.
 model PurchaseDoc {
-  id            String         @id @default(cuid())
-  orgId         String
-  supplierId    String
-  warehouseId   String // πού θα μπει το απόθεμα της παραλαβής
-  number        String? // ο αριθμός τιμολογίου του προμηθευτή
-  issuedAt      DateTime? // ημερομηνία έκδοσης
-  status        PurchaseStatus @default(DRAFT)
-  note          String?
-  mydataMark    String? // μοναδικός αριθμός καταχώρισης myDATA (dedupe στη μηχανογραφημένη λήψη)
-  createdByName String
-  createdAt     DateTime       @default(now())
-  org           Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  supplier      Party          @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  warehouse     Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  lines         PurchaseLine[]
-  lots          StockLot[]
+  id                 String         @id @default(cuid())
+  orgId              String
+  supplierId         String
+  warehouseId        String // πού θα μπει το απόθεμα της παραλαβής
+  number             String? // ο αριθμός τιμολογίου του προμηθευτή
+  issuedAt           DateTime? // ημερομηνία έκδοσης
+  status             PurchaseStatus @default(DRAFT)
+  source             String         @default("manual") // manual | ocr | mydata — το OCR παραμένει πρόχειρο για ανθρώπινο έλεγχο
+  note               String?
+  mydataMark         String? // μοναδικός αριθμός καταχώρισης myDATA (dedupe στη μηχανογραφημένη λήψη)
+  supplierSnapshot   Json? // τα στοιχεία όπως ίσχυαν στο παραστατικό, όχι ζωντανή αναφορά στο Party
+  buyerSnapshot      Json?
+  paymentMethod      String?
+  paymentTerms       String?
+  shippingMethod     String?
+  shippingAddress    String?
+  shippingCostCents  Int            @default(0) // καθαρή αξία προ ΦΠΑ
+  otherExpensesCents Int            @default(0) // καθαρή αξία προ ΦΠΑ
+  expensesVatRate    Int            @default(24) // snapshot συντελεστή των εξόδων
+  createdByName      String
+  createdAt          DateTime       @default(now())
+  org                Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  supplier           Party          @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  warehouse          Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  lines              PurchaseLine[]
+  lots               StockLot[]
 
   @@unique([orgId, mydataMark])
   @@index([orgId, supplierId, createdAt])
@@ -703,7 +713,9 @@ model PurchaseLine {
   ean            String? // EAN/GTIN της συσκευασίας (σάρωση ή πεδίο του παραστατικού)
   description    String // η περιγραφή όπως ήρθε από τον προμηθευτή
   quantity       Int // σε μονάδα παραστατικού (π.χ. κιβώτια) — βλ. packQty του SupplierItem
-  unitPriceCents Int // τιμή μονάδας παραστατικού, προ ΦΠΑ, σε λεπτά
+  unitPriceCents Int // αρχική τιμή μονάδας παραστατικού, προ έκπτωσης και ΦΠΑ, σε λεπτά
+  discountBps    Int            @default(0) // έκπτωση γραμμής σε basis points: 1250 = 12,50%
+  vatRate        Int            @default(0) // snapshot ποσοστού ΦΠΑ· 0 σημαίνει μηδενικός συντελεστής
   // Ιχνηλασιμότητα: από GS1 σάρωση ή χειροκίνητα — τροφοδοτούν το StockLot της παραλαβής
   batchNumber    String?
   expiresAt      DateTime?

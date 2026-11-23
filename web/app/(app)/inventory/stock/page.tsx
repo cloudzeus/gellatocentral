@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BellRing, Boxes, Layers3, Search, Warehouse } from "lucide-react";
+import { BellRing, Boxes, Layers3, Warehouse } from "lucide-react";
+import { DataTable } from "@/components/data-table";
 import { Badge, btn, Card, Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -7,17 +8,13 @@ import { stockLotBalances, stockOverview } from "@/lib/stock-read";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
 import { expiryStatus, formatStockQuantity, formatStockValue, stockDisplayUnit, stockUnitCostHundredths, type ExpiryStatus } from "@/lib/stock-view";
 
-const field = "h-10 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
-const th = "px-4 py-3 text-left text-xs font-semibold whitespace-nowrap text-muted-foreground";
-const td = "border-t border-border/70 px-4 py-3 align-middle";
 const day = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeZone: "Europe/Athens" });
 
-function href(view: "items" | "lots", q: string, warehouse: string, page?: number) {
+function href(view: "items" | "lots", q: string, warehouse: string) {
   const params = new URLSearchParams();
   if (view === "lots") params.set("view", "lots");
   if (q) params.set("q", q);
   if (warehouse) params.set("warehouse", warehouse);
-  if (page && page > 1) params.set("page", String(page));
   const query = params.toString();
   return `/inventory/stock${query ? `?${query}` : ""}`;
 }
@@ -36,33 +33,20 @@ function ExpiryBadge({ expiresAt }: { expiresAt: Date | null }) {
   return <Badge tone={tone}>{labels[expiry.status]}</Badge>;
 }
 
-function Pager({ view, q, warehouse, page, pageSize, total }: { view: "items" | "lots"; q: string; warehouse: string; page: number; pageSize: number; total: number }) {
-  const pages = Math.max(1, Math.ceil(total / pageSize));
-  if (pages <= 1) return null;
-  return (
-    <nav aria-label="Σελίδες αποθέματος" className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 px-4 py-3 text-sm">
-      <span className="text-muted-foreground">Σελίδα {Math.min(page, pages)} από {pages} · {total} εγγραφές</span>
-      <span className="flex gap-2">
-        {page > 1 ? <Link href={href(view, q, warehouse, page - 1)} className={btn("outline", "sm")}><ArrowLeft /> Προηγούμενη</Link> : null}
-        {page < pages ? <Link href={href(view, q, warehouse, page + 1)} className={btn("outline", "sm")}>Επόμενη <ArrowRight /></Link> : null}
-      </span>
-    </nav>
-  );
-}
-
-// Read-only STK-02/STK-03: όλα τα δεδομένα και τα φίλτρα αποδίδονται στον server.
+// Read-only STK-02/STK-03: δεδομένα, φίλτρα, ταξινόμηση και σελίδες αποδίδονται στον server.
 export default async function StockPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const q = await searchParams;
   const view = filterParam(q, "view", ["items", "lots"]) ?? "items";
   const warehouse = typeof q.warehouse === "string" ? q.warehouse : "";
-  const list = listParams(q, 50);
+  const list = listParams(q, 50, ["item", "warehouse", "quantity", "cost", "value", "batch", "expiresAt"] as const);
   const ctx = await requireStockContext("stock.read", { warehouseId: warehouse || undefined });
   const warehouses = await db.warehouse.findMany({ where: warehouseScopeWhere(ctx), select: { id: true, name: true, active: true }, orderBy: { name: "asc" } });
   const warehouseIds = warehouse ? [warehouse] : warehouses.map((item) => item.id);
-  const input = { orgId: ctx.orgId, warehouseIds, q: list.q, skip: list.skip, take: list.take };
+  const input = { orgId: ctx.orgId, warehouseIds, q: list.q, skip: list.skip, take: list.take, sort: list.sort, dir: list.dir };
   const overview = view === "items" ? await stockOverview(db, input) : null;
   const lots = view === "lots" ? await stockLotBalances(db, input) : null;
   const total = overview?.total ?? lots?.total ?? 0;
+  const warehouseFilter = { key: "warehouse", label: "Αποθήκη", value: warehouse, options: warehouses.map((item): [string, string] => [item.id, `${item.name}${item.active ? "" : " (ανενεργή)"}`]) };
 
   return (
     <Page
@@ -77,26 +61,6 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
           <Link href={href("lots", list.q, warehouse)} aria-current={view === "lots" ? "page" : undefined} className={btn(view === "lots" ? "default" : "ghost", "sm")}><Layers3 /> Παρτίδες & FEFO</Link>
         </nav>
 
-        <Card>
-          <form method="get" action="/inventory/stock" role="search" className="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,20rem)_auto] sm:items-end">
-            {view === "lots" ? <input type="hidden" name="view" value="lots" /> : null}
-            <label className="space-y-1 text-sm font-medium">
-              {view === "items" ? "Αναζήτηση είδους" : "Είδος ή αριθμός παρτίδας"}
-              <span className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input name="q" defaultValue={list.q} maxLength={80} placeholder={view === "items" ? "π.χ. γάλα ή ζάχαρη" : "π.χ. γάλα ή LOT-2026"} className={`${field} pl-9`} />
-              </span>
-            </label>
-            <label className="space-y-1 text-sm font-medium">Αποθήκη
-              <select name="warehouse" defaultValue={warehouse} className={field}>
-                <option value="">Όλες οι επιτρεπτές</option>
-                {warehouses.map((item) => <option key={item.id} value={item.id}>{item.name}{item.active ? "" : " (ανενεργή)"}</option>)}
-              </select>
-            </label>
-            <button type="submit" className={btn("default")}>Εφαρμογή</button>
-          </form>
-        </Card>
-
         {overview ? (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -104,25 +68,45 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
               <Card className="px-5 py-4"><p className="text-xs font-medium text-muted-foreground">Καταγεγραμμένη αξία φίλτρου</p><p className="mt-1 text-2xl font-semibold tabular-nums">{formatStockValue(overview.totalValueHundredths)}</p></Card>
             </div>
             <Card className="overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[58rem] border-collapse text-sm">
-                  <caption className="px-4 py-4 text-left"><span className="block text-lg font-semibold">Διαθέσιμο ανά είδος και αποθήκη</span><span className="text-muted-foreground">Aggregation απευθείας από το append-only ιστορικό κινήσεων</span></caption>
-                  <thead className="bg-secondary/35"><tr><th className={th} scope="col">Είδος</th><th className={th} scope="col">Αποθήκη</th><th className={`${th} text-right`} scope="col">Διαθέσιμο</th><th className={`${th} text-right`} scope="col">Μέσο κόστος</th><th className={`${th} text-right`} scope="col">Αξία</th></tr></thead>
-                  <tbody>
-                    {overview.rows.map((row) => (
-                      <tr key={`${row.warehouseId}-${row.genericItemId}`} className="hover:bg-secondary/20">
-                        <td className={`${td} font-semibold`}>{ctx.can("items.read") ? <Link href={`/items/${row.genericItemId}`} className="underline-offset-2 hover:underline">{row.itemName}</Link> : row.itemName}</td>
-                        <td className={td}>{row.warehouseName}</td>
-                        <td className={`${td} text-right font-semibold tabular-nums`}>{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</td>
-                        <td className={`${td} text-right tabular-nums`}>{row.unitCostHundredths > 0 ? <>{formatStockValue(stockUnitCostHundredths(row.unitCostHundredths, stockDisplayUnit(row.baseUnit).toBase, row.baseUnit.dimension))} <span className="text-xs text-muted-foreground">/ {stockDisplayUnit(row.baseUnit).code}</span></> : "—"}</td>
-                        <td className={`${td} text-right font-medium tabular-nums`}>{row.unitCostHundredths > 0 ? formatStockValue(row.valueHundredths) : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {!overview.rows.length ? <p className="px-4 pb-6 text-sm text-muted-foreground">Δεν βρέθηκε μη μηδενικό απόθεμα με αυτά τα φίλτρα.</p> : null}
-              <Pager view={view} q={list.q} warehouse={warehouse} page={list.page} pageSize={list.pageSize} total={total} />
+              <div className="px-4 pt-4"><h2 className="text-lg font-semibold">Διαθέσιμο ανά είδος και αποθήκη</h2><p className="text-sm text-muted-foreground">Συγκέντρωση απευθείας από το append-only ιστορικό κινήσεων</p></div>
+              <DataTable
+                id="stock-items"
+                listing={{ ...list, total, placeholder: "Αναζήτηση είδους…", filters: [warehouseFilter] }}
+                empty="Δεν βρέθηκε μη μηδενικό απόθεμα με αυτά τα φίλτρα."
+                columns={[
+                  { key: "item", label: "Είδος", required: true, sortable: true, wrap: true },
+                  { key: "warehouse", label: "Αποθήκη", sortable: true, wrap: true },
+                  { key: "quantity", label: "Διαθέσιμο", numeric: true, sortable: true },
+                  { key: "cost", label: "Μέσο κόστος", numeric: true, sortable: true },
+                  { key: "value", label: "Αξία", numeric: true, sortable: true },
+                ]}
+                rows={overview.rows.map((row) => {
+                  const unit = stockDisplayUnit(row.baseUnit);
+                  const cost = row.unitCostHundredths > 0 ? formatStockValue(stockUnitCostHundredths(row.unitCostHundredths, unit.toBase, row.baseUnit.dimension)) : null;
+                  return {
+                    id: `${row.warehouseId}-${row.genericItemId}`,
+                    cells: {
+                      item: ctx.can("items.read") ? <Link href={`/items/${row.genericItemId}`} className="font-semibold leading-snug underline-offset-2 hover:underline">{row.itemName}</Link> : <span className="font-semibold">{row.itemName}</span>,
+                      warehouse: row.warehouseName,
+                      quantity: <span className="whitespace-nowrap font-semibold">{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</span>,
+                      cost: cost ? <span className="whitespace-nowrap">{cost} <span className="text-xs text-muted-foreground">/ {unit.code}</span></span> : "—",
+                      value: row.unitCostHundredths > 0 ? <span className="whitespace-nowrap">{formatStockValue(row.valueHundredths)}</span> : "—",
+                    },
+                    details: {
+                      label: `${row.itemName} · ${row.warehouseName}`,
+                      view: <div className="grid gap-4">
+                        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                          <div><dt className="text-xs text-muted-foreground">Είδος</dt><dd className="mt-1 font-semibold break-words">{row.itemName}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">Αποθήκη</dt><dd className="mt-1 font-semibold">{row.warehouseName}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">Πραγματικό on-hand</dt><dd className="mt-1 font-semibold tabular-nums">{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">Μονάδα εμφάνισης κόστους</dt><dd className="mt-1 font-semibold">{unit.code}</dd></div>
+                        </dl>
+                        <div className="flex flex-wrap gap-2"><Link href={href("lots", row.itemName, row.warehouseId)} className={btn("outline", "sm")}><Layers3 /> Παρτίδες & λήξεις</Link>{ctx.can("items.read") ? <Link href={`/items/${row.genericItemId}`} className={btn("outline", "sm")}>Καρτέλα είδους</Link> : null}</div>
+                      </div>,
+                    },
+                  };
+                })}
+              />
             </Card>
             <p className="text-xs text-muted-foreground">Το διαθέσιμο ισούται με το on-hand. Δεν εμφανίζεται δεσμευμένη ποσότητα επειδή δεν υπάρχει ακόμη μοντέλο δεσμεύσεων. Η αποτίμηση χρησιμοποιεί το τρέχον μέσο σταθμισμένο κόστος· «—» σημαίνει ότι δεν έχει καταχωριστεί κόστος.</p>
           </>
@@ -130,28 +114,43 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
 
         {lots ? (
           <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[70rem] border-collapse text-sm">
-                <caption className="px-4 py-4 text-left"><span className="block text-lg font-semibold">Ανοιχτές παρτίδες με σειρά FEFO</span><span className="text-muted-foreground">Νωρίτερη λήξη πρώτη · παρτίδες χωρίς λήξη τελευταίες · μηδενικά υπόλοιπα εξαιρούνται</span></caption>
-                <thead className="bg-secondary/35"><tr><th className={th} scope="col">Σειρά</th><th className={th} scope="col">Παρτίδα</th><th className={th} scope="col">Είδος</th><th className={th} scope="col">Αποθήκη</th><th className={`${th} text-right`} scope="col">Υπόλοιπο</th><th className={th} scope="col">Λήξη</th><th className={th} scope="col">Κατάσταση</th><th className={th} scope="col">Ιχνηλασιμότητα</th></tr></thead>
-                <tbody>
-                  {lots.rows.map((row, index) => (
-                    <tr key={row.lotId} className="hover:bg-secondary/20">
-                      <td className={`${td} text-muted-foreground tabular-nums`}>{list.skip + index + 1}</td>
-                      <td className={`${td} font-semibold tabular-nums`}>{row.batchNumber ?? "(χύμα)"}</td>
-                      <td className={td}>{row.itemName}</td>
-                      <td className={td}>{row.warehouseName}</td>
-                      <td className={`${td} text-right font-semibold tabular-nums`}>{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</td>
-                      <td className={`${td} whitespace-nowrap`}>{row.expiresAt ? day.format(row.expiresAt) : "—"}</td>
-                      <td className={td}><ExpiryBadge expiresAt={row.expiresAt} /></td>
-                      <td className={td}><Link href={`/inventory/stock/lots/${row.lotId}`} className={btn("outline", "sm")}>Άνοιγμα</Link></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {!lots.rows.length ? <p className="px-4 pb-6 text-sm text-muted-foreground">Δεν βρέθηκαν ανοιχτές παρτίδες με θετικό υπόλοιπο.</p> : null}
-            <Pager view={view} q={list.q} warehouse={warehouse} page={list.page} pageSize={list.pageSize} total={total} />
+            <div className="px-4 pt-4"><h2 className="text-lg font-semibold">Ανοιχτές παρτίδες με σειρά FEFO</h2><p className="text-sm text-muted-foreground">Νωρίτερη λήξη πρώτη · παρτίδες χωρίς λήξη τελευταίες · μηδενικά υπόλοιπα εξαιρούνται</p></div>
+            <DataTable
+              id="stock-lots"
+              listing={{ ...list, total, placeholder: "Είδος ή αριθμός παρτίδας…", params: { view: "lots" }, filters: [warehouseFilter] }}
+              empty="Δεν βρέθηκαν ανοιχτές παρτίδες με θετικό υπόλοιπο."
+              columns={[
+                { key: "batch", label: "Παρτίδα", required: true, sortable: true, wrap: true },
+                { key: "item", label: "Είδος", sortable: true, wrap: true },
+                { key: "warehouse", label: "Αποθήκη", sortable: true, wrap: true },
+                { key: "quantity", label: "Υπόλοιπο", numeric: true, sortable: true },
+                { key: "expiresAt", label: "Λήξη", sortable: true },
+                { key: "status", label: "Κατάσταση" },
+              ]}
+              rows={lots.rows.map((row) => ({
+                id: row.lotId,
+                cells: {
+                  batch: <Link href={`/inventory/stock/lots/${row.lotId}`} className="font-semibold tabular-nums underline-offset-2 hover:underline">{row.batchNumber ?? "(χύμα)"}</Link>,
+                  item: row.itemName,
+                  warehouse: row.warehouseName,
+                  quantity: <span className="whitespace-nowrap font-semibold">{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</span>,
+                  expiresAt: <span className="whitespace-nowrap">{row.expiresAt ? day.format(row.expiresAt) : "—"}</span>,
+                  status: <ExpiryBadge expiresAt={row.expiresAt} />,
+                },
+                details: {
+                  label: `${row.batchNumber ?? "(χύμα)"} · ${row.itemName}`,
+                  view: <div className="grid gap-4">
+                    <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <div><dt className="text-xs text-muted-foreground">Παρτίδα</dt><dd className="mt-1 font-semibold break-words">{row.batchNumber ?? "(χύμα)"}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Υπόλοιπο</dt><dd className="mt-1 font-semibold tabular-nums">{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Λήξη</dt><dd className="mt-1 font-semibold">{row.expiresAt ? day.format(row.expiresAt) : "Χωρίς λήξη"}</dd></div>
+                      <div><dt className="text-xs text-muted-foreground">Σειρά κατανάλωσης</dt><dd className="mt-1"><ExpiryBadge expiresAt={row.expiresAt} /></dd></div>
+                    </dl>
+                    <div><Link href={`/inventory/stock/lots/${row.lotId}`} className={btn("outline", "sm")}>Προέλευση & κινήσεις παρτίδας</Link></div>
+                  </div>,
+                },
+              }))}
+            />
           </Card>
         ) : null}
       </div>

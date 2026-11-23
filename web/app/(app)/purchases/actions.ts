@@ -9,7 +9,9 @@ import { parseGs1 } from "@/lib/gs1";
 import { scanPurchaseInvoice } from "@/lib/ai/ocr-scan";
 import { importMyIncome } from "@/lib/mydata-income";
 import { matchLine } from "@/lib/purchases";
+import { purchaseSnapshots } from "@/lib/purchase-snapshots";
 import { postPurchase } from "@/lib/purchases-db";
+import { saveFile } from "@/lib/storage";
 import { requireStockContext } from "@/lib/stock-context";
 
 const back = (path: string, q = ""): never => {
@@ -31,16 +33,62 @@ export async function createDoc(form: FormData) {
     .safeParse(Object.fromEntries(form));
   if (!d.success) return fail(d.error.issues[0].message);
   const { org, user } = await currentOrg("purchases.add");
-  const supplier = await db.party.findFirst({ where: { id: d.data.supplierId, orgId: org.id, roles: { has: "supplier" } } });
+  const supplier = await db.party.findFirst({ where: { id: d.data.supplierId, orgId: org.id, roles: { has: "supplier" } }, include: { paymentMethod: true } });
   if (!supplier) return fail("Άγνωστος προμηθευτής");
   const warehouse = await db.warehouse.findFirst({ where: { id: d.data.warehouseId, orgId: org.id, active: true } });
   if (!warehouse) return fail("Άγνωστη αποθήκη");
   const issuedAt = d.data.issuedAt ? new Date(`${d.data.issuedAt}T00:00:00Z`) : null;
   if (issuedAt && Number.isNaN(issuedAt.getTime())) return fail("Άκυρη ημερομηνία έκδοσης");
+  const snapshots = await purchaseSnapshots(org, supplier);
   const doc = await db.purchaseDoc.create({
-    data: { orgId: org.id, supplierId: supplier.id, warehouseId: warehouse.id, number: d.data.number || null, issuedAt, note: d.data.note || null, createdByName: user.name },
+    data: {
+      orgId: org.id, supplierId: supplier.id, warehouseId: warehouse.id, number: d.data.number || null, issuedAt, note: d.data.note || null,
+      ...snapshots, paymentMethod: supplier.paymentMethod?.name ?? null, paymentTerms: supplier.paymentTermsDays != null ? `Πίστωση ${supplier.paymentTermsDays} ημερών` : null, createdByName: user.name,
+    },
   });
   back(`/purchases/${doc.id}`);
+}
+
+const money = (value: FormDataEntryValue | null): number | null => {
+  const cents = Math.round(Number(String(value ?? "").trim().replace(",", ".")) * 100);
+  return Number.isSafeInteger(cents) && cents >= 0 && cents <= 100_000_000 ? cents : null;
+};
+const percent = (value: FormDataEntryValue | null): number | null => {
+  const bps = Math.round(Number(String(value ?? "").trim().replace(",", ".")) * 100);
+  return Number.isSafeInteger(bps) && bps >= 0 && bps <= 10_000 ? bps : null;
+};
+const vat = (value: FormDataEntryValue | null): number | null => {
+  const rate = Number(String(value ?? "").trim());
+  return Number.isInteger(rate) && rate >= 0 && rate <= 100 ? rate : null;
+};
+const blank = (value: FormDataEntryValue | null, max = 200) => String(value ?? "").trim().slice(0, max) || null;
+
+/** Στοιχεία έκδοσης, πληρωμής, αποστολής και εξόδων· μόνο όσο το παραστατικό είναι πρόχειρο. */
+export async function updateDoc(form: FormData) {
+  const raw = Object.fromEntries(form);
+  const docId = String(raw.documentId ?? "");
+  const path = `/purchases/${docId}`;
+  const schema = z.object({ documentId: z.string().cuid(), number: z.string().trim().max(40), issuedAt: z.string().trim().max(10), note: z.string().trim().max(500) });
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success) return fail("Τα βασικά στοιχεία δεν είναι έγκυρα", path);
+  const issuedAt = parsed.data.issuedAt ? new Date(`${parsed.data.issuedAt}T00:00:00Z`) : null;
+  const shippingCostCents = money(form.get("shippingCost"));
+  const otherExpensesCents = money(form.get("otherExpenses"));
+  const expensesVatRate = vat(form.get("expensesVatRate"));
+  if (issuedAt && Number.isNaN(issuedAt.getTime())) return fail("Άκυρη ημερομηνία έκδοσης", path);
+  if (shippingCostCents == null || otherExpensesCents == null || expensesVatRate == null) return fail("Έλεγξε τα έξοδα και τον συντελεστή ΦΠΑ τους", path);
+  const { org } = await currentOrg("purchases.edit");
+  const result = await db.purchaseDoc.updateMany({
+    where: { id: docId, orgId: org.id, status: "DRAFT" },
+    data: {
+      number: parsed.data.number || null, issuedAt, note: parsed.data.note || null,
+      paymentMethod: blank(form.get("paymentMethod"), 120), paymentTerms: blank(form.get("paymentTerms"), 120),
+      shippingMethod: blank(form.get("shippingMethod"), 120), shippingAddress: blank(form.get("shippingAddress"), 300),
+      shippingCostCents, otherExpensesCents, expensesVatRate,
+    },
+  });
+  if (!result.count) return fail("Το πρόχειρο τιμολόγιο δεν βρέθηκε ή έχει ήδη καταχωρηθεί", path);
+  back(path, "?saved=1");
 }
 
 /** Τα δεδομένα που χρειάζεται η αντιστοίχιση: συνδέσεις του προμηθευτή, κεντρικός+ιδιωτικός κατάλογος, mappings. */
@@ -77,8 +125,12 @@ export async function addLine(form: FormData) {
 
   const quantity = Number(String(raw.quantity ?? "").replace(",", "."));
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 1_000_000) return fail("Η ποσότητα είναι θετικός ακέραιος", path);
-  const unitPriceCents = Math.round(Number(String(raw.unitPrice ?? "").replace(",", ".")) * 100);
-  if (!Number.isInteger(unitPriceCents) || unitPriceCents < 0) return fail("Η τιμή είναι ποσό σε ευρώ προ ΦΠΑ", path);
+  const unitPriceCents = money(form.get("unitPrice"));
+  const discountBps = percent(form.get("discountPercent"));
+  const vatRate = vat(form.get("vatRate"));
+  if (unitPriceCents == null) return fail("Η τιμή είναι ποσό σε ευρώ προ έκπτωσης και ΦΠΑ", path);
+  if (discountBps == null) return fail("Η έκπτωση γραμμής είναι ποσοστό από 0 έως 100", path);
+  if (vatRate == null) return fail("Διάλεξε έγκυρο συντελεστή ΦΠΑ", path);
   const receiptTempC = String(raw.receiptTempC ?? "").trim() ? Number(String(raw.receiptTempC).replace(",", ".")) : null;
   if (receiptTempC != null && (!Number.isFinite(receiptTempC) || receiptTempC < -40 || receiptTempC > 80)) return fail("Η θερμοκρασία παραλαβής είναι σε °C, π.χ. 4,0", path);
   const expiresAt = d.data.expiresAt ? new Date(`${d.data.expiresAt}T00:00:00Z`) : null;
@@ -101,6 +153,8 @@ export async function addLine(form: FormData) {
       description: d.data.description,
       quantity,
       unitPriceCents,
+      discountBps,
+      vatRate,
       batchNumber,
       expiresAt: expiry,
       receiptTempC,
@@ -201,10 +255,16 @@ export async function scanDoc(form: FormData) {
   if (!(file instanceof File) || !file.size) return fail("Διάλεξε φωτογραφία του τιμολογίου");
   if (file.size > 8 * 1024 * 1024) return fail("Η φωτογραφία είναι πολύ μεγάλη (έως 8 MB)");
   if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return fail("Δεκτές μορφές: JPG, PNG, WebP");
-  const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+  const data = new Uint8Array(await file.arrayBuffer());
+  const base64 = Buffer.from(data).toString("base64");
   try {
     const docId = await scanPurchaseInvoice(org.id, user.name, supplierId, warehouseId, file.type, base64);
-    back(`/purchases/${docId}`, "?saved=1");
+    try {
+      await saveFile({ orgId: org.id, category: "purchase_document", refType: "purchase", refId: docId, name: file.name, data, userId: user.id });
+    } catch {
+      return fail("Το OCR ολοκληρώθηκε και το πρόχειρο δημιουργήθηκε, αλλά το πρωτότυπο αρχείο δεν αποθηκεύτηκε. Ανέβασέ το από την καρτέλα.", `/purchases/${docId}`);
+    }
+    back(`/purchases/${docId}`, "?saved=ocr");
   } catch (e) {
     return fail(e instanceof Error ? e.message : "Η σάρωση απέτυχε");
   }

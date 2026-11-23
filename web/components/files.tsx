@@ -15,7 +15,7 @@ const EXT: Record<string, string> = { "image/jpeg": "JPG", "image/png": "PNG", "
 
 export async function Files({ orgId, category, refType, refId, readOnly = false, empty }: { orgId: string | null; category: Category; refType?: string; refId?: string; readOnly?: boolean; empty?: string }) {
   const user = await getUser();
-  if (!user || !canAccess(user, orgId, category)) return null;
+  if (!user || !canAccess(user, orgId, category, false)) return null;
   const c = CATEGORIES[category];
   const [ready, rows] = await Promise.all([storageConfigured(), listFiles({ orgId, category, refType, refId })]);
   const files = await Promise.all(rows.map(async (f) => ({ id: f.id, name: f.name, size: bytes(f.size), when: when.format(f.createdAt), url: await fileUrl(f), image: f.contentType.startsWith("image/") })));
@@ -24,7 +24,7 @@ export async function Files({ orgId, category, refType, refId, readOnly = false,
       {ready ? null : <p className="rounded-lg border border-gold/40 bg-gold/10 px-3 py-2 text-sm">{user.platformRole ? "Η αποθήκευση αρχείων δεν έχει ρυθμιστεί ακόμα. Ορίζεται στις Ρυθμίσεις & email › Bunny" : "Το ανέβασμα αρχείων δεν είναι διαθέσιμο ακόμα"}</p>}
       <FileManager
         orgId={orgId} category={category} refType={refType} refId={refId} files={files}
-        accept={c.types.join(",")} multiple={!("single" in c && c.single)} canEdit={ready && !readOnly}
+        accept={c.types.join(",")} multiple={!("single" in c && c.single)} canEdit={ready && !readOnly && canAccess(user, orgId, category)}
         hint={`${c.types.map((t) => EXT[t] ?? t).join(", ")} έως ${bytes(c.maxBytes)}`}
       />
       {files.length === 0 ? <p className="text-sm text-muted-foreground">{empty ?? "Κανένα αρχείο ακόμα"}</p> : null}

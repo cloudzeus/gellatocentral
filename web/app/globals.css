@@ -495,3 +495,12 @@ form[data-by-kind]:has(select[name="kind"] option[value="SCALE"]:checked) [data-
     text-align: left;
   }
 }
+
+/* Το παραστατικό αγοράς εκτυπώνεται ως καθαρό Α4, όχι ως στιγμιότυπο του application shell. */
+@media print {
+  @page { size: A4; margin: 12mm; }
+  html, body { background: white !important; }
+  .purchase-document { color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .purchase-document tr, .purchase-document section, .purchase-document footer { break-inside: avoid; }
+  .purchase-document thead { display: table-header-group; }
+}

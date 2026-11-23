@@ -16,10 +16,12 @@ export const CATEGORIES = {
   photo: { label: "Φωτογραφίες", public: true, types: IMAGES, maxBytes: 8 * MB, needs: "devices.edit", platform: false },
   document: { label: "Έγγραφα", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "users.edit", platform: false },
   customer_document: { label: "Έγγραφα πελάτη", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "parties.edit", platform: false },
+  purchase_document: { label: "Παραστατικά αγοράς", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "purchases.edit", read: "purchases.read", platform: false },
   ticket_attachment: { label: "Συνημμένα αιτήματος", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 10 * MB, needs: null, platform: false, staff: "support.tickets" },
   backup: { label: "Αντίγραφα ασφαλείας", public: false, types: ["application/octet-stream"], maxBytes: 5 * 1024 * MB, needs: "users.edit", platform: true },
   trade_item: { label: "Φωτογραφίες ειδών", public: true, types: IMAGES, maxBytes: 4 * MB, needs: null, platform: true },
-} as const satisfies Record<string, { label: string; public: boolean; types: readonly string[]; maxBytes: number; needs: Permission | null; platform: boolean; /** κρατιέται μόνο το τελευταίο */ single?: boolean; /** ποιο δικαίωμα προσωπικού πλατφόρμας αρκεί (αλλιώς: αρχικοποίηση) */ staff?: PlatformPermission }>;
+  manufacturer_logo: { label: "Λογότυπα κατασκευαστών", public: true, types: IMAGES, maxBytes: 2 * MB, needs: null, platform: true, single: true },
+} as const satisfies Record<string, { label: string; public: boolean; types: readonly string[]; maxBytes: number; needs: Permission | null; /** ξεχωριστό δικαίωμα μόνο για προβολή/λήψη */ read?: Permission; platform: boolean; /** κρατιέται μόνο το τελευταίο */ single?: boolean; /** ποιο δικαίωμα προσωπικού πλατφόρμας αρκεί (αλλιώς: αρχικοποίηση) */ staff?: PlatformPermission }>;
 export type Category = keyof typeof CATEGORIES;
 export const isCategory = (v: unknown): v is Category => typeof v === "string" && v in CATEGORIES;
 /** Δικαίωμα προσωπικού πλατφόρμας: αρχεία πελάτη = αρχικοποίηση, αρχεία πλατφόρμας = ρυθμίσεις. */

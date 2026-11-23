@@ -5,14 +5,20 @@ import { chargeCents, parseInvoiceJson } from "./ocr.ts";
 
 test("καθαρό JSON με όλα τα πεδία", () => {
   const inv = parseInvoiceJson(JSON.stringify({
-    number: "ΤΔΑ-1234", issuedAt: "2026-11-18", vatNumber: "094123456",
-    lines: [{ description: "ΓΑΛΑ ΕΒΟΛ 3,5% 1L x12", quantity: 4, unitPrice: 12.4, supplierCode: "GAL-01", ean: "5201234567890", batchNumber: "L2611", expiresAt: "2026-12-20" }],
+    number: "ΤΔΑ-1234", issuedAt: "2026-11-18", vatNumber: "094123456", mydataMark: "400001234567890",
+    paymentMethod: "Επί πιστώσει", shippingCost: 3.5, expensesVatRate: 24,
+    lines: [{ description: "ΓΑΛΑ ΕΒΟΛ 3,5% 1L x12", quantity: 4, unitPrice: 12.4, discountPercent: 12.5, vatRate: 13, supplierCode: "GAL-01", ean: "5201234567890", batchNumber: "L2611", expiresAt: "2026-12-20" }],
   }));
   assert.equal(inv.number, "ΤΔΑ-1234");
   assert.equal(inv.issuedAt?.toISOString().slice(0, 10), "2026-11-18");
   assert.equal(inv.vatNumber, "094123456");
   assert.equal(inv.lines.length, 1);
   assert.equal(inv.lines[0].unitPriceCents, 1240);
+  assert.equal(inv.lines[0].discountBps, 1250);
+  assert.equal(inv.lines[0].vatRate, 13);
+  assert.equal(inv.mydataMark, "400001234567890");
+  assert.equal(inv.paymentMethod, "Επί πιστώσει");
+  assert.equal(inv.shippingCostCents, 350);
   assert.equal(inv.lines[0].ean, "5201234567890");
   assert.equal(inv.lines[0].expiresAt?.toISOString().slice(0, 10), "2026-12-20");
 });

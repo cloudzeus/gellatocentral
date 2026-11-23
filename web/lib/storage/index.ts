@@ -14,13 +14,14 @@ type User = NonNullable<Awaited<ReturnType<typeof getUser>>>;
  * Προσωπικό πλατφόρμας: με το δικαίωμα αρχικοποίησης (ή ρυθμίσεων, για αρχεία της πλατφόρμας).
  * Χρήστης πελάτη: μόνο στη ΔΙΚΗ του επιχείρηση και μόνο με το δικαίωμα του είδους.
  */
-export function canAccess(user: User, orgId: string | null, category: Category) {
+export function canAccess(user: User, orgId: string | null, category: Category, write = true) {
   if (CATEGORIES[category].platform !== (orgId === null)) return false; // αρχεία πλατφόρμας δεν ανήκουν σε πελάτη, και το αντίστροφο
   const c = CATEGORIES[category];
   if (platformCan(user, "staff" in c && c.staff ? c.staff : platformNeeds(orgId))) return true;
   const m = user.memberships.find((x) => x.orgId === orgId);
   if (!m) return false;
-  return c.needs === null || orgPermissionsOf(m.role).includes(c.needs);
+  const needed = !write && "read" in c ? c.read : c.needs;
+  return needed == null || orgPermissionsOf(m.role).includes(needed);
 }
 
 export class FileError extends Error {}

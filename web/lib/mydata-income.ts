@@ -6,6 +6,7 @@
 import { db } from "./db";
 import { parseMyIncomeXml } from "./mydata-parse";
 import { matchLine } from "./purchases";
+import { partySnapshot } from "./purchase-document";
 
 // ---- Λήψη από την ΑΑΔΕ ----
 
@@ -47,10 +48,11 @@ export async function importMyIncome(orgId: string, userName: string, from: Date
 
   const docs = parseMyIncomeXml(await fetchMyIncome(org.aadeUserId, org.aadeSubKey, org.vatNumber, from, to));
 
-  const [supplierItems, tradeItems, mappings] = await Promise.all([
+  const [supplierItems, tradeItems, mappings, buyer] = await Promise.all([
     db.supplierItem.findMany({ where: { orgId, active: true } }),
     db.tradeItem.findMany({ where: { OR: [{ orgId: null }, { orgId }] }, select: { id: true, ean: true, name: true } }),
     db.itemMapping.findMany({ where: { orgId } }),
+    db.party.findFirst({ where: { linkedOrgId: orgId } }),
   ]);
 
   let created = 0;
@@ -66,7 +68,11 @@ export async function importMyIncome(orgId: string, userName: string, from: Date
       // άγνωστος εκδότης: νέα καρτέλα προμηθευτή από τα στοιχεία του παραστατικού, για έλεγχο από τον χρήστη
       supplier ??= await tx.party.create({ data: { orgId, roles: ["supplier"], name: d.supplierName, vatNumber: d.supplierVat } });
       const doc = await tx.purchaseDoc.create({
-        data: { orgId, supplierId: supplier.id, warehouseId: warehouse.id, number: d.number, issuedAt: d.issuedAt, mydataMark: d.mark, note: "Από myDATA (RequestMyIncome)", createdByName: userName },
+        data: {
+          orgId, supplierId: supplier.id, warehouseId: warehouse.id, number: d.number, issuedAt: d.issuedAt, mydataMark: d.mark,
+          source: "mydata", note: "Από myDATA (RequestMyIncome) — έλεγχος πριν από την αποδοχή",
+          supplierSnapshot: partySnapshot(supplier), buyerSnapshot: partySnapshot({ ...buyer, name: org.name, vatNumber: org.vatNumber }), createdByName: userName,
+        },
       });
       const ctx = { supplierId: supplier.id, supplierItems, tradeItems, mappings };
       for (const l of d.lines) {
@@ -78,6 +84,8 @@ export async function importMyIncome(orgId: string, userName: string, from: Date
             description: l.description,
             quantity: l.quantity,
             unitPriceCents: l.unitPriceCents,
+            discountBps: l.discountBps,
+            vatRate: l.vatRate,
             supplierItemId: m.supplierItemId ?? null,
             tradeItemId: m.tradeItemId ?? null,
             genericItemId: m.genericItemId ?? null,

@@ -1,21 +1,27 @@
 import { notFound } from "next/navigation";
-import { Check, Plus, Trash2, X } from "lucide-react";
+import { Check, Plus, Settings2, Trash2, X } from "lucide-react";
 import { BarcodeField } from "@/components/barcode-field";
 import { DataTable } from "@/components/data-table";
+import { Files } from "@/components/files";
+import { PrintButton } from "@/components/print-button";
+import { PurchaseDocument } from "@/components/purchase-document";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
+import { Badge, btn, Card, Field, menuItem, Page, Select, TextareaField } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { listParams } from "@/lib/paging";
+import { calculatePurchaseDocument, documentParty, partySnapshot } from "@/lib/purchase-document";
 import { priceCheck } from "@/lib/purchase-pricing";
 import { perPackCents } from "@/lib/purchases";
-import { addLine, cancelDoc, postDoc, rematchLine, removeLine, removeLines } from "../actions";
+import { addLine, cancelDoc, postDoc, rematchLine, removeLine, removeLines, updateDoc } from "../actions";
 
 const day = (d: Date | null) => (d ? new Intl.DateTimeFormat("el-GR", { timeZone: "UTC" }).format(d) : "—");
+const inputDay = (d: Date | null) => d?.toISOString().slice(0, 10) ?? "";
+const amount = (cents: number) => (cents / 100).toFixed(2);
 const MATCH_LABEL: Record<string, string> = { code: "κωδικός", ean: "barcode", manual: "χειροκίνητα" };
 
-// Καρτέλα τιμολογίου αγοράς: αντιστοίχιση και αποδοχή αποθέματος σε μία server συναλλαγή.
+// Καρτέλα τιμολογίου αγοράς: το ίδιο server-rendered έγγραφο για οθόνη και εκτύπωση, με ξεχωριστή ζώνη εργασίας.
 export default async function PurchaseDocPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { org, can } = await currentOrg("purchases.read");
   const { id } = await params;
@@ -31,31 +37,58 @@ export default async function PurchaseDocPage({ params, searchParams }: { params
   });
   if (!doc) notFound();
   const draft = doc.status === "DRAFT";
-  const supplierItems = draft
-    ? await db.supplierItem.findMany({ where: { orgId: org.id, supplierId: doc.supplierId, active: true }, include: { tradeItem: true }, orderBy: { tradeItem: { name: "asc" } } })
-    : [];
+  const [supplierItems, vatRates] = await Promise.all([
+    draft ? db.supplierItem.findMany({ where: { orgId: org.id, supplierId: doc.supplierId, active: true }, include: { tradeItem: true }, orderBy: { tradeItem: { name: "asc" } } }) : [],
+    db.vatRate.findMany({ where: { active: true }, orderBy: { rate: "desc" } }),
+  ]);
   const suggestedIds = doc.lines.map((l) => l.matchNote?.match(/^suggest:(.+)$/)?.[1]).filter((x): x is string => !!x);
   const suggested = suggestedIds.length ? await db.tradeItem.findMany({ where: { id: { in: suggestedIds } } }) : [];
   const suggestedName = (l: (typeof doc.lines)[number]) => suggested.find((t) => t.id === l.matchNote?.slice(8))?.name;
   const unmatched = doc.lines.filter((l) => !l.genericItemId);
+  const totals = calculatePurchaseDocument(doc.lines, doc);
 
   const at = doc.issuedAt ?? doc.createdAt;
   const checkOf = (l: (typeof doc.lines)[number]) =>
-    l.supplierItem ? priceCheck(perPackCents(l.unitPriceCents, l.supplierItem.packQty), l.supplierItem.prices, l.quantity * l.supplierItem.packQty, at) : undefined;
+    l.supplierItem ? priceCheck(perPackCents(l.unitPriceCents, l.supplierItem.packQty, l.discountBps), l.supplierItem.prices, l.quantity * l.supplierItem.packQty, at) : undefined;
   const offAgreement = doc.lines.filter((l) => { const c = checkOf(l); return c?.agreement && c.diffCents !== 0; });
 
-  const lineForm = (
-    <Card>
-      <form action={addLine} className="grid gap-4 p-5 sm:grid-cols-3">
+  const metadataForm = draft && can("purchases.edit") ? (
+    <details className="group rounded-xl border border-border bg-card shadow-[var(--shadow-card)] print:hidden">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold"><Settings2 className="size-4 text-muted-foreground" /> Στοιχεία παραστατικού, πληρωμή & αποστολή <span className="ml-auto text-xs font-normal text-muted-foreground">Άνοιγμα για επεξεργασία</span></summary>
+      <form action={updateDoc} className="grid gap-4 border-t border-border/70 p-4 sm:grid-cols-2 lg:grid-cols-4">
         <input type="hidden" name="documentId" value={doc.id} />
-        <Field label="Περιγραφή (όπως στο τιμολόγιο)" name="description" required minLength={2} maxLength={120} />
-        <div className="grid grid-cols-2 gap-4"><Field label="Ποσότητα" name="quantity" required inputMode="numeric" hint="στη μονάδα του παραστατικού" /><Field label="Τιμή μονάδας προ ΦΠΑ (€)" name="unitPrice" required inputMode="decimal" /></div>
+        <Field label="Αριθμός τιμολογίου" name="number" defaultValue={doc.number ?? ""} maxLength={40} />
+        <Field label="Ημερομηνία έκδοσης" name="issuedAt" type="date" defaultValue={inputDay(doc.issuedAt)} />
+        <Field label="Τρόπος πληρωμής" name="paymentMethod" defaultValue={doc.paymentMethod ?? ""} maxLength={120} />
+        <Field label="Όροι πληρωμής" name="paymentTerms" defaultValue={doc.paymentTerms ?? ""} maxLength={120} placeholder="π.χ. Πίστωση 30 ημερών" />
+        <Field label="Τρόπος αποστολής / μεταφορέας" name="shippingMethod" defaultValue={doc.shippingMethod ?? ""} maxLength={120} />
+        <div className="sm:col-span-2 lg:col-span-3"><Field label="Διεύθυνση παράδοσης" name="shippingAddress" defaultValue={doc.shippingAddress ?? ""} maxLength={300} /></div>
+        <Field label="Μεταφορικά προ ΦΠΑ (€)" name="shippingCost" defaultValue={amount(doc.shippingCostCents)} inputMode="decimal" />
+        <Field label="Λοιπά έξοδα προ ΦΠΑ (€)" name="otherExpenses" defaultValue={amount(doc.otherExpensesCents)} inputMode="decimal" />
+        <Select label="ΦΠΑ εξόδων" name="expensesVatRate" defaultValue={String(doc.expensesVatRate)} options={vatRates.map((v): [string, string] => [String(v.rate), `${v.name} · ${v.rate}%`])} />
+        <div className="sm:col-span-2 lg:col-span-4"><TextareaField label="Σημειώσεις" name="note" defaultValue={doc.note ?? ""} maxLength={500} rows={2} /></div>
+        <div className="sm:col-span-2 lg:col-span-4 lg:justify-self-end"><Submit className={btn("default")}>Αποθήκευση στοιχείων</Submit></div>
+      </form>
+    </details>
+  ) : null;
+
+  const lineForm = (
+    <Card className="print:hidden">
+      <div className="border-b border-border/70 px-4 py-3"><h2 className="text-sm font-semibold">Νέα γραμμή τιμολογίου</h2><p className="text-xs text-muted-foreground">Η τιμή είναι πριν από την έκπτωση και τον ΦΠΑ. Η ποσότητα δηλώνεται στη μονάδα του παραστατικού.</p></div>
+      <form action={addLine} className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <input type="hidden" name="documentId" value={doc.id} />
+        <div className="sm:col-span-2"><Field label="Περιγραφή (όπως στο τιμολόγιο)" name="description" required minLength={2} maxLength={120} /></div>
+        <Field label="Ποσότητα" name="quantity" required inputMode="numeric" />
+        <Field label="Τιμή μονάδας (€)" name="unitPrice" required inputMode="decimal" />
+        <Field label="Έκπτωση γραμμής (%)" name="discountPercent" defaultValue="0" inputMode="decimal" />
+        <Select label="ΦΠΑ γραμμής" name="vatRate" defaultValue={String(vatRates.find((v) => v.rate === 24)?.rate ?? vatRates[0]?.rate ?? 24)} options={vatRates.map((v): [string, string] => [String(v.rate), `${v.name} · ${v.rate}%`])} />
         <Field label="Κωδικός προμηθευτή" name="supplierCode" maxLength={40} />
         <BarcodeField label="Barcode / GS1" name="ean" hint="EAN-13, GTIN-14 ή GS1 — γεμίζει και παρτίδα/λήξη" />
         <Field label="Παρτίδα" name="batchNumber" maxLength={20} />
         <Field label="Λήξη" name="expiresAt" type="date" />
-        <div className="grid grid-cols-2 gap-4"><Field label="Θερμοκρασία παραλαβής (°C)" name="receiptTempC" inputMode="decimal" /><Field label="Παρατήρηση" name="receiptIssue" maxLength={120} hint="π.χ. σχισμένη συσκευασία" /></div>
-        <div className="sm:col-span-3 sm:justify-self-end"><Submit className={btn("default")}><Plus /> Προσθήκη γραμμής</Submit></div>
+        <Field label="Θερμοκρασία παραλαβής (°C)" name="receiptTempC" inputMode="decimal" />
+        <Field label="Παρατήρηση παραλαβής" name="receiptIssue" maxLength={120} hint="π.χ. σχισμένη συσκευασία" />
+        <div className="sm:col-span-2 lg:col-span-4 lg:justify-self-end"><Submit className={btn("default")}><Plus /> Προσθήκη γραμμής</Submit></div>
       </form>
     </Card>
   );
@@ -83,61 +116,80 @@ export default async function PurchaseDocPage({ params, searchParams }: { params
     return list.dir === "asc" ? result : -result;
   });
 
-  return (
-    <Page section="Αποθήκη & αγορές" title={`Τιμολόγιο ${doc.number ?? ""} — ${doc.supplier.name}`}
-      description={`${day(doc.issuedAt)} · παραλαβή σε ${doc.warehouse.name} · ${doc.status === "DRAFT" ? "πρόχειρο" : doc.status === "POSTED" ? "καταχωρημένο" : "ακυρωμένο"} από ${doc.createdByName}`}
-      actions={draft && can("purchases.edit") ? <span className="flex gap-2"><form action={cancelDoc.bind(null, doc.id)}><Submit className={btn("ghost")}><X /> Ακύρωση</Submit></form>{doc.lines.length && !unmatched.length ? <form action={postDoc.bind(null, doc.id)}><Submit className={btn("default")}><Check /> Αποδοχή & καταχώριση αποθέματος</Submit></form> : null}</span> : null}>
-      <div className="grid max-w-7xl gap-4">
-        {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Το τιμολόγιο ενημερώθηκε</p> : null}
-        {q.posted ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Το τιμολόγιο καταχωρήθηκε: αποθέματα, παρτίδες και τιμές ενημερώθηκαν</p> : null}
-        {draft && can("purchases.add") ? lineForm : null}
-        {draft && unmatched.length && doc.lines.length ? <p className="rounded-lg bg-gold/15 px-4 py-3 text-sm font-medium text-gold-ink">{unmatched.length} γραμμές χωρίς αντιστοίχιση — η αποδοχή απαιτεί όλες αντιστοιχισμένες</p> : null}
-        {offAgreement.length ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{offAgreement.length} γραμμές χρεώθηκαν εκτός ειδικής συμφωνίας — η διαφορά είναι προς διεκδίκηση από τον προμηθευτή</p> : null}
+  const view = {
+    number: doc.number, issuedAt: day(doc.issuedAt), status: doc.status, source: doc.source, mydataMark: doc.mydataMark, warehouse: doc.warehouse.name,
+    supplier: documentParty(doc.supplierSnapshot, partySnapshot(doc.supplier)), buyer: documentParty(doc.buyerSnapshot, partySnapshot({ name: org.name, vatNumber: org.vatNumber, countryCode: "GR" })),
+    paymentMethod: doc.paymentMethod, paymentTerms: doc.paymentTerms, shippingMethod: doc.shippingMethod, shippingAddress: doc.shippingAddress,
+    shippingCostCents: doc.shippingCostCents, otherExpensesCents: doc.otherExpensesCents, expensesVatRate: doc.expensesVatRate, note: doc.note,
+    lines: doc.lines.map((l) => ({ id: l.id, description: l.description, supplierCode: l.supplierCode, quantity: l.quantity, unitPriceCents: l.unitPriceCents, discountBps: l.discountBps, vatRate: l.vatRate, batchNumber: l.batchNumber, expiresAt: l.expiresAt ? day(l.expiresAt) : null })),
+  };
 
-        <Card>
+  return (
+    <Page section="Αποθήκη & αγορές" title={`Τιμολόγιο αγοράς ${doc.number ?? ""}`}
+      description={`${doc.supplier.name} · ${day(doc.issuedAt)} · ${doc.status === "DRAFT" ? "πρόχειρο" : doc.status === "POSTED" ? "καταχωρημένο" : "ακυρωμένο"} από ${doc.createdByName}`}
+      actions={<span className="flex flex-wrap gap-2 print:hidden"><PrintButton />{draft && can("purchases.edit") ? <><form action={cancelDoc.bind(null, doc.id)}><Submit className={btn("ghost")}><X /> Ακύρωση</Submit></form>{doc.lines.length && !unmatched.length ? <form action={postDoc.bind(null, doc.id)}><Submit className={btn("default")}><Check /> Αποδοχή αποθέματος · {euro(totals.totalCents)}</Submit></form> : null}</> : null}</span>}>
+      <div className="grid max-w-7xl gap-4 print:max-w-none print:gap-0">
+        {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive print:hidden">Δεν αποθηκεύτηκε: {q.error.slice(0, 300)}</p> : null}
+        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink print:hidden">{q.saved === "ocr" ? "Το OCR ολοκληρώθηκε και το πρωτότυπο συνδέθηκε. Έλεγξε όλα τα πεδία πριν από την αποδοχή." : "Το τιμολόγιο ενημερώθηκε"}</p> : null}
+        {q.posted ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink print:hidden">Το τιμολόγιο καταχωρήθηκε: αποθέματα, παρτίδες και τιμές ενημερώθηκαν</p> : null}
+        {doc.source === "ocr" && draft ? <p className="rounded-lg border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-gold-ink print:hidden"><strong>Απαιτείται ανθρώπινη επαλήθευση.</strong> Σύγκρινε αριθμό, ποσότητες, εκπτώσεις, ΦΠΑ και σύνολα με το πρωτότυπο. Το OCR δεν κάνει μόνο του καταχώριση αποθέματος.</p> : null}
+        {metadataForm}
+        {draft && can("purchases.add") ? lineForm : null}
+        {draft && unmatched.length && doc.lines.length ? <p className="rounded-lg bg-gold/15 px-4 py-3 text-sm font-medium text-gold-ink print:hidden">{unmatched.length} γραμμές χωρίς αντιστοίχιση — η αποδοχή απαιτεί όλες αντιστοιχισμένες</p> : null}
+        {offAgreement.length ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive print:hidden">{offAgreement.length} γραμμές χρεώθηκαν εκτός ειδικής συμφωνίας — η διαφορά είναι προς διεκδίκηση από τον προμηθευτή</p> : null}
+
+        <PurchaseDocument doc={view} />
+
+        <Card className="p-4 print:hidden">
+          <div className="mb-3"><h2 className="text-sm font-semibold">Πρωτότυπο παραστατικό & αρχεία</h2><p className="text-xs text-muted-foreground">Ανέβασε φωτογραφία ή PDF για σύγκριση και αρχειοθέτηση. Για αυτόματη ανάγνωση νέου παραστατικού χρησιμοποίησε τη «Σάρωση τιμολογίου» από τη λίστα αγορών.</p></div>
+          <Files orgId={org.id} category="purchase_document" refType="purchase" refId={doc.id} readOnly={!draft || !can("purchases.edit")} empty="Κανένα πρωτότυπο αρχείο ακόμα" />
+        </Card>
+
+        {draft ? <Card className="print:hidden">
+          <div className="border-b border-border/70 px-4 py-3"><h2 className="text-sm font-semibold">Αντιστοιχίσεις & έλεγχος παραλαβής</h2><p className="text-xs text-muted-foreground">Εδώ ελέγχονται τα τεχνικά πεδία αποθέματος· η οικονομική εικόνα παραμένει στο παραστατικό παραπάνω.</p></div>
           <DataTable
             id={`purchase-${doc.id}-lines`}
             listing={{ ...list, total: lines.length, placeholder: "Γραμμή ή είδος…", showSearch: false }}
-            bulkActions={draft && can("purchases.edit") ? [{ value: "remove", label: "Διαγραφή επιλεγμένων γραμμών", confirm: "Οριστική διαγραφή των επιλεγμένων γραμμών από το πρόχειρο;", run: removeLines.bind(null, doc.id) }] : []}
+            bulkActions={can("purchases.edit") ? [{ value: "remove", label: "Διαγραφή επιλεγμένων γραμμών", confirm: "Οριστική διαγραφή των επιλεγμένων γραμμών από το πρόχειρο;", run: removeLines.bind(null, doc.id) }] : []}
             empty="Καμία γραμμή ακόμα — πρόσθεσε με τη φόρμα παραπάνω ή με σάρωση συσκευασίας"
             columns={[
-              { key: "description", label: "Γραμμή τιμολογίου", required: true, sortable: true },
+              { key: "description", label: "Γραμμή τιμολογίου", required: true, sortable: true, wrap: true },
               { key: "quantity", label: "Ποσότητα", numeric: true, sortable: true },
-              { key: "price", label: "Τιμή", numeric: true, sortable: true },
-              { key: "mapping", label: "Αντιστοίχιση", sortable: true },
+              { key: "price", label: "Καθαρή τιμή", numeric: true, sortable: true },
+              { key: "mapping", label: "Αντιστοίχιση", sortable: true, wrap: true },
               { key: "batch", label: "Παρτίδα / λήξη", sortable: true },
               { key: "receipt", label: "Παραλαβή", sortable: true },
             ]}
             rows={lines.map((l) => {
               const c = checkOf(l);
               const mapping = l.tradeItem ? `${l.tradeItem.name}${l.genericItem ? ` → ${l.genericItem.name}` : ""}` : suggestedName(l) ?? "ασύμβατη";
+              const netUnit = perPackCents(l.unitPriceCents, 1, l.discountBps);
               return {
                 id: l.id,
                 cells: {
-                  description: <span><span className="font-semibold">{l.description}</span>{l.supplierCode ? <span className="ml-2 text-xs text-muted-foreground">κωδ. {l.supplierCode}</span> : null}{l.ean ? <span className="ml-2 text-xs text-muted-foreground tabular-nums">{l.ean}</span> : null}</span>,
+                  description: <span><span className="block break-words font-semibold md:line-clamp-2" title={l.description}>{l.description}</span>{l.supplierCode ? <span className="mr-2 text-xs text-muted-foreground">κωδ. {l.supplierCode}</span> : null}{l.ean ? <span className="text-xs text-muted-foreground tabular-nums">{l.ean}</span> : null}</span>,
                   quantity: l.quantity,
-                  price: <span><span className="tabular-nums">{euro(l.unitPriceCents)}</span>{c?.expectedCents !== undefined && c.diffCents !== 0 ? <span className="mt-0.5 flex justify-end"><Badge tone="danger">εκτός {c.agreement ? "συμφωνίας" : "τιμοκαταλόγου"} · αναμ. {euro(c.expectedCents)}</Badge></span> : c?.agreement && c.diffCents === 0 ? <span className="mt-0.5 flex justify-end"><Badge tone="success">συμφωνία</Badge></span> : null}</span>,
-                  mapping: l.tradeItem ? <span>{l.tradeItem.name} {l.genericItem ? <span className="text-muted-foreground">→ {l.genericItem.name}</span> : <Badge tone="warning">χωρίς γενικό</Badge>} <span className="text-xs text-muted-foreground">({MATCH_LABEL[l.matchNote ?? ""] ?? ""})</span></span> : suggestedName(l) ? <Badge tone="warning">πρόταση: {suggestedName(l)}</Badge> : <Badge tone="danger">ασύμβατη</Badge>,
+                  price: <span><span className="tabular-nums">{euro(netUnit)}</span>{c?.expectedCents !== undefined && c.diffCents !== 0 ? <span className="mt-0.5 flex justify-end"><Badge tone="danger">εκτός {c.agreement ? "συμφωνίας" : "τιμοκαταλόγου"} · αναμ. {euro(c.expectedCents)}</Badge></span> : c?.agreement && c.diffCents === 0 ? <span className="mt-0.5 flex justify-end"><Badge tone="success">συμφωνία</Badge></span> : null}</span>,
+                  mapping: l.tradeItem ? <span className="break-words">{l.tradeItem.name} {l.genericItem ? <span className="text-muted-foreground">→ {l.genericItem.name}</span> : <Badge tone="warning">χωρίς γενικό</Badge>} <span className="text-xs text-muted-foreground">({MATCH_LABEL[l.matchNote ?? ""] ?? ""})</span></span> : suggestedName(l) ? <Badge tone="warning">πρόταση: {suggestedName(l)}</Badge> : <Badge tone="danger">ασύμβατη</Badge>,
                   batch: <span className="text-xs">{l.batchNumber ?? "—"}{l.expiresAt ? ` · λήξη ${day(l.expiresAt)}` : ""}</span>,
                   receipt: <span className="text-xs">{l.receiptTempC != null ? `${String(l.receiptTempC).replace(".", ",")} °C` : "—"}{l.receiptIssue ? <span className="text-destructive"> {l.receiptIssue}</span> : ""}</span>,
                 },
                 details: {
                   label: l.description,
                   view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div><dt className="text-xs text-muted-foreground">Αντιστοίχιση</dt><dd className="font-medium">{mapping}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Αντιστοίχιση</dt><dd className="break-words font-medium">{mapping}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Παρτίδα / λήξη</dt><dd className="font-medium">{l.batchNumber ?? "—"}{l.expiresAt ? ` · ${day(l.expiresAt)}` : ""}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Θερμοκρασία</dt><dd className="font-medium">{l.receiptTempC != null ? `${String(l.receiptTempC).replace(".", ",")} °C` : "—"}</dd></div>
-                    <div><dt className="text-xs text-muted-foreground">Παρατήρηση</dt><dd className="font-medium">{l.receiptIssue ?? "—"}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Παρατήρηση</dt><dd className="break-words font-medium">{l.receiptIssue ?? "—"}</dd></div>
                   </dl>,
-                  edit: draft && can("purchases.edit") ? rematchForm(l) : undefined,
+                  edit: can("purchases.edit") ? rematchForm(l) : undefined,
                 },
-                menu: draft && can("purchases.edit") ? <form action={removeLine.bind(null, l.id, doc.id)}><Submit className={menuItem}><Trash2 /> Διαγραφή γραμμής</Submit></form> : undefined,
+                menu: can("purchases.edit") ? <form action={removeLine.bind(null, l.id, doc.id)}><Submit className={menuItem}><Trash2 /> Διαγραφή γραμμής</Submit></form> : undefined,
               };
             })}
           />
-        </Card>
-        <p className="text-xs text-muted-foreground">Η αποδοχή γράφει τις ποσότητες στη βασική μονάδα του γενικού είδους, δημιουργεί παρτίδες με λήξη και ενημερώνει τον τιμοκατάλογο του προμηθευτή</p>
+        </Card> : null}
+        <p className="text-xs text-muted-foreground print:hidden">Η αποδοχή γράφει τις ποσότητες στη βασική μονάδα του γενικού είδους, δημιουργεί παρτίδες με λήξη και ενημερώνει τον τιμοκατάλογο με την τιμή μετά την έκπτωση.</p>
       </div>
     </Page>
   );

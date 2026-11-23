@@ -64,7 +64,7 @@ test("δύο παραστατικά με ΜΑΡΚ, ΑΦΜ, αριθμό, ημε�
   assert.equal(a.number, "ΤΔΑ-9921");
   assert.equal(a.issuedAt?.toISOString().slice(0, 10), "2026-11-15");
   assert.equal(a.lines.length, 2);
-  assert.deepEqual(a.lines[0], { description: "ΓΑΛΑ ΕΒΟΛ 3,5% 1L", quantity: 4, unitPriceCents: 1240 });
+  assert.deepEqual(a.lines[0], { description: "ΓΑΛΑ ΕΒΟΛ 3,5% 1L", quantity: 4, unitPriceCents: 1240, discountBps: 0, vatRate: 24 });
   assert.equal(b.supplierVat, "800777888"); // το πρόθεμα EL κόβεται
   assert.equal(b.lines[0].unitPriceCents, 1850);
 });

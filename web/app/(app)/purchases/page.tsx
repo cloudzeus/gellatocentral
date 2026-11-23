@@ -3,17 +3,20 @@ import { Download, Eye, Plus, ScanLine } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
+import { PurchaseDocument } from "@/components/purchase-document";
 import { Submit } from "@/components/submit";
 import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { euro } from "@/lib/money";
 import { filterParam, listParams } from "@/lib/paging";
+import { calculatePurchaseDocument, documentParty, partySnapshot } from "@/lib/purchase-document";
 import { createDoc, importDocs, scanDoc } from "./actions";
 
 const STATUS = { DRAFT: { label: "Πρόχειρο", tone: "warning" }, POSTED: { label: "Καταχωρημένο", tone: "success" }, CANCELLED: { label: "Ακυρωμένο", tone: "neutral" } } as const;
 const day = (d: Date | null) => (d ? new Intl.DateTimeFormat("el-GR", { timeZone: "UTC" }).format(d) : "—");
 
-// Τιμολόγια αγοράς: φίλτρα και ταξινόμηση στον server· η καρτέλα ανοίγει για την πλήρη επεξεργασία.
+// Τιμολόγια αγοράς: server φίλτρα/ταξινόμηση· η ανάπτυξη δείχνει το ίδιο πλήρες έγγραφο με την καρτέλα.
 export default async function PurchasesPage({ searchParams }: PageProps<"/purchases">) {
   const { org, can } = await currentOrg("purchases.read");
   const q = await searchParams;
@@ -41,9 +44,10 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
             : list.sort === "status" ? { status: list.dir }
               : { createdAt: "desc" as const };
   const [docs, total] = await Promise.all([
-    db.purchaseDoc.findMany({ where, orderBy, skip: list.skip, take: list.take, include: { supplier: true, warehouse: true, _count: { select: { lines: true } } } }),
+    db.purchaseDoc.findMany({ where, orderBy, skip: list.skip, take: list.take, include: { supplier: true, warehouse: true, lines: { orderBy: { id: "asc" } }, _count: { select: { lines: true } } } }),
     db.purchaseDoc.count({ where }),
   ]);
+  const files = docs.length ? await db.storedFile.findMany({ where: { orgId: org.id, category: "purchase_document", refType: "purchase", refId: { in: docs.map((d) => d.id) } }, orderBy: { createdAt: "desc" } }) : [];
 
   const docForm = (
     <form action={createDoc} className="grid gap-4 [&>button]:justify-self-end">
@@ -66,6 +70,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
       <Select label="Προμηθευτής" name="supplierId" required options={suppliers.map((p): [string, string] => [p.id, p.name])} />
       <Select label="Αποθήκη παραλαβής" name="warehouseId" required options={warehouses.map((w): [string, string] => [w.id, w.name])} />
       <Field label="Φωτογραφία τιμολογίου" name="photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required hint="JPG, PNG ή WebP έως 8 MB — η υπηρεσία χρεώνεται ανά έγγραφο" />
+      <p className="text-xs text-muted-foreground">Το αρχείο αποθηκεύεται στο πρόχειρο. Τα αποτελέσματα ελέγχονται και διορθώνονται από εσένα πριν από οποιαδήποτε κίνηση αποθέματος.</p>
       <FormPending label="Σάρωση και ανάλυση τιμολογίου…" />
       <Submit pendingText="Σάρωση…" className={btn("default")}>Σάρωση</Submit>
     </form>
@@ -95,8 +100,8 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
         </span>
       ) : null}>
       <div className="grid gap-4">
-        {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{q.error.slice(0, 200)}</p> : null}
-        {typeof q.saved === "string" && q.saved !== "1" ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{q.saved.slice(0, 200)}</p> : null}
+        {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{q.error.slice(0, 300)}</p> : null}
+        {q.saved === "ocr" ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Το OCR ολοκληρώθηκε. Έλεγξε το πρωτότυπο και τα αναγνωρισμένα πεδία πριν από την αποδοχή.</p> : typeof q.saved === "string" && q.saved !== "1" ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{q.saved.slice(0, 200)}</p> : null}
         {!suppliers.length || !warehouses.length ? <p className="rounded-lg bg-gold/15 px-4 py-3 text-sm text-gold-ink">Χρειάζεσαι πρώτα <Link href="/parties" className="underline">προμηθευτή</Link> και <Link href="/inventory" className="underline">αποθήκη</Link>.</p> : null}
         <Card>
           <DataTable
@@ -108,36 +113,37 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
             ] }}
             empty="Κανένα τιμολόγιο αγοράς ακόμα"
             columns={[
-              { key: "supplier", label: "Προμηθευτής", required: true, sortable: true },
+              { key: "supplier", label: "Προμηθευτής", required: true, sortable: true, wrap: true },
               { key: "number", label: "Αριθμός", sortable: true },
               { key: "issuedAt", label: "Ημερομηνία", sortable: true },
               { key: "warehouse", label: "Αποθήκη", sortable: true },
               { key: "lines", label: "Γραμμές", numeric: true, sortable: true },
+              { key: "total", label: "Γενικό σύνολο", numeric: true },
               { key: "status", label: "Κατάσταση", sortable: true },
             ]}
-            rows={docs.map((d) => ({
-              id: d.id,
-              cells: {
-                supplier: <Link href={`/purchases/${d.id}`} className="font-semibold underline-offset-2 hover:underline">{d.supplier.name}</Link>,
-                number: d.number ?? "—",
-                issuedAt: day(d.issuedAt),
-                warehouse: d.warehouse.name,
-                lines: d._count.lines,
-                status: <Badge tone={STATUS[d.status].tone}>{STATUS[d.status].label}</Badge>,
-              },
-              details: {
-                label: `${d.supplier.name}${d.number ? ` · ${d.number}` : ""}`,
-                view: <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-                  <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div><dt className="text-xs text-muted-foreground">Αριθμός</dt><dd className="font-medium">{d.number ?? "—"}</dd></div>
-                    <div><dt className="text-xs text-muted-foreground">Ημερομηνία</dt><dd className="font-medium">{day(d.issuedAt)}</dd></div>
-                    <div><dt className="text-xs text-muted-foreground">Αποθήκη / γραμμές</dt><dd className="font-medium">{d.warehouse.name} · {d._count.lines}</dd></div>
-                    <div><dt className="text-xs text-muted-foreground">Σημείωση</dt><dd className="font-medium">{d.note ?? "—"}</dd></div>
-                  </dl>
-                  <Link href={`/purchases/${d.id}`} className={btn("outline", "sm")}><Eye /> Άνοιγμα τιμολογίου</Link>
-                </div>,
-              },
-            }))}
+            rows={docs.map((d) => {
+              const totals = calculatePurchaseDocument(d.lines, d);
+              const attachments = files.filter((f) => f.refId === d.id).map((f) => ({ id: f.id, name: f.name, url: `/api/files/${f.id}` }));
+              const view = {
+                number: d.number, issuedAt: day(d.issuedAt), status: d.status, source: d.source, mydataMark: d.mydataMark, warehouse: d.warehouse.name,
+                supplier: documentParty(d.supplierSnapshot, partySnapshot(d.supplier)), buyer: documentParty(d.buyerSnapshot, partySnapshot({ name: org.name, vatNumber: org.vatNumber, countryCode: "GR" })),
+                paymentMethod: d.paymentMethod, paymentTerms: d.paymentTerms, shippingMethod: d.shippingMethod, shippingAddress: d.shippingAddress,
+                shippingCostCents: d.shippingCostCents, otherExpensesCents: d.otherExpensesCents, expensesVatRate: d.expensesVatRate, note: d.note,
+                lines: d.lines.map((l) => ({ id: l.id, description: l.description, supplierCode: l.supplierCode, quantity: l.quantity, unitPriceCents: l.unitPriceCents, discountBps: l.discountBps, vatRate: l.vatRate, batchNumber: l.batchNumber, expiresAt: l.expiresAt ? day(l.expiresAt) : null })), attachments,
+              };
+              return {
+                id: d.id,
+                cells: {
+                  supplier: <Link href={`/purchases/${d.id}`} title={d.supplier.name} className="block min-w-0 break-words font-semibold leading-snug underline-offset-2 hover:underline md:line-clamp-2">{d.supplier.name}</Link>,
+                  number: d.number ?? "—", issuedAt: day(d.issuedAt), warehouse: d.warehouse.name, lines: d._count.lines,
+                  total: <span className="whitespace-nowrap font-semibold">{euro(totals.totalCents)}</span>, status: <Badge tone={STATUS[d.status].tone}>{STATUS[d.status].label}</Badge>,
+                },
+                details: {
+                  label: `${d.supplier.name}${d.number ? ` · ${d.number}` : ""}`,
+                  view: <div className="grid gap-3"><div className="flex justify-end"><Link href={`/purchases/${d.id}`} className={btn("outline", "sm")}><Eye /> Άνοιγμα & επεξεργασία</Link></div><PurchaseDocument doc={view} compact /></div>,
+                },
+              };
+            })}
           />
         </Card>
       </div>

@@ -5,6 +5,7 @@
 import { setting } from "../config";
 import { db } from "../db";
 import { matchLine } from "../purchases";
+import { partySnapshot } from "../purchase-document";
 import { AiError, vision } from "./openrouter";
 import { chargeCents, OCR_PROMPT, OCR_SYSTEM, parseInvoiceJson } from "./ocr";
 
@@ -30,9 +31,17 @@ export async function scanPurchaseInvoice(orgId: string, userName: string, suppl
       throw new AiError(`Το τιμολόγιο είναι του ΑΦΜ ${inv.vatNumber}, όχι του προμηθευτή που διάλεξες (${supplier.vatNumber})`);
     const warehouse = await tx.warehouse.findFirst({ where: { id: warehouseId, orgId, active: true } });
     if (!warehouse) throw new AiError("Άγνωστη αποθήκη");
+    const [org, buyer] = await Promise.all([tx.organization.findUnique({ where: { id: orgId } }), tx.party.findFirst({ where: { linkedOrgId: orgId } })]);
+    if (!org) throw new AiError("Η επιχείρηση δεν βρέθηκε");
 
     const doc = await tx.purchaseDoc.create({
-      data: { orgId, supplierId: supplier.id, warehouseId: warehouse.id, number: inv.number, issuedAt: inv.issuedAt, note: "Από σάρωση (OCR)", createdByName: userName },
+      data: {
+        orgId, supplierId: supplier.id, warehouseId: warehouse.id, number: inv.number, issuedAt: inv.issuedAt,
+        source: "ocr", note: "Από σάρωση OCR — απαιτείται έλεγχος πριν από την αποδοχή", mydataMark: inv.mydataMark,
+        supplierSnapshot: partySnapshot(supplier), buyerSnapshot: partySnapshot({ ...buyer, name: org.name, vatNumber: org.vatNumber }),
+        paymentMethod: inv.paymentMethod, paymentTerms: inv.paymentTerms, shippingMethod: inv.shippingMethod, shippingAddress: inv.shippingAddress,
+        shippingCostCents: inv.shippingCostCents, otherExpensesCents: inv.otherExpensesCents, expensesVatRate: inv.expensesVatRate, createdByName: userName,
+      },
     });
 
     const [supplierItems, tradeItems, mappings] = await Promise.all([
@@ -53,6 +62,8 @@ export async function scanPurchaseInvoice(orgId: string, userName: string, suppl
           description: l.description,
           quantity: l.quantity,
           unitPriceCents: l.unitPriceCents,
+          discountBps: l.discountBps,
+          vatRate: l.vatRate,
           batchNumber: l.batchNumber,
           expiresAt: l.expiresAt,
           supplierItemId: m.supplierItemId ?? null,

@@ -10,6 +10,8 @@ export type StockReadInput = {
   q?: string;
   skip: number;
   take: number;
+  sort?: "item" | "warehouse" | "quantity" | "cost" | "value" | "batch" | "expiresAt";
+  dir?: "asc" | "desc";
 };
 
 export type StockUnitView = { code: string; dimension: string; toBase: number };
@@ -41,6 +43,19 @@ type OverviewSqlRow = {
 
 const EMPTY_OVERVIEW = { rows: [], total: 0, totalValueHundredths: 0 };
 
+// Μόνο allow-listed SQL· τιμές από το URL δεν συνενώνονται ποτέ απευθείας σε ερώτημα.
+function overviewOrder(input: StockReadInput) {
+  const column = { item: Prisma.sql`"itemName"`, warehouse: Prisma.sql`"warehouseName"`, quantity: Prisma.sql`"quantity"`, cost: Prisma.sql`"unitCostHundredths"`, value: Prisma.sql`"valueHundredths"` }[input.sort as "item" | "warehouse" | "quantity" | "cost" | "value"] ?? Prisma.sql`"itemName"`;
+  const direction = input.dir === "desc" && input.sort ? Prisma.sql`DESC` : Prisma.sql`ASC`;
+  return Prisma.sql`${column} ${direction}, "warehouseName" ASC, "warehouseId" ASC, "genericItemId" ASC`;
+}
+
+function lotOrder(input: StockReadInput) {
+  if (!input.sort) return Prisma.sql`"expiresAt" ASC NULLS LAST, "lotId" ASC`;
+  const column = { batch: Prisma.sql`"batchNumber"`, item: Prisma.sql`"itemName"`, warehouse: Prisma.sql`"warehouseName"`, quantity: Prisma.sql`"quantity"`, expiresAt: Prisma.sql`"expiresAt"` }[input.sort as "batch" | "item" | "warehouse" | "quantity" | "expiresAt"] ?? Prisma.sql`"expiresAt"`;
+  return Prisma.sql`${column} ${input.dir === "desc" ? Prisma.sql`DESC` : Prisma.sql`ASC`} NULLS LAST, "lotId" ASC`;
+}
+
 /** Συγκεντρωτικό on-hand ανά είδος/αποθήκη, χωρίς ψεύτικη στήλη δεσμευμένου. */
 export async function stockOverview(tx: Pick<StockReadDb, "$queryRaw">, input: StockReadInput) {
   if (!input.warehouseIds.length) return EMPTY_OVERVIEW;
@@ -70,7 +85,7 @@ export async function stockOverview(tx: Pick<StockReadDb, "$queryRaw">, input: S
       FROM aggregated
     ), page AS (
       SELECT * FROM aggregated
-      ORDER BY "itemName" ASC, "warehouseName" ASC, "warehouseId" ASC, "genericItemId" ASC
+      ORDER BY ${overviewOrder(input)}
       LIMIT ${input.take} OFFSET ${input.skip}
     )
     SELECT page.*, summary.total, summary."totalValueHundredths"
@@ -151,7 +166,7 @@ export async function stockLotBalances(tx: Pick<StockReadDb, "$queryRaw">, input
       SELECT COUNT(*)::bigint AS total FROM aggregated
     ), page AS (
       SELECT * FROM aggregated
-      ORDER BY "expiresAt" ASC NULLS LAST, "lotId" ASC
+      ORDER BY ${lotOrder(input)}
       LIMIT ${input.take} OFFSET ${input.skip}
     )
     SELECT page.*, summary.total FROM summary LEFT JOIN page ON TRUE
