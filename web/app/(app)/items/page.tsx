@@ -3,7 +3,7 @@ import { Eye, Pencil, Plus } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -83,12 +83,12 @@ export default async function ItemsPage({ searchParams }: PageProps<"/items">) {
                 label: g.name,
                 view: (
                   <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-                    <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                       <div><dt className="text-xs text-muted-foreground">Μονάδα</dt><dd className="font-medium">{g.baseUnit.nameEL} ({g.baseUnit.code})</dd></div>
                       <div><dt className="text-xs text-muted-foreground">ΦΠΑ αγοράς</dt><dd className="font-medium">{g.vatRate ? `${g.vatRate.name} ${g.vatRate.rate}%` : "Χωρίς προεπιλογή"}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Συσκευασίες</dt><dd className="font-medium">{g._count.mappings}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Κατάσταση</dt><dd>{g.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>}</dd></div>
-                    </dl>
+                    </DetailGrid>
                     <Link href={`/items/${g.id}`} className={btn("outline", "sm")}><Eye /> Πλήρης καρτέλα</Link>
                   </div>
                 ),

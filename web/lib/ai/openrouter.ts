@@ -39,6 +39,32 @@ export async function chat(system: string, user: string): Promise<{ text: string
   return { text, model: typeof j.model === "string" ? j.model : c.chatModel, promptTokens: u.prompt_tokens ?? 0, completionTokens: u.completion_tokens ?? 0, costUsd: Number(u.cost) || 0 };
 }
 
+export type WebCitation = { url: string; title: string | null };
+
+/** Web αναζήτηση του OpenRouter· τα citations ταξιδεύουν μαζί με το κείμενο για server-side επαλήθευση. */
+export async function chatWithWeb(system: string, user: string): Promise<{ text: string; citations: WebCitation[]; model: string; promptTokens: number; completionTokens: number; costUsd: number }> {
+  const c = await aiConfig();
+  if (!c.chat) throw new AiError("Δεν έχει οριστεί κλειδί ή μοντέλο συνομιλίας");
+  const j = await call("/chat/completions", c.key, {
+    model: c.chatModel,
+    messages: [{ role: "system", content: system }, { role: "user", content: scrub(user) }],
+    temperature: 0.1,
+    max_tokens: 6000,
+    usage: { include: true },
+    // Το plugin εκτελεί πάντα μία αναζήτηση και επιστρέφει τα standardized url_citation annotations.
+    ...routingOptions(c.chatModel, c.strict, [{ id: "web", max_results: 5 }]),
+  });
+  const message = (j.choices as { message?: { content?: string; annotations?: unknown[] } }[] | undefined)?.[0]?.message;
+  if (!message?.content) throw new AiError("Το μοντέλο δεν έδωσε απάντηση");
+  const citations = (message.annotations ?? []).flatMap((annotation): WebCitation[] => {
+    if (!annotation || typeof annotation !== "object") return [];
+    const value = (annotation as { url_citation?: { url?: unknown; title?: unknown } }).url_citation;
+    return typeof value?.url === "string" ? [{ url: value.url, title: typeof value.title === "string" ? value.title : null }] : [];
+  });
+  const u = (j.usage ?? {}) as { prompt_tokens?: number; completion_tokens?: number; cost?: number };
+  return { text: message.content, citations, model: typeof j.model === "string" ? j.model : c.chatModel, promptTokens: u.prompt_tokens ?? 0, completionTokens: u.completion_tokens ?? 0, costUsd: Number(u.cost) || 0 };
+}
+
 /** Μοντέλο όρασης: μια εικόνα (data URL) και οδηγία εξαγωγής. Η εικόνα δεν περνά από scrub — δεν είναι κείμενο. */
 export async function vision(system: string, prompt: string, imageDataUrl: string): Promise<{ text: string; model: string; promptTokens: number; completionTokens: number; costUsd: number }> {
   const c = await aiConfig();

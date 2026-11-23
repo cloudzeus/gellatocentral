@@ -31,7 +31,7 @@ export const NAV: { title: string; icon: LucideIcon; group?: boolean; items: Nav
     title: "Παραγωγή", icon: Factory,
     items: [
       { to: "/production", label: "Παραγωγή", icon: Factory, ready: true },
-      { to: "/haccp", label: "HACCP", icon: ThermometerSnowflake },
+      { to: "/haccp", label: "HACCP", icon: ThermometerSnowflake, ready: true },
       { to: "/traceability", label: "Ιχνηλασιμότητα", icon: ScanSearch, ready: true },
     ],
   },
@@ -80,6 +80,7 @@ export const NAV: { title: string; icon: LucideIcon; group?: boolean; items: Nav
       { to: "/platform/parties", label: "Συναλλασσόμενοι", icon: Contact, ready: true },
       { to: "/platform/staff", label: "Χρήστες & δικαιώματα", icon: Users, ready: true },
       { to: "/platform/gdpr", label: "GDPR & συναινέσεις", icon: ShieldCheck, ready: true },
+      { to: "/platform/haccp", label: "HACCP αναφορές", icon: ShieldCheck, ready: true },
     ],
   },
   { title: "Ρυθμίσεις πλατφόρμας", icon: Settings, items: [{ to: "/platform/settings", label: "Ρυθμίσεις & email", icon: Settings, ready: true }, { to: "/platform/refs", label: "Λίστες αναφοράς", icon: ClipboardList, ready: true }] },

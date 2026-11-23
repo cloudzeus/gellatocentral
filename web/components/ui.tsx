@@ -23,6 +23,11 @@ export function Card({ className, ...p }: ComponentProps<"div">) {
   return <div className={cn("min-w-0 rounded-xl border border-border bg-card text-card-foreground shadow-[var(--shadow-card)]", className)} {...p} />;
 }
 
+/** Κοινή ανάγνωση στα expand: διακριτικές ετικέτες, καθαρές τιμές και λεπτοί διαχωρισμοί. */
+export function DetailGrid({ className, ...p }: ComponentProps<"dl">) {
+  return <dl className={cn("grid gap-px overflow-hidden rounded-lg border border-border/70 bg-border/70 text-sm [&_dd]:mt-1.5 [&_dd]:break-words [&_dd]:font-medium [&_dt]:text-xs [&_dt]:font-medium [&_dt]:text-muted-foreground [&>div]:min-w-0 [&>div]:bg-card [&>div]:p-4", className)} {...p} />;
+}
+
 const TONE = {
   neutral: "bg-secondary text-secondary-foreground",
   success: "bg-success/12 text-success-ink",

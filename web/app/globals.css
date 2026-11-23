@@ -350,6 +350,11 @@
 
 /* Πίνακας ως κάρτες σε κινητό (Table layout="cards") */
 @media (max-width: 767.98px) {
+  /* Τα αποθηκευμένα px πλάτη του desktop δεν πρέπει να σπρώχνουν τις τιμές έξω από την κάρτα. */
+  table.table-cards {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
   table.table-cards,
   table.table-cards > tbody,
   table.table-cards > tbody > tr,

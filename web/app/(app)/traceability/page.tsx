@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ScanSearch, Search } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Page } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Page } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { listParams } from "@/lib/paging";
@@ -94,12 +94,12 @@ export default async function TraceabilityPage({ searchParams }: PageProps<"/tra
                   },
                   details: {
                     label: l.batchNumber ?? "Παρτίδα χωρίς αριθμό",
-                    view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                       <div><dt className="text-xs text-muted-foreground">Υλικό</dt><dd className="font-medium">{l.genericItem.name}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Προμηθευτής / παραστατικό</dt><dd className="font-medium">{l.document ? `${l.document.supplier.name}${l.document.number ? ` · ${l.document.number}` : ""}` : "—"}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Αποθήκη</dt><dd className="font-medium">{l.warehouse.name}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Πλήρης ιχνηλασιμότητα</dt><dd><Link href={`/traceability/lot/${l.id}`} className={btn("outline", "sm")}>Άνοιγμα παρτίδας</Link></dd></div>
-                    </dl>,
+                    </DetailGrid>,
                   },
                 }))}
               />
@@ -131,11 +131,11 @@ export default async function TraceabilityPage({ searchParams }: PageProps<"/tra
                   details: {
                     label: b.batchNumber,
                     view: <div className="flex flex-wrap items-end justify-between gap-4">
-                      <dl className="grid flex-1 gap-4 sm:grid-cols-3">
+                      <DetailGrid className="flex-1 sm:grid-cols-3">
                         <div><dt className="text-xs text-muted-foreground">Συνταγή</dt><dd className="font-medium">{b.recipe.name}</dd></div>
                         <div><dt className="text-xs text-muted-foreground">Ποσότητα</dt><dd className="font-medium">{(b.quantityGrams / 1000).toLocaleString("el-GR")} kg</dd></div>
                         <div><dt className="text-xs text-muted-foreground">Ημερομηνία</dt><dd className="font-medium">{dayFmt.format(b.producedAt)}</dd></div>
-                      </dl>
+                      </DetailGrid>
                       <Link href={`/production/${b.id}`} className={btn("outline", "sm")}>Προέλευση και υλικά</Link>
                     </div>,
                   },

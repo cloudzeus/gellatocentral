@@ -1,12 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { findManufacturerDuplicates, manufacturerMatchKeys, normalizeManufacturerName, sameManufacturer } from "./manufacturer.ts";
+import { findManufacturerDuplicates, formatManufacturerBrand, manufacturerMatchKeys, normalizeManufacturerName, sameManufacturer } from "./manufacturer.ts";
 
 test("όνομα κατασκευαστή: κεφαλαία, χωρίς τόνους και με καθαρά κενά", () => {
   assert.equal(normalizeManufacturerName("  Μεβγάλ   Άλφα "), "ΜΕΒΓΑΛ ΑΛΦΑ");
   assert.equal(normalizeManufacturerName("Crème brûlée"), "CREME BRULEE");
   assert.equal(normalizeManufacturerName("ΐϊ ΰϋ"), "ΙΙ ΥΥ");
   assert.equal(normalizeManufacturerName("Straße"), "STRASSE");
+});
+
+test("εμφάνιση κατασκευαστή και brand: κεφαλαία χωρίς διπλό ίδιο όνομα", () => {
+  assert.equal(formatManufacturerBrand("Tasty", "TASTY"), "TASTY");
+  assert.equal(formatManufacturerBrand("Μεβγάλ", "ΜΕΒΓΑΛ"), "ΜΕΒΓΑΛ");
+  assert.equal(formatManufacturerBrand("Μεβγάλ", "Σοκολάτα"), "ΜΕΒΓΑΛ · ΣΟΚΟΛΑΤΑ");
+  assert.equal(formatManufacturerBrand("Tasty"), "TASTY");
 });
 
 test("διπλότυπα: πεζά/κεφαλαία, τόνοι, στίξη και κολλημένες λέξεις", () => {
@@ -30,6 +37,20 @@ test("τα κλειδιά αγνοούν σύμβολα και δεν επιστ
   assert.equal(sameManufacturer("Mr. Grand®", "mr grand"), true);
   assert.deepEqual(manufacturerMatchKeys("---"), []);
   assert.equal(sameManufacturer("---", "!!!"), false);
+});
+
+test("διπλότυπα: εταιρικά επιθέματα, supermarket και SS στη μεταγραφή", () => {
+  assert.equal(sameManufacturer("ACME S. A.", "ACME"), true);
+  assert.equal(sameManufacturer("ACME SUPER MARKET", "ACME SUPERMARKET"), true);
+  assert.equal(sameManufacturer("ACME VASSILOPOULOS", "ACME VASILOPOULOS"), true);
+  assert.equal(sameManufacturer("ACME FOODS", "ACME"), false);
+});
+
+test("διπλότυπα: όλες οι γνωστές γραφές της ΑΒ έχουν κοινή ταυτότητα", () => {
+  const variants = ["AB", "ΑΒ", "AB SUPER MARKET", "AB VASILIPOULOS", "AB VASILOPOULOS", "AB VASSILOPOULOS S. A."];
+  for (const left of variants) for (const right of variants) assert.equal(sameManufacturer(left, right), true, `${left} ↔ ${right}`);
+  assert.equal(sameManufacturer("AB FOODS", "AB"), false);
+  assert.equal(sameManufacturer("AB VASILOPOULOS", "AB FOODS"), false);
 });
 
 test("ομαδοποίηση: πιάνει και αλυσίδα διαφορετικών γραφών", () => {

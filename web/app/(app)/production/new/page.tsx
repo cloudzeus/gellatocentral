@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Factory } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Field, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
@@ -117,12 +117,12 @@ export default async function NewProductionPage({ searchParams }: { searchParams
                 },
                 details: {
                   label: `${r.item} · ${r.lot}`,
-                  view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                     <div><dt className="text-xs text-muted-foreground">Υλικό</dt><dd className="font-medium">{r.item}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Παρτίδα</dt><dd className="font-medium">{r.lot}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Ποσότητα</dt><dd className="font-medium">{r.quantityLabel}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Κατάσταση</dt><dd className={r.blocked ? "font-medium text-destructive" : "font-medium"}>{r.note}</dd></div>
-                  </dl>,
+                  </DetailGrid>,
                 },
               }))}
             />

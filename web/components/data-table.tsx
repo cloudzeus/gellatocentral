@@ -14,7 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./shadcn/tabs";
 import { btn, cn } from "./ui";
 
 export type Column = { key: string; label: string; numeric?: boolean; /** δεν κρύβεται (π.χ. η στήλη που ταυτοποιεί τη γραμμή) */ required?: boolean; /** ο server ξέρει να ταξινόμησει με αυτή τη στήλη (?sort=key) */ sortable?: boolean; /** επιτρέπει πολλές γραμμές στο desktop αντί για μία με έλλειψη */ wrap?: boolean };
-export type RowDetails = { label?: string; view: ReactNode; edit?: ReactNode };
+export type RowDetailsTab = { value: string; label: string; icon?: ReactNode; view: ReactNode };
+export type RowDetails = { label?: string; view: ReactNode; edit?: ReactNode; /** πρόσθετα tabs χωρίς να αλλάζει η βασική προβολή */ extra?: RowDetailsTab[] };
 export type Row = { id: string; cells: Record<string, ReactNode>; menu?: ReactNode; /** γρήγορες ενέργειες με εικονίδια, πριν από το μενού */ actions?: ReactNode; /** accordion με Προβολή και, όταν επιτρέπεται, Αλλαγή */ details?: RowDetails };
 export type BulkAction = { value: string; label: string; confirm?: string; run: (ids: string[]) => Promise<void | string> };
 
@@ -71,18 +72,21 @@ function ListingFilter({ filter }: { filter: Filter }) {
 
 function ExpandedRow({ row, colSpan, tableId }: { row: Row; colSpan: number; tableId: string }) {
   if (!row.details) return null;
+  const extra = row.details.extra ?? [];
   return (
     <tr className="table-expansion border-t border-border/70 bg-secondary/25">
       <td colSpan={colSpan} className="p-3.5 md:p-4">
         <div id={`${tableId}-${row.id}-details`} role="region" aria-label={`Λεπτομέρειες: ${row.details.label ?? "γραμμής"}`}>
-          {row.details.edit ? (
+          {row.details.edit || extra.length ? (
             <Tabs defaultValue="view">
-              <TabsList aria-label="Λειτουργία γραμμής" className="mb-3">
+              <TabsList aria-label="Λειτουργία γραμμής" className={extra.length ? "mb-4 grid h-auto w-full grid-cols-3 [&_button]:px-1.5 [&_button]:text-xs sm:inline-flex sm:w-fit sm:[&_button]:px-3 sm:[&_button]:text-sm" : "mb-3"}>
                 <TabsTrigger value="view"><Eye /> Προβολή</TabsTrigger>
-                <TabsTrigger value="edit"><Pencil /> Αλλαγή</TabsTrigger>
+                {extra.map((tab) => <TabsTrigger key={tab.value} value={tab.value}>{tab.icon}{tab.label}</TabsTrigger>)}
+                {row.details.edit ? <TabsTrigger value="edit"><Pencil /> {extra.length ? "Διόρθωση" : "Αλλαγή"}</TabsTrigger> : null}
               </TabsList>
               <TabsContent value="view">{row.details.view}</TabsContent>
-              <TabsContent value="edit" className="rounded-lg border border-border/70 bg-card p-4">{row.details.edit}</TabsContent>
+              {extra.map((tab) => <TabsContent key={tab.value} value={tab.value}>{tab.view}</TabsContent>)}
+              {row.details.edit ? <TabsContent value="edit" className={extra.length ? undefined : "rounded-lg border border-border/70 bg-card p-4"}>{row.details.edit}</TabsContent> : null}
             </Tabs>
           ) : row.details.view}
         </div>
@@ -305,7 +309,7 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
                   />
                 </th>
               ))}
-              {hasMenu ? <th style={{ width: actionsWidth }} className={cn("px-2 py-3", hasActions && "md:sticky md:right-0 md:bg-card")}><span className="sr-only">Ενέργειες</span></th> : null}
+              {hasMenu ? <th style={{ width: actionsWidth }} className="px-2 py-3 md:sticky md:right-0 md:z-20 md:bg-card"><span className="sr-only">Ενέργειες</span></th> : null}
             </tr>
           </thead>
           <tbody>
@@ -331,7 +335,7 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
                         ) : r.cells[c.key]}
                       </td>
                     ))}
-                    {hasMenu ? <td data-actions className={cn("px-2 py-1 text-right", hasActions && "md:sticky md:right-0 md:bg-card md:shadow-[-8px_0_8px_-8px_rgb(0_0_0/0.12)]")}><span className="inline-flex items-center justify-end gap-0.5"><span className="contents">{r.actions}</span>{r.menu ? <RowMenu label="Ενέργειες γραμμής">{r.menu}</RowMenu> : null}</span></td> : null}
+                    {hasMenu ? <td data-actions className="px-2 py-1 text-right md:sticky md:right-0 md:z-10 md:bg-card md:shadow-[-8px_0_8px_-8px_rgb(0_0_0/0.12)]"><span className="inline-flex items-center justify-end gap-0.5"><span className="contents">{r.actions}</span>{r.menu ? <RowMenu label="Ενέργειες γραμμής">{r.menu}</RowMenu> : null}</span></td> : null}
                   </tr>
                   {open ? <ExpandedRow row={r} colSpan={visible.length + 1 + (hasMenu ? 1 : 0)} tableId={id} /> : null}
                 </Fragment>

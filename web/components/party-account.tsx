@@ -1,7 +1,7 @@
 import { ArrowDownLeft, ArrowUpRight, FileClock, Info, ReceiptText, ShoppingCart, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "@/components/data-table";
-import { Badge, Card, cn } from "@/components/ui";
+import { DetailGrid, Badge, Card, cn } from "@/components/ui";
 import { FiscalBadge, dateTime } from "@/lib/labels";
 import { euro } from "@/lib/money";
 import type { PartyAccountDocument, PartyAccountPayment, PartyAccountSummary } from "@/lib/party-account";
@@ -130,12 +130,12 @@ export function PartyAccount({ base, view, summary, documents, payments, partyId
               },
               details: {
                 label: doc.number,
-                view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                   <div><dt className="text-xs text-muted-foreground">Αναφορά Viva</dt><dd className="mt-1 break-all text-sm font-medium">{doc.reference}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Προέλευση</dt><dd className="mt-1 text-sm font-medium">{doc.origin}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Ποσό</dt><dd className="mt-1 text-sm font-semibold">{doc.totalCents === null ? "Δεν αναγνωρίστηκε" : euro(doc.totalCents)}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Σφάλμα</dt><dd className="mt-1 break-words text-sm font-medium">{doc.error ?? "—"}</dd></div>
-                </dl>,
+                </DetailGrid>,
               },
             }))}
           />

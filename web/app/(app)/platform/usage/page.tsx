@@ -4,7 +4,7 @@ import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Checkbox } from "@/components/shadcn/checkbox";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
@@ -106,11 +106,11 @@ export default async function UsagePage({ searchParams }: PageProps<"/platform/u
               },
               details: {
                 label: s.label,
-                view: <dl className="grid gap-4 sm:grid-cols-3">
+                view: <DetailGrid className="sm:grid-cols-3">
                   <div><dt className="text-xs text-muted-foreground">Κλειδί</dt><dd className="font-mono text-xs">{s.service}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Μονάδα</dt><dd className="font-medium">{s.unitLabel}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Markup</dt><dd className="font-medium tabular-nums">{s.markupPercent}%</dd></div>
-                </dl>,
+                </DetailGrid>,
                 edit: serviceForm(s),
               },
               menu: <form action={toggleUsagePrice.bind(null, s.service)}><Submit className={menuItem}>{s.active ? "Κλείσιμο" : "Άνοιγμα"}</Submit></form>,
@@ -145,11 +145,11 @@ export default async function UsagePage({ searchParams }: PageProps<"/platform/u
               },
               details: {
                 label: `${u.subscriber} · ${u.service}`,
-                view: <dl className="grid gap-4 sm:grid-cols-3">
+                view: <DetailGrid className="sm:grid-cols-3">
                   <div><dt className="text-xs text-muted-foreground">Χρήσεις</dt><dd className="font-medium tabular-nums">{u.uses}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Κόστος παρόχου</dt><dd className="font-medium tabular-nums">{u.cost.toFixed(4)} $</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Χρέωση</dt><dd className="font-medium tabular-nums">{euro(u.charge)}</dd></div>
-                </dl>,
+                </DetailGrid>,
               },
             }))}
           />

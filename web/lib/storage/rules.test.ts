@@ -23,5 +23,7 @@ test("ο τύπος κρίνεται από το περιεχόμενο, όχι 
   assert.equal(check("logo", 3 * 1024 * 1024, png).ok, false); // πάνω από 2 MB
   assert.equal(check("photo", 0, png).ok, false);
   assert.equal(check("logo", 1000, new TextEncoder().encode("%PDF-1.7 ....")).ok, false); // PDF δεν είναι λογότυπο
+  assert.deepEqual(check("manufacturer_logo", 1000, png), { ok: true, contentType: "image/png" });
+  assert.equal(check("manufacturer_logo", 1000, new TextEncoder().encode("<svg xmlns=\"http://www.w3.org/2000/svg\"/>")).ok, false);
   assert.equal(check("document", 1000, new TextEncoder().encode("%PDF-1.7 ....")).ok, true);
 });

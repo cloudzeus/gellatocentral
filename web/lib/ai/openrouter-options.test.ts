@@ -30,6 +30,13 @@ test("η αυτόματη επιλογή ζητά χαμηλό κόστος μο
   });
 });
 
+test("το web plugin συνυπάρχει με τον φθηνό auto-router και το απόρρητο", () => {
+  assert.deepEqual(routingOptions(AUTO_MODEL, true, [{ id: "web", max_results: 5 }]), {
+    provider: { data_collection: "deny", zdr: true, sort: "price" },
+    plugins: [{ id: "auto-router", cost_tier: "low" }, { id: "web", max_results: 5 }],
+  });
+});
+
 test("σταθερό μοντέλο: δεν αλλάζει η υπάρχουσα δρομολόγηση", () => {
   assert.deepEqual(routingOptions("acme/chat", true), { provider: { data_collection: "deny", zdr: true } });
   assert.deepEqual(routingOptions("acme/chat", false), {});

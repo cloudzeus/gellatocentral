@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Eye, Factory, Plus } from "lucide-react";
 import { DataTable } from "@/components/data-table";
-import { Card, Page, btn } from "@/components/ui";
+import { DetailGrid, Card, Page, btn } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
@@ -68,12 +68,12 @@ export default async function ProductionPage({ searchParams }: PageProps<"/produ
               details: {
                 label: b.batchNumber,
                 view: <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-                  <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                     <div><dt className="text-xs text-muted-foreground">Συνταγή</dt><dd className="font-medium">{b.recipe.name}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Αποθήκη</dt><dd className="font-medium">{b.warehouse.name}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Υλικά FEFO</dt><dd className="font-medium tabular-nums">{b._count.items}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Ποσότητα</dt><dd className="font-medium tabular-nums">{(b.quantityGrams / 1000).toLocaleString("el-GR")} kg</dd></div>
-                  </dl>
+                  </DetailGrid>
                   <Link href={`/production/${b.id}`} className={btn("outline", "sm")}><Eye /> Πλήρης ιχνηλασιμότητα</Link>
                 </div>,
               },

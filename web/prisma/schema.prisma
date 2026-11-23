@@ -130,6 +130,8 @@ model Organization {
   recipeItems          RecipeItem[]
   productionBatches    ProductionBatch[]
   productionBatchItems ProductionBatchItem[]
+  haccpRecords         HaccpRecord[]
+  haccpAssessments     HaccpAssessment[]
 }
 
 model User {
@@ -347,6 +349,7 @@ model Store {
   documentSeries   DocumentSeries[]
   stockTransfers   StockTransfer[]
   stockCounts      StockCount[]
+  haccpRecords     HaccpRecord[]
 
   @@index([orgId])
 }
@@ -1340,10 +1343,80 @@ model Unit {
 }
 
 // Κατασκευαστής/βιομηχανία (επίπεδο πλατφόρμας). Το brand μπορεί να είναι και ίδιο με τον κατασκευαστή.
+// Η ταυτότητα από AI κρατά πηγές και δεν αντικαθιστά ποτέ αυτόματα χειροκίνητα website/logo.
 model Manufacturer {
-  id     String  @id @default(cuid())
-  name   String  @unique // «ΦΑΓΕ», «ΔΕΛΤΑ»…
-  brands Brand[]
+  id                String                       @id @default(cuid())
+  name              String                       @unique // «ΦΑΓΕ», «ΔΕΛΤΑ»…
+  website           String?
+  logoUrl           String? // αποθηκευμένο αρχείο της πλατφόρμας ή χειροκίνητο HTTPS URL
+  aliases           String[]                     @default([]) // παλαιές/εναλλακτικές γραφές που βοηθούν την αντιστοίχιση
+  enrichmentStatus  String                       @default("pending") // pending | enriched | review | error
+  enrichmentSource  Json? // μοντέλο, URLs τεκμηρίωσης και τυχόν σημειώσεις επαλήθευσης
+  enrichedAt        DateTime?
+  enrichmentError   String?
+  brands            Brand[]
+  ingredients       ManufacturerIngredient[]
+  mergeSources      ManufacturerMergeSuggestion[] @relation("MergeSuggestionSource")
+  mergeTargets      ManufacturerMergeSuggestion[] @relation("MergeSuggestionTarget")
+  enrichmentRuns    CatalogEnrichmentRun[]
+}
+
+// Κανονικοποιημένη πρώτη ύλη, κοινή σε όλον τον κατάλογο — επιτρέπει ερωτήματα ανά υλικό και κατασκευαστή.
+model RawIngredient {
+  id             String                   @id @default(cuid())
+  name           String
+  normalizedName String                   @unique
+  category       String // dairy | sugars | fats | eggs | chocolate | nuts | fruit | flour | starch | leavening | stabilizer | emulsifier | flavor | other
+  manufacturers  ManufacturerIngredient[]
+}
+
+// Απόδειξη ότι ο κατασκευαστής διαθέτει/χρησιμοποιεί το υλικό, από συγκεκριμένα προϊόντα του καταλόγου.
+model ManufacturerIngredient {
+  manufacturerId String
+  ingredientId   String
+  isCore         Boolean          @default(false)
+  pastryRelevant Boolean          @default(false)
+  evidence       String? // αυτούσιο απόσπασμα ετικέτας ή ονόματος προϊόντος
+  productIds     String[]         @default([])
+  source         String           @default("ai") // ai | manual
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  manufacturer   Manufacturer     @relation(fields: [manufacturerId], references: [id], onDelete: Cascade)
+  ingredient     RawIngredient    @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@id([manufacturerId, ingredientId])
+  @@index([ingredientId, pastryRelevant])
+}
+
+// Πρόταση ταυτοποίησης από AI· η συγχώνευση γίνεται μόνο με ανθρώπινη επιβεβαίωση.
+model ManufacturerMergeSuggestion {
+  sourceId   String
+  targetId   String
+  confidence Int // 0–100
+  reason     String?
+  createdAt  DateTime     @default(now())
+  source     Manufacturer @relation("MergeSuggestionSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target     Manufacturer @relation("MergeSuggestionTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@id([sourceId, targetId])
+  @@index([targetId])
+}
+
+// Κόστος και αποτέλεσμα κάθε κλήσης, κοινό μηνιαίο ταβάνι με τον agent υποστήριξης.
+model CatalogEnrichmentRun {
+  id               String        @id @default(cuid())
+  manufacturerId   String? // μένει το audit κόστους ακόμα κι αν διαγραφεί ο κατασκευαστής
+  model            String
+  status           String // enriched | review | error
+  promptTokens     Int           @default(0)
+  completionTokens Int           @default(0)
+  costUsd          Float         @default(0)
+  error            String?
+  createdAt        DateTime      @default(now())
+  manufacturer     Manufacturer? @relation(fields: [manufacturerId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([manufacturerId, createdAt])
 }
 
 model Brand {
@@ -1975,4 +2048,70 @@ model ProductionBatchItem {
 
   @@index([batchId])
   @@index([orgId, genericItemId])
+}
+
+enum HaccpRecordStatus {
+  DRAFT
+  COMPLETED
+}
+
+enum HaccpRecordResult {
+  CONFORMING
+  DEVIATION
+  NA
+}
+
+// Κοινή τεκμηρίωση για όλα τα έντυπα· το σχέδιο/τα όρια παραμένουν ευθύνη του tenant.
+model HaccpRecord {
+  id               String            @id @default(cuid())
+  orgId            String
+  storeId          String?
+  templateId       String
+  occurredAt       DateTime
+  status           HaccpRecordStatus @default(DRAFT)
+  result           HaccpRecordResult @default(CONFORMING)
+  measuredValue    Float?
+  unit             String?
+  responsibleName  String
+  notes            String?
+  correctiveAction String?
+  createdById      String
+  createdByName    String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  org              Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  store            Store?            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, templateId, occurredAt])
+  @@index([orgId, storeId, occurredAt])
+  @@index([orgId, status, result])
+}
+
+// Ιστορικό στιγμιότυπων· findings JSON για αναπαραγώγιμη αναφορά χωρίς απώλεια παλιών συμπερασμάτων.
+model HaccpAssessment {
+  id          String       @id @default(cuid())
+  orgId       String
+  score       Int
+  critical    Int
+  warnings    Int
+  findings    Json
+  evaluatedAt DateTime     @default(now())
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, evaluatedAt])
+}
+
+// Καθολικός έλεγχος URL/περιεχομένου· δεν περιέχει δεδομένα tenant.
+model HaccpSourceCheck {
+  sourceId   String    @id
+  url        String
+  finalUrl   String?
+  fingerprint String?
+  status     String // OK | CHANGED | REVIEW | ERROR
+  httpStatus Int?
+  message    String?
+  checkedAt  DateTime
+  changedAt  DateTime?
+
+  @@index([status, checkedAt])
 }

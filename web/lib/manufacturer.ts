@@ -17,6 +17,13 @@ export function normalizeManufacturerName(input: string): string {
     .trim();
 }
 
+/** Μία κεφαλαία γραφή στο UI· όταν manufacturer και brand ταυτίζονται δεν επαναλαμβάνεται το όνομα. */
+export function formatManufacturerBrand(manufacturerName: string, brandName?: string | null): string {
+  const manufacturer = normalizeManufacturerName(manufacturerName);
+  const brand = brandName ? normalizeManufacturerName(brandName) : "";
+  return !brand || brand === manufacturer ? manufacturer : `${manufacturer} · ${brand}`;
+}
+
 const GREEK_CHAR: Record<string, string> = {
   Α: "A", Β: "V", Γ: "G", Δ: "D", Ε: "E", Ζ: "Z", Η: "I", Θ: "TH",
   Ι: "I", Κ: "K", Λ: "L", Μ: "M", Ν: "N", Ξ: "X", Ο: "O", Π: "P",
@@ -65,9 +72,38 @@ export function manufacturerMatchKeys(input: string): string[] {
   return [...new Set(variants.map((key) => key.replace(/[^\p{L}\p{N}]/gu, "")).filter(Boolean))];
 }
 
+/** Η ΑΒ έχει ειδικό alias: το σύντομο «AB» δεν συνάγεται με ασφάλεια από γενικό κανόνα ομοιότητας. */
+function isAbVasilopoulos(input: string): boolean {
+  const compact = normalizeManufacturerName(input).replace(/[^\p{L}\p{N}]/gu, "");
+  if (/^(?:AB|ΑΒ)(?:SUPERMARKET)?$/.test(compact)) return true;
+  return manufacturerMatchKeys(input).some((key) => {
+    const identity = key.replace(/SUPERMARKET|SA$/g, "").replace(/SS/g, "S");
+    return /^(?:AB|AV)VASIL[IO]?PULOS$/.test(identity);
+  });
+}
+
+/**
+ * Συμπληρωματικά κλειδιά, όχι αντικατάσταση των αρχικών: καθαρίζουν μόνο συνηθισμένα
+ * εταιρικά/λιανικά επίθετα και τη διπλή γραφή SS των μεταγραφών.
+ */
+function manufacturerIdentityKeys(input: string): string[] {
+  if (isAbVasilopoulos(input)) return ["AB-VASILOPOULOS"];
+  return manufacturerMatchKeys(input).flatMap((key) => {
+    const identity = key
+      .replace(/SUPERMARKET/g, "")
+      .replace(/(?:LIMITED|LTD|INCORPORATED|INC|LLC|GMBH|PLC|SPA|SRL|BV|NV|AG|SA)+$/, "")
+      .replace(/SS/g, "S");
+    return identity.length >= 2 ? [identity] : [];
+  });
+}
+
+function manufacturerComparisonKeys(input: string): string[] {
+  return [...new Set([...manufacturerMatchKeys(input), ...manufacturerIdentityKeys(input)])];
+}
+
 export function sameManufacturer(a: string, b: string): boolean {
-  const right = new Set(manufacturerMatchKeys(b));
-  return manufacturerMatchKeys(a).some((key) => right.has(key));
+  const right = new Set(manufacturerComparisonKeys(b));
+  return manufacturerComparisonKeys(a).some((key) => right.has(key));
 }
 
 export type ManufacturerDuplicateGroup = { key: string; ids: string[] };
@@ -88,7 +124,7 @@ export function findManufacturerDuplicates(manufacturers: { id: string; name: st
   };
   const keyOwner = new Map<string, string>();
   for (const m of sorted) {
-    for (const key of manufacturerMatchKeys(m.name)) {
+    for (const key of manufacturerComparisonKeys(m.name)) {
       const owner = keyOwner.get(key);
       if (owner) union(m.id, owner);
       else keyOwner.set(key, m.id);

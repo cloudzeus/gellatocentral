@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { FlowGraphView } from "@/components/flow-graph";
-import { Badge, btn, Card, Page } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Page } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
@@ -113,12 +113,12 @@ export default async function ProductionBatchPage({ params, searchParams }: { pa
               },
               details: {
                 label: i.genericItem.name,
-                view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                   <div><dt className="text-xs text-muted-foreground">Παρτίδα υλικού</dt><dd className="font-medium">{i.lot?.batchNumber ?? "—"}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Προμηθευτής</dt><dd className="font-medium">{i.lot?.document?.supplier.name ?? "—"}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Κατανάλωση</dt><dd className="font-medium">{i.lotId ? fmtQty(i.quantity, i.genericItem.baseUnit.dimension) : "Χωρίς απόθεμα"}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Κόστος</dt><dd className="font-medium">{i.costHundredths > 0 ? euro(i.costHundredths / 100) : "—"}</dd></div>
-                </dl>,
+                </DetailGrid>,
               },
             }))}
           />

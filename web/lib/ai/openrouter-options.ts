@@ -33,11 +33,12 @@ export function catalogOptions(payload: unknown, kind: "chat" | "embed"): ModelO
 }
 
 /** Αυστηρό απόρρητο σε κάθε κλήση· στην αυτόματη επιλογή ζητάμε χαμηλό κόστος μοντέλου και παρόχου. */
-export function routingOptions(model: string, strict: boolean) {
+export function routingOptions(model: string, strict: boolean, extraPlugins: { id: string; [key: string]: unknown }[] = []) {
   const provider = { ...(strict ? { data_collection: "deny", zdr: true } : {}), ...(model === AUTO_MODEL ? { sort: "price" } : {}) };
+  const plugins = [...(model === AUTO_MODEL ? [{ id: "auto-router", cost_tier: "low" }] : []), ...extraPlugins];
   return {
     ...(Object.keys(provider).length ? { provider } : {}),
-    ...(model === AUTO_MODEL ? { plugins: [{ id: "auto-router", cost_tier: "low" }] } : {}),
+    ...(plugins.length ? { plugins } : {}),
   };
 }
 

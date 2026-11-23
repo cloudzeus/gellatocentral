@@ -4,7 +4,7 @@ import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, Field, menuItem, Page } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, cn, Field, menuItem, Page } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -94,11 +94,11 @@ export default async function RefsPage({ searchParams }: PageProps<"/platform/re
                 },
                 details: {
                   label: i.label,
-                  view: <dl className="grid gap-4 sm:grid-cols-3">
+                  view: <DetailGrid className="sm:grid-cols-3">
                     <div><dt className="text-xs text-muted-foreground">Κωδικός</dt><dd className="font-mono text-xs">{i.code}</dd></div>
                     {def.value ? <div><dt className="text-xs text-muted-foreground">{def.value}</dt><dd className="font-medium tabular-nums">{i.value ?? "—"}</dd></div> : null}
                     <div><dt className="text-xs text-muted-foreground">Σειρά</dt><dd className="font-medium tabular-nums">{i.sort}</dd></div>
-                  </dl>,
+                  </DetailGrid>,
                   edit: refForm(i),
                 },
                 menu: <form action={toggleRef.bind(null, i.id)}><Submit className={menuItem}>{i.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit></form>,

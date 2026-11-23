@@ -7,7 +7,8 @@ import { requirePlatform } from "@/lib/auth";
 import { compositionFromRow } from "@/lib/composition";
 import { db } from "@/lib/db";
 import { materialLactose, materialPac, materialPod, materialTotalSolids } from "@/lib/recipe-analysis";
-import { normalizeManufacturerName } from "@/lib/manufacturer";
+import { formatManufacturerBrand } from "@/lib/manufacturer";
+import { flattenTradeCategories } from "@/lib/trade-category-tree";
 import { saveComposition, toggleTradeItem } from "../actions";
 import { Submit } from "@/components/submit";
 import { ItemForm } from "../item-form";
@@ -23,21 +24,21 @@ export default async function CatalogItemPage({ params, searchParams }: { params
       where: { id, orgId: null },
       include: { brand: { include: { manufacturer: true } }, category: true, contentUnit: true, composition: true },
     }),
-    db.tradeCategory.findMany({ orderBy: [{ position: "asc" }, { name: "asc" }], include: { children: { orderBy: { name: "asc" } } }, where: { parentId: null, active: true } }),
+    db.tradeCategory.findMany({ orderBy: [{ position: "asc" }, { name: "asc" }], where: { active: true } }),
     db.brand.findMany({ orderBy: { name: "asc" }, include: { manufacturer: true } }),
     db.unit.findMany({ where: { active: true }, orderBy: [{ dimension: "asc" }, { toBase: "asc" }] }),
   ]);
   if (!item) notFound();
   const c = item.composition;
   const summary = c ? compositionFromRow(c as unknown as Record<string, unknown>) : null;
-  const categoryOptions: [string, string][] = categories.flatMap((x): [string, string][] => [[x.id, x.name], ...x.children.map((ch): [string, string] => [ch.id, `${x.name} › ${ch.name}`])]);
-  const brandOptions: [string, string][] = brands.map((b): [string, string] => [b.id, `${normalizeManufacturerName(b.manufacturer.name)} · ${b.name}`]);
+  const categoryOptions: [string, string][] = flattenTradeCategories(categories).map(({ category: x, depth }): [string, string] => [x.id, `${"— ".repeat(depth)}${x.name}`]);
+  const brandOptions: [string, string][] = brands.map((b): [string, string] => [b.id, formatManufacturerBrand(b.manufacturer.name, b.name)]);
 
   return (
     <Page
       section="Common Tables"
       title={item.name}
-      description={`${[item.brand ? `${normalizeManufacturerName(item.brand.manufacturer.name)} · ${item.brand.name}` : null, item.ean, c ? "Σύσταση καταχωρημένη" : "Χωρίς σύσταση"].filter(Boolean).join(" · ")}`}
+      description={`${[item.brand ? formatManufacturerBrand(item.brand.manufacturer.name, item.brand.name) : null, item.ean, c ? "Σύσταση καταχωρημένη" : "Χωρίς σύσταση"].filter(Boolean).join(" · ")}`}
       actions={
         <Link href="/platform/catalog" className={btn("outline", "sm")}>
           <ArrowLeft /> Κατάλογος

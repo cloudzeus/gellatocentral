@@ -5,7 +5,7 @@ import { BarcodeField } from "@/components/barcode-field";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
@@ -135,11 +135,11 @@ export default async function GenericItemPage({ params, searchParams }: { params
                 },
                 details: {
                   label: `Τιμή ${euro(p.priceCents)}`,
-                  view: <dl className="grid gap-4 sm:grid-cols-3">
+                  view: <DetailGrid className="sm:grid-cols-3">
                     <div><dt className="text-xs text-muted-foreground">Καταχώριση</dt><dd className="font-medium">{p.createdByName}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Ελάχιστη ποσότητα</dt><dd className="font-medium">{p.minPackQty ?? "Τιμοκατάλογος"}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Σημείωση</dt><dd className="font-medium">{p.note ?? "—"}</dd></div>
-                  </dl>,
+                  </DetailGrid>,
                 },
               }))}
             />
@@ -233,12 +233,12 @@ export default async function GenericItemPage({ params, searchParams }: { params
               },
               details: {
                 label: `${r.warehouse} · ${r.batch}`,
-                view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                   <div><dt className="text-xs text-muted-foreground">Αποθήκη</dt><dd className="font-medium">{r.warehouse}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Παρτίδα</dt><dd className="font-medium">{r.batch}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Λήξη</dt><dd className="font-medium">{r.expiry || "—"}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Υπόλοιπο</dt><dd className="font-medium">{fmt(r.quantity)}</dd></div>
-                </dl>,
+                </DetailGrid>,
               },
             }))}
           />
@@ -273,12 +273,12 @@ export default async function GenericItemPage({ params, searchParams }: { params
               },
               details: {
                 label: m.tradeItem.name,
-                view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                   <div><dt className="text-xs text-muted-foreground">Είδος</dt><dd className="font-medium">{m.tradeItem.name}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Μάρκα</dt><dd className="font-medium">{m.tradeItem.brand?.name ?? "—"}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Barcode</dt><dd className="font-medium">{m.tradeItem.ean ?? "—"}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Περιεχόμενο</dt><dd className="font-medium">{content(m.tradeItem)}</dd></div>
-                </dl>,
+                </DetailGrid>,
               },
               menu: can("items.edit") ? <form action={removeMapping.bind(null, m.id, generic.id)}><Submit className={menuItem}><Trash2 /> Αποσύνδεση</Submit></form> : undefined,
             }))}
@@ -321,12 +321,12 @@ export default async function GenericItemPage({ params, searchParams }: { params
               },
               details: {
                 label: `${s.supplier.name} · ${s.tradeItem.name}`,
-                view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                   <div><dt className="text-xs text-muted-foreground">Κωδικός προμηθευτή</dt><dd className="font-medium">{s.supplierCode ?? "—"}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Barcode</dt><dd className="font-medium">{s.barcode ?? "—"}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Πολλαπλότητα</dt><dd className="font-medium">×{s.packQty}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Τρέχουσα τιμή</dt><dd className="font-medium">{s.current ? euro(s.current.priceCents) : "—"}</dd></div>
-                </dl>,
+                </DetailGrid>,
                 edit: can("items.edit") ? supplierForm(s) : undefined,
               },
               actions: can("items.edit") ? priceModal(s) : undefined,

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BellRing, Boxes, Layers3, Warehouse } from "lucide-react";
 import { DataTable } from "@/components/data-table";
-import { Badge, btn, Card, Page } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
 import { stockLotBalances, stockOverview } from "@/lib/stock-read";
@@ -95,12 +95,12 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                     details: {
                       label: `${row.itemName} · ${row.warehouseName}`,
                       view: <div className="grid gap-4">
-                        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                           <div><dt className="text-xs text-muted-foreground">Είδος</dt><dd className="mt-1 font-semibold break-words">{row.itemName}</dd></div>
                           <div><dt className="text-xs text-muted-foreground">Αποθήκη</dt><dd className="mt-1 font-semibold">{row.warehouseName}</dd></div>
                           <div><dt className="text-xs text-muted-foreground">Πραγματικό on-hand</dt><dd className="mt-1 font-semibold tabular-nums">{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</dd></div>
                           <div><dt className="text-xs text-muted-foreground">Μονάδα εμφάνισης κόστους</dt><dd className="mt-1 font-semibold">{unit.code}</dd></div>
-                        </dl>
+                        </DetailGrid>
                         <div className="flex flex-wrap gap-2"><Link href={href("lots", row.itemName, row.warehouseId)} className={btn("outline", "sm")}><Layers3 /> Παρτίδες & λήξεις</Link>{ctx.can("items.read") ? <Link href={`/items/${row.genericItemId}`} className={btn("outline", "sm")}>Καρτέλα είδους</Link> : null}</div>
                       </div>,
                     },
@@ -140,12 +140,12 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                 details: {
                   label: `${row.batchNumber ?? "(χύμα)"} · ${row.itemName}`,
                   view: <div className="grid gap-4">
-                    <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                       <div><dt className="text-xs text-muted-foreground">Παρτίδα</dt><dd className="mt-1 font-semibold break-words">{row.batchNumber ?? "(χύμα)"}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Υπόλοιπο</dt><dd className="mt-1 font-semibold tabular-nums">{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Λήξη</dt><dd className="mt-1 font-semibold">{row.expiresAt ? day.format(row.expiresAt) : "Χωρίς λήξη"}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Σειρά κατανάλωσης</dt><dd className="mt-1"><ExpiryBadge expiresAt={row.expiresAt} /></dd></div>
-                    </dl>
+                    </DetailGrid>
                     <div><Link href={`/inventory/stock/lots/${row.lotId}`} className={btn("outline", "sm")}>Προέλευση & κινήσεις παρτίδας</Link></div>
                   </div>,
                 },

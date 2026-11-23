@@ -11,7 +11,11 @@ const monthStart = () => { const d = new Date(); return new Date(Date.UTC(d.getU
 /** Πόσα ξοδεύτηκαν αυτόν τον μήνα και πόσα απομένουν από το όριο των Ρυθμίσεων. */
 export async function budget() {
   const { budgetUsd } = await aiConfig();
-  const spent = (await db.agentRun.aggregate({ where: { createdAt: { gte: monthStart() } }, _sum: { costUsd: true } }))._sum.costUsd ?? 0;
+  const [support, catalog] = await Promise.all([
+    db.agentRun.aggregate({ where: { createdAt: { gte: monthStart() } }, _sum: { costUsd: true } }),
+    db.catalogEnrichmentRun.aggregate({ where: { createdAt: { gte: monthStart() } }, _sum: { costUsd: true } }),
+  ]);
+  const spent = (support._sum.costUsd ?? 0) + (catalog._sum.costUsd ?? 0);
   return { limit: budgetUsd, spent, left: Math.max(0, budgetUsd - spent) };
 }
 

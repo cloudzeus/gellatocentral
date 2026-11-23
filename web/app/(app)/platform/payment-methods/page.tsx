@@ -4,7 +4,7 @@ import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Checkbox } from "@/components/shadcn/checkbox";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -124,12 +124,12 @@ export default async function PaymentMethodsPage({ searchParams }: PageProps<"/p
               },
               details: {
                 label: m.name,
-                view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                   <div><dt className="text-xs text-muted-foreground">Πάροχος</dt><dd className="font-medium">{PAYMENT_PROVIDER_LABEL[m.provider]}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Viva</dt><dd className="font-medium">{m.vivaMethodId ?? m.vivaPosMethod ?? "—"}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Σειρά</dt><dd className="font-medium tabular-nums">{m.sort}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Συμπεριφορά</dt><dd className="font-medium">{m.givesChange ? "Δίνει ρέστα" : "Χωρίς ρέστα"}</dd></div>
-                </dl>,
+                </DetailGrid>,
                 edit: methodForm(m),
               },
               menu: <form action={togglePaymentMethod.bind(null, m.id)}><Submit className={menuItem}>{m.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit></form>,

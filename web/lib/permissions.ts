@@ -155,7 +155,7 @@ export const SYSTEM_ROLES: { name: string; permissions: Permission[]; locked: bo
       "products.read", "products.add", "products.edit",
       "items.read", "items.add", "items.edit",
       "recipes.read", "recipes.add", "recipes.edit",
-      "production.read", "production.add", "tickets.manage",
+      "production.read", "production.add", "haccp.read", "haccp.add", "haccp.edit", "tickets.manage",
     ],
     locked: false,
   },

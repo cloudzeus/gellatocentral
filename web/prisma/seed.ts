@@ -1,6 +1,7 @@
 // Δοκιμαστικά δεδομένα για τοπική ανάπτυξη: npx prisma db seed
 import { seedGeo } from "./geo/seed-geo";
 import { seedKb } from "./kb-starter";
+import { seedPastryCategories } from "./seed-pastry-categories";
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
@@ -33,7 +34,9 @@ async function main() {
   console.log(`Γεωγραφία: ${geo.countries} χώρες, ${geo.regions} περιφέρειες/νομοί/δήμοι, ${geo.cities.length} πόλεις (${geo.added} νέες)`);
   const articles = await seedKb(db);
   if (articles) console.log(`Βοήθεια: ${articles} αρχικά άρθρα`);
-  if (await db.organization.count()) return console.log("Η βάση έχει ήδη δεδομένα — δεν άλλαξε τίποτα.");
+  const pastry = await seedPastryCategories(db);
+  console.log(`Κατηγορίες ζαχαροπλαστικής: ${pastry.total} συνολικά (${pastry.added} νέες)`);
+  if (await db.organization.count()) return console.log("Η βάση έχει ήδη δεδομένα — τα κοινά δεδομένα ενημερώθηκαν, η επιχείρηση δεν άλλαξε.");
   const org = await db.organization.create({ data: { name: "Gelateria Demo", vatNumber: "000000000" } });
   await db.orgRole.createMany({ data: SYSTEM_ROLES.map((r) => ({ orgId: org.id, system: true, ...r })) });
   const store = await db.store.create({ data: { orgId: org.id, name: "Κατάστημα Πειραιά", address: "Ακτή Μουτσοπούλου 1, Πειραιάς" } });

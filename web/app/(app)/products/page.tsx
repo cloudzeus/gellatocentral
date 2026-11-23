@@ -3,7 +3,7 @@ import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { euro } from "@/lib/money";
 import { filterParam, listParams } from "@/lib/paging";
@@ -94,12 +94,12 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
               },
               details: {
                 label: p.name,
-                view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                   <div><dt className="text-xs text-muted-foreground">Κατηγορία</dt><dd className="font-medium">{p.category.name}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Τιμή με ΦΠΑ</dt><dd className="font-medium tabular-nums">{euro(p.priceCents)}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Συντελεστής</dt><dd className="font-medium">{p.vatRate.name} {p.vatRate.rate}%</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Εμφάνιση στο ταμείο</dt><dd className="font-medium">{p.active ? "Ενεργό" : "Κρυφό"}</dd></div>
-                </dl>,
+                </DetailGrid>,
                 edit: can("products.edit") ? productForm(p) : undefined,
               },
               menu: can("products.edit") ? (

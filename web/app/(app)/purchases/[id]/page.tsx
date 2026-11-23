@@ -6,7 +6,7 @@ import { Files } from "@/components/files";
 import { PrintButton } from "@/components/print-button";
 import { PurchaseDocument } from "@/components/purchase-document";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, menuItem, Page, Select, TextareaField } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Field, menuItem, Page, Select, TextareaField } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
@@ -176,12 +176,12 @@ export default async function PurchaseDocPage({ params, searchParams }: { params
                 },
                 details: {
                   label: l.description,
-                  view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                     <div><dt className="text-xs text-muted-foreground">Αντιστοίχιση</dt><dd className="break-words font-medium">{mapping}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Παρτίδα / λήξη</dt><dd className="font-medium">{l.batchNumber ?? "—"}{l.expiresAt ? ` · ${day(l.expiresAt)}` : ""}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Θερμοκρασία</dt><dd className="font-medium">{l.receiptTempC != null ? `${String(l.receiptTempC).replace(".", ",")} °C` : "—"}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Παρατήρηση</dt><dd className="break-words font-medium">{l.receiptIssue ?? "—"}</dd></div>
-                  </dl>,
+                  </DetailGrid>,
                   edit: can("purchases.edit") ? rematchForm(l) : undefined,
                 },
                 menu: can("purchases.edit") ? <form action={removeLine.bind(null, l.id, doc.id)}><Submit className={menuItem}><Trash2 /> Διαγραφή γραμμής</Submit></form> : undefined,

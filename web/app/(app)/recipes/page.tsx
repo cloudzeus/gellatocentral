@@ -4,7 +4,7 @@ import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Field, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
@@ -100,12 +100,12 @@ export default async function RecipesPage({ searchParams }: PageProps<"/recipes"
                 details: {
                   label: r.name,
                   view: <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-                    <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                       <div><dt className="text-xs text-muted-foreground">Τύπος</dt><dd className="font-medium">{typeLabel}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Προϊόν βιτρίνας</dt><dd className="font-medium">{r.product?.name ?? "Χωρίς σύνδεση"}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Υλικά / δόση</dt><dd className="font-medium tabular-nums">{r._count.items} · {r.batchGrams.toLocaleString("el-GR")} g</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Κόστος / kg</dt><dd className="font-medium tabular-nums">{analysis.costPerKgHundredths > 0 ? euro(analysis.costPerKgHundredths / 100) : "—"}</dd></div>
-                    </dl>
+                    </DetailGrid>
                     <Link href={`/recipes/${r.id}`} className={btn("outline", "sm")}><Eye /> Επεξεργασία συνταγής</Link>
                   </div>,
                 },

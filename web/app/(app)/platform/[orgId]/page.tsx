@@ -10,7 +10,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { Modal } from "@/components/modal";
 import { requirePlatform } from "@/lib/auth";
-import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Field, Page, Select } from "@/components/ui";
 import { db } from "@/lib/db";
 import { DEVICE_KIND, FOR, KIND_OPTIONS, readingStatus } from "@/lib/devices";
 import { mailDomain, platformSettings } from "@/lib/mail/send";
@@ -246,12 +246,44 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                   },
                   details: {
                     label: l.name,
-                    view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                      <div><dt className="text-xs text-muted-foreground">Συσκευές</dt><dd className="font-medium">{l.devices} · {euro(l.devicesCents)}</dd></div>
-                      <div><dt className="text-xs text-muted-foreground">Πλήρης τιμή</dt><dd className="font-medium">{euro(l.fullCents)}</dd></div>
-                      <div><dt className="text-xs text-muted-foreground">Έκπτωση παύσης</dt><dd className="font-medium">{l.pauseDays ? `${l.pauseDays} ημέρες · ${euro(Math.abs(l.discountCents))}` : "—"}</dd></div>
-                      <div><dt className="text-xs text-muted-foreground">Χρέωση</dt><dd className="font-medium">{euro(l.cents)}</dd></div>
-                    </dl>,
+                    view: (
+                      <div className="overflow-hidden rounded-lg border border-border/70 bg-card">
+                        <div className="flex flex-wrap items-center justify-between gap-3 bg-primary px-4 py-3 text-primary-foreground">
+                          <div>
+                            <p className="text-sm font-semibold">Ανάλυση χρέωσης</p>
+                            <p className="text-xs">{day(next.periodStart)} – {day(next.periodEnd)} · προ ΦΠΑ</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-medium">Τελική χρέωση</p>
+                            <p className="text-2xl font-semibold leading-tight tabular-nums">{euro(l.cents)}</p>
+                          </div>
+                        </div>
+                        <div className="grid gap-5 p-4 md:grid-cols-2">
+                          <dl className="divide-y divide-border/60 text-sm">
+                            <div className="flex items-baseline justify-between gap-4 py-2 first:pt-0">
+                              <dt className="text-muted-foreground">Τιμή καταστήματος</dt>
+                              <dd className="font-medium tabular-nums">{euro(l.storeCents)}</dd>
+                            </div>
+                            <div className="flex items-baseline justify-between gap-4 py-2">
+                              <dt className="text-muted-foreground">Συσκευές <span className="text-foreground">({l.devices})</span></dt>
+                              <dd className="font-medium tabular-nums">+ {euro(l.devicesCents)}</dd>
+                            </div>
+                            <div className="flex items-baseline justify-between gap-4 py-2 last:pb-0">
+                              <dt className="font-semibold">Πλήρης μηνιαία τιμή</dt>
+                              <dd className="font-semibold tabular-nums">{euro(l.fullCents)}</dd>
+                            </div>
+                          </dl>
+                          <div className={l.pauseDays ? l.discountCents > 0 ? "rounded-lg bg-success/10 p-3" : "rounded-lg bg-gold/15 p-3" : "rounded-lg bg-secondary/60 p-3"}>
+                            <p className="text-xs font-semibold text-foreground/70">Τακτοποίηση παύσης</p>
+                            <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
+                              <p className="text-sm font-semibold">{l.pauseDays > 0 ? `${l.pauseDays} ημέρες έκπτωσης` : l.pauseDays < 0 ? `${Math.abs(l.pauseDays)} ημέρες ανάκτησης έκπτωσης` : l.paused ? `Σε παύση από ${day(l.paused.startedAt)}` : "Καμία τακτοποίηση"}</p>
+                              {l.pauseDays ? <p className={l.discountCents > 0 ? "text-lg font-semibold tabular-nums text-success-ink" : "text-lg font-semibold tabular-nums text-gold-ink"}>{l.discountCents > 0 ? "−" : "+"}{euro(Math.abs(l.discountCents))}</p> : null}
+                            </div>
+                            <p className="mt-1 text-xs leading-relaxed text-foreground/75">{l.pauseDays > 0 ? "Η αναλογική έκπτωση αφαιρείται από την πλήρη μηνιαία τιμή." : l.pauseDays < 0 ? "Ανακτούνται ημέρες έκπτωσης που είχαν δοθεί νωρίτερα." : l.paused ? "Η τρέχουσα παύση δεν προσθέτει νέα αναλογία σε αυτή τη χρέωση." : "Η χρέωση ισούται με την πλήρη μηνιαία τιμή."}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ),
                   },
                 }))}
               />
@@ -532,12 +564,12 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                   },
                   details: {
                     label: p.name,
-                    view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                       <div><dt className="text-xs text-muted-foreground">ΑΦΜ</dt><dd className="font-medium">{p.vatNumber ?? "—"}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Έδρα · περιοχή</dt><dd className="font-medium">{[p.city, p.region].filter(Boolean).join(" · ") || "—"}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Email</dt><dd className="font-medium">{p.email ?? "—"}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Τηλέφωνο</dt><dd className="font-medium">{p.phone ?? "—"}</dd></div>
-                    </dl>,
+                    </DetailGrid>,
                   },
                 }))}
               />

@@ -1,16 +1,19 @@
-import { Factory, FlaskConical, FolderTree, Package, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowUpRight, Factory, FlaskConical, FolderTree, Package, Pencil, Plus, ScanSearch, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "@/components/data-table";
 import { Modal, RoutedModal } from "@/components/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shadcn/tabs";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, menuItem, Page } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, menuItem, Page } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { normalizeManufacturerName } from "@/lib/manufacturer";
+import { formatManufacturerBrand } from "@/lib/manufacturer";
 import { filterParam, listParams } from "@/lib/paging";
+import type { SelectOption } from "@/lib/select-options";
+import { flattenTradeCategories } from "@/lib/trade-category-tree";
 import { activateTradeItems, deleteTradeItem, hideTradeItems, toggleTradeItem } from "./actions";
 import { CategoriesTable } from "./categories-table";
+import { CategoryMatchEditor, type CategoryMatchBrandOption } from "./category-matches/category-match-editor";
 import { CompositionDetails } from "./composition-details";
 import { ItemForm } from "./item-form";
 import { ManufacturersCard } from "./manufacturers-card";
@@ -29,8 +32,8 @@ export default async function CatalogPage({ searchParams }: PageProps<"/platform
     ...(status ? { active: status === "active" } : {}),
     ...(list.q ? { OR: [{ name: like }, { ean: { contains: list.q } }] } : {}),
   };
-  const [categories, brands, items, itemsTotal, units] = await Promise.all([
-    db.tradeCategory.findMany({ orderBy: [{ position: "asc" }, { name: "asc" }], include: { children: { orderBy: { name: "asc" } } }, where: { parentId: null } }),
+  const [categories, brands, items, itemsTotal, units, manufacturers] = await Promise.all([
+    db.tradeCategory.findMany({ orderBy: [{ position: "asc" }, { name: "asc" }] }),
     db.brand.findMany({ orderBy: { name: "asc" }, include: { manufacturer: true } }),
     db.tradeItem.findMany({
       where: itemWhere,
@@ -41,9 +44,12 @@ export default async function CatalogPage({ searchParams }: PageProps<"/platform
     }),
     db.tradeItem.count({ where: itemWhere }),
     db.unit.findMany({ where: { active: true }, orderBy: [{ dimension: "asc" }, { toBase: "asc" }] }),
+    db.manufacturer.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
-  const brandOptions: [string, string][] = brands.map((b): [string, string] => [b.id, `${normalizeManufacturerName(b.manufacturer.name)} · ${b.name}`]);
-  const categoryOptions: [string, string][] = categories.flatMap((c): [string, string][] => [[c.id, c.name], ...c.children.map((ch): [string, string] => [ch.id, `${c.name} › ${ch.name}`])]);
+  const brandOptions: [string, string][] = brands.map((b): [string, string] => [b.id, formatManufacturerBrand(b.manufacturer.name, b.name)]);
+  const categoryOptions: [string, string][] = flattenTradeCategories(categories).map(({ category: c, depth }): [string, string] => [c.id, `${"— ".repeat(depth)}${c.name}`]);
+  const manufacturerOptions: SelectOption[] = manufacturers.map((manufacturer) => [manufacturer.id, manufacturer.name]);
+  const classificationBrandOptions: CategoryMatchBrandOption[] = brands.map((brand) => [brand.id, brand.name, brand.manufacturerId]);
   const editing = typeof q.edit === "string" ? items.find((item) => item.id === q.edit) : undefined;
   const editHref = (edit?: string) => {
     const params = new URLSearchParams(Object.entries({ tab: "products", q: list.q || undefined, status, sort: list.sort, dir: list.sort ? list.dir : undefined, page: list.page > 1 ? String(list.page) : undefined, edit }).filter((entry): entry is [string, string] => !!entry[1]));
@@ -52,7 +58,7 @@ export default async function CatalogPage({ searchParams }: PageProps<"/platform
 
   return (
     <Page section="Common Tables" title="Κατάλογος ειδών" description="Τα συσκευασμένα είδη που βρίσκουν όλοι οι συνδρομητές με EAN ή όνομα, με brand, συσκευασία και φωτογραφία"
-      actions={<Modal label={<><Plus /> Νέο είδος</>} variant="default" size="sm" title="Νέο είδος καταλόγου" wide><ItemForm categoryOptions={categoryOptions} brandOptions={brandOptions} units={units} /></Modal>}>
+      actions={<div className="flex flex-wrap gap-2"><Link href="/platform/catalog/category-matches" className={btn("outline")}><ScanSearch /> Συσχετίσεις ζαχαροπλαστικής</Link><Modal label={<><Plus /> Νέο είδος</>} variant="default" size="sm" title="Νέο είδος καταλόγου" wide><ItemForm categoryOptions={categoryOptions} brandOptions={brandOptions} units={units} /></Modal></div>}>
       <div className="grid max-w-6xl gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
         {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Ο κατάλογος ενημερώθηκε</p> : null}
@@ -96,25 +102,37 @@ export default async function CatalogPage({ searchParams }: PageProps<"/platform
                     ),
                     ean: <span className="tabular-nums">{t.ean ?? "—"}</span>,
                     category: t.category ? (t.category.parentId ? "— " : "") + t.category.name : "—",
-                    brand: t.brand ? `${normalizeManufacturerName(t.brand.manufacturer.name)} · ${t.brand.name}` : "—",
+                    brand: t.brand ? `${formatManufacturerBrand(t.brand.manufacturer.name, t.brand.name)}` : "—",
                     content: <span className="tabular-nums">{(t.contentQty / t.contentUnit.toBase).toLocaleString("el-GR")} {t.contentUnit.code}</span>,
                     status: t.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>,
                   },
                   details: {
                     label: t.name,
                     view: (
-                      <div className="grid gap-5">
-                        <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-                          <div><dt className="text-xs text-muted-foreground">EAN</dt><dd className="mt-1 font-medium">{t.ean ?? "—"}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">Κατηγορία</dt><dd className="mt-1 font-medium">{t.category?.name ?? "—"}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">Brand</dt><dd className="mt-1 font-medium">{t.brand ? `${normalizeManufacturerName(t.brand.manufacturer.name)} · ${t.brand.name}` : "—"}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">Περιεχόμενο</dt><dd className="mt-1 font-medium">{(t.contentQty / t.contentUnit.toBase).toLocaleString("el-GR")} {t.contentUnit.code}</dd></div>
-                        </dl>
-                        {t.composition ? <div className="border-t border-border/70 pt-4"><CompositionDetails composition={t.composition} /></div> : <p className="text-sm text-muted-foreground">Δεν έχει καταχωρηθεί σύσταση.</p>}
-                        <div><Link href={`/platform/catalog/${t.id}`} className={btn("outline", "sm")}>Πλήρης καρτέλα, φωτογραφία και σύσταση</Link></div>
+                      <div className="grid gap-4">
+                        <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
+                          <div className="bg-card p-4"><dt className="text-xs text-muted-foreground">EAN</dt><dd className="mt-1.5 break-words font-medium tabular-nums">{t.ean ?? "—"}</dd></div>
+                          <div className="bg-card p-4"><dt className="text-xs text-muted-foreground">Κατηγορία</dt><dd className="mt-1.5 font-medium">{t.category?.name ?? "—"}</dd></div>
+                          <div className="bg-card p-4"><dt className="text-xs text-muted-foreground">Κατασκευαστής / brand</dt><dd className="mt-1.5 font-medium">{t.brand ? `${formatManufacturerBrand(t.brand.manufacturer.name, t.brand.name)}` : "—"}</dd></div>
+                          <div className="bg-card p-4"><dt className="text-xs text-muted-foreground">Περιεχόμενο</dt><dd className="mt-1.5 font-medium tabular-nums">{(t.contentQty / t.contentUnit.toBase).toLocaleString("el-GR")} {t.contentUnit.code}</dd></div>
+                        </DetailGrid>
+                        <div><Link href={`/platform/catalog/${t.id}`} className={btn("outline", "sm")}>Πλήρης καρτέλα και φωτογραφία <ArrowUpRight /></Link></div>
                       </div>
                     ),
-                    edit: <Link href={editHref(t.id)} className={btn("default", "sm")}><Pencil /> Άνοιγμα φόρμας αλλαγής</Link>,
+                    extra: [{
+                      value: "composition",
+                      label: "Συστατικά",
+                      icon: <FlaskConical />,
+                      view: t.composition ? <div className="rounded-xl border border-border/70 bg-card p-5"><CompositionDetails composition={t.composition} /></div> : (
+                        <div className="rounded-xl border border-dashed border-border bg-card px-5 py-10 text-center">
+                          <FlaskConical className="mx-auto size-6 text-muted-foreground" />
+                          <h3 className="mt-3 text-sm font-semibold">Δεν έχει καταχωρηθεί σύσταση</h3>
+                          <p className="mt-1 text-xs text-muted-foreground">Συμπλήρωσε συστατικά, ποσοστά και αλλεργιογόνα από την καρτέλα του είδους.</p>
+                          <Link href={`/platform/catalog/${t.id}#composition`} className={btn("outline", "sm", "mt-4")}>Προσθήκη συστατικών <ArrowUpRight /></Link>
+                        </div>
+                      ),
+                    }],
+                    edit: <CategoryMatchEditor itemId={t.id} categoryId={t.categoryId ?? ""} manufacturerId={t.brand?.manufacturer.id ?? ""} brandId={t.brand?.id ?? ""} categoryOptions={categoryOptions} manufacturerOptions={manufacturerOptions} brandOptions={classificationBrandOptions} existingCategory />,
                   },
                   menu: (
                     <>
@@ -135,7 +153,7 @@ export default async function CatalogPage({ searchParams }: PageProps<"/platform
             </Card>
           </TabsContent>
           <TabsContent value="manufacturers"><ManufacturersCard searchParams={q} /></TabsContent>
-          <TabsContent value="categories"><CategoriesTable categories={categories} searchParams={q} /></TabsContent>
+          <TabsContent value="categories"><CategoriesTable categories={categories} /></TabsContent>
         </Tabs>
 
         <p className="px-1 text-xs text-muted-foreground">Περιέχει δεδομένα από <a href="https://gr.openfoodfacts.org" target="_blank" rel="noreferrer" className="underline">Open Food Facts</a>, διαθέσιμα υπό την <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer" className="underline">Open Database License (ODbL)</a> · φωτογραφίες CC-BY-SA. Οι εικόνες των ειδών φιλοξενούνται στο Bunny της πλατφόρμας.</p>

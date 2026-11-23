@@ -3,7 +3,7 @@ import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -84,12 +84,12 @@ export default async function CurrenciesPage({ searchParams }: PageProps<"/platf
               },
               details: {
                 label: `${c.name} (${c.code})`,
-                view: <dl className="grid gap-4 sm:grid-cols-4">
+                view: <DetailGrid className="sm:grid-cols-4">
                   <div><dt className="text-xs text-muted-foreground">Κωδικός ISO</dt><dd className="font-mono text-xs font-semibold">{c.code}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Σύμβολο</dt><dd className="text-lg font-semibold">{c.symbol}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Σειρά</dt><dd className="font-medium tabular-nums">{c.sort}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Κατάσταση</dt><dd>{c.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>}</dd></div>
-                </dl>,
+                </DetailGrid>,
                 edit: currencyForm(c),
               },
               menu: <form action={toggleCurrency.bind(null, c.id)}><Submit className={menuItem}>{c.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit></form>,

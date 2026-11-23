@@ -3,7 +3,7 @@ import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -74,11 +74,11 @@ export default async function VatRatesPage({ searchParams }: PageProps<"/platfor
               },
               details: {
                 label: `${r.name} ${r.rate}%`,
-                view: <dl className="grid gap-4 sm:grid-cols-3">
+                view: <DetailGrid className="sm:grid-cols-3">
                   <div><dt className="text-xs text-muted-foreground">Ποσοστό</dt><dd className="font-medium tabular-nums">{r.rate}%</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Προϊόντα που τον χρησιμοποιούν</dt><dd className="font-medium tabular-nums">{r._count.products}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Κατάσταση</dt><dd>{r.active ? <Badge tone="success">Ενεργός</Badge> : <Badge>Κρυφός</Badge>}</dd></div>
-                </dl>,
+                </DetailGrid>,
                 edit: rateForm(r),
               },
               menu: <form action={toggleVatRate.bind(null, r.id)}><Submit className={menuItem}>{r.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit></form>,

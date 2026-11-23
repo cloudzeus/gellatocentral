@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/shadcn/checkbox";
 import { PartyForm } from "@/components/party-form";
 import { PartyMap, type MapPoint } from "@/components/party-map";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, Field, Page, Select } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, cn, Field, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { ago, CHANNEL_LABELS, channelHref, contactTone, CONTACT_KINDS, dueText, initials, mergeTimeline, monthBuckets, showPhone, taskState, TIMELINE_FILTERS, type TimelineFilter } from "@/lib/crm";
 import { partyEvents } from "@/lib/crm-data";
@@ -394,12 +394,12 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                   },
                   details: {
                     label: item.tradeItem.name,
-                    view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                       <div><dt className="text-xs text-muted-foreground">Είδος</dt><dd className="mt-1 font-semibold break-words">{item.tradeItem.name}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Τιμή</dt><dd className="mt-1 font-semibold">{item.current ? `${euro(item.current.priceCents)} / συσκευασία` : "Δεν έχει καταχωριστεί"}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Ισχύει από</dt><dd className="mt-1 font-semibold">{item.current ? day.format(item.current.validFrom) : "—"}</dd></div>
                       <div><dt className="text-xs text-muted-foreground">Συμφωνία</dt><dd className="mt-1 font-semibold">{item.current?.minPackQty ? `Από ${item.current.minPackQty} συσκευασίες` : "Τιμοκατάλογος"}</dd></div>
-                    </dl>,
+                    </DetailGrid>,
                   },
                 }))}
               />
@@ -440,12 +440,12 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                     details: {
                       label: doc.number ?? doc.id,
                       view: <div className="grid gap-4">
-                        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                           <div><dt className="text-xs text-muted-foreground">Πηγή</dt><dd className="mt-1 font-semibold">{doc.source === "ocr" ? "OCR · απαιτεί έλεγχο" : doc.source === "mydata" ? "myDATA" : "Χειροκίνητη καταχώριση"}</dd></div>
                           <div><dt className="text-xs text-muted-foreground">Αποθήκη παραλαβής</dt><dd className="mt-1 font-semibold">{doc.warehouse.name}</dd></div>
                           <div><dt className="text-xs text-muted-foreground">ΜΑΡΚ</dt><dd className="mt-1 break-all font-semibold">{doc.mydataMark ?? "—"}</dd></div>
                           <div><dt className="text-xs text-muted-foreground">Σημείωση</dt><dd className="mt-1 break-words font-semibold">{doc.note ?? "—"}</dd></div>
-                        </dl>
+                        </DetailGrid>
                         <div><Link href={`/purchases/${doc.id}`} className={btn("outline", "sm")}>Πλήρες παραστατικό & γραμμές</Link></div>
                       </div>,
                     },

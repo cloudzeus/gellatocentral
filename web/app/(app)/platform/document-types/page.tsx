@@ -1,7 +1,7 @@
 import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -90,12 +90,12 @@ export default async function DocumentTypesPage({ searchParams }: PageProps<"/pl
               },
               details: {
                 label: `${t.code} · ${t.title}`,
-                view: <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                   <div><dt className="text-xs text-muted-foreground">Φορολογικό πρόσημο</dt><dd className="font-medium">{t.sign === 1 ? "Χρέωση" : "Πίστωση"}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Απαιτήσεις</dt><dd className="font-medium">{[t.needsParty ? "ΑΦΜ λήπτη" : null, t.needsRelated ? "Συσχέτιση" : null].filter(Boolean).join(" · ") || "Καμία"}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Εκδόσεις</dt><dd className="font-medium tabular-nums">{issueCounts.get(t.code) ?? 0}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Σειρά</dt><dd className="font-medium tabular-nums">{t.sort}</dd></div>
-                </dl>,
+                </DetailGrid>,
                 edit: typeForm(t),
               },
               menu: <form action={toggleDocumentType.bind(null, t.id)}><Submit className={menuItem}>{t.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit></form>,

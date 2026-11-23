@@ -5,7 +5,7 @@ import { DataTable } from "@/components/data-table";
 import { FlowGraphView } from "@/components/flow-graph";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
+import { DetailGrid, Badge, btn, Card, Field, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { listParams } from "@/lib/paging";
@@ -142,7 +142,7 @@ export default async function LotPage({ params, searchParams }: { params: Promis
               },
               details: {
                 label: `${SOURCE_LABEL[m.source] ?? m.source} · ${timeFmt.format(m.occurredAt)}`,
-                view: <dl className="grid gap-4 sm:grid-cols-3"><div><dt className="text-xs text-muted-foreground">Ποσότητα</dt><dd className="font-medium">{m.quantity > 0 ? "+" : "−"}{fmtQty(Math.abs(m.quantity))}</dd></div><div><dt className="text-xs text-muted-foreground">Αιτιολογία</dt><dd className="font-medium">{m.note ?? "—"}</dd></div><div><dt className="text-xs text-muted-foreground">Χρήστης</dt><dd className="font-medium">{m.createdByName ?? "—"}</dd></div></dl>,
+                view: <DetailGrid className="sm:grid-cols-3"><div><dt className="text-xs text-muted-foreground">Ποσότητα</dt><dd className="font-medium">{m.quantity > 0 ? "+" : "−"}{fmtQty(Math.abs(m.quantity))}</dd></div><div><dt className="text-xs text-muted-foreground">Αιτιολογία</dt><dd className="font-medium">{m.note ?? "—"}</dd></div><div><dt className="text-xs text-muted-foreground">Χρήστης</dt><dd className="font-medium">{m.createdByName ?? "—"}</dd></div></DetailGrid>,
               },
             }))}
           />
