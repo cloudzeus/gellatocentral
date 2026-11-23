@@ -58,7 +58,7 @@ export function PurchaseDocument({ doc, compact = false }: { doc: PurchaseDocume
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold tracking-[0.18em] text-neutral-500">GELATO SYSTEM · ΑΠΟΘΗΚΗ & ΑΓΟΡΕΣ</p>
-            <h2 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl print:text-xl">ΤΙΜΟΛΟΓΙΟ ΑΓΟΡΑΣ</h2>
+            <h2 className="mt-1 text-base font-bold tracking-tight sm:text-lg print:text-base">ΤΙΜΟΛΟΓΙΟ ΑΓΟΡΑΣ</h2>
           </div>
           <div className="text-left sm:text-right">
             <p className="text-lg font-bold tabular-nums">{doc.number ?? "Χωρίς αριθμό"}</p>

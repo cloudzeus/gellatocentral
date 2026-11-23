@@ -8,7 +8,6 @@ export type PartyIdentityProps = {
   name: string;
   tradeName: string | null;
   roles: string[];
-  roleLabel: string;
   active: boolean;
   vatNumber: string | null;
   countryCode: string;
@@ -25,11 +24,6 @@ export type PartyIdentityProps = {
   notes: string | null;
   verifiedAt: string | null;
   complete: boolean;
-  contacts: number;
-  places: number;
-  purchases: number;
-  supplierItems: number;
-  transactionsHref: string | null;
   actions?: ReactNode;
 };
 
@@ -45,46 +39,32 @@ export function PartyIdentity(p: PartyIdentityProps) {
   ];
   return (
     <Card className="overflow-hidden">
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_15rem]">
-        <div className="min-w-0 p-5">
-          <div className="flex flex-wrap items-start gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary" aria-hidden><Building2 className="size-5" /></span>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2"><RoleBadges roles={p.roles} /><Badge tone={p.active ? "success" : "neutral"}>{p.active ? "Ενεργός" : "Ανενεργός"}</Badge></div>
-              <h2 className="mt-2 break-words text-xl font-semibold leading-tight md:text-2xl">{p.name}</h2>
-              {p.tradeName ? <p className="mt-1 break-words text-sm text-muted-foreground">Διακριτικός τίτλος: <span className="font-medium text-foreground">{p.tradeName}</span></p> : null}
-            </div>
-            {p.actions ? <div className="flex w-full flex-wrap gap-2 sm:w-auto">{p.actions}</div> : null}
+      <div className="min-w-0 p-4">
+        <div className="flex flex-wrap items-start gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary" aria-hidden><Building2 className="size-4" /></span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2"><RoleBadges roles={p.roles} /><Badge tone={p.active ? "success" : "neutral"}>{p.active ? "Ενεργός" : "Ανενεργός"}</Badge></div>
+            <h2 className="mt-1.5 break-words text-base font-semibold leading-snug sm:text-lg">{p.name}</h2>
+            {p.tradeName ? <p className="mt-1 break-words text-sm text-muted-foreground">Διακριτικός τίτλος: <span className="font-medium text-foreground">{p.tradeName}</span></p> : null}
           </div>
-
-          <dl className="mt-5 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-4">
-            {facts.map((fact) => <div key={fact.label} className="min-w-0"><dt className="text-xs font-medium text-muted-foreground">{fact.label}</dt><dd className="mt-1 break-words text-sm font-semibold">{fact.value ?? <span className="font-normal text-muted-foreground">Δεν έχει συμπληρωθεί</span>}</dd></div>)}
-          </dl>
-
-          <div className="mt-5 grid gap-3 border-t border-border/70 pt-4 text-sm md:grid-cols-2">
-            <div className="flex min-w-0 items-start gap-2"><MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden /><div className="min-w-0"><p className="text-xs font-medium text-muted-foreground">Έδρα</p><p className="mt-0.5 break-words leading-relaxed">{fullAddress || "Δεν έχει συμπληρωθεί διεύθυνση"}</p></div></div>
-            <div className="flex min-w-0 flex-wrap content-start items-center gap-x-4 gap-y-2">
-              {p.phone ? <a href={channelHref("phone", p.phone)} className="inline-flex min-h-8 max-w-full items-center gap-2 break-all font-medium underline-offset-4 hover:underline"><Phone className="size-4 shrink-0 text-muted-foreground" />{showPhone(p.phone)}</a> : null}
-              {p.email ? <a href={channelHref("email", p.email)} className="inline-flex min-h-8 max-w-full items-center gap-2 break-all font-medium underline-offset-4 hover:underline"><Mail className="size-4 shrink-0 text-muted-foreground" />{p.email}</a> : null}
-              {p.website && websiteHref ? <a href={websiteHref} target="_blank" rel="noreferrer" className="inline-flex min-h-8 max-w-full items-center gap-2 break-all font-medium underline-offset-4 hover:underline"><ExternalLink className="size-4 shrink-0 text-muted-foreground" />{p.website}</a> : null}
-              {!p.phone && !p.email && !p.website ? <span className="text-muted-foreground">Δεν υπάρχουν στοιχεία άμεσης επικοινωνίας</span> : null}
-            </div>
-          </div>
-          {p.notes ? <p className="mt-4 whitespace-pre-wrap break-words border-t border-border/70 pt-4 text-sm leading-relaxed text-muted-foreground"><span className="font-semibold text-foreground">Σημειώσεις: </span>{p.notes}</p> : null}
-          <p className={`mt-4 flex items-start gap-2 text-xs ${p.complete ? "text-success-ink" : "text-gold-ink"}`}><CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />{p.complete ? `Πλήρη βασικά στοιχεία τιμολόγησης${p.verifiedAt ? ` · επαλήθευση μητρώου ${p.verifiedAt}` : ""}` : "Λείπουν βασικά στοιχεία τιμολόγησης · άνοιγμα στοιχείων για συμπλήρωση"}</p>
+          {p.actions ? <div className="flex w-full flex-wrap gap-2 sm:w-auto">{p.actions}</div> : null}
         </div>
 
-        <aside aria-label="Συνδεδεμένη δραστηριότητα" className="border-t border-border/70 bg-secondary/25 p-5 lg:border-l lg:border-t-0">
-          <h3 className="text-sm font-semibold">Όλη η σχέση, σε μία καρτέλα</h3>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{p.roleLabel}</p>
-          <dl className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-1">
-            <div><dt className="text-xs text-muted-foreground">Ενεργές επαφές</dt><dd className="mt-0.5 text-xl font-semibold tabular-nums">{p.contacts}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">Διευθύνσεις</dt><dd className="mt-0.5 text-xl font-semibold tabular-nums">{p.places}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">Παραστατικά αγοράς</dt><dd className="mt-0.5 text-xl font-semibold tabular-nums">{p.purchases}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">Είδη προμηθευτή</dt><dd className="mt-0.5 text-xl font-semibold tabular-nums">{p.supplierItems}</dd></div>
-          </dl>
-          {p.transactionsHref ? <a href={p.transactionsHref} className="mt-4 inline-flex min-h-9 items-center text-sm font-semibold underline underline-offset-4">Είδη & ιστορικό αγορών</a> : null}
-        </aside>
+        <dl className="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2 xl:grid-cols-4">
+          {facts.map((fact) => <div key={fact.label} className="min-w-0"><dt className="text-xs font-medium text-muted-foreground">{fact.label}</dt><dd className="mt-1 break-words text-sm font-semibold">{fact.value ?? <span className="font-normal text-muted-foreground">Δεν έχει συμπληρωθεί</span>}</dd></div>)}
+        </dl>
+
+        <div className="mt-4 grid gap-3 border-t border-border/70 pt-3 text-sm md:grid-cols-2">
+          <div className="flex min-w-0 items-start gap-2"><MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden /><div className="min-w-0"><p className="text-xs font-medium text-muted-foreground">Έδρα</p><p className="mt-0.5 break-words leading-relaxed">{fullAddress || "Δεν έχει συμπληρωθεί διεύθυνση"}</p></div></div>
+          <div className="flex min-w-0 flex-wrap content-start items-center gap-x-4 gap-y-2">
+            {p.phone ? <a href={channelHref("phone", p.phone)} className="inline-flex min-h-8 max-w-full items-center gap-2 break-all font-medium underline-offset-4 hover:underline"><Phone className="size-4 shrink-0 text-muted-foreground" />{showPhone(p.phone)}</a> : null}
+            {p.email ? <a href={channelHref("email", p.email)} className="inline-flex min-h-8 max-w-full items-center gap-2 break-all font-medium underline-offset-4 hover:underline"><Mail className="size-4 shrink-0 text-muted-foreground" />{p.email}</a> : null}
+            {p.website && websiteHref ? <a href={websiteHref} target="_blank" rel="noreferrer" className="inline-flex min-h-8 max-w-full items-center gap-2 break-all font-medium underline-offset-4 hover:underline"><ExternalLink className="size-4 shrink-0 text-muted-foreground" />{p.website}</a> : null}
+            {!p.phone && !p.email && !p.website ? <span className="text-muted-foreground">Δεν υπάρχουν στοιχεία άμεσης επικοινωνίας</span> : null}
+          </div>
+        </div>
+        {p.notes ? <p className="mt-3 whitespace-pre-wrap break-words border-t border-border/70 pt-3 text-sm leading-relaxed text-muted-foreground"><span className="font-semibold text-foreground">Σημειώσεις: </span>{p.notes}</p> : null}
+        <p className={`mt-3 flex items-start gap-2 text-xs ${p.complete ? "text-success-ink" : "text-gold-ink"}`}><CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />{p.complete ? `Πλήρη βασικά στοιχεία τιμολόγησης${p.verifiedAt ? ` · επαλήθευση μητρώου ${p.verifiedAt}` : ""}` : "Λείπουν βασικά στοιχεία τιμολόγησης · άνοιγμα στοιχείων για συμπλήρωση"}</p>
       </div>
     </Card>
   );

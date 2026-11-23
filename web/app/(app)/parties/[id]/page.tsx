@@ -9,6 +9,7 @@ import { DataTable } from "@/components/data-table";
 import { Files } from "@/components/files";
 import { GeoCascade } from "@/components/geo-fields";
 import { Modal } from "@/components/modal";
+import { ACCOUNT_VIEWS, PartyAccount, PartyAccountSummary, type AccountView } from "@/components/party-account";
 import { PartyIdentity } from "@/components/party-identity";
 import { Checkbox } from "@/components/shadcn/checkbox";
 import { PartyForm } from "@/components/party-form";
@@ -19,10 +20,12 @@ import { currentOrg } from "@/lib/auth";
 import { ago, CHANNEL_LABELS, channelHref, contactTone, CONTACT_KINDS, dueText, initials, mergeTimeline, monthBuckets, showPhone, taskState, TIMELINE_FILTERS, type TimelineFilter } from "@/lib/crm";
 import { partyEvents } from "@/lib/crm-data";
 import { db } from "@/lib/db";
+import { listDocTypes } from "@/lib/documents/registry";
 import { consentsOf } from "@/lib/gdpr";
 import { currentConsents, daysLeft, DUE_DAYS, PURPOSES } from "@/lib/gdpr/rules";
 import { geoBreadcrumb, type GeoBreadcrumb } from "@/lib/geo";
 import { euro } from "@/lib/money";
+import { fiscalRequestDetails, summarizePartyAccount } from "@/lib/party-account";
 import { ADDRESS_KINDS, type AddressKind, distanceKm, roleText, showIban } from "@/lib/parties";
 import { partyScope } from "@/lib/party-scope";
 import { calculatePurchaseDocument } from "@/lib/purchase-document";
@@ -37,7 +40,7 @@ const SAVED: Record<string, string> = { "1": "Τα στοιχεία αποθηκ
 const sub = "grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end";
 const coordText = (lat: number | null, lng: number | null) => (lat != null && lng != null ? `${lat.toFixed(4).replace(".", ",")} · ${lng.toFixed(4).replace(".", ",")}` : null);
 const KIND_OPTIONS = Object.entries(ADDRESS_KINDS) as [string, string][];
-const TABS = { overview: "Επισκόπηση", transactions: "Είδη & αγορές", contacts: "Επαφές", places: "Διευθύνσεις & χάρτης", files: "Αρχεία", details: "Στοιχεία & τράπεζες" } as const;
+const TABS = { overview: "Επισκόπηση", account: "Οικονομικά", transactions: "Είδη & αγορές", contacts: "Επαφές", places: "Διευθύνσεις & χάρτης", files: "Αρχεία", details: "Στοιχεία & τράπεζες" } as const;
 const PURCHASE_STATUS = { DRAFT: { label: "Πρόχειρο", tone: "warning" }, POSTED: { label: "Καταχωρημένο", tone: "success" }, CANCELLED: { label: "Ακυρωμένο", tone: "neutral" } } as const;
 type Tab = keyof typeof TABS;
 const INPUT = "h-9 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
@@ -75,7 +78,9 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
   );
   const tenant = scope.orgId ? await currentOrg("parties.read") : null;
   const canSeePurchases = Boolean(scope.orgId && tenant?.permissions.includes("purchases.read"));
-  const tab: Tab = requestedTab === "transactions" && !canSeePurchases ? "overview" : requestedTab;
+  const canSeeAccount = Boolean(scope.orgId && tenant?.permissions.includes("receipts.read"));
+  const tab: Tab = (requestedTab === "transactions" && !canSeePurchases) || (requestedTab === "account" && !canSeeAccount) ? "overview" : requestedTab;
+  const accountView: AccountView = typeof q.view === "string" && q.view in ACCOUNT_VIEWS ? q.view as AccountView : "ledger";
   const [consents, request, stores] = tenant
     ? await Promise.all([consentsOf("customer", party.id), db.erasureRequest.findFirst({ where: { orgId: tenant.org.id, subjectType: "customer", subjectId: party.id, status: "PENDING" } }), db.store.findMany({ where: { orgId: tenant.org.id, active: true, latitude: { not: null }, longitude: { not: null } } })])
     : [[], null, []];
@@ -86,6 +91,43 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
     canSeePurchases ? db.purchaseDoc.findMany({ where: { orgId: scope.orgId!, supplierId: party.id }, orderBy: [{ issuedAt: "desc" }, { createdAt: "desc" }], take: 100, include: { warehouse: { select: { name: true } }, lines: { select: { quantity: true, unitPriceCents: true, discountBps: true, vatRate: true } } } }) : Promise.resolve([]),
     canSeePurchases ? db.supplierItem.findMany({ where: { orgId: scope.orgId!, supplierId: party.id }, orderBy: [{ active: "desc" }, { tradeItem: { name: "asc" } }], take: 200, include: { tradeItem: { select: { id: true, name: true, ean: true } }, prices: { orderBy: [{ validFrom: "desc" }, { createdAt: "desc" }] } } }) : Promise.resolve([]),
   ]);
+  const [fiscalDocuments, accountPayments, documentTypes] = canSeeAccount ? await Promise.all([
+    db.fiscalDocument.findMany({
+      where: { orgId: scope.orgId!, OR: [{ partyId: party.id }, { related: { is: { partyId: party.id } } }] },
+      orderBy: { createdAt: "desc" }, take: 200,
+      include: {
+        sale: { select: { id: true, series: true, aa: true, issuedAt: true, totalCents: true, store: { select: { name: true } } } },
+        series: { select: { code: true } },
+        related: { select: { sale: { select: { id: true } } } },
+      },
+    }),
+    db.payment.findMany({
+      where: { sale: { orgId: scope.orgId!, fiscal: { partyId: party.id } } },
+      orderBy: { createdAt: "desc" }, take: 200,
+      include: { method: { select: { name: true } }, sale: { select: { id: true, series: true, aa: true, issuedAt: true, store: { select: { name: true } } } } },
+    }),
+    listDocTypes(),
+  ]) : [[], [], []];
+  const typeByCode = new Map(documentTypes.map((type) => [type.code, type]));
+  const accountDocuments = fiscalDocuments.map((doc) => {
+    const details = fiscalRequestDetails(doc.request);
+    const saleNumber = doc.sale?.series && doc.sale.aa !== null ? `${doc.sale.series}-${doc.sale.aa}` : null;
+    const requestNumber = details.series && details.aa !== null ? `${details.series}-${details.aa}` : null;
+    return {
+      id: doc.id, type: doc.docType, title: typeByCode.get(doc.docType)?.title ?? `Παραστατικό ${doc.docType}`,
+      sign: typeByCode.get(doc.docType)?.sign ?? null, totalCents: doc.sale?.totalCents ?? details.totalCents,
+      status: doc.status, at: doc.sale?.issuedAt ?? doc.createdAt, number: saleNumber ?? requestNumber ?? doc.receiptReference,
+      href: doc.sale ? `/receipts/${doc.sale.id}` : doc.related?.sale ? `/receipts/${doc.related.sale.id}` : null,
+      reference: doc.receiptReference, error: doc.error, origin: doc.sale?.store.name ?? (doc.series ? `Σειρά ${doc.series.code}` : "Εκτός ταμείου"),
+    };
+  }).sort((a, b) => b.at.getTime() - a.at.getTime());
+  const payments = accountPayments.map((payment) => ({
+    id: payment.id, at: payment.sale.issuedAt ?? payment.createdAt, amountCents: payment.amountCents, success: payment.success,
+    method: payment.method.name, saleId: payment.sale.id,
+    saleNumber: payment.sale.series && payment.sale.aa !== null ? `${payment.sale.series}-${payment.sale.aa}` : "Πώληση χωρίς αριθμό",
+    origin: payment.sale.store.name,
+  }));
+  const accountSummary = summarizePartyAccount(accountDocuments, payments);
   const marketing = currentConsents(consents).get("customer_marketing");
   const method = refs.methods.find(([c]) => c === party.paymentMethodId)?.[1];
   const facts: [string, string | null][] = [
@@ -202,22 +244,20 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν έγινε: {q.error.slice(0, 220)}</p> : null}
 
         <PartyIdentity
-          name={party.name} tradeName={party.tradeName} roles={party.roles} roleLabel={roleText(party.roles)} active={party.active}
+          name={party.name} tradeName={party.tradeName} roles={party.roles} active={party.active}
           vatNumber={party.vatNumber} countryCode={party.countryCode} taxOffice={party.taxOffice} profession={party.profession}
           address={party.address} postalCode={party.postalCode} city={party.city} region={party.region}
           phone={phone} email={email} website={party.website}
           payment={[method, party.paymentTermsDays != null ? (party.paymentTermsDays ? `${party.paymentTermsDays} ημέρες πίστωση` : "Μετρητοίς") : null].filter(Boolean).join(" · ") || null}
           notes={party.notes} verifiedAt={party.vatCheckedAt ? day.format(party.vatCheckedAt) : null} complete={!missing.length}
-          contacts={working.length} places={placeCount} purchases={party._count.purchaseDocs} supplierItems={party._count.supplierItems}
-          transactionsHref={canSeePurchases ? href("transactions") : null}
           actions={scope.canEdit ? <Modal wide label={<><Pencil /> Επεξεργασία στοιχείων</>} title="Στοιχεία συναλλασσόμενου"><PartyForm action={saveParty.bind(null, party.id)} party={party} refs={refs} geo={{ breadcrumb: crumbs.get("hq"), cityId: party.cityId, city: party.city, areaId: party.areaId, areaName: party.geoArea?.name ?? null, regionText: party.region }} /></Modal> : undefined}
         />
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <nav aria-label="Ενότητες καρτέλας" className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
-            {(Object.keys(TABS) as Tab[]).filter((t) => t !== "transactions" || canSeePurchases).map((t) => (
+            {(Object.keys(TABS) as Tab[]).filter((t) => (t !== "transactions" || canSeePurchases) && (t !== "account" || canSeeAccount)).map((t) => (
               <Link key={t} href={href(t)} aria-current={tab === t ? "page" : undefined} className={cn("inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium pointer-coarse:min-h-11", tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary")}>
-                {TABS[t]}{t === "contacts" ? <span className="tabular-nums opacity-70">{working.length}</span> : t === "places" ? <span className="tabular-nums opacity-70">{placeCount}</span> : t === "transactions" ? <span className="tabular-nums opacity-70">{party._count.purchaseDocs}</span> : null}
+                {TABS[t]}{t === "contacts" ? <span className="tabular-nums opacity-70">{working.length}</span> : t === "places" ? <span className="tabular-nums opacity-70">{placeCount}</span> : t === "transactions" ? <span className="tabular-nums opacity-70">{party._count.purchaseDocs}</span> : t === "account" ? <span className="tabular-nums opacity-70">{accountDocuments.length}</span> : null}
               </Link>
             ))}
           </nav>
@@ -227,15 +267,17 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
 
         {tab === "overview" ? (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {kpis.map((k) => (
-                <Card key={k.label} className="px-5 py-4">
-                  <p className="font-medium text-muted-foreground">{k.label}</p>
-                  <p className={cn("mt-1.5 text-2xl leading-tight font-semibold tabular-nums", k.bad && "text-destructive")}>{k.value}</p>
-                  <p className="mt-1.5 text-muted-foreground">{k.hint}</p>
-                </Card>
-              ))}
-            </div>
+            {canSeeAccount ? <PartyAccountSummary summary={accountSummary} base={base} /> : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {kpis.map((k) => (
+                  <Card key={k.label} className="px-4 py-3">
+                    <p className="text-xs font-medium text-muted-foreground">{k.label}</p>
+                    <p className={cn("mt-1.5 text-lg leading-tight font-semibold tabular-nums", k.bad && "text-destructive")}>{k.value}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{k.hint}</p>
+                  </Card>
+                ))}
+              </div>
+            )}
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:items-start">
               <div className="space-y-4">
                 {scope.canEdit ? <Card className="p-5"><ActivityForm action={log} contacts={contactOptions} /></Card> : null}
@@ -316,6 +358,10 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
               </div>
             </div>
           </>
+        ) : null}
+
+        {tab === "account" && canSeeAccount ? (
+          <PartyAccount base={base} view={accountView} summary={accountSummary} documents={accountDocuments} payments={payments} partyId={party.id} />
         ) : null}
 
         {tab === "transactions" && canSeePurchases ? (
