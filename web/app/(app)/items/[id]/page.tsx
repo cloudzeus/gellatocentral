@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ClipboardEdit, Euro, FlaskConical, Plus, ScanBarcode, Trash2 } from "lucide-react";
+import { ClipboardEdit, Euro, ExternalLink, FlaskConical, Plus, ScanBarcode, Trash2 } from "lucide-react";
 import { BarcodeField } from "@/components/barcode-field";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
@@ -9,7 +9,7 @@ import { DetailGrid, Badge, btn, Card, Field, menuItem, Page, Select } from "@/c
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
-import { normalizeManufacturerName } from "@/lib/manufacturer";
+import { formatManufacturerBrand, normalizeManufacturerName } from "@/lib/manufacturer";
 import { listParams } from "@/lib/paging";
 import { resolvePrice } from "@/lib/purchase-pricing";
 import { formatBaseQty } from "@/lib/units";
@@ -267,7 +267,22 @@ export default async function GenericItemPage({ params, searchParams }: { params
               id: m.id,
               cells: {
                 item: <span className="font-semibold">{m.tradeItem.name} {m.tradeItem.orgId ? <Badge>ιδιωτικό</Badge> : null}</span>,
-                brand: m.tradeItem.brand ? `${normalizeManufacturerName(m.tradeItem.brand.manufacturer.name)} · ${m.tradeItem.brand.name}` : "—",
+                brand: m.tradeItem.brand ? (
+                  <span className="flex min-w-0 items-center gap-2">
+                    {m.tradeItem.brand.manufacturer.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- CDN URL της πλατφόρμας
+                      <img src={m.tradeItem.brand.manufacturer.logoUrl} alt="" className="size-7 shrink-0 rounded border border-border/60 bg-white object-contain p-0.5" loading="lazy" />
+                    ) : null}
+                    <span className="min-w-0">
+                      <span className="block truncate">{normalizeManufacturerName(m.tradeItem.brand.manufacturer.name)} · {m.tradeItem.brand.name}</span>
+                      {m.tradeItem.brand.manufacturer.website ? (
+                        <a href={m.tradeItem.brand.manufacturer.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-xs text-muted-foreground underline-offset-2 hover:underline">
+                          {m.tradeItem.brand.manufacturer.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}<ExternalLink className="size-3" />
+                        </a>
+                      ) : null}
+                    </span>
+                  </span>
+                ) : "—",
                 ean: <span className="tabular-nums">{m.tradeItem.ean ?? "—"}</span>,
                 content: content(m.tradeItem),
               },
@@ -276,6 +291,8 @@ export default async function GenericItemPage({ params, searchParams }: { params
                 view: <DetailGrid className="sm:grid-cols-2 lg:grid-cols-4">
                   <div><dt className="text-xs text-muted-foreground">Είδος</dt><dd className="font-medium">{m.tradeItem.name}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Μάρκα</dt><dd className="font-medium">{m.tradeItem.brand?.name ?? "—"}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Κατασκευαστής</dt><dd className="font-medium">{m.tradeItem.brand ? formatManufacturerBrand(m.tradeItem.brand.manufacturer.name, m.tradeItem.brand.name) : "—"}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Website κατασκευαστή</dt>{m.tradeItem.brand?.manufacturer.website ? <dd><a href={m.tradeItem.brand.manufacturer.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline">{m.tradeItem.brand.manufacturer.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}<ExternalLink className="size-3.5" /></a></dd> : <dd className="font-medium">—</dd>}</div>
                   <div><dt className="text-xs text-muted-foreground">Barcode</dt><dd className="font-medium">{m.tradeItem.ean ?? "—"}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Περιεχόμενο</dt><dd className="font-medium">{content(m.tradeItem)}</dd></div>
                 </DetailGrid>,
