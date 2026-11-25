@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpD
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, isValidElement, type ReactNode, useEffect, useRef, useState, useTransition } from "react";
+import { useBusy } from "@/lib/use-busy";
 import { useTablePreferences } from "@/lib/use-table-preferences";
 import { RowMenu } from "./row-menu";
 import { SearchSelect } from "./search-select";
@@ -113,6 +114,7 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkPending, startBulk] = useTransition();
+  useBusy(bulkPending);
   const pickerRef = useRef<HTMLDivElement>(null);
   const table = useRef<HTMLTableElement>(null);
   useDismiss(picker, () => setPicker(false), pickerRef);

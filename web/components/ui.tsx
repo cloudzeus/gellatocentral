@@ -51,7 +51,7 @@ export function Page({ section, title, description, actions, children }: { secti
         </div>
         {actions}
       </header>
-      <main className="flex-1 px-4 pt-5 pb-[calc(var(--bottom-nav-h,0px)+1.5rem)] lg:px-8 print:p-0">{children}</main>
+      <main className="flex-1 px-4 pt-5 pb-[calc(var(--bottom-nav-h,0px)+var(--feedback-h,0px)+1.5rem)] lg:px-8 print:p-0">{children}</main>
     </>
   );
 }

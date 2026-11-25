@@ -11,6 +11,7 @@ import { Submit } from "@/components/submit";
 import { Badge, btn, Card, cn, Field, menuItem, Select } from "@/components/ui";
 import { descendantCategoryIds, flattenTradeCategories, moveTradeCategory, type FlatTradeCategory, type TradeCategoryRecord } from "@/lib/trade-category-tree";
 import { deleteTradeCategory, saveTradeCategory, saveTradeCategoryLayout, toggleTradeCategory } from "./actions";
+import { useBusy } from "@/lib/use-busy";
 
 function CategoryForm({ categories, category, newParentId }: { categories: TradeCategoryRecord[]; category?: TradeCategoryRecord; newParentId?: string }) {
   const excluded = category ? new Set([category.id, ...descendantCategoryIds(categories, category.id)]) : new Set<string>();
@@ -109,6 +110,7 @@ export function CategoryTree({ categories: initial }: { categories: TradeCategor
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [pending, startTransition] = useTransition();
+  useBusy(pending);
   // Συγχρονισμός κατά το render μόνο όταν ο server δώσει πράγματι νέο snapshot, όχι σε κάθε τοπικό drag.
   if (previousInitial !== initial) {
     setPreviousInitial(initial);

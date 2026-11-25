@@ -7,6 +7,7 @@ import { SearchSelect } from "@/components/search-select";
 import { btn } from "@/components/ui";
 import type { SelectOption } from "@/lib/select-options";
 import { updateCatalogItemClassification, updateCategoryMatchItem } from "../actions";
+import { useBusy } from "@/lib/use-busy";
 
 export type CategoryMatchBrandOption = [id: string, name: string, manufacturerId: string];
 
@@ -29,6 +30,7 @@ export function CategoryMatchEditor({ itemId, categoryId, manufacturerId, brandI
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startSave] = useTransition();
+  useBusy(pending);
   const availableBrands = brandOptions.filter(([, , id]) => id === manufacturer);
 
   const changed = () => {

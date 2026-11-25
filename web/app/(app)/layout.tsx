@@ -1,10 +1,17 @@
 import { CircleAlert, Menu, Snowflake } from "lucide-react";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { Suspense } from "react";
+import { FeedbackStack } from "@/components/feedback/feedback-stack";
+import { FlashToasts } from "@/components/feedback/flash-toasts";
+import { TasksPanel } from "@/components/feedback/tasks-panel";
+import { Toaster } from "@/components/feedback/toaster";
+import { TopProgress } from "@/components/feedback/top-progress";
 import { BottomNav, NavLinks, Sidebar, UserFooter } from "@/components/nav-links";
 import { OfflineCountSessionGuard } from "@/components/offline-counts";
 import { getUser, memberPermissions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { decodeFlash, FLASH_COOKIE } from "@/lib/flash";
 import { needsLegalConsent } from "@/lib/gdpr";
 import { redirect } from "next/navigation";
 import { permissionFor, platformCan, staffRoleLabel } from "@/lib/permissions";
@@ -139,10 +146,19 @@ async function StateBanner() {
   );
 }
 
+/** Μηνύματα μετά από ενέργεια: τα ?saved= / ?error= της διεύθυνσης και το cookie όσων ενεργειών δεν κάνουν redirect. */
+async function Flash() {
+  return <FlashToasts cookie={decodeFlash((await cookies()).get(FLASH_COOKIE)?.value)} />;
+}
+
 // Το μενού και οι σελίδες διαβάζουν τη βάση και έρχονται με ροή (Suspense / loading.tsx).
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="flex min-h-dvh">
+      {/* Πορεία εργασίας: γραμμή φόρτωσης στην κορυφή, και κάτω δεξιά το παράθυρο «Εργασίες» πάνω από τα toasts */}
+      <Suspense fallback={null}><TopProgress /></Suspense>
+      <Suspense fallback={null}><Flash /></Suspense>
+      <FeedbackStack><TasksPanel /><Toaster /></FeedbackStack>
       <Suspense fallback={<div className="sidebar-surface hidden w-[17rem] shrink-0 lg:block" />}>
         <Menus />
       </Suspense>
