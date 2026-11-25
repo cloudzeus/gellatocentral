@@ -35,7 +35,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - `app/(app)/` — οθόνες εφαρμογής (RSC)· `app/api/` — route handlers· `app/layout.tsx`, `globals.css`
 - `lib/` — όλη η server λογική, ένα module ανά domain (`auth`, `parties`, `crm`, `billing`, `pos`, `viva/`, `gdpr/`…). Tests δίπλα στο αρχείο: `foo.test.ts`
 - `lib/db.ts` — το μοναδικό σημείο εισόδου στη βάση: `import { db } from "@/lib/db"` (singleton μέσω `globalThis`). Ποτέ `new PrismaClient` αλλού
-- `components/` — client/shared UI· `prisma/schema.prisma` — 48 models, πηγή αλήθειας για τα δεδομένα
+- `components/` — client/shared UI· `prisma/schema.prisma` — 159 models, πηγή αλήθειας για τα δεδομένα
 - Alias `@/*` → ρίζα του έργου
 
 ## Κανόνες που δεν παραβιάζονται

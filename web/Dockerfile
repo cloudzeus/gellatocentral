@@ -25,7 +25,9 @@ RUN npm run build
 # χωρίς να σέρνουμε όλο το node_modules της εφαρμογής στην τελική εικόνα.
 FROM node:24-alpine AS migrate-deps
 WORKDIR /migrate
-RUN apk add --no-cache openssl && npm install --omit=dev prisma@7 dotenv@18
+# Ακριβείς εκδόσεις, ίδιες με το package-lock.json: αλλιώς ένα deploy μπορεί να τρέξει migrations με νεότερο CLI
+# από αυτό που δοκιμάστηκε. Όταν αναβαθμίζεται το prisma στο package.json, αλλάζει και εδώ.
+RUN apk add --no-cache openssl && npm install --omit=dev prisma@7.10.1 dotenv@18.0.10
 
 FROM node:24-alpine AS runner
 WORKDIR /app

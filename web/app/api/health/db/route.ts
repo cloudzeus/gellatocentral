@@ -1,0 +1,18 @@
+import { db } from "@/lib/db";
+import { rateLimited } from "@/lib/rate-limit";
+
+// Έλεγχος ετοιμότητας: απαντά 200 μόνο αν η βάση απαντά μέσα σε 2 δευτ. Ξεχωριστό από το /api/health, που μένει
+// έλεγχος «ζει ο server»: αν το Coolify επανεκκινούσε το container σε κάθε διακοπή της βάσης, θα χειροτέρευε τη διακοπή.
+export async function GET() {
+  // δημόσιο και αγγίζει τη βάση: συνολικό όριο, αρκετό για έναν ελεγκτή ανά λίγα δευτερόλεπτα
+  if (rateLimited("health-db", 30, 60_000)) return Response.json({ status: "busy" }, { status: 429, headers: { "Cache-Control": "no-store" } });
+  try {
+    await Promise.race([
+      db.$queryRaw`SELECT 1`,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 2000)),
+    ]);
+    return Response.json({ status: "ok" }, { headers: { "Cache-Control": "no-store" } });
+  } catch {
+    return Response.json({ status: "database_unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
+}

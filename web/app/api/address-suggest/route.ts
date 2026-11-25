@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { suggestAddresses } from "@/lib/geocode";
 import { enrichSuggestions } from "@/lib/geo";
 import { accessFor } from "@/lib/plan-data";
+import { rateLimited } from "@/lib/rate-limit";
 
 export async function GET(req: Request) {
   const user = await getUser();
@@ -16,6 +17,8 @@ export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
   const q = (sp.get("q") ?? "").trim().slice(0, 120);
   if (q.length < 4) return Response.json([]);
+  // κάθε κλήση πάει στην υπηρεσία χάρτη: όριο ανά χρήστη, αρκετά ψηλό για κανονική πληκτρολόγηση
+  if (rateLimited(`address:${user.id}`, 60, 60_000)) return Response.json([], { status: 429 });
   // Αν η φόρμα έχει ήδη επιλεγμένη πόλη, οι προτάσεις οδών προτιμούν εκείνη (βλ. suggestAddresses)
   const cityId = (sp.get("cityId") ?? "").trim();
   let near: { latitude: number; longitude: number } | null = null;

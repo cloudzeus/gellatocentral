@@ -28,7 +28,7 @@ export async function changePassword(form: FormData) {
   const user = await requireUser();
   const d = z.object({ current: z.string().min(1).max(200), next: z.string().min(10).max(200) }).safeParse(Object.fromEntries(form));
   if (!d.success) return fail("Ο νέος κωδικός θέλει τουλάχιστον 10 χαρακτήρες");
-  if (!verifyPassword(d.data.current, user.passwordHash)) return fail("Ο τωρινός κωδικός δεν είναι σωστός");
+  if (!(await verifyPassword(d.data.current, user.passwordHash))) return fail("Ο τωρινός κωδικός δεν είναι σωστός");
   if (d.data.current === d.data.next) return fail("Ο νέος κωδικός είναι ίδιος με τον τωρινό");
   const here = await currentTokenHash();
   await db.$transaction([

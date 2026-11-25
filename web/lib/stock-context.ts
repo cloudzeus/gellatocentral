@@ -1,5 +1,5 @@
 // Server wrapper: authentication/RBAC/package από currentOrg και μετά φρέσκος scoped έλεγχος στη βάση.
-import { currentOrg, getUser } from "./auth";
+import { actorNameOf, currentOrg, getUser } from "./auth";
 import { db } from "./db";
 import type { Permission } from "./permissions";
 import { assertStockScope, type StockContext, type StockScopeInput } from "./stock-scope";
@@ -11,7 +11,7 @@ function contextFromCurrent(current: Awaited<ReturnType<typeof currentOrg>>): St
     orgId: current.org.id,
     membershipId: current.membership.id,
     userId: current.user.id,
-    userName: current.user.name,
+    userName: actorNameOf(current.user),
     permissions: current.permissions,
     storeIds: current.storeIds,
     warehouseIds: current.warehouseIds,

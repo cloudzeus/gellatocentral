@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "node --test \"lib/**/*.test.ts\"",
     "test:stock-integration": "tsx --test --test-concurrency=1 lib/stock-db.integration.ts lib/stock-read.integration.ts lib/stock-transfers.integration.ts lib/stock-counts.integration.ts lib/stock-corrections.integration.ts lib/stock-alerts.integration.ts",
+    "test:integration": "node scripts/assert-test-db.mjs && tsx --test --test-concurrency=1 \"lib/**/*.integration.ts\"",
     "demo:seed": "tsx prisma/demo-seed.ts",
     "backup": "tsx scripts/backup.ts",
     "postinstall": "prisma generate"
@@ -22,7 +23,6 @@
     "@xyflow/react": "^13.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cn": "^0.5.2",
     "dotenv": "^18.0.10",
     "exceljs": "^4.4.0",
     "leaflet": "^1.9.4",

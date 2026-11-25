@@ -254,7 +254,7 @@ export async function receivePurchaseOrder(ctx: StockContext, input: { orderId: 
       await tx.purchaseOrder.update({ where: { id: order.id }, data: { status: complete ? "RECEIVED" : "PARTIAL" } });
       await auditWorkflow(tx, { orgId: ctx.orgId, actor: { id: ctx.userId, name: ctx.userName }, action: "order.receive", entityType: "purchase_receipt", entityId: receipt.id, warehouseId: order.warehouseId, metadata: { orderId: order.id, lines: posted.length, complete, remaining, reviewStatus: receipt.reviewStatus, discrepancyCount: discrepancies.length, discrepancies } });
       return receipt;
-    });
+    }, LONG_POSTING);
   } catch (error) {
     if (isUniqueConflict(error)) {
       // Σε concurrent submit το ανοιχτό transaction ακυρώνεται· μόνο το committed, πλήρως ταυτόσημο receipt είναι replay.
@@ -545,3 +545,6 @@ export async function buildMrpSuggestions(ctx: StockContext, warehouseId: string
     return { generic, setting, ...suggestion, onHandBaseQty: onHand.get(generic.id) ?? 0, incomingBaseQty: incoming.get(generic.id) ?? 0 };
   }).filter((row) => row.suggestedBaseQty > 0).sort((a, b) => b.suggestedBaseQty - a.suggestedBaseQty);
 }
+// Παραλαβή έως 200 γραμμών με πολλά ερωτήματα ανά γραμμή: το προεπιλεγμένο όριο των 5 δευτ. του Prisma δεν φτάνει.
+const LONG_POSTING = { timeout: 30_000, maxWait: 10_000 };
+

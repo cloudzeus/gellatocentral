@@ -10,6 +10,32 @@ import {
 
 export type { VivaDeviceSearch, VivaTerminalMetadata } from "./device-discovery.ts";
 
+// Χωρίς όριο, μια Viva που δεν απαντά κρατά το αίτημα του ταμείου ανοιχτό επ' αόριστον.
+export const VIVA_TIMEOUT_MS = 15_000;
+
+/**
+ * Το αίτημα χρέωσης ή επιστροφής έφυγε αλλά δεν ήρθε απάντηση (timeout ή δίκτυο): μπορεί να έφτασε στη Viva.
+ * Ο καλών ΔΕΝ το σημειώνει αποτυχημένο και ΔΕΝ ξαναστέλνει· το αφήνει σε αναμονή και ρωτά με το ίδιο sessionId.
+ */
+export class VivaUnknownOutcomeError extends Error {
+  constructor(what: string, cause: unknown) {
+    super(`Viva ${what}: δεν ήρθε απάντηση, το αποτέλεσμα είναι άγνωστο`, { cause });
+    this.name = "VivaUnknownOutcomeError";
+  }
+}
+
+/** Στέλνει κίνηση που κινεί χρήματα. Ό,τι αποτύχει ΠΡΙΝ φύγει το αίτημα (ρυθμίσεις, token) είναι βέβαιη αποτυχία. */
+export async function sendTransaction(what: "sale" | "refund", url: string, token: string, body: string, send: typeof fetch = fetch) {
+  let res: Response;
+  try {
+    res = await send(url, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body, cache: "no-store", signal: AbortSignal.timeout(VIVA_TIMEOUT_MS) });
+  } catch (cause) {
+    throw new VivaUnknownOutcomeError(what, cause);
+  }
+  // Η Viva απάντησε και αρνήθηκε: βέβαιη αποτυχία.
+  if (!res.ok) throw new Error(`Viva ${what}: HTTP ${res.status} ${await res.text()}`);
+}
+
 /** Κλειδιά και διευθύνσεις για το περιβάλλον που έχει οριστεί στις Ρυθμίσεις. */
 async function isv() {
   // Οι ρυθμίσεις/η βάση φορτώνονται μόνο σε πραγματική κλήση· η επαλήθευση δέχεται mocked session loader.
@@ -42,7 +68,7 @@ async function bearer(): Promise<string> {
     method: "POST",
     headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
     body: "grant_type=client_credentials",
-    cache: "no-store",
+    cache: "no-store", signal: AbortSignal.timeout(VIVA_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`Viva token: HTTP ${res.status}`);
   const json = (await res.json()) as { access_token: string; expires_in: number };
@@ -59,10 +85,8 @@ export async function startSale(input: {
   terminalMerchantId: string;
   fiscalisationData: unknown;
 }) {
-  const res = await fetch(`${(await isv()).api}/ecr/isv/v1/transactions:sale`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${await bearer()}`, "Content-Type": "application/json" },
-    body: toVivaJson({
+  const api = (await isv()).api;
+  await sendTransaction("sale", `${api}/ecr/isv/v1/transactions:sale`, await bearer(), toVivaJson({
       sessionId: input.sessionId,
       terminalId: input.terminalId,
       cashRegisterId: input.cashRegisterId,
@@ -74,17 +98,14 @@ export async function startSale(input: {
       showReceipt: false, // την απόδειξη την τυπώνουμε εμείς, με τα στοιχεία σήμανσης
       isvDetails: { terminalMerchantId: input.terminalMerchantId },
       fiscalisationData: input.fiscalisationData,
-    }),
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`Viva sale: HTTP ${res.status} ${await res.text()}`);
+    }));
 }
 
 /** null = το τερματικό δεν έχει τελειώσει ακόμα (HTTP 202). */
 export async function getSession(sessionId: string): Promise<Record<string, unknown> | null> {
   const res = await fetch(`${(await isv()).api}/ecr/isv/v1/sessions/${encodeURIComponent(sessionId)}`, {
     headers: { Authorization: `Bearer ${await bearer()}` },
-    cache: "no-store",
+    cache: "no-store", signal: AbortSignal.timeout(VIVA_TIMEOUT_MS),
   });
   if (res.status === 202) return null;
   if (!res.ok) throw new Error(`Viva session: HTTP ${res.status}`);
@@ -164,10 +185,8 @@ export async function startRefund(input: {
   terminalMerchantId: string;
   fiscalisationData: unknown;
 }) {
-  const res = await fetch(`${(await isv()).api}/ecr/isv/v1/transactions:refund`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${await bearer()}`, "Content-Type": "application/json" },
-    body: toVivaJson({
+  const api = (await isv()).api;
+  await sendTransaction("refund", `${api}/ecr/isv/v1/transactions:refund`, await bearer(), toVivaJson({
       sessionId: input.sessionId,
       terminalId: input.terminalId,
       cashRegisterId: input.cashRegisterId,
@@ -177,10 +196,7 @@ export async function startRefund(input: {
       showTransactionResult: true,
       isvDetails: { terminalMerchantId: input.terminalMerchantId },
       fiscalisationData: input.fiscalisationData,
-    }),
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`Viva refund: HTTP ${res.status} ${await res.text()}`);
+    }));
 }
 
 /** Δοκιμή των κλειδιών ISV: ζητά token από τη Viva. Επιστρέφει null αν όλα καλά, αλλιώς το σφάλμα. */

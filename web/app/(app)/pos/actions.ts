@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { tenantWriteTransaction } from "@/lib/migration-cutover";
 import { completeSale, failSale, issueSale } from "@/lib/pos";
 import { currentContext } from "@/lib/tenant";
-import { startSale, vivaConfigured } from "@/lib/viva/cloud-terminal";
+import { startSale, vivaConfigured, VivaUnknownOutcomeError } from "@/lib/viva/cloud-terminal";
 import { syncBrowserPayment } from "@/lib/viva/browser-payment";
 
 const id = z.string().cuid();
@@ -70,7 +70,10 @@ export async function pay(methodId: string) {
         fiscalisationData: started.receipt.data,
       });
     } catch (e) {
-      await failSale(ctx.device.id, started.saleId, e instanceof Error ? e.message : String(e), undefined, ctx.org.id);
+      // Άγνωστο αποτέλεσμα: η χρέωση μπορεί να έφτασε στο τερματικό. Η πώληση μένει «περιμένει πληρωμή» και το
+      // ταμείο ρωτά τη Viva (syncPayment)· αν γύριζε σε πρόχειρο, το επόμενο «Πληρωμή» θα χρέωνε δεύτερη φορά.
+      if (!(e instanceof VivaUnknownOutcomeError))
+        await failSale(ctx.device.id, started.saleId, e instanceof Error ? e.message : String(e), undefined, ctx.org.id);
     }
   }
   revalidatePath("/pos");

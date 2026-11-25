@@ -15,7 +15,7 @@ import { validAfm } from "@/lib/afm";
 import { logAccess } from "@/lib/access-log";
 import { endTenantSession, getUser, requirePlatform, startTenantSession } from "@/lib/auth";
 import { permissionDiff } from "@/lib/access";
-import { canGrant, isPermission, isPlatformPermission, normalize, normalizePlatform, permissionLabel as orgPermLabel, PLATFORM_PERMISSIONS, PLATFORM_ROLES, platformPermissionsOf, type PlatformRoleKey, staffPermissions, staffRoleLabel, SYSTEM_ROLES } from "@/lib/permissions";
+import { expandPlatform, canGrant, isPermission, isPlatformPermission, normalize, normalizePlatform, permissionLabel as orgPermLabel, PLATFORM_PERMISSIONS, PLATFORM_ROLES, platformPermissionsOf, type PlatformRoleKey, staffPermissions, staffRoleLabel, SYSTEM_ROLES } from "@/lib/permissions";
 import { savePlatformRoles, storedPlatformRoles } from "@/lib/platform-roles";
 import { hashPassword } from "@/lib/password";
 import { settleCharge } from "@/lib/billing";
@@ -573,7 +573,9 @@ export async function setStaffRole(form: FormData) {
 /** Αφαιρεί την πρόσβαση στην κονσόλα και αποσυνδέει τον χρήστη. */
 export async function removeStaff(userId: string) {
   const admin = await requirePlatform("staff.delete");
-  const gone = await db.user.findFirst({ where: { id: id.parse(userId), platformRole: { not: null } } });
+  const gone = await db.user.findFirst({ where: { id: id.parse(userId), platformRole: { not: null } }, include: { staffRole: true, staffGroups: { include: { group: true } } } });
+  // όπως στην απενεργοποίηση: κανείς δεν αφαιρεί κάποιον με περισσότερα δικαιώματα από τον ίδιο
+  if (gone && !canGrant(staffPermissions(admin), staffPermissions(gone))) staffFail(`Ο ρόλος του χρήστη «${gone.name}» έχει δικαιώματα που δεν έχεις εσύ`);
   try {
     await db.$transaction(async (tx) => {
       await tx.user.updateMany({ where: { id: id.parse(userId), platformRole: { not: null } }, data: { platformRole: null, staffRoleId: null } });
@@ -696,7 +698,10 @@ export async function setStaffGroups(form: FormData) {
   if (!target) return staffFail("Άγνωστος χρήστης");
   if (!canGrant(staffPermissions(admin), staffPermissions(target))) return staffFail(`Ο ρόλος του χρήστη «${target.name}» έχει δικαιώματα που δεν έχεις εσύ`);
   const groupIds = form.getAll("groupIds").map(String).filter((g) => g.length <= 60);
-  const valid = (await db.staffGroup.findMany({ where: { id: { in: groupIds } }, select: { id: true } })).map((g) => g.id);
+  const groups = await db.staffGroup.findMany({ where: { id: { in: groupIds } }, select: { id: true, name: true, permissions: true } });
+  // οι ομάδες προσθέτουν δικαιώματα: κανείς δεν δίνει ομάδα με δικαίωμα που δεν έχει ο ίδιος
+  for (const g of groups) if (!canGrant(staffPermissions(admin), expandPlatform(g.permissions))) return staffFail(`Η ομάδα «${g.name}» έχει δικαιώματα που δεν έχεις εσύ`);
+  const valid = groups.map((g) => g.id);
   await db.$transaction([
     db.staffGroupMember.deleteMany({ where: { userId: d.userId } }),
     db.staffGroupMember.createMany({ data: valid.map((groupId) => ({ userId: d.userId, groupId })) }),

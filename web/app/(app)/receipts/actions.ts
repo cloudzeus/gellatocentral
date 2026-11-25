@@ -7,7 +7,7 @@ import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { completeCredit, failCredit, issueCredit } from "@/lib/documents/credit";
-import { getSession, startRefund, vivaConfigured } from "@/lib/viva/cloud-terminal";
+import { getSession, startRefund, vivaConfigured, VivaUnknownOutcomeError } from "@/lib/viva/cloud-terminal";
 
 /**
  * Πιστωτικό λιανικής (11.4) για την απόδειξη: πλήρης επιστροφή, συσχετιζόμενη πάντα.
@@ -31,6 +31,13 @@ export async function issueCreditNote(saleId: string) {
         fiscalisationData: credit.doc.data,
       });
     } catch (e) {
+      // Άγνωστο αποτέλεσμα: η επιστροφή μπορεί να έφτασε στο τερματικό. Το πιστωτικό μένει σε αναμονή (άρα δεν
+      // εκδίδεται δεύτερο) και ο χρήστης ρωτά τη Viva με τον «Έλεγχο»· αλλιώς ο πελάτης θα έπαιρνε τα χρήματα δύο φορές.
+      if (e instanceof VivaUnknownOutcomeError) {
+        revalidatePath(`/receipts/${saleId}`);
+        await flashFail("Δεν ξέρουμε αν η επιστροφή έφτασε στο τερματικό Viva", "Κοίταξε το τερματικό και πάτα «Έλεγχος» στο πιστωτικό. Μην εκδώσεις δεύτερο.");
+        return;
+      }
       await failCredit(credit.documentId, e instanceof Error ? e.message : String(e), undefined, org.id);
       throw e;
     }

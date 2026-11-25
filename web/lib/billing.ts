@@ -9,12 +9,18 @@ import { templates } from "./mail/templates";
 export async function settleCharge(chargeId: string, vivaTransactionId?: string) {
   const charge = await db.subscriptionCharge.findUnique({ where: { id: chargeId }, include: { subscription: true } });
   if (!charge) return null;
-  const { count } = await db.subscriptionCharge.updateMany({ where: { id: charge.id, paidAt: null }, data: { paidAt: new Date(), vivaTransactionId } });
+  // Χρέωση και συνδρομή μαζί: αλλιώς μια αποτυχία στη μέση αφήνει πληρωμένη χρέωση με ληγμένη συνδρομή,
+  // και η επανάληψη δεν τη διορθώνει γιατί βρίσκει τη χρέωση ήδη πληρωμένη.
+  const count = await db.$transaction(async (tx) => {
+    const { count } = await tx.subscriptionCharge.updateMany({ where: { id: charge.id, paidAt: null }, data: { paidAt: new Date(), vivaTransactionId } });
+    if (count)
+      await tx.subscription.update({
+        where: { id: charge.subscriptionId },
+        data: { status: "ACTIVE", currentPeriodEnd: charge.periodEnd > charge.subscription.currentPeriodEnd ? charge.periodEnd : undefined },
+      });
+    return count;
+  });
   if (count) {
-    await db.subscription.update({
-      where: { id: charge.subscriptionId },
-      data: { status: "ACTIVE", currentPeriodEnd: charge.periodEnd > charge.subscription.currentPeriodEnd ? charge.periodEnd : undefined },
-    });
     const { org, to } = await billingRecipients(charge.subscription.orgId);
     const mail = templates.paymentReceived(await platformSettings(), { orgName: org!.name, ...charge });
     for (const address of to) await sendMail({ to: address, template: "paymentReceived", org, mail });

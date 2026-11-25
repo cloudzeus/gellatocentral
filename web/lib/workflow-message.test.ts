@@ -17,3 +17,8 @@ test("workflowMessage: τα πραγματικά σφάλματα γίνοντα
   assert.equal(workflowMessage(Object.assign(new Error("Λάθος βάσης"), { digest: "1234567" })), "Λάθος βάσης");
   assert.doesNotThrow(() => rethrowControlFlow(null));
 });
+
+test("workflowMessage: σφάλμα Prisma δεν φτάνει στον χρήστη", () => {
+  const prisma = Object.assign(new Error("Invalid `prisma.sale.create()` invocation: Unique constraint failed on the fields: (`deviceId`)"), { name: "PrismaClientKnownRequestError", code: "P2002" });
+  assert.doesNotMatch(workflowMessage(prisma), /prisma|constraint/i);
+});

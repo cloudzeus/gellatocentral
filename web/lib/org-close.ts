@@ -49,7 +49,8 @@ export async function closingChecks(orgId: string) {
   return { stuck, exportedAt: exported?.createdAt ?? null, exportedBy: exported?.actorName ?? null, receipts, first: range._min.issuedAt, last: range._max.issuedAt };
 }
 
-const csv = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+// όπως το csvCell της εξαγωγής λογιστή: κείμενο που αρχίζει με = + - @ δεν εκτελείται ως τύπος στο Excel
+const csv = (v: unknown) => (typeof v === "number" ? `"${v}"` : `"${String(v ?? "").replace(/^(?=[=+\-@])/, "'").replace(/"/g, '""')}"`);
 const FISCAL_TEXT: Record<string, string> = { SIGNED: "Στάλθηκε", PENDING: "Εκκρεμεί", FAILED: "Απέτυχε", NOT_SENT: "Δοκιμαστική (δεν στάλθηκε)" };
 /** Αρχείο αποδείξεων για τον λογιστή: μία γραμμή ανά απόδειξη, σε CSV που ανοίγει στο Excel (UTF-8 με BOM, διαχωριστικό «;»). */
 export async function receiptsCsv(orgId: string) {

@@ -200,7 +200,7 @@ export async function rematchLine(form: FormData) {
 export async function removeLine(lineId: string, docId: string) {
   const { org } = await currentOrg("purchases.edit");
   const doc = await db.purchaseDoc.findFirst({ where: { id: docId, orgId: org.id, receiptInvoice: { is: null } } });
-  if (doc?.status === "DRAFT") await db.purchaseLine.deleteMany({ where: { id: lineId, orgId: org.id } });
+  if (doc?.status === "DRAFT") await db.purchaseLine.deleteMany({ where: { id: lineId, orgId: org.id, documentId: doc.id } }); // μόνο γραμμή αυτού του πρόχειρου
   back(`/purchases/${docId}`, "?saved=1");
 }
 

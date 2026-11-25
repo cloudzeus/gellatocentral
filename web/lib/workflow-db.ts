@@ -55,5 +55,10 @@ export function rethrowControlFlow(error: unknown) {
 
 export function workflowMessage(error: unknown) {
   rethrowControlFlow(error);
+  // Σφάλμα της βάσης (Prisma): το κείμενό του έχει ονόματα πινάκων και ερωτήματα· ο χρήστης βλέπει γενικό μήνυμα.
+  if (error instanceof Error && (error.name.startsWith("PrismaClient") || /^P\d{4}$/.test(String((error as { code?: unknown }).code ?? "")))) {
+    console.error("Σφάλμα βάσης σε ενέργεια:", error.message);
+    return "Η ενέργεια απέτυχε. Δοκίμασε ξανά· αν επιμένει, ενημέρωσε την υποστήριξη";
+  }
   return error instanceof Error ? error.message.slice(0, 400) : "Η ενέργεια απέτυχε";
 }
