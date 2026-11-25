@@ -5,6 +5,15 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
 import { hashPassword } from "../lib/password";
 
+// Δημιουργεί λογαριασμό με γνωστό κωδικό: μόνο σε τοπική βάση ανάπτυξης, ποτέ σε παραγωγή.
+{
+  const host = new URL(process.env.DATABASE_URL ?? "postgresql://localhost/x").hostname;
+  if (process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1", "::1"].includes(host)) {
+    console.error(`Άρνηση: το script τρέχει μόνο σε τοπική βάση (host: ${host}).`);
+    process.exit(1);
+  }
+}
+
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
 const EMAIL = "demo@gelato.local";

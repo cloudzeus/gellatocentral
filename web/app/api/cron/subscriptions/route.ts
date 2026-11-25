@@ -12,7 +12,7 @@ import { monthlyPreview } from "@/lib/plans";
 export async function POST(req: Request) {
   const secret = await setting("CRON_SECRET");
   const given = req.headers.get("authorization")?.replace(/^Bearer /, "") ?? "";
-  if (secret.length < 20 || given.length !== secret.length || !timingSafeEqual(Buffer.from(given), Buffer.from(secret)))
+  if (secret.length < 20 || Buffer.byteLength(given) !== Buffer.byteLength(secret) || !timingSafeEqual(Buffer.from(given), Buffer.from(secret)))
     return Response.json({ error: "unauthorized" }, { status: 401 });
 
   const now = new Date();
