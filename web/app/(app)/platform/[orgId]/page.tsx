@@ -239,7 +239,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                   id: l.storeId,
                   cells: {
                     store: <span className="font-semibold">{l.name}</span>,
-                    status: l.paused ? <StatusBadge look={look("warning", `Σε παύση από ${day(l.paused.startedAt)}`)} /> : <StatusBadge look={look("success", "Σε λειτουργία")} />,
+                    status: l.paused ? <StatusBadge look={look("neutral", `Σε παύση από ${day(l.paused.startedAt)}`)} /> : <StatusBadge look={look("success", "Σε λειτουργία")} />,
                     devices: `${l.devices} · ${euro(l.devicesCents)}`,
                     full: euro(l.fullCents),
                     pause: l.pauseDays ? `${l.pauseDays} ημέρες · ${l.discountCents > 0 ? "−" : "+"}${euro(Math.abs(l.discountCents))}` : "—",

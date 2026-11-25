@@ -60,6 +60,7 @@ export default async function WholesaleOrdersPage({ searchParams }: PageProps<"/
             empty={<><p>Εδώ είναι οι παραγγελίες που σου κάνουν οι πελάτες χονδρικής. Δεν υπάρχει καμία ακόμα.</p>{create ? <div className="mt-3 flex justify-center">{create}</div> : null}</>}
             columns={[
               { key: "number", label: "Αριθμός", required: true, sortable: true },
+              { key: "status", label: "Κατάσταση" },
               { key: "date", label: "Ημερομηνία", sortable: true },
               { key: "source", label: "Προέλευση" },
               { key: "customer", label: "Πελάτης" },
@@ -67,8 +68,7 @@ export default async function WholesaleOrdersPage({ searchParams }: PageProps<"/
               { key: "needed", label: "Παράδοση", sortable: true },
               { key: "lines", label: "Γραμμές", numeric: true },
               { key: "total", label: "Σύνολο", numeric: true, sortable: true },
-              { key: "status", label: "Κατάσταση" },
-            ]}
+              ]}
             rows={orders.map((order) => ({
               id: order.id,
               cells: {

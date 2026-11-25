@@ -95,7 +95,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
                 <li key={s.id} className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 ${s.paused ? "bg-gold/5" : ""}`}>
                   <span className={`grid size-9 shrink-0 place-items-center rounded-lg ${s.paused ? "bg-gold/15 text-gold-ink" : "bg-success/10 text-success-ink"}`}>{s.paused ? <Snowflake className="size-4" /> : <Store className="size-4" />}</span>
                   <div className="min-w-0 basis-56 flex-1">
-                    <p className="font-semibold">{s.name} <StatusBadge look={s.paused ? look("warning", `Σε παύση ${days} ${days === 1 ? "ημέρα" : "ημέρες"}`) : look("success", "Σε λειτουργία")} /></p>
+                    <p className="font-semibold">{s.name} <StatusBadge look={s.paused ? look("neutral", `Σε παύση ${days} ${days === 1 ? "ημέρα" : "ημέρες"}`) : look("success", "Σε λειτουργία")} /></p>
                     <p className="text-sm text-muted-foreground">
                       {s.paused
                         ? `από ${day(s.paused.startedAt)} · ${days < MIN_PAUSE_DAYS ? `η έκπτωση ξεκλειδώνει σε ${MIN_PAUSE_DAYS - days} ημέρες και μετρά από την πρώτη` : `κανονικά ${euro(m.fullCents)}, τώρα το ${plan.pausePercent}%`}`

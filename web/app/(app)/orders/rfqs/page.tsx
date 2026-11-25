@@ -46,12 +46,12 @@ export default async function RfqsPage({ searchParams }: PageProps<"/orders/rfqs
             empty={<><p>Εδώ ζητάς τιμές από πολλούς προμηθευτές μαζί και τις συγκρίνεις. Δεν έχεις στείλει κανένα αίτημα ακόμα.</p>{create ? <div className="mt-3 flex justify-center">{create}</div> : null}</>}
             columns={[
               { key: "number", label: "Αίτημα", required: true, sortable: true },
+              { key: "status", label: "Κατάσταση" },
               { key: "date", label: "Δημιουργήθηκε", sortable: true },
               { key: "replyBy", label: "Προθεσμία", sortable: true },
               { key: "lines", label: "Είδη", numeric: true },
               { key: "replies", label: "Προσφορές", numeric: true },
-              { key: "status", label: "Κατάσταση" },
-            ]}
+              ]}
             rows={rfqs.map((rfq) => {
               const due = dueStatus(rfq.replyBy, now, rfq.status !== "OPEN");
               return {

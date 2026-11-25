@@ -56,11 +56,11 @@ export default async function DeliveryRoutesPage({ searchParams }: PageProps<"/w
             empty={<><p>Εδώ βάζεις τις επιβεβαιωμένες παραγγελίες σε δρομολόγια παράδοσης, με στάσεις και οδηγό. Δεν υπάρχει κανένα δρομολόγιο ακόμα.</p>{create ? <div className="mt-3 flex justify-center">{create}</div> : null}</>}
             columns={[
               { key: "name", label: "Δρομολόγιο", required: true, sortable: true },
+              { key: "status", label: "Κατάσταση" },
               { key: "plannedFor", label: "Προγραμματισμένο για", sortable: true },
               { key: "driver", label: "Οδηγός" },
               { key: "stops", label: "Παραδόθηκαν / στάσεις", numeric: true },
-              { key: "status", label: "Κατάσταση" },
-            ]}
+              ]}
             rows={routes.map((route) => ({
               id: route.id,
               cells: {

@@ -48,12 +48,12 @@ export default async function PriceListsPage({ searchParams }: PageProps<"/whole
             empty={<><p>Εδώ ορίζεις τις τιμές χονδρικής, για όλους ή για έναν πελάτη. Δεν υπάρχει κανένας τιμοκατάλογος ακόμα.</p>{create ? <div className="mt-3 flex justify-center">{create}</div> : null}</>}
             columns={[
               { key: "name", label: "Τιμοκατάλογος", required: true, sortable: true },
+              { key: "status", label: "Κατάσταση" },
               { key: "customer", label: "Πελάτης" },
               { key: "validFrom", label: "Ισχύς από", sortable: true },
               { key: "validTo", label: "Ισχύς έως" },
               { key: "items", label: "Είδη", numeric: true },
-              { key: "status", label: "Κατάσταση" },
-            ]}
+              ]}
             rows={lists.map((row) => ({
               id: row.id,
               cells: {

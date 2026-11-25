@@ -68,18 +68,20 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
             empty={<><p>Εδώ είναι τα τιμολόγια, τα πιστωτικά και τα δελτία παράδοσης της χονδρικής. Δεν έχει εκδοθεί κανένα ακόμα: εκδίδονται μέσα από μια παραγγελία χονδρικής.</p><div className="mt-3 flex justify-center"><Link href="/wholesale-orders" className={btn("outline", "sm")}>Παραγγελίες χονδρικής</Link></div></>}
             columns={[
               { key: "document", label: "Παραστατικό", required: true },
+              { key: "status", label: "Κατάσταση" },
               { key: "type", label: "Είδος" },
               { key: "customer", label: "Πελάτης" },
-              { key: "order", label: "Παραγγελία" },
+              { key: "order", label: "Παραγγελία", narrowHidden: true },
               { key: "date", label: "Ημερομηνία", sortable: true },
               { key: "total", label: "Σύνολο", numeric: true, sortable: true },
               { key: "outstanding", label: "Απλήρωτο", numeric: true },
-              { key: "status", label: "Κατάσταση" },
-            ]}
+              ]}
             rows={documents.map((document) => {
               const outstanding = outstandingCents(document, document.allocations);
               return {
                 id: document.id,
+                // η «Παραγγελία» κρύβεται στον πίνακα κάτω από 2xl: εδώ φαίνεται πάντα
+                details: { label: `${document.series}-${document.aa}`, view: <p className="text-sm">Παραγγελία: <Link href={`/wholesale-orders/${document.orderId}`} className="font-semibold underline underline-offset-2">{document.order.number}</Link></p> },
                 cells: {
                   document: <Link href={`/invoices/${document.id}`} className="font-semibold underline-offset-2 hover:underline">{document.series}-{document.aa}</Link>,
                   type: TYPE[document.docType as keyof typeof TYPE] ?? document.docType,
