@@ -15,7 +15,7 @@ import { validAfm } from "@/lib/afm";
 import { logAccess } from "@/lib/access-log";
 import { endTenantSession, getUser, requirePlatform, startTenantSession } from "@/lib/auth";
 import { permissionDiff } from "@/lib/access";
-import { canGrant, isPermission, isPlatformPermission, normalize, normalizePlatform, permissionLabel as orgPermLabel, PLATFORM_PERMISSIONS, PLATFORM_ROLES, platformPermissionsOf, type PlatformRoleKey, staffPermissions, staffRoleLabel, SYSTEM_ROLES } from "@/lib/permissions";
+import { expandPlatform, canGrant, isPermission, isPlatformPermission, normalize, normalizePlatform, permissionLabel as orgPermLabel, PLATFORM_PERMISSIONS, PLATFORM_ROLES, platformPermissionsOf, type PlatformRoleKey, staffPermissions, staffRoleLabel, SYSTEM_ROLES } from "@/lib/permissions";
 import { savePlatformRoles, storedPlatformRoles } from "@/lib/platform-roles";
 import { hashPassword } from "@/lib/password";
 import { settleCharge } from "@/lib/billing";
@@ -700,7 +700,7 @@ export async function setStaffGroups(form: FormData) {
   const groupIds = form.getAll("groupIds").map(String).filter((g) => g.length <= 60);
   const groups = await db.staffGroup.findMany({ where: { id: { in: groupIds } }, select: { id: true, name: true, permissions: true } });
   // οι ομάδες προσθέτουν δικαιώματα: κανείς δεν δίνει ομάδα με δικαίωμα που δεν έχει ο ίδιος
-  for (const g of groups) if (!canGrant(staffPermissions(admin), normalizePlatform(g.permissions.filter(isPlatformPermission)))) return staffFail(`Η ομάδα «${g.name}» έχει δικαιώματα που δεν έχεις εσύ`);
+  for (const g of groups) if (!canGrant(staffPermissions(admin), expandPlatform(g.permissions))) return staffFail(`Η ομάδα «${g.name}» έχει δικαιώματα που δεν έχεις εσύ`);
   const valid = groups.map((g) => g.id);
   await db.$transaction([
     db.staffGroupMember.deleteMany({ where: { userId: d.userId } }),
