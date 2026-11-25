@@ -30,10 +30,10 @@ test("βήματα αρχικοποίησης", () => {
   assert.deepEqual(stale.map((s) => s.done), [false, true, true, false, false, false]);
 });
 
-test("κωδικοί", () => {
+test("κωδικοί", async () => {
   const h = hashPassword("σωστός-κωδικός-1");
-  assert.equal(verifyPassword("σωστός-κωδικός-1", h), true);
-  assert.equal(verifyPassword("λάθος", h), false);
-  assert.equal(verifyPassword("x", null), false);
+  assert.equal(await verifyPassword("σωστός-κωδικός-1", h), true);
+  assert.equal(await verifyPassword("λάθος", h), false);
+  assert.equal(await verifyPassword("x", null), false);
   assert.notEqual(h, hashPassword("σωστός-κωδικός-1")); // διαφορετικό αλάτι κάθε φορά
 });

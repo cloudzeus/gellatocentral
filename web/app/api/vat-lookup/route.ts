@@ -3,6 +3,7 @@
 import { getUser, memberPermissions } from "@/lib/auth";
 import { lookupParty } from "@/lib/party-lookup";
 import { accessFor } from "@/lib/plan-data";
+import { rateLimited } from "@/lib/rate-limit";
 
 export async function GET(req: Request) {
   const user = await getUser();
@@ -13,5 +14,8 @@ export async function GET(req: Request) {
   const q = new URL(req.url).searchParams;
   const vat = (q.get("vat") ?? "").slice(0, 30);
   if (vat.replace(/\W/g, "").length < 5) return Response.json({ ok: false, message: "Γράψε πρώτα το ΑΦΜ" });
-  return Response.json(await lookupParty({ countryCode: (q.get("country") ?? "GR").slice(0, 2), vat, org: canTenant ? { id: m.orgId, vatNumber: m.org.vatNumber } : null, userName: user.name, force: q.get("force") === "1" }));
+  return Response.json(await lookupParty({
+    countryCode: (q.get("country") ?? "GR").slice(0, 2), vat, org: canTenant ? { id: m.orgId, vatNumber: m.org.vatNumber } : null, userName: user.name, // το «ξαναρώτα» παρακάμπτει την cache 30 ημερών: έως 5 φορές το λεπτό ανά χρήστη, μετά απαντά η cache
+    force: q.get("force") === "1" && !rateLimited(`vat-force:${user.id}`, 5, 60_000),
+  }));
 }
