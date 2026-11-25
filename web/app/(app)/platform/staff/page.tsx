@@ -25,12 +25,13 @@ export default async function PlatformStaffPage({ searchParams }: PageProps<"/pl
   const admin = await requirePlatform("staff.read");
   const q = await searchParams;
   const mine = staffPermissions(admin);
-  const [staff, customRoles, groups, orgs, staffHistory] = await Promise.all([
+  const [staff, customRoles, groups, orgs, staffHistory, staffHistoryTotal] = await Promise.all([
     db.user.findMany({ where: { platformRole: { not: null } }, orderBy: { name: "asc" }, include: { staffRole: true, staffGroups: { include: { group: true } }, storeAccesses: { include: { org: { select: { name: true } }, store: { select: { name: true } } } } } }),
     db.staffRole.findMany({ orderBy: { name: "asc" } }),
     db.staffGroup.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { members: true } } } }),
     db.organization.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, stores: { where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } } } }),
     db.accessEvent.findMany({ where: { orgId: null }, orderBy: { createdAt: "desc" }, take: 10 }),
+    db.accessEvent.count({ where: { orgId: null } }),
   ]);
   const roleOptions: [string, string][] = [...Object.entries(PLATFORM_ROLES).map(([k, r]): [string, string] => [k, r.label]), ...customRoles.map((r): [string, string] => [`custom:${r.id}`, r.name])];
   const roleValue = (u: { platformRole: PlatformRoleKey | null; staffRoleId: string | null }) => (u.staffRoleId && u.platformRole !== "SUPER_ADMIN" ? `custom:${u.staffRoleId}` : u.platformRole!);
@@ -123,7 +124,8 @@ export default async function PlatformStaffPage({ searchParams }: PageProps<"/pl
           </ul>
           {staffHistory.length ? (
             <details className="border-t border-border/70 px-5 py-3">
-              <summary className="cursor-pointer text-sm font-semibold">Ιστορικό αλλαγών στο προσωπικό ({staffHistory.length} πιο πρόσφατες)</summary>
+              <summary className="cursor-pointer text-sm font-semibold">Ιστορικό αλλαγών στο προσωπικό</summary>
+              {staffHistoryTotal > staffHistory.length ? <p className="mt-2 text-xs text-muted-foreground">Εμφανίζονται οι {staffHistory.length} πιο πρόσφατες από {staffHistoryTotal}</p> : null}
               <ul className="mt-2 space-y-1.5">
                 {staffHistory.map((e) => <li key={e.id} className="text-sm"><span className="font-semibold">{actionLabel(e.action)}</span>: {e.target}{e.detail ? ` · ${e.detail}` : ""} <span className="text-xs text-muted-foreground">· {e.actorName} · {seen.format(e.createdAt)}</span></li>)}
               </ul>

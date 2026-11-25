@@ -31,6 +31,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
   const usage = await db.usageEvent.groupBy({ by: ["service"], where: { orgId: org.id, createdAt: { gte: monthStart } }, _sum: { units: true, chargeCents: true } });
   const usageLabels = usage.length ? new Map((await db.usagePrice.findMany({ where: { service: { in: usage.map((u) => u.service) } } })).map((p) => [p.service, p])) : new Map();
   const canPause = permissions.includes("stores.pause");
+  const chargesTotal = sub ? await db.subscriptionCharge.count({ where: { subscriptionId: sub.id } }) : 0;
   const open = sub?.charges.filter((x) => !x.paidAt) ?? [];
   const closes = plan.modules.filter((m) => !plan.pausedModules.includes(m)).map((m) => MODULES[m as ModuleKey]?.label).filter(Boolean);
   const stays = plan.modules.filter((m) => plan.pausedModules.includes(m)).map((m) => MODULES[m as ModuleKey]?.label).filter(Boolean);
@@ -145,6 +146,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
               ))}
             </ul>
           ) : null}
+          {chargesTotal > (sub?.charges.length ?? 0) ? <p className="border-t border-border/70 px-5 py-2.5 text-xs text-muted-foreground">Εμφανίζονται οι {(sub?.charges.length ?? 0)} πιο πρόσφατες από {chargesTotal}</p> : null}
         </Card>
 
         {usage.length ? (

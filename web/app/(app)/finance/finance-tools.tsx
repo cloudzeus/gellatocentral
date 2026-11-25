@@ -2,9 +2,11 @@
 
 // Persisted statement/payroll snapshots· τα ευαίσθητα payroll δεδομένα φορτώνονται μόνο στους εξουσιοδοτημένους χρήστες.
 import { useCallback, useState, type FormEvent } from "react";
-import { Badge, btn, Card, Field, Select } from "@/components/ui";
-import type { PersistedStatementReview, StatementReviewRow, StatementReviewStatus } from "@/lib/finance-reconciliation";
-import { payrollConfirmationPhrase, type PayrollExecutionReceipt, type PayrollExecutionStatus, type PayrollPaymentBatch, type PayrollPaymentBatchListItem } from "@/lib/payroll-payments";
+import { StatusBadge } from "@/components/status-badge";
+import { btn, Card, Field, Select } from "@/components/ui";
+import type { PersistedStatementReview, StatementReviewRow } from "@/lib/finance-reconciliation";
+import { statusOf } from "@/lib/status";
+import { payrollConfirmationPhrase, type PayrollExecutionReceipt, type PayrollPaymentBatch, type PayrollPaymentBatchListItem } from "@/lib/payroll-payments";
 
 type StatementReviewWire = Omit<PersistedStatementReview, "rows" | "createdAt"> & { createdAt: string; rows: (Omit<StatementReviewRow, "bookedAt"> & { bookedAt: string })[] };
 type StatementHistoryWire = Omit<StatementReviewWire, "rows">;
@@ -12,9 +14,6 @@ type PayrollHistoryWire = Omit<PayrollPaymentBatchListItem, "createdAt"> & { cre
 type Account = { id: string; name: string; kind: string };
 type Store = { id: string; name: string };
 type ProviderAvailability = { enabled: boolean; kind: "GENERIC_HTTPS" | null };
-const STATUS: Record<StatementReviewStatus, string> = { MATCHED: "Ταίριαξε", UNMATCHED: "Χωρίς αντιστοίχιση", AMBIGUOUS: "Διφορούμενο", CONFLICT: "Σύγκρουση" };
-const EXECUTION: Record<PayrollExecutionStatus, string> = { NOT_EXECUTED: "Προετοιμασμένο", PROCESSING: "Σε εξέλιξη", SUCCEEDED: "Επιβεβαιώθηκε", FAILED: "Απέτυχε οριστικά", UNCERTAIN: "Απαιτεί συμψηφισμό" };
-const tone = (status: StatementReviewStatus) => status === "MATCHED" ? "success" as const : status === "UNMATCHED" ? "neutral" as const : status === "AMBIGUOUS" ? "warning" as const : "danger" as const;
 const money = (cents: number) => (cents / 100).toLocaleString("el-GR", { style: "currency", currency: "EUR" });
 
 export function FinanceTools({ accounts, stores, from, to, canExport, canPay, initialStatementHistory, initialPayrollHistory, initialProvider }: { accounts: Account[]; stores: Store[]; from: string; to: string; canExport: boolean; canPay: boolean; initialStatementHistory: StatementHistoryWire[]; initialPayrollHistory: PayrollHistoryWire[]; initialProvider: ProviderAvailability }) {
@@ -141,7 +140,7 @@ export function FinanceTools({ accounts, stores, from, to, canExport, canPay, in
       {error ? <p role="alert" className="mt-3 text-sm text-destructive">{error}</p> : null}
       {review ? <div className="mt-4">
         <p className="text-xs text-muted-foreground">PERSISTED review {review.reviewId.slice(0, 12)} · {review.summary.MATCHED} matched · {review.summary.UNMATCHED} unmatched · {review.summary.AMBIGUOUS} ambiguous · {review.summary.CONFLICT} conflicts · νέες ledger κινήσεις: {review.movementsCreated}</p>
-        <div className="mt-2 overflow-x-auto"><table className="w-full min-w-180 text-sm"><tbody>{review.rows.slice(0, 200).map((row) => <tr key={row.line} className="border-b border-border/60 last:border-0"><td className="p-2">{row.line}<span className="block text-xs text-muted-foreground">{row.bookedAt.slice(0, 10)}</span></td><td className="p-2">{row.reference ?? row.description ?? "—"}<span className="block text-xs text-muted-foreground">{row.reasons.join(" · ") || (row.suggestedKind ? "Πιθανός διακανονισμός Viva" : "")}</span></td><td className="p-2 text-right">{money(row.amountCents)}</td><td className="p-2"><Badge tone={tone(row.status)}>{STATUS[row.status]}</Badge></td></tr>)}</tbody></table></div>
+        <div className="mt-2 overflow-x-auto"><table className="w-full min-w-180 text-sm"><tbody>{review.rows.slice(0, 200).map((row) => <tr key={row.line} className="border-b border-border/60 last:border-0"><td className="p-2">{row.line}<span className="block text-xs text-muted-foreground">{row.bookedAt.slice(0, 10)}</span></td><td className="p-2">{row.reference ?? row.description ?? "—"}<span className="block text-xs text-muted-foreground">{row.reasons.join(" · ") || (row.suggestedKind ? "Πιθανός διακανονισμός Viva" : "")}</span></td><td className="p-2 text-right">{money(row.amountCents)}</td><td className="p-2"><StatusBadge kind="statementRow" value={row.status} /></td></tr>)}</tbody></table></div>
         {review.rows.length > 200 ? <p className="mt-2 text-xs text-muted-foreground">Εμφανίζονται 200 από {review.rows.length} γραμμές.</p> : null}
       </div> : null}
     </Card>
@@ -163,7 +162,7 @@ export function FinanceTools({ accounts, stores, from, to, canExport, canPay, in
         <button className={btn("outline", "default", "sm:col-span-3")} disabled={payrollPending} type="submit">Αποθήκευση προετοιμασίας · χωρίς πληρωμή</button>
       </form>
       {payrollHistory.length ? <form onSubmit={submitPayrollExecution} className="mt-5 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
-        <Select label="Persisted batch" value={selectedBatchId} onChange={(event) => selectPayrollBatch(event.target.value)} options={[["", "Επίλεξε batch"], ...payrollHistory.map((batch): [string, string] => [batch.batchId, `${batch.filters.from} · ${batch.batchId.slice(0, 12)} · ${EXECUTION[batch.execution.status]}`])]} />
+        <Select label="Persisted batch" value={selectedBatchId} onChange={(event) => selectPayrollBatch(event.target.value)} options={[["", "Επίλεξε batch"], ...payrollHistory.map((batch): [string, string] => [batch.batchId, `${batch.filters.from} · ${batch.batchId.slice(0, 12)} · ${statusOf("payrollExecution", batch.execution.status).text}`])]} />
         <Select label="Τραπεζικός λογαριασμός" name="accountId" required options={payrollAccounts.map((account): [string, string] => [account.id, account.name])} />
         <input type="hidden" name="clientKey" value={clientKey} />
         <Field key={`${selectedBatchId}-amount`} label="Επιβεβαίωση ποσού €" name="confirmedAmount" inputMode="decimal" defaultValue={selectedBatch ? (selectedBatch.totals.readyAmountCents / 100).toFixed(2) : "0.00"} required />
@@ -172,12 +171,12 @@ export function FinanceTools({ accounts, stores, from, to, canExport, canPay, in
         <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
           <button className={btn("destructive")} disabled={payrollPending || !provider.enabled || !selectedBatch || !payrollAccounts.length || ["PROCESSING", "UNCERTAIN", "SUCCEEDED"].includes(selectedBatch.execution.status)} type="submit">{provider.enabled ? "Εκτέλεση με επιβεβαίωση" : "Provider DISABLED"}</button>
           {selectedBatch ? <a className={btn("outline")} href={`/api/finance/payroll-payments?batchId=${encodeURIComponent(selectedBatch.batchId)}&format=csv`}>Λήψη persisted CSV</a> : null}
-          {selectedBatch ? <Badge tone={selectedBatch.execution.status === "SUCCEEDED" ? "success" : selectedBatch.execution.status === "UNCERTAIN" ? "danger" : selectedBatch.execution.status === "PROCESSING" ? "warning" : "neutral"}>{EXECUTION[selectedBatch.execution.status]}</Badge> : null}
+          {selectedBatch ? <StatusBadge kind="payrollExecution" value={selectedBatch.execution.status} /> : null}
         </div>
       </form> : null}
       {payrollError ? <p role="alert" className="mt-3 text-sm text-destructive">{payrollError}</p> : null}
       {payrollMessage ? <p role="status" className="mt-3 text-sm text-muted-foreground">{payrollMessage}</p> : null}
-      {execution ? <p className="mt-2 text-xs text-muted-foreground">Execution {execution.executionId.slice(0, 12)} · {EXECUTION[execution.status]} · ledger εγγραφές: {execution.financeTransactionsCreated}{execution.failureCode ? ` · ${execution.failureCode}` : ""}</p> : null}
+      {execution ? <p className="mt-2 text-xs text-muted-foreground">Execution {execution.executionId.slice(0, 12)} · {statusOf("payrollExecution", execution.status).text} · ledger εγγραφές: {execution.financeTransactionsCreated}{execution.failureCode ? ` · ${execution.failureCode}` : ""}</p> : null}
     </Card> : null}
   </div>;
 }

@@ -27,7 +27,7 @@ export default async function VitrinePage({ searchParams }: PageProps<"/vitrine"
 
   return <Page section="Πελάτες & πωλήσεις" title="Δημόσια βιτρίνα" description="QR/TV προϊόντα, snapshots αλλεργιογόνων και διαθεσιμότητα από το απόθεμα">
     <div className="grid max-w-7xl gap-4">
-      {typeof query.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{query.error}</p> : null}{typeof query.saved === "string" ? <p role="status" className="rounded-lg bg-success/10 p-3 text-sm text-success-ink">{query.saved}</p> : null}
+      {typeof query.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{query.error}</p> : null}
       {stores.map((store) => {
         const setting = settings.find((row) => row.storeId === store.id) ?? null;
         const storeWarehouses = warehouses.filter((warehouse) => warehouse.stores.some((link) => link.storeId === store.id));

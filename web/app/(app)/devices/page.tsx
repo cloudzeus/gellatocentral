@@ -14,7 +14,10 @@ const when = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "
 export default async function DevicesPage() {
   const { org, can } = await currentOrg("devices.read");
   const stores = await db.store.findMany({ where: { orgId: org.id }, orderBy: { name: "asc" }, include: { devices: { orderBy: { createdAt: "asc" }, include: { readings: { orderBy: { at: "desc" }, take: 1 } } } } });
-  const accesses = await db.remoteAccess.findMany({ where: { orgId: org.id }, orderBy: { at: "desc" }, take: 20, include: { device: { select: { name: true } } } });
+  const [accesses, accessTotal] = await Promise.all([
+    db.remoteAccess.findMany({ where: { orgId: org.id }, orderBy: { at: "desc" }, take: 20, include: { device: { select: { name: true } } } }),
+    db.remoteAccess.count({ where: { orgId: org.id } }),
+  ]);
   return (
     <Page section="Ταμείο & τιμολόγηση" title="Συσκευές" description={`Ταμεία, οθόνες κουζίνας, ψυγεία, αυτόματοι πωλητές και ζυγαριές. Κάθε ενεργή συσκευή χρεώνεται με την τιμή του πακέτου σου (βλ. Συνδρομή)`}
       actions={
@@ -74,6 +77,7 @@ export default async function DevicesPage() {
                 ))}
               </ul>
             )}
+            {accessTotal > accesses.length ? <p className="border-t border-border/70 px-5 py-2.5 text-xs text-muted-foreground">Εμφανίζονται οι {accesses.length} πιο πρόσφατες από {accessTotal}</p> : null}
           </Card>
         </div>
     </Page>

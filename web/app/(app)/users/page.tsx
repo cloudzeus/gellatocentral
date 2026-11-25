@@ -51,13 +51,14 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
   const roleIds = (await db.orgRole.findMany({ where: { orgId: org.id }, select: { id: true } })).map((r) => r.id);
   const role = filterParam(q, "role", roleIds);
   const where = { orgId: org.id, ...(role ? { roleId: role } : {}), ...(list.q ? { user: { OR: [{ name: { contains: list.q, mode: "insensitive" as const } }, { email: { contains: list.q, mode: "insensitive" as const } }] } } : {}) };
-  const [members, total, roles, groups, stores, history] = await Promise.all([
+  const [members, total, roles, groups, stores, history, historyTotal] = await Promise.all([
     db.membership.findMany({ where, orderBy: list.sort === "role" ? { role: { name: list.dir } } : { user: { name: list.sort === "user" ? list.dir : "asc" } }, skip: list.skip, take: list.take, include: { user: true, role: true, stores: { include: { store: true } }, groups: { include: { group: true } } } }),
     db.membership.count({ where }),
     db.orgRole.findMany({ where: { orgId: org.id }, orderBy: [{ locked: "desc" }, { system: "desc" }, { name: "asc" }], include: { _count: { select: { members: true } } } }),
     db.orgGroup.findMany({ where: { orgId: org.id }, orderBy: { name: "asc" }, include: { _count: { select: { members: true } } } }),
     db.store.findMany({ where: { orgId: org.id, active: true }, orderBy: { name: "asc" } }),
     db.accessEvent.findMany({ where: { orgId: org.id }, orderBy: { createdAt: "desc" }, take: 30 }),
+    db.accessEvent.count({ where: { orgId: org.id } }),
   ]);
   // μόνο ρόλοι και ομάδες που δικαιούται να δώσει όποιος βλέπει τη σελίδα
   const roleOptions = roles.filter((r) => canGrant(mine, orgPermissionsOf(r))).map((r): [string, string] => [r.id, r.name]);
@@ -218,7 +219,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
         <Card id="history" className="scroll-mt-28">
           <div className="border-b border-border/70 px-5 py-4">
             <h2 className="text-lg">Ιστορικό αλλαγών</h2>
-            <p className="text-sm text-muted-foreground">Ποιος άλλαξε χρήστη, ρόλο ή δικαίωμα και πότε. Οι 30 πιο πρόσφατες</p>
+            <p className="text-sm text-muted-foreground">Ποιος άλλαξε χρήστη, ρόλο ή δικαίωμα και πότε</p>
           </div>
           {history.length ? (
             <ul className="divide-y divide-border/70">
@@ -228,6 +229,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
                   <p className="text-xs text-muted-foreground tabular-nums">{e.actorName} · {when.format(e.createdAt)}</p>
                 </li>
               ))}
+              {historyTotal > history.length ? <li className="px-5 py-2.5 text-xs text-muted-foreground">Εμφανίζονται οι {history.length} πιο πρόσφατες από {historyTotal}</li> : null}
             </ul>
           ) : <p className="px-5 py-6 text-sm text-muted-foreground">Καμία αλλαγή ακόμα. Κάθε πρόσκληση, αλλαγή ρόλου ή απενεργοποίηση θα φαίνεται εδώ</p>}
         </Card>

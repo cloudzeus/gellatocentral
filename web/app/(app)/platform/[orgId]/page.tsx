@@ -99,6 +99,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
   const settings = await platformSettings();
   const sub = org.subscription;
+  const chargesTotal = sub ? await db.subscriptionCharge.count({ where: { subscriptionId: sub.id } }) : 0;
   const steps = setupSteps({ ...org, stores: org.stores.map((s) => ({ ...s, warehouses: org.warehouses.filter((w) => w.stores.some((l) => l.storeId === s.id)) })) });
   const doneCount = steps.filter((s) => s.done).length;
   const stores = org.stores.filter((s) => s.active);
@@ -325,6 +326,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                 ))}
               </ul>
             ) : <Empty>Καμία χρέωση ακόμα. Η έκδοση «φωτογραφίζει» τα σημερινά καταστήματα και συσκευές με τις τιμές του πακέτου· όταν σημειωθεί πληρωμένη, η συνδρομή παρατείνεται.</Empty>}
+            {chargesTotal > (sub?.charges.length ?? 0) ? <p className="border-t border-border/70 px-5 py-2.5 text-xs text-muted-foreground">Εμφανίζονται οι {sub?.charges.length} πιο πρόσφατες από {chargesTotal}</p> : null}
           </div>
         </Section>
 

@@ -14,9 +14,10 @@ export default async function CatalogDuplicatesPage({ searchParams }: PageProps<
   const q = await searchParams;
   const all = await db.manufacturer.findMany({ select: { id: true, name: true } });
   const groups = findManufacturerDuplicates(all).slice(0, 40);
-  const [manufacturers, rawSuggestions] = await Promise.all([
+  const [manufacturers, rawSuggestions, suggestionsTotal] = await Promise.all([
     db.manufacturer.findMany({ where: { id: { in: groups.flatMap((g) => g.ids) } }, include: { brands: { orderBy: { name: "asc" }, include: { _count: { select: { items: true } } } } } }),
     db.manufacturerMergeSuggestion.findMany({ orderBy: [{ confidence: "desc" }, { createdAt: "desc" }], take: 40, include: { source: { include: { brands: { include: { _count: { select: { items: true } } } } } }, target: { include: { brands: { include: { _count: { select: { items: true } } } } } } } }),
+    db.manufacturerMergeSuggestion.count(),
   ]);
   const byId = new Map(manufacturers.map((m) => [m.id, m]));
   const seenPairs = new Set<string>();
@@ -58,6 +59,7 @@ export default async function CatalogDuplicatesPage({ searchParams }: PageProps<
               </Card>
             );
           }) : <Card><p className="px-5 py-6 text-sm text-muted-foreground">Δεν υπάρχουν ανοικτές AI προτάσεις. Ξεκίνα εμπλουτισμό από έναν ή έως τρεις κατασκευαστές στον κατάλογο.</p></Card>}
+          {suggestionsTotal > rawSuggestions.length ? <p className="px-1 text-xs text-muted-foreground">Εμφανίζονται οι {rawSuggestions.length} προτάσεις με τη μεγαλύτερη βεβαιότητα από {suggestionsTotal}</p> : null}
         </section>
 
         <section className="grid gap-3">
