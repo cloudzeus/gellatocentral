@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ProductionError, closeProductionBatch, correctProductionOutput } from "@/lib/production-db";
 import { requireStockContext } from "@/lib/stock-context";
+import { rethrowControlFlow } from "@/lib/workflow-db";
 
 const fail = (msg: string): never => {
   revalidatePath("/production");
@@ -46,6 +47,7 @@ export async function correctBatch(form: FormData) {
     revalidatePath(`/production/${batchId}`);
     redirect(`/production/${batchId}?corrected=1`);
   } catch (error) {
+    rethrowControlFlow(error); // το redirect της επιτυχίας δεν είναι σφάλμα
     revalidatePath(`/production/${batchId}`);
     redirect(`/production/${batchId}?error=${encodeURIComponent(error instanceof Error ? error.message : "Η διόρθωση απέτυχε")}`);
   }

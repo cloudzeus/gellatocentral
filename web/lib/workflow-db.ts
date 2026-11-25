@@ -43,6 +43,17 @@ export async function auditWorkflow(tx: Prisma.TransactionClient, input: AuditIn
   return writeAudit(tx, input);
 }
 
+/**
+ * Τα redirect()/notFound() του Next «πετάνε» για να αλλάξουν σελίδα· δεν είναι σφάλμα. Όποιο catch τα πιάσει πρέπει να τα
+ * ξαναπετάξει, αλλιώς μια επιτυχημένη ενέργεια (`try { …; back("?saved=…") } catch (e) { fail(e) }`) καταλήγει σε
+ * ?error=NEXT_REDIRECT. Χωρίς import του Next, για να φορτώνει το module και στα tests.
+ */
+export function rethrowControlFlow(error: unknown) {
+  const digest = (error as { digest?: unknown } | null)?.digest;
+  if (typeof digest === "string" && digest.startsWith("NEXT_")) throw error;
+}
+
 export function workflowMessage(error: unknown) {
+  rethrowControlFlow(error);
   return error instanceof Error ? error.message.slice(0, 400) : "Η ενέργεια απέτυχε";
 }

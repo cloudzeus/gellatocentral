@@ -1,5 +1,6 @@
 "use server";
 
+import { flashOk } from "@/lib/flash-server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -13,6 +14,8 @@ import { purchaseSnapshots } from "@/lib/purchase-snapshots";
 import { postPurchase } from "@/lib/purchases-db";
 import { saveFile } from "@/lib/storage";
 import { requireStockContext } from "@/lib/stock-context";
+import { runTask } from "@/lib/tasks";
+import { rethrowControlFlow } from "@/lib/workflow-db";
 
 const back = (path: string, q = ""): never => {
   revalidatePath("/purchases");
@@ -46,6 +49,7 @@ export async function createDoc(form: FormData) {
       ...snapshots, paymentMethod: supplier.paymentMethod?.name ?? null, paymentTerms: supplier.paymentTermsDays != null ? `Πίστωση ${supplier.paymentTermsDays} ημερών` : null, createdByName: user.name,
     },
   });
+  await flashOk("Το πρόχειρο τιμολόγιο αγοράς δημιουργήθηκε");
   back(`/purchases/${doc.id}`);
 }
 
@@ -212,6 +216,7 @@ export async function removeLines(docId: string, ids: string[]) {
   revalidatePath(`/purchases/${doc.id}`);
   revalidatePath("/purchases");
   if (result.count !== unique.length) return "Ορισμένες γραμμές δεν βρέθηκαν· ανανέωσε το τιμολόγιο";
+  await flashOk(unique.length === 1 ? "Η γραμμή του τιμολογίου διαγράφηκε" : `${unique.length} γραμμές του τιμολογίου διαγράφηκαν`);
 }
 
 /** Αποδοχή: παρτίδες + αποθέματα + τιμές, όλα σε μία συναλλαγή (lib/purchases-db.ts). */
@@ -240,9 +245,15 @@ export async function importDocs(form: FormData) {
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) return fail("Δώσε έγκυρο διάστημα ημερομηνιών");
   if (to.getTime() - from.getTime() > 93 * 86_400_000) return fail("Το διάστημα είναι έως ένα τρίμηνο");
   try {
-    const r = await importMyIncome(org.id, user.name, from, to);
+    // εξωτερική υπηρεσία (ΑΑΔΕ/myDATA) με πολλά παραστατικά: φαίνεται στο παράθυρο «Εργασίες»
+    const r = await runTask({ orgId: org.id, userId: user.id, userName: user.name }, { kind: "purchases.mydata", title: "Λήψη τιμολογίων αγοράς από την ΑΑΔΕ", permission: "purchases.read" }, async (task) => {
+      const result = await importMyIncome(org.id, user.name, from, to);
+      task.result("/purchases");
+      return result;
+    });
     back("/purchases", `?saved=${encodeURIComponent(`Λήφθηκαν ${r.created} παραστατικά${r.skipped ? ` (${r.skipped} ήδη υπήρχαν)` : ""}`)}`);
   } catch (e) {
+    rethrowControlFlow(e); // το redirect της επιτυχίας δεν είναι σφάλμα
     return fail(e instanceof Error ? e.message : "Η λήψη απέτυχε");
   }
 }
@@ -259,7 +270,11 @@ export async function scanDoc(form: FormData) {
   const data = new Uint8Array(await file.arrayBuffer());
   const base64 = Buffer.from(data).toString("base64");
   try {
-    const docId = await scanPurchaseInvoice(org.id, user.name, supplierId, warehouseId, file.type, base64);
+    const docId = await runTask({ orgId: org.id, userId: user.id, userName: user.name }, { kind: "purchases.scan", title: `Ανάγνωση τιμολογίου αγοράς · ${file.name.slice(0, 60)}`, permission: "purchases.read" }, async (task) => {
+      const id = await scanPurchaseInvoice(org.id, user.name, supplierId, warehouseId, file.type, base64);
+      task.result(`/purchases/${id}`);
+      return id;
+    });
     try {
       await saveFile({ orgId: org.id, category: "purchase_document", refType: "purchase", refId: docId, name: file.name, data, userId: user.id });
     } catch {
@@ -267,6 +282,7 @@ export async function scanDoc(form: FormData) {
     }
     back(`/purchases/${docId}`, "?saved=ocr");
   } catch (e) {
+    rethrowControlFlow(e); // το redirect της επιτυχίας δεν είναι σφάλμα
     return fail(e instanceof Error ? e.message : "Η σάρωση απέτυχε");
   }
 }
