@@ -3,6 +3,8 @@
 // Ζώνη, κωδικός, περιοχή και διεύθυνση CDN ορίζονται στις Ρυθμίσεις της πλατφόρμας (lib/config.ts).
 import { settings } from "../config";
 
+const TRANSFER_TIMEOUT_MS = 60_000; // ανέβασμα και λήψη αρχείου: αρκετό για τα όρια μεγέθους μας, όχι άπειρο
+
 /** Τα στοιχεία της ζώνης, όπως ορίστηκαν στις Ρυθμίσεις. Το `key` δεν φεύγει ποτέ προς τον browser. */
 export async function storageConfig() {
   const c = await settings("BUNNY_STORAGE_ZONE", "BUNNY_STORAGE_KEY", "BUNNY_STORAGE_REGION", "BUNNY_CDN_URL");
@@ -26,12 +28,12 @@ async function expectOk(res: Response, what: string) {
 }
 
 export const put = async (path: string, body: Uint8Array, contentType: string) =>
-  expectOk(await fetch(await target(path), { method: "PUT", headers: { ...(await auth()), "Content-Type": contentType }, body: body as BodyInit, cache: "no-store" }), "αποθήκευση");
+  expectOk(await fetch(await target(path), { method: "PUT", headers: { ...(await auth()), "Content-Type": contentType }, body: body as BodyInit, cache: "no-store", signal: AbortSignal.timeout(TRANSFER_TIMEOUT_MS) }), "αποθήκευση");
 export const remove = async (path: string) => {
-  const res = await fetch(await target(path), { method: "DELETE", headers: await auth(), cache: "no-store" });
+  const res = await fetch(await target(path), { method: "DELETE", headers: await auth(), cache: "no-store", signal: AbortSignal.timeout(8000) });
   if (res.status !== 404) await expectOk(res, "διαγραφή"); // ήδη σβησμένο = εντάξει
 };
-export const download = async (path: string) => expectOk(await fetch(await target(path), { headers: await auth(), cache: "no-store" }), "λήψη");
+export const download = async (path: string) => expectOk(await fetch(await target(path), { headers: await auth(), cache: "no-store", signal: AbortSignal.timeout(TRANSFER_TIMEOUT_MS) }), "λήψη");
 /** Διεύθυνση δημόσιου αρχείου στο CDN, ή null αν δεν έχει οριστεί pull zone. */
 export const cdnUrl = async (path: string) => { const { cdn } = await storageConfig(); return cdn ? `${cdn}/${encode(path)}` : null; };
 
