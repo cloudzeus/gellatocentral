@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { ArrowLeft, BellRing, Boxes, Trash2 } from "lucide-react";
+import { ArrowLeft, BellRing, CalendarClock, CalendarX2, Plus, Trash2 } from "lucide-react";
 import { Submit } from "@/components/submit";
-import { btn, Card, Page } from "@/components/ui";
+import { btn, Card, Field, Kpi, Page, Select } from "@/components/ui";
+import { DataTable } from "@/components/data-table";
+import { Modal } from "@/components/modal";
 import { db } from "@/lib/db";
 import { stockAlerts, STOCK_EXPIRY_BUCKET_LABEL, type StockExpiryBucket } from "@/lib/stock-alerts";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
@@ -10,9 +12,6 @@ import { deleteStockThreshold, saveStockThreshold } from "./actions";
 import { StatusBadge } from "@/components/status-badge";
 import { look } from "@/lib/status";
 
-const field = "h-10 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
-const th = "px-4 py-3 text-left text-xs font-semibold whitespace-nowrap text-muted-foreground";
-const td = "border-t border-border/70 px-4 py-3 align-middle";
 const day = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeZone: "Europe/Athens" });
 
 function expiryText(days: number): string {
@@ -38,111 +37,72 @@ export default async function StockAlertsPage({ searchParams }: PageProps<"/inve
   const expired = alerts.expiringLots.filter((lot) => lot.bucket === "expired").length;
   const upcoming = alerts.expiringLots.length - expired;
 
+  const itemLink = (id: string, name: string) => ctx.can("items.read") ? <Link href={`/items/${id}`} className="font-semibold underline-offset-2 hover:underline">{name}</Link> : <span className="font-semibold">{name}</span>;
+  const thresholdModal = edit ? <Modal size="sm" variant="default" label={<><Plus /> Ελάχιστο</>} title="Ελάχιστο απόθεμα" description="Όταν το υπόλοιπο πέσει κάτω από αυτό, το είδος εμφανίζεται στο «Τελειώνουν». Για αλλαγή, διάλεξε ξανά την ίδια αποθήκη και είδος.">
+    <form action={saveStockThreshold} className="grid gap-3">
+      <Select label="Αποθήκη" name="warehouseId" required options={[["", "Διάλεξε αποθήκη"], ...warehouses.map((w): [string, string] => [w.id, `${w.name}${w.active ? "" : " (ανενεργή)"}`])]} />
+      <Select label="Είδος" name="genericItemId" required options={[["", "Διάλεξε είδος"], ...items.map((i): [string, string] => [i.id, i.name])]} />
+      <Field label="Ελάχιστο (σε βασική μονάδα)" name="minimumQty" type="number" required min={0} max={2_147_483_647} step={1} defaultValue={0} hint="Το 0 ειδοποιεί μόνο για αρνητικό υπόλοιπο" />
+      <Submit className={btn("default", "default", "justify-self-end")}>Αποθήκευση</Submit>
+    </form>
+  </Modal> : null;
+  const low = alerts.lowStock.length;
+
   return (
     <Page
       section="Αποθήκη & αγορές"
       title="Ειδοποιήσεις αποθέματος"
-      description="Χαμηλά υπόλοιπα βάσει ρητών ελαχίστων και ανοιχτές παρτίδες που έληξαν ή λήγουν έως 30 ημέρες"
-      actions={<Link href="/inventory/stock" className={btn("outline", "sm")}><ArrowLeft /> Απόθεμα</Link>}
+      description="Τι τελειώνει και ποιες παρτίδες έληξαν ή λήγουν μέσα σε 30 ημέρες"
+      actions={<span className="flex flex-wrap gap-2"><Link href="/inventory/stock" className={btn("outline", "sm")}><ArrowLeft /> Απόθεμα</Link>{thresholdModal}</span>}
     >
       <div className="grid max-w-[90rem] gap-4">
-        {q.error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {String(q.error)}</p> : null}
+        {q.error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 font-medium text-destructive">Δεν αποθηκεύτηκε: {String(q.error)}</p> : null}
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <Card className="px-5 py-4"><p className="text-xs font-medium text-muted-foreground">Τελειώνουν</p><p className="mt-1 text-2xl font-semibold tabular-nums">{alerts.lowStock.length}</p></Card>
-          <Card className="px-5 py-4"><p className="text-xs font-medium text-muted-foreground">Ληγμένες ανοιχτές παρτίδες</p><p className="mt-1 text-2xl font-semibold tabular-nums">{expired}</p></Card>
-          <Card className="px-5 py-4"><p className="text-xs font-medium text-muted-foreground">Λήξεις έως 30 ημέρες</p><p className="mt-1 text-2xl font-semibold tabular-nums">{upcoming}</p></Card>
+          <Kpi icon={BellRing} label="Τελειώνουν" value={low} tone={low ? "warning" : alerts.thresholds.length ? "success" : "neutral"} hint={low ? "Κάνε παραγγελία πριν μείνεις χωρίς" : alerts.thresholds.length ? "Όλα πάνω από το ελάχιστο" : "Όρισε ελάχιστα για να ειδοποιείσαι"} />
+          <Kpi icon={CalendarX2} label="Ληγμένες παρτίδες" value={expired} tone={expired ? "danger" : "success"} hint={expired ? "Βγάλ' τες από τη χρήση και κατέγραψε φύρα" : "Καμία ληγμένη παρτίδα σε απόθεμα"} />
+          <Kpi icon={CalendarClock} label="Λήγουν σε 30 ημέρες" value={upcoming} tone={upcoming ? "warning" : "success"} hint={upcoming ? "Χρησιμοποίησέ τες πρώτες" : "Τίποτα δεν λήγει σύντομα"} />
         </div>
 
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[60rem] border-collapse text-sm">
-              <caption className="px-4 py-4 text-left"><span className="flex items-center gap-2 text-lg font-semibold"><BellRing className="size-5" /> Τελειώνουν</span><span className="text-muted-foreground">Ειδοποίηση μόνο όταν το τρέχον υπόλοιπο είναι μικρότερο από το καταχωρισμένο ελάχιστο</span></caption>
-              <thead className="bg-secondary/35"><tr><th className={th} scope="col">Είδος</th><th className={th} scope="col">Αποθήκη</th><th className={`${th} text-right`} scope="col">Τρέχον</th><th className={`${th} text-right`} scope="col">Ελάχιστο</th><th className={`${th} text-right`} scope="col">Έλλειμμα</th></tr></thead>
-              <tbody>
-                {alerts.lowStock.map((row) => (
-                  <tr key={row.thresholdId} className="hover:bg-secondary/20">
-                    <td className={`${td} font-semibold`}>{ctx.can("items.read") ? <Link href={`/items/${row.genericItemId}`} className="underline-offset-2 hover:underline">{row.itemName}</Link> : row.itemName}</td>
-                    <td className={td}>{row.warehouseName}</td>
-                    <td className={`${td} text-right font-semibold tabular-nums`}>{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</td>
-                    <td className={`${td} text-right tabular-nums`}>{formatStockQuantity(row.minimumQty, row.baseUnit.dimension)}</td>
-                    <td className={`${td} text-right font-semibold text-destructive tabular-nums`}>{formatStockQuantity(row.minimumQty - row.quantity, row.baseUnit.dimension)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {!alerts.lowStock.length ? <p className="px-4 pb-6 text-sm text-muted-foreground">Δεν υπάρχει υπόλοιπο κάτω από κάποιο καταχωρισμένο ελάχιστο.</p> : null}
-        </Card>
+        <section className="grid gap-2">
+          <h2 className="text-base font-semibold">Τελειώνουν</h2>
+          <Card>
+            <DataTable id="stock-low" empty={<p>Κανένα είδος κάτω από το ελάχιστο. {alerts.thresholds.length ? "" : "Όρισε ελάχιστα για να ειδοποιείσαι εδώ."}</p>}
+              columns={[{ key: "item", label: "Είδος", required: true }, { key: "warehouse", label: "Αποθήκη" }, { key: "qty", label: "Τρέχον", numeric: true }, { key: "min", label: "Ελάχιστο", numeric: true }, { key: "gap", label: "Λείπουν", numeric: true }]}
+              rows={alerts.lowStock.map((row) => ({ id: row.thresholdId, cells: {
+                item: itemLink(row.genericItemId, row.itemName), warehouse: row.warehouseName,
+                qty: formatStockQuantity(row.quantity, row.baseUnit.dimension), min: formatStockQuantity(row.minimumQty, row.baseUnit.dimension),
+                gap: <span className="font-semibold text-destructive">{formatStockQuantity(row.minimumQty - row.quantity, row.baseUnit.dimension)}</span>,
+              } }))} />
+          </Card>
+        </section>
 
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[76rem] border-collapse text-sm">
-              <caption className="px-4 py-4 text-left"><span className="block text-lg font-semibold">Λήξεις ανοιχτών παρτίδων</span><span className="text-muted-foreground">Μόνο θετικά υπόλοιπα · μηδενικές, αρνητικές και παρτίδες χωρίς λήξη εξαιρούνται</span></caption>
-              <thead className="bg-secondary/35"><tr><th className={th} scope="col">Παρτίδα</th><th className={th} scope="col">Είδος</th><th className={th} scope="col">Αποθήκη</th><th className={`${th} text-right`} scope="col">Υπόλοιπο</th><th className={th} scope="col">Λήξη</th><th className={th} scope="col">Κατάσταση</th><th className={th} scope="col">Ιχνηλασιμότητα</th></tr></thead>
-              <tbody>
-                {alerts.expiringLots.map((row) => (
-                  <tr key={row.lotId} className="hover:bg-secondary/20">
-                    <td className={`${td} font-semibold tabular-nums`}>{row.batchNumber ?? "(χύμα)"}</td>
-                    <td className={td}>{ctx.can("items.read") ? <Link href={`/items/${row.genericItemId}`} className="underline-offset-2 hover:underline">{row.itemName}</Link> : row.itemName}</td>
-                    <td className={td}>{row.warehouseName}</td>
-                    <td className={`${td} text-right font-semibold tabular-nums`}>{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</td>
-                    <td className={`${td} whitespace-nowrap`}>{day.format(row.expiresAt)}<span className="block text-xs text-muted-foreground">{expiryText(row.days)}</span></td>
-                    <td className={td}><ExpiryBadge bucket={row.bucket} /></td>
-                    <td className={td}><Link href={`/inventory/stock/lots/${row.lotId}`} className={btn("outline", "sm")}>Άνοιγμα</Link></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {!alerts.expiringLots.length ? <p className="px-4 pb-6 text-sm text-muted-foreground">Δεν υπάρχουν θετικές παρτίδες ληγμένες ή με λήξη έως 30 ημέρες.</p> : null}
-        </Card>
+        <section className="grid gap-2">
+          <h2 className="text-base font-semibold">Λήξεις παρτίδων</h2>
+          <Card>
+            <DataTable id="stock-expiring" empty={<p>Καμία παρτίδα σε απόθεμα δεν έχει λήξει ούτε λήγει μέσα σε 30 ημέρες.</p>}
+              columns={[{ key: "lot", label: "Παρτίδα", required: true }, { key: "status", label: "Κατάσταση" }, { key: "item", label: "Είδος" }, { key: "warehouse", label: "Αποθήκη" }, { key: "qty", label: "Υπόλοιπο", numeric: true }, { key: "expires", label: "Λήξη" }]}
+              rows={alerts.expiringLots.map((row) => ({ id: row.lotId, cells: {
+                lot: <Link href={`/inventory/stock/lots/${row.lotId}`} className="font-semibold tabular-nums underline-offset-2 hover:underline">{row.batchNumber ?? "(χύμα)"}</Link>,
+                status: <ExpiryBadge bucket={row.bucket} />, item: itemLink(row.genericItemId, row.itemName), warehouse: row.warehouseName,
+                qty: formatStockQuantity(row.quantity, row.baseUnit.dimension),
+                expires: <span className="whitespace-nowrap">{day.format(row.expiresAt)} <span className={row.days < 0 ? "text-destructive" : "text-warning-ink"}>· {expiryText(row.days)}</span></span>,
+              } }))} />
+          </Card>
+        </section>
 
-        <Card className="overflow-hidden">
-          <div className="border-b border-border/70 px-5 py-4">
-            <h2 className="flex items-center gap-2 text-lg font-semibold"><Boxes className="size-5" /> Ελάχιστα ανά είδος και αποθήκη</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Το 0 δεν ειδοποιεί για μηδενικό απόθεμα, μόνο για αρνητικό. Χωρίς εγγραφή δεν παράγεται ειδοποίηση χαμηλού αποθέματος.</p>
-          </div>
-          {edit ? (
-            <form action={saveStockThreshold} className="grid gap-3 border-b border-border/70 bg-secondary/30 px-5 py-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(9rem,12rem)_auto] md:items-end">
-              <label className="space-y-1 text-sm font-medium">Αποθήκη
-                <select name="warehouseId" required defaultValue="" className={field}>
-                  <option value="" disabled>Επίλεξε αποθήκη</option>
-                  {warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.name}{warehouse.active ? "" : " (ανενεργή)"}</option>)}
-                </select>
-              </label>
-              <label className="space-y-1 text-sm font-medium">Είδος
-                <select name="genericItemId" required defaultValue="" className={field}>
-                  <option value="" disabled>Επίλεξε είδος</option>
-                  {items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                </select>
-              </label>
-              <label className="space-y-1 text-sm font-medium">Ελάχιστο σε βασική μονάδα
-                <input name="minimumQty" type="number" required min={0} max={2_147_483_647} step={1} defaultValue={0} className={field} />
-              </label>
-              <Submit className={btn("default")}>Αποθήκευση ορίου</Submit>
-              <p className="text-xs text-muted-foreground md:col-span-4">Για αλλαγή υπάρχοντος ορίου, επίλεξε ξανά το ίδιο ζεύγος αποθήκης και είδους.</p>
-            </form>
-          ) : null}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[58rem] border-collapse text-sm">
-              <thead className="bg-secondary/35"><tr><th className={th} scope="col">Είδος</th><th className={th} scope="col">Αποθήκη</th><th className={`${th} text-right`} scope="col">Τρέχον</th><th className={`${th} text-right`} scope="col">Ελάχιστο</th><th className={th} scope="col">Κατάσταση</th>{edit ? <th className={th} scope="col">Ενέργεια</th> : null}</tr></thead>
-              <tbody>
-                {alerts.thresholds.map((row) => (
-                  <tr key={row.thresholdId} className="hover:bg-secondary/20">
-                    <td className={`${td} font-semibold`}>{row.itemName}</td>
-                    <td className={td}>{row.warehouseName}</td>
-                    <td className={`${td} text-right tabular-nums`}>{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</td>
-                    <td className={`${td} text-right tabular-nums`}>{formatStockQuantity(row.minimumQty, row.baseUnit.dimension)}</td>
-                    <td className={td}><StatusBadge look={row.quantity < row.minimumQty ? look("danger", "Χαμηλό") : look("success", "Εντάξει")} /></td>
-                    {edit ? <td className={td}><form action={deleteStockThreshold}><input type="hidden" name="warehouseId" value={row.warehouseId} /><input type="hidden" name="genericItemId" value={row.genericItemId} /><Submit className={btn("ghost", "sm")} aria-label={`Διαγραφή ορίου ${row.itemName}`}><Trash2 /> Διαγραφή</Submit></form></td> : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {!alerts.thresholds.length ? <p className="px-5 py-6 text-sm text-muted-foreground">Δεν έχουν οριστεί ελάχιστα αποθέματος στις επιτρεπτές αποθήκες.</p> : null}
-        </Card>
+        <section className="grid gap-2">
+          <h2 className="text-base font-semibold">Ελάχιστα ανά είδος και αποθήκη</h2>
+          <Card>
+            <DataTable id="stock-thresholds" empty={<><p>Δεν έχεις ορίσει ελάχιστα. Χωρίς αυτά δεν ειδοποιείσαι όταν κάτι τελειώνει.</p>{thresholdModal ? <div className="mt-3 flex justify-center">{thresholdModal}</div> : null}</>}
+              columns={[{ key: "item", label: "Είδος", required: true }, { key: "status", label: "Κατάσταση" }, { key: "warehouse", label: "Αποθήκη" }, { key: "qty", label: "Τρέχον", numeric: true }, { key: "min", label: "Ελάχιστο", numeric: true }]}
+              rows={alerts.thresholds.map((row) => ({ id: row.thresholdId, cells: {
+                item: <span className="font-semibold">{row.itemName}</span>, warehouse: row.warehouseName,
+                status: <StatusBadge look={row.quantity < row.minimumQty ? look("danger", "Χαμηλό") : look("success", "Εντάξει")} />,
+                qty: formatStockQuantity(row.quantity, row.baseUnit.dimension), min: formatStockQuantity(row.minimumQty, row.baseUnit.dimension),
+              }, actions: edit ? <form action={deleteStockThreshold}><input type="hidden" name="warehouseId" value={row.warehouseId} /><input type="hidden" name="genericItemId" value={row.genericItemId} /><Submit className={btn("ghost", "sm")} aria-label={`Διαγραφή ορίου ${row.itemName}`} title="Διαγραφή ορίου"><Trash2 /></Submit></form> : undefined }))} />
+          </Card>
+        </section>
       </div>
     </Page>
   );

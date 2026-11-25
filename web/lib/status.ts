@@ -53,6 +53,9 @@ const STATUS = {
   enrichment: { pending: ["neutral", "Δεν έχει εμπλουτιστεί"], enriched: ["success", "Εμπλουτίστηκε"], review: ["warning", "Θέλει έλεγχο"], error: ["danger", "Απέτυχε ο εμπλουτισμός"] },
   migrationRun: { DRY_RUN: ["neutral", "Δοκιμή"], IMPORTED: ["success", "Πέρασε"], ROLLED_BACK: ["neutral", "Αναιρέθηκε"] },
   migrationCutover: { PREPARING: ["warning", "Σε προετοιμασία"], FROZEN: ["warning", "Παγωμένο το παλιό σύστημα"], DELTA_IMPORTED: ["warning", "Πέρασαν οι τελευταίες αλλαγές"], READY: ["warning", "Έτοιμο για ενεργοποίηση"], ACTIVE: ["success", "Ενεργό"], ROLLED_BACK: ["neutral", "Αναιρέθηκε"] },
+  // Ρυθμίσεις παραστατικών: σειρές και εκδότες (ΑΦΜ)
+  documentSeries: { active: ["success", "Ενεργή"], inactive: ["neutral", "Ανενεργή"] },
+  issuer: { ready: ["success", "Έτοιμος να εκδίδει"], missing: ["warning", "Λείπουν στοιχεία"], inactive: ["neutral", "Ανενεργός"] },
   account: { active: ["success", "Ενεργός"], pending: ["warning", "Εκκρεμεί η πρόσκληση"], disabled: ["neutral", "Απενεργοποιημένος"] },
   // Αποστολή εγγράφου με email/Viber (lib/document-delivery.ts)
   documentDelivery: { PREPARED: ["neutral", "Ετοιμάστηκε"], SENDING: ["warning", "Στέλνεται"], SENT: ["success", "Στάλθηκε"], DISABLED: ["danger", "Δεν στάλθηκε — η αποστολή είναι κλειστή"], SKIPPED: ["danger", "Δεν στάλθηκε"], FAILED: ["danger", "Απέτυχε"], UNCONFIRMED: ["danger", "Δεν επιβεβαιώθηκε η παράδοση"], ABORTED: ["danger", "Διακόπηκε — δεν στάλθηκε"], DUPLICATE: ["neutral", "Είχε ήδη σταλεί"] },
@@ -102,3 +105,7 @@ export function dueStatus(dueAt: Date | null | undefined, now: Date, done = fals
   if (days === 0) return look("warning", "Λήγει σήμερα");
   return look(days <= 7 ? "warning" : "neutral", `Λήγει σε ${days} ημ.`);
 }
+
+// Είδη κίνησης χρηματοοικονομικού λογαριασμού (FinanceTransaction.kind)
+const MOVE: Record<string, string> = { transfer_in: "Μεταφορά από άλλο λογαριασμό", transfer_out: "Μεταφορά σε άλλο λογαριασμό", transfer: "Μεταφορά", expense: "Έξοδο", income: "Έσοδο", supplier_payment: "Πληρωμή προμηθευτή", customer_payment: "Είσπραξη από πελάτη", payroll_payment: "Μισθοδοσία", bank_receipt: "Είσπραξη στην τράπεζα" };
+export const moveLabel = (kind: string) => MOVE[kind] ?? "Άλλη κίνηση";

@@ -39,12 +39,31 @@ export function Badge({ tone = "neutral", icon: Icon, children }: { tone?: keyof
   return <span className={cn("inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-2xs font-semibold", TONE[tone])}>{Icon ? <Icon className="size-3 shrink-0" aria-hidden /> : null}{children}</span>;
 }
 
+const KPI_TONE = {
+  neutral: { chip: "bg-gold/15 text-gold-ink", hint: "text-muted-foreground", bar: "bg-transparent" },
+  success: { chip: "bg-success/12 text-success-ink", hint: "text-success-ink", bar: "bg-success" },
+  warning: { chip: "bg-warning/20 text-warning-ink", hint: "text-warning-ink", bar: "bg-warning" },
+  danger: { chip: "bg-destructive/12 text-destructive", hint: "text-destructive", bar: "bg-destructive" },
+};
+/** Κάρτα αριθμού: ο τόνος λέει αν ο αριθμός είναι καλός (success), θέλει προσοχή (warning) ή είναι πρόβλημα (danger)· το hint λέει τι κάνει ο χρήστης μετά. */
+export function Kpi({ icon: Icon, label, value, hint, tone = "neutral" }: { icon: LucideIcon; label: string; value: ReactNode; hint?: ReactNode; tone?: keyof typeof KPI_TONE }) {
+  const t = KPI_TONE[tone];
+  return (
+    <Card className="relative overflow-hidden px-5 py-4">
+      <span aria-hidden className={cn("absolute inset-y-0 left-0 w-1", t.bar)} />
+      <p className="flex items-center gap-2 font-medium text-muted-foreground"><span className={cn("grid size-7 place-items-center rounded-lg", t.chip)}><Icon className="size-4" aria-hidden /></span>{label}</p>
+      <p className="mt-2 text-3xl leading-tight font-semibold tabular-nums">{value}</p>
+      {hint ? <p className={cn("mt-1.5", t.hint)}>{hint}</p> : null}
+    </Card>
+  );
+}
+
 /** Κεφαλίδα σελίδας + περιεχόμενο, όπως το AppLayout του Gelato System. */
 export function Page({ section, title, description, actions, children }: { section: string; title: string; description?: string; actions?: ReactNode; children: ReactNode }) {
   return (
     <>
       <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 bg-background/70 px-4 py-2 backdrop-blur-xl backdrop-saturate-150 max-lg:pl-16 lg:px-8 print:hidden">
-        <div className="min-w-0 flex-1 space-y-0.5">
+        <div className="min-w-48 flex-1 space-y-0.5">
           <p className="text-2xs font-medium text-muted-foreground">{section}</p>
           <h1 className="break-words text-base font-semibold leading-tight lg:text-lg" title={title}>{title}</h1>
           {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}

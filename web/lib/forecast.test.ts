@@ -8,7 +8,7 @@ test("forecast: 28ήμερο ιστορικό προβάλλεται σε 7 ημ
   assert.equal(row.grossDemandBase, 7);
   assert.equal(row.suggestedBase, 4);
   assert.match(row.explanation, /11 → 7 ημέρες: 3/);
-  assert.match(row.explanation, /Confirmed χονδρική: 4/);
+  assert.match(row.explanation, /Επιβεβαιωμένη χονδρική: 4/);
   assert.match(row.explanation, /Πρόταση = max\(0, 7 − 2 − 1\) = 4/);
 });
 

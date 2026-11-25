@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowLeft, CalendarClock } from "lucide-react";
-import { btn, Card, Page, Select } from "@/components/ui";
+import { ArrowLeft, CalendarClock, CircleCheck, Factory } from "lucide-react";
+import { btn, Card, Kpi, Page, Select } from "@/components/ui";
+import { DataTable } from "@/components/data-table";
 import { db } from "@/lib/db";
 import { productionForecast } from "@/lib/forecast-db";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
@@ -18,11 +19,24 @@ export default async function ProductionForecastPage({ searchParams }: PageProps
   const rows = warehouseId ? await productionForecast(db, ctx, warehouseId) : [];
   const suggestions = rows.filter((row) => row.suggestedBase > 0).sort((a, b) => b.suggestedBase - a.suggestedBase || a.name.localeCompare(b.name, "el"));
   const warehouse = warehouses.find((row) => row.id === warehouseId);
-  return <Page section="Παραγωγή" title="Πρόβλεψη 7 ημερών" description="Ιστορικό 28 ημερών + confirmed χονδρική − διαθέσιμο απόθεμα − προγραμματισμένη παραγωγή" actions={<div className="flex gap-2"><Link href="/production/plans" className={btn("outline", "sm")}><CalendarClock /> Προγραμματισμός</Link><Link href="/production" className={btn("outline", "sm")}><ArrowLeft /> Παρτίδες</Link></div>}>
+  const covered = rows.length - suggestions.length;
+  return <Page section="Παραγωγή" title="Πρόβλεψη 7 ημερών" description="Τι πρέπει να παραχθεί: πωλήσεις 28 ημερών και επιβεβαιωμένη χονδρική, μείον απόθεμα και ό,τι είναι ήδη προγραμματισμένο" actions={<div className="flex gap-2"><Link href="/production/plans" className={btn("outline", "sm")}><CalendarClock /> Προγραμματισμός</Link><Link href="/production" className={btn("outline", "sm")}><ArrowLeft /> Παρτίδες</Link></div>}>
     <div className="grid max-w-7xl gap-4">
-      <Card className="p-4"><form className="grid items-end gap-3 sm:grid-cols-[minmax(0,20rem)_auto]"><Select label="Αποθήκη" name="warehouse" defaultValue={warehouseId} options={warehouses.map((row): [string, string] => [row.id, row.name])} /><button type="submit" className={btn("outline")}>Ενημέρωση πρόβλεψης</button></form></Card>
-      <div className="grid gap-3 md:grid-cols-3"><Card className="p-4"><p className="text-sm text-muted-foreground">Είδη με πρόταση</p><p className="mt-1 text-3xl font-semibold tabular-nums">{suggestions.length}</p></Card><Card className="p-4"><p className="text-sm text-muted-foreground">Αποθήκη</p><p className="mt-1 font-semibold">{warehouse?.name ?? "Καμία διαθέσιμη"}</p></Card><Card className="p-4"><p className="text-sm text-muted-foreground">Κανόνας</p><p className="mt-1 text-sm">Μόνο διαθέσιμες/αποδεσμευμένες παρτίδες με θετικό υπόλοιπο. Η πρόβλεψη δεν δημιουργεί αυτόματα plan.</p></Card></div>
-      <Card className="overflow-x-auto"><table className="w-full min-w-[58rem] text-sm"><thead className="bg-secondary/60 text-left text-xs text-muted-foreground"><tr><th className="p-3">Είδος</th><th className="p-3 text-right">Ιστορικό 7ημ.</th><th className="p-3 text-right">Confirmed χονδρική</th><th className="p-3 text-right">Διαθέσιμο</th><th className="p-3 text-right">Προγραμμ. παραγωγή</th><th className="p-3 text-right">Πρόταση</th></tr></thead><tbody className="divide-y divide-border">{rows.map((row) => <tr key={row.genericItemId} className="align-top"><td className="p-3"><p className="font-medium">{row.name}</p><p className="mt-1 max-w-md text-xs text-muted-foreground">{row.explanation}</p></td><td className="p-3 text-right tabular-nums">{formatStockQuantity(row.historicalForecastBase, row.dimension)}</td><td className="p-3 text-right tabular-nums">{formatStockQuantity(row.confirmedWholesaleBase, row.dimension)}</td><td className="p-3 text-right tabular-nums">{formatStockQuantity(row.availableBase, row.dimension)}</td><td className="p-3 text-right tabular-nums">{formatStockQuantity(row.plannedProductionBase, row.dimension)}</td><td className="p-3 text-right font-semibold tabular-nums"><div className="inline-flex items-center gap-2"><StatusBadge look={row.suggestedBase ? look("warning", "Παραγωγή") : look("success", "Καλύπτεται")} />{formatStockQuantity(row.suggestedBase, row.dimension)}</div></td></tr>)}</tbody></table>{!rows.length ? <p className="p-5 text-sm text-muted-foreground">Δεν υπάρχουν ιστορικό, ανοιχτή χονδρική, απόθεμα ή plans για αυτή την αποθήκη.</p> : null}</Card>
+      {warehouses.length > 1 ? <form className="flex flex-wrap items-end gap-3"><div className="w-full max-w-xs"><Select label="Αποθήκη" name="warehouse" defaultValue={warehouseId} options={warehouses.map((row): [string, string] => [row.id, row.name])} /></div><button type="submit" className={btn("outline")}>Προβολή</button></form> : null}
+      <div className="grid gap-3 md:grid-cols-3">
+        <Kpi icon={Factory} label="Χρειάζονται παραγωγή" value={suggestions.length} tone={suggestions.length ? "warning" : "success"} hint={suggestions.length ? "Πρόσθεσέ τα στον προγραμματισμό της εβδομάδας" : "Το απόθεμα καλύπτει τη ζήτηση"} />
+        <Kpi icon={CircleCheck} label="Καλύπτονται" value={covered} tone={covered ? "success" : "neutral"} hint="Αρκεί το απόθεμα και ό,τι είναι προγραμματισμένο" />
+        <Kpi icon={CalendarClock} label="Αποθήκη" value={<span className="text-xl">{warehouse?.name ?? "Καμία"}</span>} hint="Μετράνε μόνο διαθέσιμες παρτίδες με υπόλοιπο. Η πρόβλεψη δεν φτιάχνει πλάνο μόνη της." />
+      </div>
+      <Card><DataTable id="production-forecast" empty={<p>Δεν υπάρχουν πωλήσεις, ανοιχτή χονδρική, απόθεμα ή πλάνα για αυτή την αποθήκη.</p>}
+        columns={[{ key: "name", label: "Είδος", required: true }, { key: "status", label: "Κατάσταση" }, { key: "suggested", label: "Να παραχθούν", numeric: true }, { key: "history", label: "Πωλήσεις 7ημ.", numeric: true }, { key: "wholesale", label: "Χονδρική", numeric: true }, { key: "available", label: "Απόθεμα", numeric: true }, { key: "planned", label: "Προγραμματισμένα", numeric: true, narrowHidden: true }]}
+        rows={[...suggestions, ...rows.filter((row) => !row.suggestedBase)].map((row) => ({ id: row.genericItemId, cells: {
+          name: <span className="font-medium" title={row.explanation}>{row.name}</span>,
+          status: <StatusBadge look={row.suggestedBase ? look("warning", "Να παραχθεί") : look("success", "Καλύπτεται")} />,
+          suggested: <strong className={row.suggestedBase ? "text-warning-ink" : "text-muted-foreground"}>{formatStockQuantity(row.suggestedBase, row.dimension)}</strong>,
+          history: formatStockQuantity(row.historicalForecastBase, row.dimension), wholesale: formatStockQuantity(row.confirmedWholesaleBase, row.dimension),
+          available: formatStockQuantity(row.availableBase, row.dimension), planned: formatStockQuantity(row.plannedProductionBase, row.dimension),
+        } }))} /></Card>
     </div>
   </Page>;
 }
