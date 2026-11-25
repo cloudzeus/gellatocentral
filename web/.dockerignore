@@ -8,8 +8,8 @@ lib/generated
 !.env.example
 *.tsbuildinfo
 next-env.d.ts
+# Τα scripts πρέπει να μείνουν στο context: τα tests των Viva contracts τα εισάγουν στο typecheck.
 docs
-scripts
 .reference
 .planning
 .agents
