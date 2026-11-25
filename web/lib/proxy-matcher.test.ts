@@ -8,7 +8,7 @@ const matcher = /matcher: \["([^"]+)"\]/.exec(readFileSync(new URL("../proxy.ts"
 const guarded = (path: string) => new RegExp(`^${matcher}$`).test(path);
 
 test("proxy: οι δημόσιες διαδρομές δεν ζητούν cookie", () => {
-  for (const path of ["/login", "/forgot", "/reset/abc", "/b2b/tok", "/rfq/tok", "/vitrine/tok", "/schedule/tok", "/schedule/tok/ics", "/api/pos/sales", "/api/devices/readings", "/api/cron/haccp", "/api/health"])
+  for (const path of ["/login", "/forgot", "/reset/abc", "/b2b/tok", "/rfq/tok", "/vitrine/tok", "/schedule/tok", "/schedule/tok/ics", "/api/pos/sales", "/api/devices/readings", "/api/cron/haccp", "/api/health", "/api/webhooks/viva"])
     assert.equal(guarded(path), false, path);
 });
 

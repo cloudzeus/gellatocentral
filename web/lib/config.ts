@@ -24,6 +24,8 @@ export const GROUPS = {
     fields: {
       VIVA_PLATFORM_CLIENT_ID: { label: "Client ID" },
       VIVA_PLATFORM_CLIENT_SECRET: { label: "Client Secret", secret: true },
+      VIVA_PLATFORM_MERCHANT_ID: { label: "Merchant ID", hint: "Για το webhook: Ρυθμίσεις › API Access" },
+      VIVA_PLATFORM_API_KEY: { label: "API Key", secret: true, hint: "Για το webhook: Ρυθμίσεις › API Access" },
       VIVA_PLATFORM_SOURCE_CODE: { label: "Κωδικός πηγής πληρωμών", hint: "Προαιρετικά: τέσσερα ψηφία, από Πωλήσεις › Online πληρωμές › Ιστοσελίδες", check: [/^\d{4}$/, "έχει τέσσερα ψηφία"] },
     },
   },

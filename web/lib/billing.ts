@@ -1,6 +1,22 @@
 import { db } from "./db";
 import { billingRecipients, platformSettings, sendMail } from "./mail/send";
 import { templates } from "./mail/templates";
+import { withVat } from "./pricing";
+import { getTransaction } from "./viva/checkout";
+
+/**
+ * Πληρωμή κάρτας από τη Viva (επιστροφή του πελάτη ή webhook). Δεν εμπιστευόμαστε ό,τι έρχεται: ρωτάμε τη Viva για
+ * τη συναλλαγή και ταιριάζουμε κωδικό εντολής και ποσό με τη χρέωση. "unknown" = η Viva δεν απάντησε, αξίζει επανάληψη.
+ */
+export async function settleVivaPayment(transactionId: unknown): Promise<"settled" | "rejected" | "unknown"> {
+  if (typeof transactionId !== "string" || !/^[0-9a-f-]{36}$/i.test(transactionId)) return "rejected";
+  const tx = await getTransaction(transactionId).catch(() => undefined);
+  if (tx === undefined) return "unknown";
+  const charge = tx?.paid ? await db.subscriptionCharge.findUnique({ where: { vivaOrderCode: tx.orderCode } }) : null;
+  if (!tx || !charge || tx.amountCents !== withVat(charge.amountCents)) return "rejected";
+  await settleCharge(charge.id, transactionId);
+  return "settled";
+}
 
 /**
  * Εξόφληση χρέωσης (χειροκίνητα από την κονσόλα ή με κάρτα μέσω Viva): η συνδρομή γίνεται ενεργή, παρατείνεται

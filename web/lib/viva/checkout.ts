@@ -7,9 +7,9 @@ import { settings } from "../config";
 const VIVA_TIMEOUT_MS = 15_000; // όπως στο cloud-terminal: μια Viva που δεν απαντά δεν κρατά το αίτημα ανοιχτό
 
 async function platform() {
-  const c = await settings("VIVA_ENV", "VIVA_PLATFORM_CLIENT_ID", "VIVA_PLATFORM_CLIENT_SECRET", "VIVA_PLATFORM_SOURCE_CODE");
+  const c = await settings("VIVA_ENV", "VIVA_PLATFORM_CLIENT_ID", "VIVA_PLATFORM_CLIENT_SECRET", "VIVA_PLATFORM_SOURCE_CODE", "VIVA_PLATFORM_MERCHANT_ID", "VIVA_PLATFORM_API_KEY");
   const demo = c.VIVA_ENV !== "production";
-  return { id: c.VIVA_PLATFORM_CLIENT_ID, secret: c.VIVA_PLATFORM_CLIENT_SECRET, source: c.VIVA_PLATFORM_SOURCE_CODE, accounts: demo ? "https://demo-accounts.vivapayments.com" : "https://accounts.vivapayments.com", api: demo ? "https://demo-api.vivapayments.com" : "https://api.vivapayments.com", checkout: demo ? "https://demo.vivapayments.com" : "https://www.vivapayments.com" };
+  return { merchantId: c.VIVA_PLATFORM_MERCHANT_ID, apiKey: c.VIVA_PLATFORM_API_KEY, id: c.VIVA_PLATFORM_CLIENT_ID, secret: c.VIVA_PLATFORM_CLIENT_SECRET, source: c.VIVA_PLATFORM_SOURCE_CODE, accounts: demo ? "https://demo-accounts.vivapayments.com" : "https://accounts.vivapayments.com", api: demo ? "https://demo-api.vivapayments.com" : "https://api.vivapayments.com", checkout: demo ? "https://demo.vivapayments.com" : "https://www.vivapayments.com" };
 }
 
 export const checkoutConfigured = async () => { const c = await platform(); return Boolean(c.id && c.secret); };
@@ -48,4 +48,13 @@ export async function getTransaction(transactionId: string) {
   if (!res.ok) return null;
   const t = (await res.json()) as { statusId: string; orderCode: number | string; amount: number };
   return { paid: t.statusId === "F", orderCode: String(t.orderCode), amountCents: Math.round(t.amount * 100) };
+}
+
+/** Το κλειδί επαλήθευσης που ζητά η Viva (GET στο URL του webhook) πριν δεχτεί να στέλνει ειδοποιήσεις. Θέλει Merchant ID και API Key. */
+export async function webhookKey(): Promise<string> {
+  const c = await platform();
+  if (!c.merchantId || !c.apiKey) throw new Error("Viva webhook: λείπουν Merchant ID και API Key στις Ρυθμίσεις");
+  const res = await fetch(`${c.checkout}/api/messages/config/token`, { headers: { Authorization: `Basic ${Buffer.from(`${c.merchantId}:${c.apiKey}`).toString("base64")}` }, cache: "no-store", signal: AbortSignal.timeout(VIVA_TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`Viva webhook key: HTTP ${res.status}`);
+  return ((await res.json()) as { Key: string }).Key;
 }
