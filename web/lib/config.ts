@@ -27,6 +27,14 @@ export const GROUPS = {
       VIVA_PLATFORM_SOURCE_CODE: { label: "Κωδικός πηγής πληρωμών", hint: "Προαιρετικά: τέσσερα ψηφία, από Πωλήσεις › Online πληρωμές › Ιστοσελίδες", check: [/^\d{4}$/, "έχει τέσσερα ψηφία"] },
     },
   },
+  viva_reseller: {
+    title: "Viva Reseller: λογαριασμοί των πελατών",
+    hint: "Τα κλειδιά του Reseller API (scope urn:viva:payments:core:api:resellers). Ισχύει το ίδιο περιβάλλον Viva με το ISV",
+    fields: {
+      VIVA_RESELLER_CLIENT_ID: { label: "Client ID" },
+      VIVA_RESELLER_CLIENT_SECRET: { label: "Client Secret", secret: true },
+    },
+  },
   mailgun: {
     title: "Mailgun: αποστολή email",
     hint: "Ένας επαληθευμένος τομέας για όλη την πλατφόρμα. Κάθε πελάτης στέλνει ως υποτομέας@τομέας",
