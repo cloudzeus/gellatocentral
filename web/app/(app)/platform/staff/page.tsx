@@ -4,6 +4,7 @@ import { requirePlatform } from "@/lib/auth";
 import { Modal } from "@/components/modal";
 import { PermissionMatrix } from "@/components/permission-matrix";
 import { Submit } from "@/components/submit";
+import { StatusBadge } from "@/components/status-badge";
 import { Badge, btn, Card, Field, MultiSelectField, Page, Select } from "@/components/ui";
 import { db } from "@/lib/db";
 import { ALL_PERMISSIONS, AREAS, permissionLabel as orgPermLabel, PLATFORM_AREAS, PLATFORM_PERMISSIONS, PLATFORM_ROLES, type PlatformPermission, platformPermissionsOf, type PlatformRoleKey, staffPermissions, staffRoleLabel } from "@/lib/permissions";
@@ -25,12 +26,13 @@ export default async function PlatformStaffPage({ searchParams }: PageProps<"/pl
   const admin = await requirePlatform("staff.read");
   const q = await searchParams;
   const mine = staffPermissions(admin);
-  const [staff, customRoles, groups, orgs, staffHistory] = await Promise.all([
+  const [staff, customRoles, groups, orgs, staffHistory, staffHistoryTotal] = await Promise.all([
     db.user.findMany({ where: { platformRole: { not: null } }, orderBy: { name: "asc" }, include: { staffRole: true, staffGroups: { include: { group: true } }, storeAccesses: { include: { org: { select: { name: true } }, store: { select: { name: true } } } } } }),
     db.staffRole.findMany({ orderBy: { name: "asc" } }),
     db.staffGroup.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { members: true } } } }),
     db.organization.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, stores: { where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } } } }),
     db.accessEvent.findMany({ where: { orgId: null }, orderBy: { createdAt: "desc" }, take: 10 }),
+    db.accessEvent.count({ where: { orgId: null } }),
   ]);
   const roleOptions: [string, string][] = [...Object.entries(PLATFORM_ROLES).map(([k, r]): [string, string] => [k, r.label]), ...customRoles.map((r): [string, string] => [`custom:${r.id}`, r.name])];
   const roleValue = (u: { platformRole: PlatformRoleKey | null; staffRoleId: string | null }) => (u.staffRoleId && u.platformRole !== "SUPER_ADMIN" ? `custom:${u.staffRoleId}` : u.platformRole!);
@@ -44,7 +46,7 @@ export default async function PlatformStaffPage({ searchParams }: PageProps<"/pl
         <Card id="staff" className="scroll-mt-28">
           <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg">Προσωπικό πλατφόρμας {q.saved === "staff" ? <span role="status" className="ml-2 text-sm font-semibold text-success">Αποθηκεύτηκε</span> : null}</h2>
+              <h2 className="text-lg">Προσωπικό πλατφόρμας</h2>
               <p className="text-sm text-muted-foreground">Όσοι δουλεύουν στην κονσόλα. Δεν ανήκουν σε συνδρομητή.</p>
             </div>
             {admin.can("staff.add") ? (
@@ -66,7 +68,7 @@ export default async function PlatformStaffPage({ searchParams }: PageProps<"/pl
                     <p className="font-semibold">{u.name}{u.id === admin.id ? " (εσύ)" : ""}</p>
                     <p className="text-xs text-muted-foreground">{u.email} · {accountStatus(u) === "disabled" ? "Δεν μπορεί να συνδεθεί" : accountStatus(u) === "pending" ? "Εκκρεμεί η πρόσκληση" : u.lastLoginAt ? `Τελευταία σύνδεση ${seen.format(u.lastLoginAt)}` : "Δεν έχει συνδεθεί ακόμα"}</p>
                   </div>
-                  {u.disabledAt ? <Badge tone="warning">Απενεργοποιημένος</Badge> : null}
+                  {u.disabledAt ? <StatusBadge kind="account" value="disabled" /> : null}
                   <Badge tone={u.platformRole === "SUPER_ADMIN" ? "success" : "neutral"}>{staffRoleLabel(u)}</Badge>
                   {u.staffGroups.map((g) => <Badge key={g.groupId} tone="neutral">{g.group.name}</Badge>)}
                   {admin.can("staff.edit") ? (
@@ -123,7 +125,8 @@ export default async function PlatformStaffPage({ searchParams }: PageProps<"/pl
           </ul>
           {staffHistory.length ? (
             <details className="border-t border-border/70 px-5 py-3">
-              <summary className="cursor-pointer text-sm font-semibold">Ιστορικό αλλαγών στο προσωπικό ({staffHistory.length} πιο πρόσφατες)</summary>
+              <summary className="cursor-pointer text-sm font-semibold">Ιστορικό αλλαγών στο προσωπικό</summary>
+              {staffHistoryTotal > staffHistory.length ? <p className="mt-2 text-xs text-muted-foreground">Εμφανίζονται οι {staffHistory.length} πιο πρόσφατες από {staffHistoryTotal}</p> : null}
               <ul className="mt-2 space-y-1.5">
                 {staffHistory.map((e) => <li key={e.id} className="text-sm"><span className="font-semibold">{actionLabel(e.action)}</span>: {e.target}{e.detail ? ` · ${e.detail}` : ""} <span className="text-xs text-muted-foreground">· {e.actorName} · {seen.format(e.createdAt)}</span></li>)}
               </ul>

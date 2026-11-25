@@ -8,9 +8,12 @@ import { useMemo, useState, useTransition } from "react";
 import { Modal } from "@/components/modal";
 import { RowMenu } from "@/components/row-menu";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, Field, menuItem, Select } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { btn, Card, cn, Field, menuItem, Select } from "@/components/ui";
+import { look } from "@/lib/status";
 import { descendantCategoryIds, flattenTradeCategories, moveTradeCategory, type FlatTradeCategory, type TradeCategoryRecord } from "@/lib/trade-category-tree";
 import { deleteTradeCategory, saveTradeCategory, saveTradeCategoryLayout, toggleTradeCategory } from "./actions";
+import { useBusy } from "@/lib/use-busy";
 
 function CategoryForm({ categories, category, newParentId }: { categories: TradeCategoryRecord[]; category?: TradeCategoryRecord; newParentId?: string }) {
   const excluded = category ? new Set([category.id, ...descendantCategoryIds(categories, category.id)]) : new Set<string>();
@@ -80,7 +83,7 @@ function CategoryRow({ row, categories, childCount, collapsed, activeId, pending
         <div className="min-w-0 flex-1 py-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className={cn("min-w-0 break-words", depth === 0 ? "font-semibold" : "font-medium")}>{c.name}</span>
-            {!c.active ? <Badge>Κρυφή</Badge> : null}
+            {!c.active ? <StatusBadge look={look("neutral", "Κρυφή")} /> : null}
           </div>
           <p className="text-2xs text-muted-foreground">{childCount ? `${childCount} άμεσες υποκατηγορίες` : "Τελική κατηγορία"} · Επίπεδο {depth + 1}</p>
         </div>
@@ -109,6 +112,7 @@ export function CategoryTree({ categories: initial }: { categories: TradeCategor
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [pending, startTransition] = useTransition();
+  useBusy(pending);
   // Συγχρονισμός κατά το render μόνο όταν ο server δώσει πράγματι νέο snapshot, όχι σε κάθε τοπικό drag.
   if (previousInitial !== initial) {
     setPreviousInitial(initial);

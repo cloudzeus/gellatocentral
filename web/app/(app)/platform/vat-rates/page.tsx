@@ -3,7 +3,9 @@ import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { DetailGrid, Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { DetailGrid, btn, Card, Field, menuItem, Page } from "@/components/ui";
+import { look } from "@/lib/status";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -48,7 +50,6 @@ export default async function VatRatesPage({ searchParams }: PageProps<"/platfor
       actions={<Modal label={<><Plus /> Νέος συντελεστής</>} size="sm" title="Νέος συντελεστής ΦΠΑ">{rateForm()}</Modal>}>
       <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Οι συντελεστές ενημερώθηκαν</p> : null}
         <Card>
           <DataTable
             id="vat-rates"
@@ -70,14 +71,14 @@ export default async function VatRatesPage({ searchParams }: PageProps<"/platfor
                 name: <span className="font-semibold">{r.name}</span>,
                 rate: `${r.rate}%`,
                 products: r._count.products || "—",
-                status: r.active ? <Badge tone="success">Ενεργός</Badge> : <Badge>Κρυφός</Badge>,
+                status: r.active ? <StatusBadge look={look("success", "Ενεργός")} /> : <StatusBadge look={look("neutral", "Κρυφός")} />,
               },
               details: {
                 label: `${r.name} ${r.rate}%`,
                 view: <DetailGrid className="sm:grid-cols-3">
                   <div><dt className="text-xs text-muted-foreground">Ποσοστό</dt><dd className="font-medium tabular-nums">{r.rate}%</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Προϊόντα που τον χρησιμοποιούν</dt><dd className="font-medium tabular-nums">{r._count.products}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Κατάσταση</dt><dd>{r.active ? <Badge tone="success">Ενεργός</Badge> : <Badge>Κρυφός</Badge>}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Κατάσταση</dt><dd>{r.active ? <StatusBadge look={look("success", "Ενεργός")} /> : <StatusBadge look={look("neutral", "Κρυφός")} />}</dd></div>
                 </DetailGrid>,
                 edit: rateForm(r),
               },

@@ -1,5 +1,7 @@
 import { euro } from "@/lib/money";
 import { Badge } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 export type InvoiceDiscrepancyView = {
   id: string;
@@ -29,14 +31,11 @@ const BASIS = { AGREEMENT: "Ειδική συμφωνία", ORDER: "Παραγγ
 
 /** Read-only κατάσταση three-way match για παραγγελία, παραλαβή και συνδεδεμένο τιμολόγιο. */
 export function PurchaseInvoiceMatch({ status, reviewedAt, reviewedByName, reviewNote, discrepancies }: Props) {
-  const accepted = status === "MATCHED" || status === "REVIEWED";
   return (
     <div className="grid gap-3 rounded-lg border border-border/70 bg-muted/30 p-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <strong>Τριπλή συμφωνία τιμολογίου</strong>
-        <Badge tone={accepted ? "success" : "warning"}>
-          {status === "MATCHED" ? "Πλήρης ταυτοποίηση" : status === "REVIEWED" ? "Εγκρίθηκε με αποκλίσεις" : status === "DISCREPANCY" ? "Απαιτεί αιτιολογημένη αποδοχή" : "Εκκρεμεί τιμολόγιο"}
-        </Badge>
+        <StatusBadge look={status === "MATCHED" ? look("success", "Πλήρης ταυτοποίηση") : status === "REVIEWED" ? look("success", "Εγκρίθηκε με αποκλίσεις") : status === "DISCREPANCY" ? look("danger", "Απαιτεί αιτιολογημένη αποδοχή") : look("warning", "Εκκρεμεί τιμολόγιο")} />
       </div>
       <p className="text-xs text-muted-foreground">
         {status === "DISCREPANCY"

@@ -5,17 +5,14 @@ import { Modal } from "@/components/modal";
 import { OrderLinesEditor } from "@/components/order-lines-editor";
 import { PrintButton } from "@/components/print-button";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, DetailGrid, Field, Page, Select, TextareaField } from "@/components/ui";
+import { btn, Card, DetailGrid, Field, Page, Select, TextareaField } from "@/components/ui";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
 import { stockCostScale } from "@/lib/units";
 import { acceptQuote, convertQuote, expireQuote, rejectQuote, sendQuote, updateQuote } from "../actions";
+import { StatusBadge } from "@/components/status-badge";
 
-const STATUS = {
-  DRAFT: ["Πρόχειρη", "neutral"], SENT: ["Απεσταλμένη", "warning"],
-  ACCEPTED: ["Αποδεκτή", "success"], REJECTED: ["Απορριφθείσα", "danger"], EXPIRED: ["Ληγμένη", "neutral"],
-} as const;
 const AUDIT: Record<string, string> = {
   "wholesale.quote.create": "Δημιουργία", "wholesale.quote.update": "Επεξεργασία πρόχειρης",
   "wholesale.quote.sent": "Σήμανση ως απεσταλμένη", "wholesale.quote.accepted": "Αποδοχή",
@@ -55,9 +52,8 @@ export default async function WholesaleQuotePage({ params, searchParams }: PageP
   return <Page section="Πελάτες & πωλήσεις" title={quote.number} description={`${customerName} · ${store?.name ?? "Κατάστημα"} · ${warehouse?.name ?? "Αποθήκη"}`} actions={<span className="flex flex-wrap gap-2"><Link href="/wholesale-orders/quotes" className={btn("outline", "sm")}><ArrowLeft /> Προσφορές</Link><DocumentPdfButton entityType="wholesale_quote" entityId={quote.id} /><PrintButton /></span>}>
     <div className="mx-auto grid max-w-5xl gap-4">
       {typeof query.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive print:hidden">{query.error}</p> : null}
-      {typeof query.saved === "string" ? <p role="status" className="rounded-lg bg-success/10 p-3 text-sm text-success-ink print:hidden">{query.saved}</p> : null}
       <Card className="p-5 print:border-0 print:shadow-none">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4 print:border-black"><div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground print:text-black">{org.legalName || org.name} · ΑΦΜ {org.vatNumber}</p><h2 className="mt-1 text-xl font-bold">Προσφορά χονδρικής {quote.number}</h2><p className="mt-1 text-sm">Πελάτης: {customerName}{snapshotText(quote.customerSnapshot, "vatNumber") ? ` · ΑΦΜ ${snapshotText(quote.customerSnapshot, "vatNumber")}` : ""}</p>{snapshotText(quote.customerSnapshot, "address") ? <p className="text-sm text-muted-foreground print:text-black">{[snapshotText(quote.customerSnapshot, "address"), snapshotText(quote.customerSnapshot, "postalCode"), snapshotText(quote.customerSnapshot, "city")].filter(Boolean).join(", ")}</p> : null}</div><Badge tone={STATUS[quote.status][1]}>{STATUS[quote.status][0]}</Badge></div>
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4 print:border-black"><div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground print:text-black">{org.legalName || org.name} · ΑΦΜ {org.vatNumber}</p><h2 className="mt-1 text-xl font-bold">Προσφορά χονδρικής {quote.number}</h2><p className="mt-1 text-sm">Πελάτης: {customerName}{snapshotText(quote.customerSnapshot, "vatNumber") ? ` · ΑΦΜ ${snapshotText(quote.customerSnapshot, "vatNumber")}` : ""}</p>{snapshotText(quote.customerSnapshot, "address") ? <p className="text-sm text-muted-foreground print:text-black">{[snapshotText(quote.customerSnapshot, "address"), snapshotText(quote.customerSnapshot, "postalCode"), snapshotText(quote.customerSnapshot, "city")].filter(Boolean).join(", ")}</p> : null}</div><StatusBadge kind="wholesaleQuote" value={quote.status} /></div>
         <DetailGrid className="mt-4 sm:grid-cols-3 lg:grid-cols-6 print:grid-cols-6"><div><dt>Ισχύς έως</dt><dd>{new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short" }).format(quote.validUntil)}</dd></div><div><dt>Παράδοση</dt><dd>{quote.neededAt ? new Intl.DateTimeFormat("el-GR").format(quote.neededAt) : "—"}</dd></div><div><dt>Κατάστημα</dt><dd>{store?.name ?? "—"}</dd></div><div><dt>Καθαρή αξία</dt><dd>{euro(quote.netCents)}</dd></div><div><dt>ΦΠΑ</dt><dd>{euro(quote.vatCents)}</dd></div><div><dt>Σύνολο</dt><dd>{euro(quote.totalCents)}</dd></div></DetailGrid>
       </Card>
       {quote.note ? <Card className="whitespace-pre-wrap p-4 text-sm print:border-0 print:shadow-none">{quote.note}</Card> : null}

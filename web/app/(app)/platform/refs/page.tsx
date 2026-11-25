@@ -4,7 +4,9 @@ import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { DetailGrid, Badge, btn, Card, cn, Field, menuItem, Page } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { DetailGrid, btn, Card, cn, Field, menuItem, Page } from "@/components/ui";
+import { look } from "@/lib/status";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -64,7 +66,6 @@ export default async function RefsPage({ searchParams }: PageProps<"/platform/re
         </Card>
         <div className="space-y-4">
           {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
-          {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Η λίστα ενημερώθηκε</p> : null}
           <Card>
             <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
               <div className="min-w-0 flex-1"><h2 className="text-lg">{def.label}</h2><p className="text-sm text-muted-foreground">{total ? `${active} ενεργές τιμές στη λίστα` : "Η λίστα είναι άδεια"}</p></div>
@@ -90,7 +91,7 @@ export default async function RefsPage({ searchParams }: PageProps<"/platform/re
                   code: <span className="font-mono text-xs">{i.code}</span>,
                   label: <span className="font-semibold">{i.label}</span>,
                   ...(def.value ? { value: i.value ?? "—" } : {}),
-                  status: i.active ? <Badge tone="success">Ενεργή</Badge> : <Badge>Κρυφή</Badge>,
+                  status: i.active ? <StatusBadge look={look("success", "Ενεργή")} /> : <StatusBadge look={look("neutral", "Κρυφή")} />,
                 },
                 details: {
                   label: i.label,

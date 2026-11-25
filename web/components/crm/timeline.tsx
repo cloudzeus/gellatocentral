@@ -4,6 +4,8 @@ import Link from "next/link";
 import { dueText, taskState, type TimelineItem } from "@/lib/crm";
 import { Submit } from "../submit";
 import { Badge, btn, cn } from "../ui";
+import { StatusBadge } from "../status-badge";
+import { look as statusLook } from "@/lib/status";
 
 const LOOK: Record<string, { icon: typeof Phone; cls: string; label: string }> = {
   call: { icon: Phone, cls: "bg-success/12 text-success-ink", label: "Κλήση" },
@@ -38,7 +40,7 @@ export function Timeline({ items, now, touch, compact = false, empty }: { items:
               <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 {i.href ? <Link href={i.href} className={cn("font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center", state === "done" && "line-through opacity-70")}>{i.title}</Link> : <span className={cn("font-semibold", state === "done" && "line-through opacity-70")}>{i.title}</span>}
                 {i.pinned ? <Badge tone="warning"><Pin className="size-3" aria-hidden /> Καρφιτσωμένο</Badge> : null}
-                {state ? <Badge tone={TASK_TONE[state]}>{state === "done" ? "Έγινε" : dueText(i.task!.dueAt, now)}</Badge> : null}
+                {state ? <StatusBadge look={statusLook(TASK_TONE[state], state === "done" ? "Έγινε" : dueText(i.task!.dueAt, now))} /> : null}
               </p>
               {i.text ? <p className={cn("mt-0.5 break-words whitespace-pre-line text-sm", i.auto ? "text-muted-foreground" : "", compact && "line-clamp-2")}>{i.text}</p> : null}
               <p className="mt-1 text-xs text-muted-foreground">{[look.label, i.person ? `με ${i.person}` : null, i.who, when.format(i.at), i.auto ? "αυτόματα" : null].filter(Boolean).join(" · ")}</p>

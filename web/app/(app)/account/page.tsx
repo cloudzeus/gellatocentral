@@ -9,7 +9,6 @@ import { staffRoleLabel } from "@/lib/permissions";
 import { changePassword, saveName, signOutOthers } from "./actions";
 
 const when = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Athens" });
-const SAVED: Record<string, string> = { name: "Το όνομα άλλαξε", password: "Ο κωδικός άλλαξε. Οι άλλες συσκευές αποσυνδέθηκαν", sessions: "Οι άλλες συσκευές αποσυνδέθηκαν" };
 
 // Κάθε χρήστης για τον δικό του λογαριασμό: όνομα, κωδικός, από πού είναι συνδεδεμένος.
 export default async function AccountPage({ searchParams }: PageProps<"/account">) {
@@ -22,7 +21,6 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
   return (
     <Page section="Προφίλ" title="Ο λογαριασμός μου" description={`${user.email} · ${m ? `${m.role.name} · ${m.org.name}` : user.platformRole ? staffRoleLabel(user) : ""}`}>
       <div className="max-w-4xl space-y-4">
-        {typeof q.saved === "string" && SAVED[q.saved] ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{SAVED[q.saved]}</p> : null}
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν έγινε: {q.error.slice(0, 200)}</p> : null}
 
         <div className="grid gap-4 md:grid-cols-2">

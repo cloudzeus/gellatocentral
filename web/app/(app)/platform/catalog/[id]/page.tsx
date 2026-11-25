@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, FlaskConical } from "lucide-react";
 import { CompositionForm } from "@/components/composition-form";
-import { Badge, Card, Page, btn } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { Card, Page, btn } from "@/components/ui";
+import { look } from "@/lib/status";
 import { requirePlatform } from "@/lib/auth";
 import { compositionFromRow } from "@/lib/composition";
 import { db } from "@/lib/db";
@@ -47,7 +49,6 @@ export default async function CatalogItemPage({ params, searchParams }: { params
     >
       <div className="grid max-w-5xl gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Αποθηκεύτηκε</p> : null}
 
         <Card>
           <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
@@ -55,7 +56,7 @@ export default async function CatalogItemPage({ params, searchParams }: { params
               <h2 className="text-lg">Στοιχεία είδους</h2>
               <p className="text-sm text-muted-foreground">Όνομα, EAN, brand, συσκευασία και φωτογραφία — κοινά για όλους τους συνδρομητές</p>
             </div>
-            {item.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>}
+            {item.active ? <StatusBadge look={look("success", "Ενεργό")} /> : <StatusBadge look={look("neutral", "Κρυφό")} />}
             <form action={toggleTradeItem.bind(null, item.id)}>
               <input type="hidden" name="returnTo" value="item" />
               <Submit className={btn("outline", "sm")}>{item.active ? "Απόκρυψη" : "Εμφάνιση"}</Submit>
@@ -103,7 +104,7 @@ export default async function CatalogItemPage({ params, searchParams }: { params
                 {c ? null : <> — όταν συμπληρωθεί, αντιγράφεται αυτόματα στους συνδρομητές με το επόμενο mapping</>}
               </p>
             </div>
-            {c ? <Badge tone="success">Καταχωρημένη</Badge> : <Badge tone="warning">Εκκρεμεί</Badge>}
+            {c ? <StatusBadge look={look("success", "Καταχωρημένη")} /> : <StatusBadge look={look("warning", "Εκκρεμεί")} />}
           </div>
           <div className="px-5 py-5">
             <CompositionForm action={saveComposition} composition={c} hidden={{ tradeItemId: item.id }} />

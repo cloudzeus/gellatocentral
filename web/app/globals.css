@@ -544,3 +544,12 @@ form[data-by-kind]:has(select[name="kind"] option[value="SCALE"]:checked) [data-
   .purchase-document tr, .purchase-document section, .purchase-document footer { break-inside: avoid; }
   .purchase-document thead { display: table-header-group; }
 }
+
+/* Γραμμή φόρτωσης στην κορυφή: φαίνεται μόνο αν η αναμονή περάσει τα ~150ms, ώστε οι γρήγορες αλλαγές να μην αναβοσβήνουν. */
+@keyframes top-progress-show {
+  to { opacity: 1; }
+}
+.top-progress {
+  opacity: 0;
+  animation: top-progress-show 1ms linear 150ms forwards;
+}

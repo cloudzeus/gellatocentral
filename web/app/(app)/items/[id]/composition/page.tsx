@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Copy, FlaskConical } from "lucide-react";
 import { CompositionForm } from "@/components/composition-form";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Page } from "@/components/ui";
+import { btn, Card, Page } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { compositionFromRow } from "@/lib/composition";
 import { db } from "@/lib/db";
 import { materialLactose, materialPac, materialPod, materialTotalSolids } from "@/lib/recipe-analysis";
 import { copyComposition, saveItemComposition } from "../../actions";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 // Σύσταση γενικού είδους (% ανά 100 g): την κληρονομεί από τον κεντρικό κατάλογο με το mapping
 // και μπορεί να προσαρμοστεί ανά επιχείρηση (π.χ. ιδιωτική παραγωγή, διαφορετικός προμηθευτής).
@@ -41,8 +43,6 @@ export default async function ItemCompositionPage({ params, searchParams }: { pa
     >
       <div className="grid max-w-5xl gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Η σύσταση αποθηκεύτηκε</p> : null}
-        {q.copied ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Η σύσταση αντιγράφηκε από τον κεντρικό κατάλογο — μπορείς να την προσαρμόσεις</p> : null}
 
         {summary ? (
           <Card>
@@ -80,7 +80,7 @@ export default async function ItemCompositionPage({ params, searchParams }: { pa
                 {c ? "Δική σου σύσταση — δεν επηρεάζεται από αλλαγές του κεντρικού καταλόγου" : canCopy ? "Μπορείς να την αντιγράψεις από τον κεντρικό κατάλογο ή να τη συμπληρώσεις" : "Σύνδεσε συσκευασία του καταλόγου για αυτόματη αντιγραφή ή συμπλήρωσέ τη χειροκίνητα"}
               </p>
             </div>
-            {c ? <Badge tone="success">Καταχωρημένη</Badge> : <Badge tone="warning">Εκκρεμεί</Badge>}
+            <StatusBadge look={c ? look("success", "Καταχωρημένη") : look("warning", "Εκκρεμεί")} />
             {can("items.edit") && canCopy ? (
               <form action={copyComposition.bind(null, generic.id)}>
                 <Submit className={btn("outline", "sm")}><Copy /> {c ? "Επαναφορά από κατάλογο" : "Αντιγραφή από κατάλογο"}</Submit>

@@ -6,8 +6,9 @@ import { setExternalSendingEnabled } from "@/lib/document-delivery";
 import { updateCompanyProfile } from "@/lib/finance-db";
 import { requireStockContext } from "@/lib/stock-context";
 import { workflowMessage } from "@/lib/workflow-db";
+import { redirectUrl } from "@/lib/flash";
 
-const back = (query: string): never => { revalidatePath("/company"); redirect(`/company${query}`); };
+const back = (query: string): never => { revalidatePath("/company"); redirect(redirectUrl(`/company${query}`)); };
 
 export async function saveCompany(form: FormData) {
   const ctx = await requireStockContext("users.edit");

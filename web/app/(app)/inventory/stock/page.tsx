@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { BellRing, Boxes, Layers3, Warehouse } from "lucide-react";
 import { DataTable } from "@/components/data-table";
-import { DetailGrid, Badge, btn, Card, Page } from "@/components/ui";
+import { DetailGrid, btn, Card, Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
 import { stockLotBalances, stockOverview } from "@/lib/stock-read";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
 import { expiryStatus, formatStockQuantity, formatStockValue, stockDisplayUnit, stockUnitCostHundredths, type ExpiryStatus } from "@/lib/stock-view";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 const day = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeZone: "Europe/Athens" });
 
@@ -30,7 +32,7 @@ function ExpiryBadge({ expiresAt }: { expiresAt: Date | null }) {
     valid: "Εν ισχύι",
     none: "Χωρίς λήξη",
   };
-  return <Badge tone={tone}>{labels[expiry.status]}</Badge>;
+  return <StatusBadge look={look(tone, labels[expiry.status])} />;
 }
 
 // Read-only STK-02/STK-03: δεδομένα, φίλτρα, ταξινόμηση και σελίδες αποδίδονται στον server.

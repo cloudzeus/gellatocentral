@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpD
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, isValidElement, type ReactNode, useEffect, useRef, useState, useTransition } from "react";
+import { useBusy } from "@/lib/use-busy";
 import { useTablePreferences } from "@/lib/use-table-preferences";
 import { RowMenu } from "./row-menu";
 import { SearchSelect } from "./search-select";
@@ -113,6 +114,7 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkPending, startBulk] = useTransition();
+  useBusy(bulkPending);
   const pickerRef = useRef<HTMLDivElement>(null);
   const table = useRef<HTMLTableElement>(null);
   useDismiss(picker, () => setPicker(false), pickerRef);
@@ -219,7 +221,15 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
     <div>
       <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-3 py-2">
         {listing && listing.showSearch !== false ? (
-          <form role="search" className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <form
+            role="search" className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              // χωρίς JavaScript η φόρμα υποβάλλεται κανονικά· με JavaScript δεν πετά τη σελίδα στην κορυφή
+              e.preventDefault();
+              const query = new URLSearchParams([...new FormData(e.currentTarget)].filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].trim() !== ""));
+              router.push(`?${query}`, { scroll: false });
+            }}
+          >
             <span className="relative min-w-40 flex-1 sm:max-w-xs">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input type="search" name={listing.keys?.q ?? "q"} defaultValue={listing.q} placeholder={listing.placeholder} aria-label="Αναζήτηση" className="bg-card pr-2.5 pl-8" />
@@ -227,7 +237,7 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
             {listing.filters?.map((f) => <ListingFilter key={f.key} filter={f} />)}
             {Object.entries(listing.params ?? {}).map(([key, value]) => value ? <input key={key} type="hidden" name={key} value={value} /> : null)}
             {listing.sort ? <><input type="hidden" name={listing.keys?.sort ?? "sort"} value={listing.sort} /><input type="hidden" name={listing.keys?.dir ?? "dir"} value={listing.dir} /></> : null}
-            {listing.q || listing.filters?.some((f) => f.value) ? <Link href={hrefFor({ ...listing, q: "", filters: listing.filters?.map((f) => ({ ...f, value: undefined })) }, { [listing.keys?.page ?? "page"]: undefined })} className={btn("ghost", "sm")}>Καθαρισμός</Link> : null}
+            {listing.q || listing.filters?.some((f) => f.value) ? <Link href={hrefFor({ ...listing, q: "", filters: listing.filters?.map((f) => ({ ...f, value: undefined })) }, { [listing.keys?.page ?? "page"]: undefined })} scroll={false} className={btn("ghost", "sm")}>Καθαρισμός</Link> : null}
           </form>
         ) : null}
         <span className="flex-1" />
@@ -294,7 +304,7 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
                   {listing && c.sortable ? (
                     <Link
                       href={hrefFor(listing, { sort: c.key, dir: listing.sort === c.key && listing.dir === "desc" ? "asc" : "desc", page: undefined })}
-                      draggable={false} title={`Ταξινόμηση κατά ${c.label}`}
+                      draggable={false} scroll={false} title={`Ταξινόμηση κατά ${c.label}`}
                       className={cn("inline-flex min-h-6 max-w-full items-center gap-1 hover:text-foreground pointer-coarse:min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50", c.numeric && "flex-row-reverse", listing.sort === c.key && "text-foreground")}
                     >
                       <span className="truncate">{c.label}</span>
@@ -344,7 +354,16 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
           </tbody>
         </table>
       </div>
-      {rows.length === 0 ? <div className="px-5 py-10 text-center text-muted-foreground">{listing?.q || listing?.filters?.some((f) => f.value) ? "Τίποτα δεν ταιριάζει με την αναζήτηση και τα φίλτρα" : empty}</div> : null}
+      {rows.length === 0 ? (
+        <div className="px-5 py-10 text-center text-muted-foreground">
+          {listing && (listing.q || listing.filters?.some((f) => f.value)) ? (
+            <>
+              <p>{listing.q ? `Δεν βρέθηκε τίποτα για “${listing.q}”` : "Τίποτα δεν ταιριάζει με τα φίλτρα"}</p>
+              <Link href={hrefFor({ ...listing, q: "", filters: listing.filters?.map((f) => ({ ...f, value: undefined })) }, { page: undefined })} scroll={false} className={btn("outline", "sm", "mt-3 pointer-coarse:min-h-11")}>Καθαρισμός</Link>
+            </>
+          ) : empty}
+        </div>
+      ) : null}
       {listing && listing.total > 0 ? <Pager {...listing} /> : null}
     </div>
   );
@@ -356,7 +375,7 @@ function Pager(listing: Listing) {
   const href = (p: number) => hrefFor(listing, { page: p > 1 ? String(p) : undefined });
   const from = (page - 1) * pageSize + 1;
   const arrow = (to: number, label: string, icon: ReactNode) =>
-    to < 1 || to > pages ? <span aria-hidden className={btn("outline", "sm", "pointer-events-none opacity-40")}>{icon}</span> : <Link href={href(to)} aria-label={label} className={btn("outline", "sm")}>{icon}</Link>;
+    to < 1 || to > pages ? <span aria-hidden className={btn("outline", "sm", "pointer-events-none opacity-40 pointer-coarse:min-h-11 pointer-coarse:min-w-11")}>{icon}</span> : <Link href={href(to)} scroll={false} aria-label={label} className={btn("outline", "sm", "pointer-coarse:min-h-11 pointer-coarse:min-w-11")}>{icon}</Link>;
   return (
     <nav aria-label="Σελίδες" className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-4 py-2.5 text-sm text-muted-foreground">
       <span className="tabular-nums">{from}–{Math.min(total, from + pageSize - 1)} από {total}</span>

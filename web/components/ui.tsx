@@ -1,6 +1,6 @@
 // Κοινά στοιχεία, ίδια εμφάνιση με το Gelato System. Παραμένουν Server Components·
 // μόνο τα shadcn primitives με πραγματική αλληλεπίδραση μπαίνουν στο client bundle.
-import { Info } from "lucide-react";
+import { Info, type LucideIcon } from "lucide-react";
 import { useId, type ComponentProps, type ReactNode } from "react";
 import type { SelectOption } from "@/lib/select-options";
 import { MultiSelect } from "./multi-select";
@@ -34,8 +34,9 @@ const TONE = {
   warning: "bg-warning/20 text-warning-ink",
   danger: "bg-destructive/15 text-destructive",
 };
-export function Badge({ tone = "neutral", children }: { tone?: keyof typeof TONE; children: ReactNode }) {
-  return <span className={cn("inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-2xs font-semibold", TONE[tone])}>{children}</span>;
+/** `icon`: προαιρετικό εικονίδιο lucide πριν από το κείμενο· διακοσμητικό, το νόημα το λέει η λέξη. */
+export function Badge({ tone = "neutral", icon: Icon, children }: { tone?: keyof typeof TONE; icon?: LucideIcon | null; children: ReactNode }) {
+  return <span className={cn("inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-2xs font-semibold", TONE[tone])}>{Icon ? <Icon className="size-3 shrink-0" aria-hidden /> : null}{children}</span>;
 }
 
 /** Κεφαλίδα σελίδας + περιεχόμενο, όπως το AppLayout του Gelato System. */
@@ -50,7 +51,7 @@ export function Page({ section, title, description, actions, children }: { secti
         </div>
         {actions}
       </header>
-      <main className="flex-1 px-4 pt-5 pb-[calc(var(--bottom-nav-h,0px)+1.5rem)] lg:px-8 print:p-0">{children}</main>
+      <main className="flex-1 px-4 pt-5 pb-[calc(var(--bottom-nav-h,0px)+var(--feedback-h,0px)+1.5rem)] lg:px-8 print:p-0">{children}</main>
     </>
   );
 }

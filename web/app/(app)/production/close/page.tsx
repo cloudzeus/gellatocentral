@@ -2,11 +2,12 @@ import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { ArrowLeft, CheckCheck } from "lucide-react";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
+import { btn, Card, Field, Page, Select } from "@/components/ui";
 import { db } from "@/lib/db";
 import { athensDayRange } from "@/lib/production-day-close";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
 import { closeDay } from "../workflow-actions";
+import { StatusBadge } from "@/components/status-badge";
 
 const athensToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Athens" }).format(new Date());
 const dateFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeZone: "Europe/Athens" });
@@ -24,9 +25,10 @@ export default async function ProductionDayClosePage({ searchParams }: PageProps
     orgId: ctx.orgId, sourceWarehouseId, destinationWarehouseId,
     plannedFor: { gte: range.start, lt: range.end }, status: { in: ["PLANNED" as const, "IN_PROGRESS" as const] }, batchId: null,
   };
-  const [plans, closes] = await Promise.all([
+  const [plans, closes, closesTotal] = await Promise.all([
     sourceWarehouseId && destinationWarehouseId ? db.productionPlan.findMany({ where: planWhere, orderBy: [{ plannedFor: "asc" }, { id: "asc" }] }) : Promise.resolve([]),
     db.productionDayClose.findMany({ where: { orgId: ctx.orgId, warehouseId: { in: [...allowed] } }, orderBy: { businessDate: "desc" }, take: 10 }),
+    db.productionDayClose.count({ where: { orgId: ctx.orgId, warehouseId: { in: [...allowed] } } }),
   ]);
   const recipes = await db.recipe.findMany({ where: { orgId: ctx.orgId, id: { in: [...new Set(plans.map((plan) => plan.recipeId))] } }, select: { id: true, name: true } });
   const recipeNames = new Map(recipes.map((recipe) => [recipe.id, recipe.name]));
@@ -36,7 +38,6 @@ export default async function ProductionDayClosePage({ searchParams }: PageProps
   return <Page section="Παραγωγή" title="Κλείσιμο ημέρας" description="Μία ατομική ενέργεια για όλα τα ανοιχτά plans, με αυτόματα ημιέτοιμα και FEFO χωρίς διπλή κατανάλωση" actions={<Link href="/production" className={btn("outline", "sm")}><ArrowLeft /> Παρτίδες</Link>}>
     <div className="grid max-w-6xl gap-4">
       {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{q.error}</p> : null}
-      {typeof q.saved === "string" ? <p role="status" className="rounded-lg bg-success/10 p-3 text-sm text-success-ink">{q.saved}</p> : null}
       <Card className="p-4"><form className="grid items-end gap-3 md:grid-cols-4">
         <Field label="Επιχειρησιακή ημέρα" name="date" type="date" defaultValue={businessDate} required />
         <Select label="Αποθήκη υλικών" name="source" defaultValue={sourceWarehouseId} options={warehouses.map((row): [string, string] => [row.id, row.name])} required />
@@ -62,8 +63,8 @@ export default async function ProductionDayClosePage({ searchParams }: PageProps
 
       <Card className="p-4"><h2 className="mb-3 font-semibold">Πρόσφατα κλεισίματα</h2>{closes.length ? <ul className="divide-y divide-border">{closes.map((close) => {
         const snapshot = close.snapshot as { results?: { batchId: string; batchNumber: string; automatic: boolean }[] };
-        return <li key={close.id} className="flex flex-wrap items-center gap-3 py-3 text-sm"><div className="min-w-0 flex-1"><p className="font-medium">{dateFmt.format(close.businessDate)} · {warehouseNames.get(close.warehouseId) ?? "Αποθήκη"}</p><p className="text-muted-foreground">{snapshot.results?.length ?? 0} παρτίδες · {snapshot.results?.filter((row) => row.automatic).length ?? 0} αυτόματα ημιέτοιμα · {close.createdByName}</p></div><Badge tone={close.status === "COMPLETED" ? "success" : "warning"}>{close.status === "COMPLETED" ? "Ολοκληρωμένο" : close.status}</Badge><span className="flex flex-wrap gap-2">{snapshot.results?.map((row) => <Link key={row.batchId} href={`/production/${row.batchId}`} className="text-xs font-medium text-primary hover:underline">{row.batchNumber}</Link>)}</span></li>;
-      })}</ul> : <p className="text-sm text-muted-foreground">Κανένα ημερήσιο κλείσιμο ακόμη.</p>}</Card>
+        return <li key={close.id} className="flex flex-wrap items-center gap-3 py-3 text-sm"><div className="min-w-0 flex-1"><p className="font-medium">{dateFmt.format(close.businessDate)} · {warehouseNames.get(close.warehouseId) ?? "Αποθήκη"}</p><p className="text-muted-foreground">{snapshot.results?.length ?? 0} παρτίδες · {snapshot.results?.filter((row) => row.automatic).length ?? 0} αυτόματα ημιέτοιμα · {close.createdByName}</p></div><StatusBadge kind="productionClose" value={close.status} /><span className="flex flex-wrap gap-2">{snapshot.results?.map((row) => <Link key={row.batchId} href={`/production/${row.batchId}`} className="text-xs font-medium text-primary hover:underline">{row.batchNumber}</Link>)}</span></li>;
+      })}</ul> : <p className="text-sm text-muted-foreground">Κανένα ημερήσιο κλείσιμο ακόμη.</p>}{closesTotal > closes.length ? <p className="mt-2 text-xs text-muted-foreground">Εμφανίζονται οι {closes.length} πιο πρόσφατες από {closesTotal}</p> : null}</Card>
     </div>
   </Page>;
 }

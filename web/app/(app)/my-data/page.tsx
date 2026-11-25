@@ -3,7 +3,7 @@ import { Modal } from "@/components/modal";
 import { ProcessFlow } from "@/components/process-flow";
 import { Checkbox } from "@/components/shadcn/checkbox";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, Page } from "@/components/ui";
+import { btn, Card, Field, Page } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { activeVersion, consentsOf } from "@/lib/gdpr";
@@ -11,6 +11,8 @@ import { currentConsents, daysLeft, DUE_DAYS, PURPOSES, type Purpose } from "@/l
 import { platformSettings } from "@/lib/mail/send";
 import { staffRoleLabel } from "@/lib/permissions";
 import { requestMyErasure, setMyConsent } from "../gdpr/actions";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 const day = new Intl.DateTimeFormat("el-GR", { dateStyle: "long", timeZone: "Europe/Athens" });
 
@@ -39,8 +41,6 @@ export default async function MyDataPage({ searchParams }: PageProps<"/my-data">
   return (
     <Page section="Ο λογαριασμός μου" title="Τα δεδομένα μου" description="Τι προσωπικά στοιχεία κρατάμε για σένα, τι έχεις αποδεχτεί και πώς τα παίρνεις ή τα σβήνεις">
       <div className="max-w-4xl space-y-4">
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Η επιλογή σου αποθηκεύτηκε</p> : null}
-        {q.requested ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Το αίτημα διαγραφής καταχωρίστηκε. Θα έχεις απάντηση μέσα σε {DUE_DAYS} ημέρες</p> : null}
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{q.error === "confirm" ? "Τσέκαρε το κουτί επιβεβαίωσης για να σταλεί το αίτημα" : q.error.slice(0, 200)}</p> : null}
 
         <Card>
@@ -63,14 +63,14 @@ export default async function MyDataPage({ searchParams }: PageProps<"/my-data">
                   {legal && settings.termsUrl && settings.privacyUrl ? <><a href={settings.termsUrl} target="_blank" rel="noreferrer" className="font-semibold text-primary underline-offset-2 hover:underline">Όροι χρήσης</a> · <a href={settings.privacyUrl} target="_blank" rel="noreferrer" className="font-semibold text-primary underline-offset-2 hover:underline">Πολιτική απορρήτου</a> · έκδοση {legal}</> : "Τα νομικά κείμενα δεν έχουν αναρτηθεί ακόμα"}
                 </p>
               </div>
-              {accepted?.granted ? <Badge tone={accepted.version === legal ? "success" : "warning"}>{accepted.version === legal ? `Αποδοχή ${day.format(accepted.at)}` : `Αποδοχή παλιάς έκδοσης ${accepted.version}`}</Badge> : <Badge tone="neutral">Δεν έχει ζητηθεί</Badge>}
+              <StatusBadge look={accepted?.granted ? accepted.version === legal ? look("success", `Αποδοχή ${day.format(accepted.at)}`) : look("warning", `Αποδοχή παλιάς έκδοσης ${accepted.version}`) : look("neutral", "Δεν έχει ζητηθεί")} />
             </li>
             {optional.map((p) => {
               const on = consents.get(p)?.granted === true;
               return (
                 <li key={p} className="flex flex-wrap items-center gap-3 px-5 py-3">
                   <div className="min-w-0 flex-1"><p className="font-medium">{PURPOSES[p].label}</p><p className="text-sm text-muted-foreground">{PURPOSES[p].hint}</p></div>
-                  <Badge tone={on ? "success" : "neutral"}>{on ? `Ναι, από ${day.format(consents.get(p)!.at)}` : "Όχι"}</Badge>
+                  <StatusBadge look={look(on ? "success" : "neutral", on ? `Ναι, από ${day.format(consents.get(p)!.at)}` : "Όχι")} />
                   <form action={setMyConsent.bind(null, p, !on)}><Submit className={btn("outline", "sm")}>{on ? "Ανάκληση" : "Συμφωνώ"}</Submit></form>
                 </li>
               );

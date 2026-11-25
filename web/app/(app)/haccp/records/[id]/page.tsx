@@ -15,7 +15,6 @@ export default async function HaccpRecordPage({ params, searchParams }: { params
   const stores = await db.store.findMany({ where: { orgId: ctx.org.id, active: true, ...(ctx.storeIds.length ? { id: { in: ctx.storeIds } } : {}) }, select: { id: true, name: true } });
   return <Page section="HACCP" title="Καταχώριση τεκμηρίωσης" description={`${record.store?.name ?? "Όλη η επιχείρηση"} · δημιουργήθηκε από ${record.createdByName}`} actions={<><Link href={`/haccp/forms/${record.templateId}`} className={btn("outline", "sm")}><Printer /> Έντυπο</Link><Link href="/haccp?view=records" className={btn("outline", "sm")}><ArrowLeft /> Καταχωρίσεις</Link></>}>
     <div className="grid max-w-5xl gap-4">
-      {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm text-success">Η καταχώριση αποθηκεύτηκε.</p> : null}
       {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">{q.error}</p> : null}
       {ctx.can("haccp.edit") ? <HaccpRecordForm action={updateHaccpRecord.bind(null, id)} stores={stores} value={{ ...record, occurredAt: localInput(record.occurredAt) }} /> : <p>Δεν έχεις δικαίωμα επεξεργασίας.</p>}
     </div>

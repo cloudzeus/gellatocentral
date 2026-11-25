@@ -48,6 +48,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 6. **Σχόλια και commit messages στα Ελληνικά**, σε ύφος του υπάρχοντος κώδικα (σύντομα, εξηγούν το «γιατί»). Το `// shortcut:` σημαίνει συνειδητό τεχνικό χρέος — μην το «διορθώνεις» χωρίς αίτημα.
 7. **Προσωπικά δεδομένα**: GDPR-first — αιτήματα προς τρίτους (χάρτες, VIES) περνούν από δικά μας API routes, όχι από τον browser.
 
+## Λίστες, καταστάσεις και πορεία εργασίας
+
+- **Λίστα-ευρετήριο** = `DataTable` (`components/data-table.tsx`) με `listParams` (`lib/paging.ts`), `skip`/`take` και πραγματικό `count` με το ίδιο `where`· 25 ανά σελίδα. Ποτέ δικό `<table>` με σταθερό `take` που κόβει σιωπηλά. Υπόδειγμα: `app/(app)/orders/page.tsx`.
+- **Κατάσταση** = `<StatusBadge>` από τον κεντρικό χάρτη `lib/status.ts` (εικονίδιο + λέξη + χρώμα). Νέο enum → νέα γραμμή εκεί, όχι τοπικός χάρτης στη σελίδα. Καμία αγγλική τιμή enum στην οθόνη.
+- **Μήνυμα μετά από ενέργεια** = toast. Με redirect: `?saved=<πρόταση>` ή `?error=<λόγος>` (το διαβάζει κεντρικά το layout, `lib/flash.ts`)· τύλιξε τη διεύθυνση με `redirectUrl()` όταν έχει ελληνικά. Χωρίς redirect: `await flashOk("…")` / `flashFail("…")` από `lib/flash-server.ts`. Το λάθος μένει ΚΑΙ δίπλα στη φόρμα.
+- **`redirect()` μέσα σε `try`**: το `catch` πρέπει να το ξαναπετά (`workflowMessage` το κάνει· αλλιώς `rethrowControlFlow(error)`), αλλιώς η επιτυχία γίνεται `?error=NEXT_REDIRECT`.
+- **Ό,τι κρατά πάνω από 2 δευτ.** (πολλά αντικείμενα ή εξωτερική υπηρεσία) τυλίγεται σε `runTask(...)` (`lib/tasks.ts`) και φαίνεται στο παράθυρο «Εργασίες». «Ξανά» μόνο για είδη στο `lib/task-kinds.ts`, όπου η επανάληψη δεν μπορεί να διπλοστείλει.
+
 ## Πριν παραδώσεις αλλαγή
 
 `npm test && npx tsc --noEmit` — αν άλλαξες schema, και `npx prisma migrate dev` + ξανατρέξε τα tests.

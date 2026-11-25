@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import { Building2, CheckCircle2, ExternalLink, Mail, MapPin, Phone } from "lucide-react";
 import { RoleBadges } from "@/components/party-bits";
-import { Badge, Card } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { channelHref, showPhone } from "@/lib/crm";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 export type PartyIdentityProps = {
   name: string;
@@ -43,7 +45,7 @@ export function PartyIdentity(p: PartyIdentityProps) {
         <div className="flex flex-wrap items-start gap-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary" aria-hidden><Building2 className="size-4" /></span>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2"><RoleBadges roles={p.roles} /><Badge tone={p.active ? "success" : "neutral"}>{p.active ? "Ενεργός" : "Ανενεργός"}</Badge></div>
+            <div className="flex flex-wrap items-center gap-2"><RoleBadges roles={p.roles} /><StatusBadge look={look(p.active ? "success" : "neutral", p.active ? "Ενεργός" : "Ανενεργός")} /></div>
             <h2 className="mt-1.5 break-words text-base font-semibold leading-snug sm:text-lg">{p.name}</h2>
             {p.tradeName ? <p className="mt-1 break-words text-sm text-muted-foreground">Διακριτικός τίτλος: <span className="font-medium text-foreground">{p.tradeName}</span></p> : null}
           </div>

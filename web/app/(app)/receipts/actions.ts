@@ -1,5 +1,6 @@
 "use server";
 
+import { flashFail, flashOk } from "@/lib/flash-server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { currentOrg } from "@/lib/auth";
@@ -35,17 +36,20 @@ export async function issueCreditNote(saleId: string) {
     }
   }
   revalidatePath(`/receipts/${saleId}`);
+  await flashOk(live ? "Το πιστωτικό εκδόθηκε και η επιστροφή στάλθηκε στο τερματικό Viva" : "Το πιστωτικό εκδόθηκε δοκιμαστικά: δεν στάλθηκε στη Viva");
 }
 
 /** Ρωτά τη Viva για το πιστωτικό που περιμένει. Ασφαλές να κληθεί ξανά και ξανά. */
 export async function syncCreditNote(documentId: string, saleId: string) {
   const { org } = await currentOrg("receipts.reissue");
   const doc = await db.fiscalDocument.findFirst({ where: { id: z.string().cuid().parse(documentId), orgId: org.id, status: "PENDING" } });
-  if (!doc) return;
+  if (!doc) { await flashFail("Δεν έγινε: το πιστωτικό δεν περιμένει πια απάντηση από τη Viva", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   const session = await getSession(doc.receiptReference);
-  if (!session) return; // ακόμα στο τερματικό
+  if (!session) { await flashFail("Δεν ολοκληρώθηκε ακόμα: η επιστροφή περιμένει στο τερματικό", "Δοκίμασε ξανά σε λίγο."); return; } // ακόμα στο τερματικό
   const raw = session as Prisma.InputJsonObject;
   if (session.success === true) await completeCredit(doc.id, raw, org.id);
   else await failCredit(doc.id, `Η επιστροφή δεν ολοκληρώθηκε (eventId ${String(session.eventId)})`, raw, org.id);
   revalidatePath(`/receipts/${saleId}`);
+  if (session.success === true) await flashOk("Το πιστωτικό ολοκληρώθηκε");
+  else await flashFail("Η επιστροφή δεν ολοκληρώθηκε στο τερματικό", "Έλεγξε το τερματικό και δοκίμασε ξανά.");
 }

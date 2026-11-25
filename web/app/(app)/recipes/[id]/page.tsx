@@ -81,7 +81,6 @@ export default async function RecipePage({ params, searchParams }: { params: Pro
     >
       <div className="grid max-w-5xl gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Η συνταγή αποθηκεύτηκε</p> : null}
         {!recipe.active ? <p role="status" className="rounded-lg bg-warning/15 px-4 py-3 text-sm font-medium text-warning-ink">Η συνταγή είναι κρυφή — δεν προσφέρεται για παραγωγή</p> : null}
 
         {recipe.items.length ? (

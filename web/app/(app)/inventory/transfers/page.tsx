@@ -1,17 +1,19 @@
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { ArrowRightLeft, Boxes, Warehouse } from "lucide-react";
-import { Badge, btn, Card, Page } from "@/components/ui";
+import { DataTable } from "@/components/data-table";
+import { StatusBadge } from "@/components/status-badge";
+import { btn, Card, Page } from "@/components/ui";
 import { Submit } from "@/components/submit";
 import { db } from "@/lib/db";
+import { listParams } from "@/lib/paging";
+import { look } from "@/lib/status";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
 import { stockBalances } from "@/lib/stock-db";
 import { formatStockQuantity, formatStockValue, stockDisplayUnit, stockUnitCostHundredths } from "@/lib/stock-view";
 import { postTransfer } from "./actions";
 
 const field = "h-10 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
-const th = "px-4 py-3 text-left text-xs font-semibold whitespace-nowrap text-muted-foreground";
-const td = "border-t border-border/70 px-4 py-3 align-top";
 const dateTime = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Athens" });
 
 function param(value: string | string[] | undefined): string {
@@ -28,18 +30,25 @@ export default async function TransfersPage({ searchParams }: { searchParams: Pr
     orderBy: { name: "asc" },
   });
   const warehouseIds = warehouses.map((warehouse) => warehouse.id);
-  const [stores, balances, transfers] = await Promise.all([
+  const list = listParams(q, 25, ["date"]);
+  const contains = { contains: list.q, mode: "insensitive" as const };
+  // αναζήτηση: είδος, αριθμός παρτίδας, αποθήκη, σημείωση ή χρήστης· το scope αποθηκών μένει ξεχωριστό AND
+  const where = {
+    orgId: ctx.orgId,
+    AND: [
+      { OR: [{ sourceWarehouseId: { in: warehouseIds } }, { destinationWarehouseId: { in: warehouseIds } }] },
+      list.q ? { OR: [{ lines: { some: { OR: [{ genericItem: { name: contains } }, { sourceLot: { batchNumber: contains } }] } } }, { sourceWarehouse: { name: contains } }, { destinationWarehouse: { name: contains } }, { note: contains }, { createdByName: contains }] } : {},
+    ],
+  };
+  const [stores, balances, transfers, total] = await Promise.all([
     db.store.findMany({
       where: { orgId: ctx.orgId, active: true, ...(ctx.storeIds.length ? { id: { in: [...ctx.storeIds] } } : {}) },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
     stockBalances(db, { orgId: ctx.orgId, warehouseIds }),
-    warehouseIds.length ? db.stockTransfer.findMany({
-      where: {
-        orgId: ctx.orgId,
-        OR: [{ sourceWarehouseId: { in: warehouseIds } }, { destinationWarehouseId: { in: warehouseIds } }],
-      },
+    db.stockTransfer.findMany({
+      where,
       include: {
         sourceWarehouse: { select: { name: true } },
         destinationWarehouse: { select: { name: true } },
@@ -53,9 +62,10 @@ export default async function TransfersPage({ searchParams }: { searchParams: Pr
           orderBy: [{ genericItemId: "asc" }, { sourceLotId: "asc" }],
         },
       },
-      orderBy: { createdAt: "desc" },
-      take: 30,
-    }) : Promise.resolve([]),
+      orderBy: [{ createdAt: list.sort === "date" ? list.dir : "desc" }, { id: "desc" }],
+      skip: list.skip, take: list.take,
+    }),
+    db.stockTransfer.count({ where }),
   ]);
 
   const positive = balances.filter((balance) => balance.quantity > 0);
@@ -83,7 +93,6 @@ export default async function TransfersPage({ searchParams }: { searchParams: Pr
   const activeWarehouses = warehouses.filter((warehouse) => warehouse.active);
   const canTransfer = ctx.can("stock.transfer");
   const error = param(q.error);
-  const posted = param(q.posted);
 
   return (
     <Page
@@ -94,7 +103,6 @@ export default async function TransfersPage({ searchParams }: { searchParams: Pr
     >
       <div className="grid max-w-[90rem] gap-5">
         {error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν καταχωρίστηκε μεταφορά: {error}</p> : null}
-        {posted ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success">{q.replayed ? "Η μεταφορά είχε ήδη καταχωριστεί· δεν δημιουργήθηκε διπλή εγγραφή." : "Η μεταφορά ολοκληρώθηκε και καταγράφηκε στο ιστορικό."}</p> : null}
 
         <Card>
           <div className="border-b border-border/70 px-5 py-4">
@@ -142,40 +150,45 @@ export default async function TransfersPage({ searchParams }: { searchParams: Pr
           ) : null}
         </Card>
 
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[70rem] border-collapse text-sm">
-              <caption className="px-4 py-4 text-left"><span className="block text-lg font-semibold">Πρόσφατες μεταφορές</span><span className="text-muted-foreground">Οι 30 τελευταίες οριστικές εγγραφές στις αποθήκες στις οποίες έχεις πρόσβαση</span></caption>
-              <thead className="bg-secondary/35"><tr><th className={th} scope="col">Ημερομηνία</th><th className={th} scope="col">Διαδρομή</th><th className={th} scope="col">Είδη και παρτίδες</th><th className={th} scope="col">Καταχώριση</th><th className={th} scope="col">Κατάσταση</th></tr></thead>
-              <tbody>
-                {transfers.map((transfer) => (
-                  <tr key={transfer.id} className="hover:bg-secondary/20">
-                    <td className={`${td} whitespace-nowrap`}>{dateTime.format(transfer.createdAt)}</td>
-                    <td className={td}>
-                      <div className="flex items-center gap-2 font-medium"><Warehouse className="size-4 text-muted-foreground" />{transfer.sourceWarehouse.name}<ArrowRightLeft className="size-4 text-muted-foreground" />{transfer.destinationWarehouse.name}</div>
-                      {transfer.store ? <p className="mt-1 text-xs text-muted-foreground">Κατάστημα: {transfer.store.name}</p> : null}
-                      {transfer.note ? <p className="mt-1 max-w-md text-xs text-muted-foreground">{transfer.note}</p> : null}
-                    </td>
-                    <td className={td}>
-                      <ul className="space-y-2">
-                        {transfer.lines.map((line) => (
-                          <li key={line.id}>
-                            <span className="font-medium">{line.genericItem.name}</span> · {formatStockQuantity(line.quantity, line.genericItem.baseUnit.dimension)}
-                            <span className="block text-xs text-muted-foreground">{line.sourceLot ? `Παρτίδα ${line.sourceLot.batchNumber ?? "χωρίς αριθμό"} → ${line.destinationLot?.batchNumber ?? "χωρίς αριθμό"}` : "Χωρίς παρτίδα"}</span>
-                            {line.unitCostHundredths > 0 ? <span className="block text-xs text-muted-foreground">Κόστος snapshot: {formatStockValue(stockUnitCostHundredths(line.unitCostHundredths, stockDisplayUnit(line.genericItem.baseUnit).toBase, line.genericItem.baseUnit.dimension))} / {stockDisplayUnit(line.genericItem.baseUnit).code}</span> : null}
-                          </li>
-                        ))}
-                      </ul>
-                    </td>
-                    <td className={td}>{transfer.createdByName}</td>
-                    <td className={td}><Badge tone="success">Οριστική</Badge></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {!transfers.length ? <p className="px-4 pb-6 text-sm text-muted-foreground">Δεν έχει καταγραφεί ακόμη μεταφορά στις επιτρεπτές αποθήκες.</p> : null}
-        </Card>
+        <section className="grid gap-3">
+          <h2 className="text-lg font-semibold">Ιστορικό μεταφορών</h2>
+          <Card>
+            <DataTable
+              id="stock-transfers"
+              listing={{ ...list, total, placeholder: "Είδος, παρτίδα, αποθήκη, σημείωση ή χρήστης" }}
+              empty="Εδώ φαίνεται κάθε μεταφορά αποθέματος από μια αποθήκη σε άλλη. Δεν έχει γίνει καμία ακόμα στις αποθήκες στις οποίες έχεις πρόσβαση."
+              columns={[
+                { key: "date", label: "Ημερομηνία", required: true, sortable: true },
+                { key: "route", label: "Διαδρομή", wrap: true },
+                { key: "items", label: "Είδη και παρτίδες", wrap: true },
+                { key: "createdBy", label: "Καταχώριση" },
+                { key: "status", label: "Κατάσταση" },
+              ]}
+              rows={transfers.map((transfer) => ({
+                id: transfer.id,
+                cells: {
+                  date: dateTime.format(transfer.createdAt),
+                  route: <>
+                    <div className="flex flex-wrap items-center gap-2 font-medium"><Warehouse className="size-4 text-muted-foreground" />{transfer.sourceWarehouse.name}<ArrowRightLeft className="size-4 text-muted-foreground" />{transfer.destinationWarehouse.name}</div>
+                    {transfer.store ? <p className="mt-1 text-xs text-muted-foreground">Κατάστημα: {transfer.store.name}</p> : null}
+                    {transfer.note ? <p className="mt-1 text-xs text-muted-foreground">{transfer.note}</p> : null}
+                  </>,
+                  items: <ul className="space-y-2">
+                    {transfer.lines.map((line) => (
+                      <li key={line.id}>
+                        <span className="font-medium">{line.genericItem.name}</span> · {formatStockQuantity(line.quantity, line.genericItem.baseUnit.dimension)}
+                        <span className="block text-xs text-muted-foreground">{line.sourceLot ? `Παρτίδα ${line.sourceLot.batchNumber ?? "χωρίς αριθμό"} → ${line.destinationLot?.batchNumber ?? "χωρίς αριθμό"}` : "Χωρίς παρτίδα"}</span>
+                        {line.unitCostHundredths > 0 ? <span className="block text-xs text-muted-foreground">Κόστος τη στιγμή της μεταφοράς: {formatStockValue(stockUnitCostHundredths(line.unitCostHundredths, stockDisplayUnit(line.genericItem.baseUnit).toBase, line.genericItem.baseUnit.dimension))} / {stockDisplayUnit(line.genericItem.baseUnit).code}</span> : null}
+                      </li>
+                    ))}
+                  </ul>,
+                  createdBy: transfer.createdByName,
+                  status: <StatusBadge look={look("success", "Οριστική")} />,
+                },
+              }))}
+            />
+          </Card>
+        </section>
       </div>
     </Page>
   );

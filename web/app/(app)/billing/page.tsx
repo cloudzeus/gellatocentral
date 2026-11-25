@@ -2,7 +2,7 @@ import { CircleCheck, CreditCard, Info, Lock, Pause, Play, Snowflake, Store } fr
 import { TrendChart } from "@/components/charts";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Page } from "@/components/ui";
+import { btn, Card, Page } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DEVICE_KIND } from "@/lib/devices";
@@ -12,10 +12,11 @@ import { billableStores, planOf } from "@/lib/plan-data";
 import { type ChargeLine, daysBetween, MIN_PAUSE_DAYS, monthlyPreview, pauseDaysLeft, pausedMonthly, storeMonthly } from "@/lib/plans";
 import { VAT_RATE, withVat } from "@/lib/pricing";
 import { pauseStore, payCharge, resumeStore } from "./actions";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 const day = (d: Date) => d.toLocaleDateString("el-GR");
 const month = new Intl.DateTimeFormat("el-GR", { month: "short", year: "2-digit" });
-const SAVED: Record<string, string> = { paused: "Το κατάστημα μπήκε σε εποχιακή παύση. Το ταμείο του έκλεισε", resumed: "Το κατάστημα άνοιξε ξανά και δουλεύει κανονικά" };
 /** «2 ταμεία Android, 1 ψυγείο» */
 const deviceText = (kinds: string[]) => Object.entries(kinds.reduce<Record<string, number>>((a, k) => ({ ...a, [k]: (a[k] ?? 0) + 1 }), {})).map(([k, n]) => `${n} × ${DEVICE_KIND[k as keyof typeof DEVICE_KIND]?.label ?? k}`).join(", ") || "χωρίς συσκευές";
 
@@ -31,6 +32,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
   const usage = await db.usageEvent.groupBy({ by: ["service"], where: { orgId: org.id, createdAt: { gte: monthStart } }, _sum: { units: true, chargeCents: true } });
   const usageLabels = usage.length ? new Map((await db.usagePrice.findMany({ where: { service: { in: usage.map((u) => u.service) } } })).map((p) => [p.service, p])) : new Map();
   const canPause = permissions.includes("stores.pause");
+  const chargesTotal = sub ? await db.subscriptionCharge.count({ where: { subscriptionId: sub.id } }) : 0;
   const open = sub?.charges.filter((x) => !x.paidAt) ?? [];
   const closes = plan.modules.filter((m) => !plan.pausedModules.includes(m)).map((m) => MODULES[m as ModuleKey]?.label).filter(Boolean);
   const stays = plan.modules.filter((m) => plan.pausedModules.includes(m)).map((m) => MODULES[m as ModuleKey]?.label).filter(Boolean);
@@ -44,8 +46,6 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
     <Page section="Ρυθμίσεις" title="Συνδρομή" description="Τι πληρώνεις, για ποια καταστήματα, και πώς κλείνεις ένα κατάστημα για την περίοδο που δεν δουλεύει">
       <div className="max-w-7xl space-y-4">
         {q.error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν έγινε: {String(q.error).slice(0, 200)}</p> : null}
-        {q.paid ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Η πληρωμή ολοκληρώθηκε. Ευχαριστούμε</p> : null}
-        {typeof q.saved === "string" && SAVED[q.saved] ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{SAVED[q.saved]}</p> : null}
 
         {open.map((x) => (
           <Card key={x.id} className="flex flex-wrap items-center gap-4 border-gold/60 p-5">
@@ -95,7 +95,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
                 <li key={s.id} className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 ${s.paused ? "bg-gold/5" : ""}`}>
                   <span className={`grid size-9 shrink-0 place-items-center rounded-lg ${s.paused ? "bg-gold/15 text-gold-ink" : "bg-success/10 text-success-ink"}`}>{s.paused ? <Snowflake className="size-4" /> : <Store className="size-4" />}</span>
                   <div className="min-w-0 basis-56 flex-1">
-                    <p className="font-semibold">{s.name} {s.paused ? <Badge tone="warning">Σε παύση {days} {days === 1 ? "ημέρα" : "ημέρες"}</Badge> : <Badge tone="success">Σε λειτουργία</Badge>}</p>
+                    <p className="font-semibold">{s.name} <StatusBadge look={s.paused ? look("warning", `Σε παύση ${days} ${days === 1 ? "ημέρα" : "ημέρες"}`) : look("success", "Σε λειτουργία")} /></p>
                     <p className="text-sm text-muted-foreground">
                       {s.paused
                         ? `από ${day(s.paused.startedAt)} · ${days < MIN_PAUSE_DAYS ? `η έκπτωση ξεκλειδώνει σε ${MIN_PAUSE_DAYS - days} ημέρες και μετρά από την πρώτη` : `κανονικά ${euro(m.fullCents)}, τώρα το ${plan.pausePercent}%`}`
@@ -140,11 +140,12 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
                 <li key={x.id} className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
                   <span className="min-w-0 flex-1 tabular-nums">{day(x.periodStart)} – {day(x.periodEnd)} <span className="text-muted-foreground">· {x.stores} καταστ., {x.devices} συσκευές{x.planName ? ` · ${x.planName}` : ""}</span></span>
                   <b className="tabular-nums">{euro(withVat(x.amountCents))}</b>
-                  {x.paidAt ? <Badge tone="success">Πληρώθηκε {day(x.paidAt)}</Badge> : <Badge tone="warning">Απλήρωτη</Badge>}
+                  <StatusBadge look={x.paidAt ? look("success", `Πληρώθηκε ${day(x.paidAt)}`) : look("warning", "Απλήρωτη")} />
                 </li>
               ))}
             </ul>
           ) : null}
+          {chargesTotal > (sub?.charges.length ?? 0) ? <p className="border-t border-border/70 px-5 py-2.5 text-xs text-muted-foreground">Εμφανίζονται οι {(sub?.charges.length ?? 0)} πιο πρόσφατες από {chargesTotal}</p> : null}
         </Card>
 
         {usage.length ? (

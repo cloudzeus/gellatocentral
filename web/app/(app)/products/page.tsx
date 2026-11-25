@@ -9,6 +9,8 @@ import { euro } from "@/lib/money";
 import { filterParam, listParams } from "@/lib/paging";
 import { getProductPageData } from "@/lib/product-catalog";
 import { activateProducts, deleteProduct, deleteProducts, hideProducts, saveCategory, saveProduct, toggleProduct } from "./actions";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 // Ο κατάλογος του ταμείου: server-side φίλτρα και προσαρμόσιμες στήλες, με την επεξεργασία μέσα στη γραμμή.
 export default async function ProductsPage({ searchParams }: PageProps<"/products">) {
@@ -60,9 +62,6 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
       actions={can("products.add") ? <span className="flex flex-wrap gap-2"><Modal label={<><FolderPlus /> Νέα κατηγορία</>} size="sm" title="Νέα κατηγορία">{categoryForm()}</Modal>{categories.length ? <Modal wide label={<><Plus /> Νέο προϊόν</>} size="sm" title="Νέο προϊόν">{productForm()}</Modal> : null}</span> : null}>
       <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Ο κατάλογος ενημερώθηκε</p> : null}
-        {q.deleted ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Το προϊόν διαγράφηκε οριστικά</p> : null}
-        {q.hidden ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Το προϊόν έχει πωλήσεις, οπότε αποκρύφτηκε αντί να διαγραφεί</p> : null}
         <Card>
           <DataTable
             id="products"
@@ -90,7 +89,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
                 category: p.category.name,
                 price: euro(p.priceCents),
                 vat: `${p.vatRate.name} ${p.vatRate.rate}%`,
-                status: p.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>,
+                status: <StatusBadge look={p.active ? look("success", "Ενεργό") : look("neutral", "Κρυφό")} />,
               },
               details: {
                 label: p.name,

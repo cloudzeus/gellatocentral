@@ -5,15 +5,16 @@ import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { PurchaseDocument } from "@/components/purchase-document";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
+import { btn, Card, Field, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { filterParam, listParams } from "@/lib/paging";
 import { calculatePurchaseDocument, documentParty, partySnapshot } from "@/lib/purchase-document";
 import { createDoc, importDocs, scanDoc } from "./actions";
+import { StatusBadge } from "@/components/status-badge";
+import { statusOptions } from "@/lib/status";
 
-const STATUS = { DRAFT: { label: "Πρόχειρο", tone: "warning" }, POSTED: { label: "Καταχωρημένο", tone: "success" }, CANCELLED: { label: "Ακυρωμένο", tone: "neutral" } } as const;
 const day = (d: Date | null) => (d ? new Intl.DateTimeFormat("el-GR", { timeZone: "UTC" }).format(d) : "—");
 
 // Τιμολόγια αγοράς: server φίλτρα/ταξινόμηση· η ανάπτυξη δείχνει το ίδιο πλήρες έγγραφο με την καρτέλα.
@@ -102,7 +103,6 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
       ) : null}>
       <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{q.error.slice(0, 300)}</p> : null}
-        {q.saved === "ocr" ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Το OCR ολοκληρώθηκε. Έλεγξε το πρωτότυπο και τα αναγνωρισμένα πεδία πριν από την αποδοχή.</p> : typeof q.saved === "string" && q.saved !== "1" ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{q.saved.slice(0, 200)}</p> : null}
         {!suppliers.length || !warehouses.length ? <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm text-warning-ink">Χρειάζεσαι πρώτα <Link href="/parties" className="underline">προμηθευτή</Link> και <Link href="/inventory" className="underline">αποθήκη</Link>.</p> : null}
         <Card>
           <DataTable
@@ -110,7 +110,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
             listing={{ ...list, total, placeholder: "Προμηθευτής ή αριθμός τιμολογίου…", filters: [
               { key: "supplier", label: "Προμηθευτής", value: supplier, options: suppliers.map((s): [string, string] => [s.id, s.name]) },
               { key: "warehouse", label: "Αποθήκη", value: warehouse, options: warehouses.map((w): [string, string] => [w.id, w.name]) },
-              { key: "status", label: "Κατάσταση", value: status, options: Object.entries(STATUS).map(([value, s]): [string, string] => [value, s.label]) },
+              { key: "status", label: "Κατάσταση", value: status, options: statusOptions("purchase") },
             ] }}
             empty="Κανένα τιμολόγιο αγοράς ακόμα"
             columns={[
@@ -137,7 +137,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
                 cells: {
                   supplier: <Link href={`/purchases/${d.id}`} title={d.supplier.name} className="block min-w-0 break-words font-semibold leading-snug underline-offset-2 hover:underline md:line-clamp-2">{d.supplier.name}</Link>,
                   number: d.number ?? "—", issuedAt: day(d.issuedAt), warehouse: d.warehouse.name, lines: d._count.lines,
-                  total: <span className="whitespace-nowrap font-semibold">{euro(totals.totalCents)}</span>, status: <Badge tone={STATUS[d.status].tone}>{STATUS[d.status].label}</Badge>,
+                  total: <span className="whitespace-nowrap font-semibold">{euro(totals.totalCents)}</span>, status: <StatusBadge kind="purchase" value={d.status} />,
                 },
                 details: {
                   label: `${d.supplier.name}${d.number ? ` · ${d.number}` : ""}`,

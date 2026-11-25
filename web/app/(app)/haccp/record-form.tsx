@@ -1,6 +1,7 @@
 import { Submit } from "@/components/submit";
 import { btn, Card, Field, Select, TextareaField } from "@/components/ui";
 import { HACCP_FORMS } from "@/lib/haccp/forms";
+import { statusOptions } from "@/lib/status";
 
 export type HaccpRecordFormValue = { templateId: string; storeId: string | null; occurredAt: string; status: string; result: string; measuredValue: number | null; unit: string | null; responsibleName: string; notes: string | null; correctiveAction: string | null };
 export function HaccpRecordForm({ action, stores, value }: { action: (form: FormData) => Promise<void>; stores: { id: string; name: string }[]; value: HaccpRecordFormValue }) {
@@ -10,7 +11,7 @@ export function HaccpRecordForm({ action, stores, value }: { action: (form: Form
       <Select label="Κατάστημα" name="storeId" defaultValue={value.storeId ?? ""} options={[["", "Όλη η επιχείρηση"], ...stores.map((store): [string, string] => [store.id, store.name])]} hint="Η επιλογή «όλη» διατίθεται μόνο σε χρήστες χωρίς περιορισμό καταστημάτων." />
       <Field label="Ημερομηνία και ώρα" name="occurredAt" type="datetime-local" required defaultValue={value.occurredAt} />
       <Field label="Υπεύθυνος" name="responsibleName" required minLength={2} maxLength={120} defaultValue={value.responsibleName} />
-      <Select label="Κατάσταση" name="status" defaultValue={value.status} options={[["DRAFT", "Πρόχειρο"], ["COMPLETED", "Ολοκληρωμένο"]]} />
+      <Select label="Κατάσταση" name="status" defaultValue={value.status} options={statusOptions("haccpRecord")} />
       <Select label="Αποτέλεσμα" name="result" defaultValue={value.result} options={[["CONFORMING", "Συμμορφούμενο"], ["DEVIATION", "Απόκλιση"], ["NA", "Δεν εφαρμόζεται"]]} />
       <Field label="Μετρηθείσα τιμή (προαιρετικά)" name="measuredValue" type="number" step="any" defaultValue={value.measuredValue ?? ""} />
       <Field label="Μονάδα" name="unit" maxLength={20} defaultValue={value.unit ?? ""} placeholder="π.χ. °C, λεπτά" />

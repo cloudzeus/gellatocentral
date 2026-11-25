@@ -1,5 +1,6 @@
 "use server";
 
+import { flashOk } from "@/lib/flash-server";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -9,8 +10,9 @@ import { awardRfq, createRfq, regenerateRfqInvitation } from "@/lib/rfq-db";
 import { requireStockContext } from "@/lib/stock-context";
 import { stockCostScale } from "@/lib/units";
 import { workflowMessage } from "@/lib/workflow-db";
+import { redirectUrl } from "@/lib/flash";
 
-const back = (path: string, query = ""): never => { revalidatePath("/orders"); revalidatePath(path); redirect(`${path}${query}`); };
+const back = (path: string, query = ""): never => { revalidatePath("/orders"); revalidatePath(path); redirect(redirectUrl(`${path}${query}`)); };
 const fail = (path: string, error: unknown): never => back(path, `?error=${encodeURIComponent(workflowMessage(error))}`);
 const decimal = (value: FormDataEntryValue | null) => Number(String(value ?? "").trim().replace(",", "."));
 const cents = (value: FormDataEntryValue | null) => Math.round(decimal(value) * 100);
@@ -31,6 +33,7 @@ export async function createOrder(form: FormData) {
     });
     const date = String(form.get("expectedAt") ?? "");
     const order = await createPurchaseOrder(ctx, { supplierId: String(form.get("supplierId") ?? ""), warehouseId: String(form.get("warehouseId") ?? ""), expectedAt: date ? new Date(`${date}T12:00:00Z`) : null, note: String(form.get("note") ?? ""), lines });
+    await flashOk("Η παραγγελία αγοράς δημιουργήθηκε");
     back(`/orders/${order.id}`);
   } catch (error) { fail("/orders", error); }
 }

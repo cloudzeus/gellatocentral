@@ -6,6 +6,8 @@ import { Submit } from "@/components/submit";
 import { db } from "@/lib/db";
 import { currentOrg } from "@/lib/auth";
 import { addWarehouse, attachStore, detachStore, makeDefault, toggleWarehouse } from "./actions";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 const field = "h-8.5 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
 
@@ -67,7 +69,7 @@ export default async function InventoryPage({ searchParams }: PageProps<"/invent
                       ].filter(Boolean).join(" · ")}
                     </p>
                   </div>
-                  <Badge tone={w.active ? "success" : "neutral"}>{w.active ? "Ενεργή" : "Ανενεργή"}</Badge>
+                  <StatusBadge look={look(w.active ? "success" : "neutral", w.active ? "Ενεργή" : "Ανενεργή")} />
                   {edit ? <form action={toggleWarehouse.bind(null, w.id)}><Submit className={btn("outline", "sm")}>{w.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form> : null}
                 </div>
 

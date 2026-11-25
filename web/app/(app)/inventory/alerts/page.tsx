@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { ArrowLeft, BellRing, Boxes, Trash2 } from "lucide-react";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Page } from "@/components/ui";
+import { btn, Card, Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { stockAlerts, STOCK_EXPIRY_BUCKET_LABEL, type StockExpiryBucket } from "@/lib/stock-alerts";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
 import { formatStockQuantity } from "@/lib/stock-view";
 import { deleteStockThreshold, saveStockThreshold } from "./actions";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 const field = "h-10 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40";
 const th = "px-4 py-3 text-left text-xs font-semibold whitespace-nowrap text-muted-foreground";
@@ -20,7 +22,7 @@ function expiryText(days: number): string {
 }
 
 function ExpiryBadge({ bucket }: { bucket: StockExpiryBucket }) {
-  return <Badge tone={bucket === "expired" ? "danger" : "warning"}>{STOCK_EXPIRY_BUCKET_LABEL[bucket]}</Badge>;
+  return <StatusBadge look={look(bucket === "expired" ? "danger" : "warning", STOCK_EXPIRY_BUCKET_LABEL[bucket])} />;
 }
 
 // STK-09: όλη η ανάγνωση και τα mutations αποδίδονται server-side· δεν χρειάζεται client state.
@@ -45,8 +47,6 @@ export default async function StockAlertsPage({ searchParams }: PageProps<"/inve
     >
       <div className="grid max-w-[90rem] gap-4">
         {q.error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {String(q.error)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Το ελάχιστο απόθεμα αποθηκεύτηκε.</p> : null}
-        {q.deleted ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Το ελάχιστο απόθεμα διαγράφηκε.</p> : null}
 
         <div className="grid gap-3 sm:grid-cols-3">
           <Card className="px-5 py-4"><p className="text-xs font-medium text-muted-foreground">Τελειώνουν</p><p className="mt-1 text-2xl font-semibold tabular-nums">{alerts.lowStock.length}</p></Card>
@@ -134,7 +134,7 @@ export default async function StockAlertsPage({ searchParams }: PageProps<"/inve
                     <td className={td}>{row.warehouseName}</td>
                     <td className={`${td} text-right tabular-nums`}>{formatStockQuantity(row.quantity, row.baseUnit.dimension)}</td>
                     <td className={`${td} text-right tabular-nums`}>{formatStockQuantity(row.minimumQty, row.baseUnit.dimension)}</td>
-                    <td className={td}><Badge tone={row.quantity < row.minimumQty ? "danger" : "success"}>{row.quantity < row.minimumQty ? "Χαμηλό" : "Εντάξει"}</Badge></td>
+                    <td className={td}><StatusBadge look={row.quantity < row.minimumQty ? look("danger", "Χαμηλό") : look("success", "Εντάξει")} /></td>
                     {edit ? <td className={td}><form action={deleteStockThreshold}><input type="hidden" name="warehouseId" value={row.warehouseId} /><input type="hidden" name="genericItemId" value={row.genericItemId} /><Submit className={btn("ghost", "sm")} aria-label={`Διαγραφή ορίου ${row.itemName}`}><Trash2 /> Διαγραφή</Submit></form></td> : null}
                   </tr>
                 ))}

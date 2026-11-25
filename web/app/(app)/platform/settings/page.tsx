@@ -2,7 +2,9 @@ import { CircleAlert, CircleCheck } from "lucide-react";
 import { requirePlatform } from "@/lib/auth";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
-import { Badge, btn, Card, Field, Page } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { btn, Card, Field, Page } from "@/components/ui";
+import { statusOptions } from "@/lib/status";
 import { db } from "@/lib/db";
 import { platformSettings } from "@/lib/mail/send";
 import { samples, TEMPLATE_LABEL } from "@/lib/mail/templates";
@@ -10,8 +12,6 @@ import { filterParam, listParams } from "@/lib/paging";
 import { Connections } from "@/components/connections";
 import { saveLegalSettings, savePlatformSettings } from "../actions";
 import { Submit } from "@/components/submit";
-
-const STATUS = { SENT: { tone: "success", text: "Στάλθηκε" }, FAILED: { tone: "danger", text: "Απέτυχε" }, SKIPPED: { tone: "warning", text: "Δεν στάλθηκε" } } as const;
 
 export default async function PlatformSettingsPage({ searchParams }: PageProps<"/platform/settings">) {
   await requirePlatform("settings.read");
@@ -37,7 +37,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
 
         <Card>
           <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
-            <h2 className="min-w-0 flex-1 text-lg">Στοιχεία πλατφόρμας {q.saved ? <span role="status" className="ml-2 text-sm font-semibold text-success">Αποθηκεύτηκε</span> : null}</h2>
+            <h2 className="min-w-0 flex-1 text-lg">Στοιχεία πλατφόρμας</h2>
             <Modal label="Αλλαγή" title="Στοιχεία πλατφόρμας">
               <form key={[settings.brandName, settings.baseDomain, settings.supportEmail].join()} action={savePlatformSettings} className="grid gap-4 [&>button]:justify-self-end">
                 <Field label="Όνομα πλατφόρμας" name="brandName" required minLength={2} maxLength={60} defaultValue={settings.brandName} hint="Στην κεφαλίδα κάθε email και στον αποστολέα" />
@@ -60,7 +60,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
           <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
             {settings.legalVersion && settings.termsUrl && settings.privacyUrl ? <CircleCheck className="size-6 shrink-0 text-success" /> : <CircleAlert className="size-6 shrink-0 text-gold" />}
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg">Νομικά κείμενα και αποδοχή όρων {q.saved === "legal" ? <span role="status" className="ml-2 text-sm font-semibold text-success">Αποθηκεύτηκε</span> : null}</h2>
+              <h2 className="text-lg">Νομικά κείμενα και αποδοχή όρων</h2>
               <p className="text-sm text-muted-foreground">{settings.legalVersion && settings.termsUrl && settings.privacyUrl ? `Κάθε χρήστης αποδέχεται την έκδοση ${settings.legalVersion} πριν μπει στην εφαρμογή. Αν αλλάξεις έκδοση, θα τη ζητήσει ξανά από όλους.` : "Όσο λείπει κάποιο από τα τρία, η εφαρμογή δεν ζητά αποδοχή όρων από κανέναν."}</p>
             </div>
             <Modal label="Αλλαγή" title="Νομικά κείμενα" description="Τα κείμενα τα γράφει ο νομικός σου και αναρτώνται στον ιστότοπό σου. Εδώ μπαίνουν μόνο οι διευθύνσεις τους">
@@ -100,7 +100,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
           <div className="border-b border-border/70 px-5 py-4"><h2 className="text-lg">Τελευταία email</h2></div>
           <DataTable
             id="email-log"
-            listing={{ ...list, total, placeholder: "Παραλήπτης ή θέμα", filters: [{ key: "status", label: "Κατάσταση", value: status, options: Object.entries(STATUS).map(([k, v]): [string, string] => [k, v.text]) }] }}
+            listing={{ ...list, total, placeholder: "Παραλήπτης ή θέμα", filters: [{ key: "status", label: "Κατάσταση", value: status, options: statusOptions("email") }] }}
             empty="Δεν έχει σταλεί κανένα email ακόμα"
             columns={[
               { key: "to", label: "Προς", required: true, sortable: true },
@@ -118,7 +118,7 @@ export default async function PlatformSettingsPage({ searchParams }: PageProps<"
                 template: TEMPLATE_LABEL[l.template as keyof typeof TEMPLATE_LABEL] ?? l.template,
                 subject: l.subject,
                 org: l.org?.name ?? "Πλατφόρμα",
-                status: <><Badge tone={STATUS[l.status].tone}>{STATUS[l.status].text}</Badge>{l.error ? <span className="mt-1 block text-xs text-destructive">{l.error}</span> : null}</>,
+                status: <><StatusBadge kind="email" value={l.status} />{l.error ? <span className="mt-1 block text-xs text-destructive">{l.error}</span> : null}</>,
               },
             }))}
           />

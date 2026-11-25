@@ -3,11 +3,12 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Layers3, Plus, Save } from "lucide-react";
 import { OfflineCountMeasurements, OfflineCountQueue, OnlineOnlyFinalize } from "@/components/offline-counts";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Page } from "@/components/ui";
+import { btn, Card, Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
 import { formatStockQuantity, formatStockValue, stockDisplayUnit, stockUnitCostHundredths, stockValueHundredths } from "@/lib/stock-view";
 import { addCountLine, addCountLot, finalizeCount, saveCountMeasurements } from "../actions";
+import { StatusBadge } from "@/components/status-badge";
 
 const field = "h-10 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60";
 const th = "px-4 py-3 text-left text-xs font-semibold whitespace-nowrap text-muted-foreground";
@@ -63,10 +64,6 @@ export default async function CountPage({ params, searchParams }: { params: Prom
     ...lots.map((lot) => ({ value: `${lot.genericItemId}|${lot.id}`, label: `${lot.genericItem.name} · παρτίδα ${lot.batchNumber ?? "χωρίς αριθμό"}` })),
   ].filter((option) => !present.has(option.value));
   const error = param(q.error);
-  const saved = param(q.saved);
-  const created = param(q.created) === "1";
-  const finalized = param(q.finalized) === "1";
-  const replayed = param(q.replayed) === "1";
 
   return (
     <Page
@@ -77,14 +74,11 @@ export default async function CountPage({ params, searchParams }: { params: Prom
     >
       <div className="grid max-w-[100rem] gap-5">
         {error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Η ενέργεια δεν ολοκληρώθηκε: {error.slice(0, 250)}</p> : null}
-        {created ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success">{replayed ? "Το προσχέδιο είχε ήδη δημιουργηθεί· δεν προστέθηκε διπλή απογραφή." : "Το προσχέδιο δημιουργήθηκε με παγωμένο αναμενόμενο απόθεμα και κόστος."}</p> : null}
-        {saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success">{saved === "measurements" ? "Οι μετρήσεις αποθηκεύτηκαν." : saved === "line" ? "Η γραμμή προστέθηκε με αναμενόμενη ποσότητα μηδέν." : "Η νέα παρτίδα και η γραμμή της προστέθηκαν."}</p> : null}
-        {finalized ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success">{replayed ? "Η απογραφή είχε ήδη οριστικοποιηθεί· δεν γράφτηκαν νέες κινήσεις." : "Η απογραφή οριστικοποιήθηκε και οι διαφορές καταγράφηκαν ως κινήσεις αποθέματος."}</p> : null}
 
         <Card className="px-5 py-4">
           <div className="flex flex-wrap items-start gap-4">
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-semibold">Στοιχεία απογραφής</h2><Badge tone={draft ? "warning" : "success"}>{draft ? "Προσχέδιο" : "Οριστικοποιημένη"}</Badge></div>
+              <div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-semibold">Στοιχεία απογραφής</h2><StatusBadge kind="stockCount" value={count.status} /></div>
               {count.note ? <p className="mt-2 text-sm">{count.note}</p> : null}
             </div>
             <dl className="grid w-full gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:w-auto lg:min-w-[34rem]">

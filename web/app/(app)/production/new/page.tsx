@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Factory } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Submit } from "@/components/submit";
-import { DetailGrid, Badge, btn, Card, Field, Page, Select } from "@/components/ui";
+import { DetailGrid, btn, Card, Field, Page, Select } from "@/components/ui";
 import { requireStockContext } from "@/lib/stock-context";
 import { warehouseScopeWhere } from "@/lib/stock-scope";
 import { db } from "@/lib/db";
@@ -11,6 +11,8 @@ import { listParams } from "@/lib/paging";
 import { ProductionError, planProduction } from "@/lib/production-db";
 import { formatBaseQty } from "@/lib/units";
 import { createBatch } from "../actions";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 // Server-driven FEFO προεπισκόπηση: ο ίδιος σχεδιασμός χρησιμοποιείται και στο κλείσιμο.
 export default async function NewProductionPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -94,7 +96,7 @@ export default async function NewProductionPage({ searchParams }: { searchParams
                 <h2 className="text-lg">Προεπισκόπηση κατανάλωσης</h2>
                 <p className="text-sm text-muted-foreground">{plan.recipe.name} · {(plan.quantityGrams / 1000).toLocaleString("el-GR")} kg · {plan.warehouse.name} · κόστος {plan.costHundredths > 0 ? euro(plan.costHundredths / 100) : "—"}</p>
               </div>
-              {plan.blocked ? <Badge tone="danger">Ανεπαρκές απόθεμα</Badge> : <Badge tone="success">Έτοιμο προς κλείσιμο</Badge>}
+              <StatusBadge look={plan.blocked ? look("danger", "Ανεπαρκές απόθεμα") : look("success", "Έτοιμο προς κλείσιμο")} />
             </div>
             <DataTable
               id="production-preview"

@@ -1,7 +1,9 @@
 import { settings } from "@/lib/config";
 import Image from "next/image";
 import { Checklist } from "@/components/checklist";
-import { Badge, Card, Page } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { Card, Page } from "@/components/ui";
+import { look } from "@/lib/status";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { mailConfigured } from "@/lib/mail/send";
@@ -61,7 +63,7 @@ export default async function InfrastructurePage() {
         <Card>
           <div className="border-b border-border/70 px-5 py-4"><h2 className="text-lg">Συνδέσεις αυτού του server</h2><p className="text-sm text-muted-foreground">Ορίζονται στις Ρυθμίσεις & email. Ό,τι λείπει δεν σταματά την εφαρμογή, απλώς η αντίστοιχη λειτουργία μένει ανενεργή.</p></div>
           <ul className="divide-y divide-border/70">
-            {config.map((c) => <li key={c.label} className="flex items-center gap-3 px-5 py-3"><span className="min-w-0 flex-1 font-medium">{c.label}</span><Badge tone={c.done ? "success" : "warning"}>{c.done ? "Ενεργό" : "Δεν έχει οριστεί"}</Badge></li>)}
+            {config.map((c) => <li key={c.label} className="flex items-center gap-3 px-5 py-3"><span className="min-w-0 flex-1 font-medium">{c.label}</span><StatusBadge look={look(c.done ? "success" : "warning", c.done ? "Ενεργό" : "Δεν έχει οριστεί")} /></li>)}
           </ul>
         </Card>
 
