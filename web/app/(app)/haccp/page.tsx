@@ -73,13 +73,13 @@ export default async function HaccpPage({ searchParams }: PageProps<"/haccp">) {
             empty={<><p>Εδώ γράφεται κάθε έλεγχος HACCP που κάνεις (θερμοκρασίες, καθαρισμοί, παραλαβές). Δεν υπάρχει καμία καταχώριση ακόμα.</p>{create ? <div className="mt-3 flex justify-center">{create}</div> : null}</>}
             columns={[
               { key: "form", label: "Έντυπο", required: true },
+              { key: "result", label: "Αποτέλεσμα" },
+              { key: "status", label: "Κατάσταση" },
               { key: "date", label: "Ημερομηνία", sortable: true },
               { key: "measured", label: "Μέτρηση", numeric: true },
               { key: "store", label: "Κατάστημα" },
               { key: "responsible", label: "Υπεύθυνος" },
-              { key: "result", label: "Αποτέλεσμα" },
-              { key: "status", label: "Κατάσταση" },
-            ]}
+              ]}
             rows={records.map((record) => ({
               id: record.id,
               cells: {

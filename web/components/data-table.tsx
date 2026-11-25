@@ -14,7 +14,7 @@ import { Input } from "./shadcn/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./shadcn/tabs";
 import { btn, cn } from "./ui";
 
-export type Column = { key: string; label: string; numeric?: boolean; /** δεν κρύβεται (π.χ. η στήλη που ταυτοποιεί τη γραμμή) */ required?: boolean; /** ο server ξέρει να ταξινόμησει με αυτή τη στήλη (?sort=key) */ sortable?: boolean; /** επιτρέπει πολλές γραμμές στο desktop αντί για μία με έλλειψη */ wrap?: boolean };
+export type Column = { key: string; label: string; numeric?: boolean; /** δεν κρύβεται (π.χ. η στήλη που ταυτοποιεί τη γραμμή) */ required?: boolean; /** ο server ξέρει να ταξινόμησει με αυτή τη στήλη (?sort=key) */ sortable?: boolean; /** επιτρέπει πολλές γραμμές στο desktop αντί για μία με έλλειψη */ wrap?: boolean; /** δευτερεύουσα στήλη: κρύβεται στον πίνακα από md ως 2xl για να χωρά χωρίς οριζόντια κύλιση· η σελίδα τη δείχνει και στο `details` της γραμμής */ narrowHidden?: boolean };
 export type RowDetailsTab = { value: string; label: string; icon?: ReactNode; view: ReactNode };
 export type RowDetails = { label?: string; view: ReactNode; edit?: ReactNode; /** πρόσθετα tabs χωρίς να αλλάζει η βασική προβολή */ extra?: RowDetailsTab[] };
 export type Row = { id: string; cells: Record<string, ReactNode>; menu?: ReactNode; /** γρήγορες ενέργειες με εικονίδια, πριν από το μενού */ actions?: ReactNode; /** accordion με Προβολή και, όταν επιτρέπεται, Αλλαγή */ details?: RowDetails };
@@ -103,6 +103,7 @@ function nodeText(node: ReactNode): string {
   if (isValidElement<{ children?: ReactNode }>(node)) return nodeText(node.props.children);
   return "";
 }
+const NARROW_HIDDEN = "md:max-2xl:hidden";
 const csvCell = (value: string) => `"${value.replaceAll('"', '""')}"`;
 
 export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] }: { id: string; columns: Column[]; rows: Row[]; empty: ReactNode; listing?: Listing; bulkActions?: BulkAction[] }) {
@@ -284,7 +285,7 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
 
       <div className="overflow-x-auto">
         <table ref={table} className={cn("table-cards table-desktop text-sm", sized ? "md:table-fixed" : "w-full")} style={sized ? { width: visible.reduce((s, c) => s + widths[c.key], selectionWidth + (hasMenu ? actionsWidth : 0)), minWidth: "100%" } : undefined}>
-          {sized ? <colgroup><col style={{ width: selectionWidth }} />{visible.map((c) => <col key={c.key} style={{ width: widths[c.key] }} />)}{hasMenu ? <col style={{ width: actionsWidth }} /> : null}</colgroup> : null}
+          {sized ? <colgroup><col style={{ width: selectionWidth }} />{visible.map((c) => <col key={c.key} className={c.narrowHidden ? NARROW_HIDDEN : undefined} style={{ width: widths[c.key] }} />)}{hasMenu ? <col style={{ width: actionsWidth }} /> : null}</colgroup> : null}
           <thead>
             <tr className="text-left text-xs text-muted-foreground">
               <th className="w-11 px-3 py-3 text-center">
@@ -299,7 +300,7 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
                   onDrop={() => { if (dragCol) moveColumn(dragCol, c.key); setDragCol(null); }}
                   onDragEnd={() => setDragCol(null)}
                   style={prefs.pinned.includes(c.key) ? { left: leftOffsets[c.key] } : undefined}
-                  className={cn("relative px-4 py-2.5 font-semibold select-none md:cursor-grab", pinClass(c.key, true), c.numeric && "text-right", dragCol === c.key && "opacity-40")}
+                  className={cn("relative px-4 py-2.5 font-semibold select-none md:cursor-grab", c.narrowHidden && NARROW_HIDDEN, pinClass(c.key, true), c.numeric && "text-right", dragCol === c.key && "opacity-40")}
                 >
                   {listing && c.sortable ? (
                     <Link
@@ -336,7 +337,7 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
                       })} />
                     </td>
                     {visible.map((c, i) => (
-                      <td key={c.key} {...(i === 0 ? { "data-primary": true } : { "data-label": c.label })} style={prefs.pinned.includes(c.key) ? { left: leftOffsets[c.key] } : undefined} className={cn("px-4 py-2.5", c.wrap ? "md:align-top md:whitespace-normal md:break-words" : "md:truncate", pinClass(c.key), c.numeric && "text-right font-medium tabular-nums")}>
+                      <td key={c.key} {...(i === 0 ? { "data-primary": true } : { "data-label": c.label })} style={prefs.pinned.includes(c.key) ? { left: leftOffsets[c.key] } : undefined} className={cn("px-4 py-2.5", c.narrowHidden && NARROW_HIDDEN, c.wrap ? "md:align-top md:whitespace-normal md:break-words" : "md:truncate", pinClass(c.key), c.numeric && "text-right font-medium tabular-nums")}>
                         {r.details && i === 0 ? (
                           <div className="flex min-w-0 items-center gap-2">
                             <button type="button" aria-expanded={open} aria-controls={`${id}-${r.id}-details`} aria-label={`${open ? "Σύμπτυξη" : "Ανάπτυξη"}: ${r.details.label ?? "γραμμής"}`} onClick={() => setExpanded(open ? null : r.id)} className={btn("ghost", "sm", "size-7 shrink-0 px-0")}><ChevronRight className={cn("transition-transform", open && "rotate-90")} /></button>

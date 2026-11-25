@@ -72,12 +72,12 @@ export default async function ProductionPlansPage({ searchParams }: PageProps<"/
           empty="Εδώ είναι το πρόγραμμα παραγωγής: τι θα φτιαχτεί, πότε και από ποια αποθήκη. Δεν έχει μπει καμία παραγωγή ακόμα."
           columns={[
             { key: "recipe", label: "Συνταγή", required: true },
+            { key: "status", label: "Κατάσταση" },
             { key: "date", label: "Ημερομηνία", sortable: true },
             { key: "quantity", label: "Ποσότητα (kg)", numeric: true, sortable: true },
             { key: "route", label: "Αποθήκες" },
             { key: "batch", label: "Παρτίδα" },
-            { key: "status", label: "Κατάσταση" },
-          ]}
+            ]}
           rows={plans.map((plan) => {
             const recipe = recipeNames.get(plan.recipeId) ?? "Συνταγή";
             return {

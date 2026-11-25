@@ -116,13 +116,13 @@ export default async function CountsPage({ searchParams }: { searchParams: Promi
               empty="Εδώ βλέπεις κάθε απογραφή στις αποθήκες στις οποίες έχεις πρόσβαση. Δεν έχει γίνει καμία ακόμα: ξεκίνα από τη «Νέα απογραφή» πιο πάνω."
               columns={[
                 { key: "date", label: "Ημερομηνία", required: true, sortable: true },
+                { key: "status", label: "Κατάσταση" },
                 { key: "place", label: "Χώρος / αποθήκη", wrap: true },
                 { key: "lines", label: "Γραμμές", numeric: true },
                 { key: "movements", label: "Διορθώσεις", numeric: true },
                 { key: "createdBy", label: "Από" },
                 { key: "created", label: "Δημιουργία", sortable: true },
-                { key: "status", label: "Κατάσταση" },
-              ]}
+                ]}
               rows={counts.map((count) => ({
                 id: count.id,
                 cells: {

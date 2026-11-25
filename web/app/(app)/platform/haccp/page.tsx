@@ -35,8 +35,8 @@ export default async function PlatformHaccpPage({ searchParams }: PageProps<"/pl
           empty="Εδώ φαίνεται, για κάθε συνδρομητή, πόσο πλήρης είναι η τεκμηρίωση HACCP του. Δεν υπάρχει κανένας συνδρομητής ακόμα."
           columns={[
             { key: "name", label: "Επιχείρηση", required: true, sortable: true },
-            { key: "vat", label: "ΑΦΜ" },
             { key: "score", label: "Δείκτης" },
+            { key: "vat", label: "ΑΦΜ" },
             { key: "critical", label: "Κρίσιμα", numeric: true },
             { key: "warnings", label: "Προειδοποιήσεις", numeric: true },
             { key: "evaluated", label: "Αξιολόγηση" },

@@ -66,13 +66,13 @@ export default async function WholesaleQuotesPage({ searchParams }: PageProps<"/
             empty={<><p>Εδώ είναι οι προσφορές τιμών που στέλνεις στους πελάτες χονδρικής. Δεν έχεις φτιάξει καμία ακόμα.</p>{create ? <div className="mt-3 flex justify-center">{create}</div> : null}</>}
             columns={[
               { key: "number", label: "Αριθμός", required: true, sortable: true },
+              { key: "status", label: "Κατάσταση" },
               { key: "date", label: "Ημερομηνία", sortable: true },
               { key: "customer", label: "Πελάτης" },
               { key: "warehouse", label: "Αποθήκη" },
               { key: "validUntil", label: "Ισχύς έως", sortable: true },
               { key: "lines", label: "Γραμμές", numeric: true },
               { key: "total", label: "Σύνολο", numeric: true, sortable: true },
-              { key: "status", label: "Κατάσταση" },
               { key: "order", label: "Παραγγελία" },
               { key: "pdf", label: "Έντυπο" },
             ]}

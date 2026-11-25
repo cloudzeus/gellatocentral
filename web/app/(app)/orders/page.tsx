@@ -60,13 +60,13 @@ export default async function OrdersPage({ searchParams }: PageProps<"/orders">)
             empty={<><p>Εδώ είναι οι παραγγελίες που στέλνεις στους προμηθευτές σου. Δεν έχεις καμία ακόμα.</p>{create ? <div className="mt-3 flex justify-center">{create}</div> : null}</>}
             columns={[
               { key: "number", label: "Αριθμός", required: true, sortable: true },
+              { key: "status", label: "Κατάσταση" },
               { key: "date", label: "Ημερομηνία", sortable: true },
               { key: "supplier", label: "Προμηθευτής" },
               { key: "warehouse", label: "Αποθήκη" },
               { key: "lines", label: "Γραμμές", numeric: true },
               { key: "total", label: "Σύνολο", numeric: true, sortable: true },
-              { key: "status", label: "Κατάσταση" },
-            ]}
+              ]}
             rows={orders.map((order) => ({
               id: order.id,
               cells: {

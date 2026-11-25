@@ -101,13 +101,13 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
           empty={emptyWith("Εδώ είναι οι εργαζόμενοι που έχεις δικαίωμα να βλέπεις. Δεν υπάρχει κανένας ακόμα.", createEmployee)}
           columns={[
             { key: "name", label: "Ονοματεπώνυμο", required: true, sortable: true },
+            { key: "status", label: "Κατάσταση" },
             { key: "department", label: "Τμήμα" },
             { key: "store", label: "Κατάστημα" },
             { key: "email", label: "Email" },
             { key: "phone", label: "Τηλέφωνο" },
             ...(canPay ? [{ key: "pay", label: "Αμοιβή", numeric: true }] : []),
-            { key: "status", label: "Κατάσταση" },
-          ]}
+            ]}
           rows={staff.map((employee) => ({
             id: employee.id,
             cells: {
