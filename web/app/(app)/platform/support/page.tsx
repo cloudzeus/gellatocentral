@@ -79,9 +79,9 @@ export default async function QueuePage({ searchParams }: PageProps<"/platform/s
             empty={state === "open" ? "Εδώ έρχονται τα αιτήματα υποστήριξης των πελατών. Αυτή τη στιγμή δεν υπάρχει κανένα ανοιχτό." : "Εδώ έρχονται τα αιτήματα υποστήριξης των πελατών. Δεν υπάρχει κανένα ακόμα."}
             columns={[
               { key: "number", label: "Αίτημα", required: true, sortable: true },
+              { key: "status", label: "Κατάσταση" },
               { key: "org", label: "Πελάτης" },
               { key: "priority", label: "Προτεραιότητα", sortable: true },
-              { key: "status", label: "Κατάσταση" },
               { key: "clock", label: "Χρόνος απάντησης" },
               { key: "who", label: "Ανάθεση" },
               { key: "created", label: "Άνοιξε", sortable: true },

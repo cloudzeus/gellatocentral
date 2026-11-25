@@ -159,11 +159,11 @@ export default async function TransfersPage({ searchParams }: { searchParams: Pr
               empty="Εδώ φαίνεται κάθε μεταφορά αποθέματος από μια αποθήκη σε άλλη. Δεν έχει γίνει καμία ακόμα στις αποθήκες στις οποίες έχεις πρόσβαση."
               columns={[
                 { key: "date", label: "Ημερομηνία", required: true, sortable: true },
+                { key: "status", label: "Κατάσταση" },
                 { key: "route", label: "Διαδρομή", wrap: true },
                 { key: "items", label: "Είδη και παρτίδες", wrap: true },
                 { key: "createdBy", label: "Καταχώριση" },
-                { key: "status", label: "Κατάσταση" },
-              ]}
+                ]}
               rows={transfers.map((transfer) => ({
                 id: transfer.id,
                 cells: {

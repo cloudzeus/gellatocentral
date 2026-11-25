@@ -135,12 +135,12 @@ export default async function FinancePage({ searchParams }: PageProps<"/finance"
           empty="Εδώ φαίνονται τα καταχωρημένα τιμολόγια αγοράς και πόσα χρωστάς ακόμα σε καθένα. Δεν υπάρχει κανένα ακόμα."
           columns={[
             { key: "number", label: "Τιμολόγιο", required: true, sortable: true },
+            { key: "status", label: "Πληρωμή" },
             { key: "supplier", label: "Προμηθευτής" },
             { key: "date", label: "Καταχωρήθηκε", sortable: true },
             { key: "total", label: "Σύνολο", numeric: true },
             { key: "outstanding", label: "Απλήρωτο", numeric: true },
-            { key: "status", label: "Πληρωμή" },
-          ]}
+            ]}
           rows={purchases.map((purchase) => {
             const total = purchaseTotals(purchase, purchase.lines).totalCents;
             const outstanding = total - (allocated.get(purchase.id) ?? 0);
@@ -170,6 +170,7 @@ export default async function FinancePage({ searchParams }: PageProps<"/finance"
           empty={emptyWith("Εδώ φαίνεται κάθε κλείσιμο ταμείου: τι έπρεπε να έχει το συρτάρι και τι μετρήθηκε. Δεν υπάρχει κανένα ακόμα.", closingModal)}
           columns={[
             { key: "date", label: "Ημέρα", required: true, sortable: true },
+            { key: "status", label: "Κατάσταση" },
             { key: "store", label: "Κατάστημα" },
             { key: "shift", label: "Βάρδια" },
             { key: "expected", label: "Αναμενόμενο", numeric: true, sortable: true },
@@ -177,7 +178,6 @@ export default async function FinancePage({ searchParams }: PageProps<"/finance"
             { key: "difference", label: "Διαφορά", numeric: true },
             { key: "card", label: "Κάρτα", numeric: true },
             { key: "platform", label: "Πλατφόρμα", numeric: true },
-            { key: "status", label: "Κατάσταση" },
             { key: "reason", label: "Αιτιολογία", wrap: true },
             ...(canReopen ? [{ key: "reopen", label: "Διόρθωση" }] : []),
           ]}
