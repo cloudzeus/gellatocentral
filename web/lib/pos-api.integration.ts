@@ -62,7 +62,16 @@ test("PostgreSQL POS API: η πώληση δέχεται method ή methodId κα
     const failed = await f.call(reportResult, `/sales/${sale.saleId}/result`, { success: false, callback: "gelatosystem://viva-result?status=fail" }, sale.saleId);
     assert.deepEqual(await failed.json(), { ok: true });
     assert.equal((await (await f.call(checkResult, `/sales/${sale.saleId}/result`, undefined, sale.saleId)).json()).status, "failed");
-    assert.equal((await f.call(createSale, "/sales", { method: "CASH", lines: [{ productId: f.product.id, quantity: 1 }] })).status, 200);
+    const again = await f.call(createSale, "/sales", { method: "CASH", lines: [{ productId: f.product.id, quantity: 1 }] });
+    assert.equal(again.status, 200);
+
+    // η πώληση έκλεισε ως πληρωμένη και η συσκευή ξαναστέλνει παλιά δήλωση αποτυχίας: η απάντηση λέει «πληρώθηκε»
+    const paid = await again.json();
+    await db.sale.update({ where: { id: paid.saleId }, data: { status: "COMPLETED" } });
+    const repeated = await (await f.call(reportResult, `/sales/${paid.saleId}/result`, { success: false, callback: "gelatosystem://viva-result?status=fail" }, paid.saleId)).json();
+    assert.equal(repeated.ok, true);
+    assert.ok(repeated.aa != null && repeated.series, "με αριθμό απόδειξης, ώστε η συσκευή να μην το διαβάσει ως αποτυχία");
+    assert.equal((await db.sale.findUniqueOrThrow({ where: { id: paid.saleId } })).status, "COMPLETED");
   } finally {
     await db.sale.deleteMany({ where: { orgId: f.org.id } }); // πρώτα οι πωλήσεις: το SaleLine → Product δεν σβήνει αλυσιδωτά
     await db.organization.delete({ where: { id: f.org.id } });

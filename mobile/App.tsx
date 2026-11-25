@@ -206,7 +206,9 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
       else if (err.status === 403) setStatus({ kind: "blocked", message: err.message || "Το ταμείο είναι κλειστό αυτή τη στιγμή." });
       else if (err.status === 409 && err.code === "verification_failed") setStatus({ kind: "unverified" });
       // η πώληση δεν περιμένει πια πληρωμή στον server (γύρισε σε πρόχειρο ή δεν υπάρχει)
-      else if (err.status === 404 || (err.status === 409 && err.code === "invalid_state")) { await setPending(null); setStatus({ kind: "failed" }); }
+      else if (err.status === 404) { await setPending(null); setStatus({ kind: "failed" }); }
+      // το τερματικό είπε «πληρώθηκε» αλλά η πώληση δεν περιμένει πια πληρωμή: δεν ξέρουμε αν χρεώθηκε, το λύνει ο υπεύθυνος
+      else if (err.status === 409 && err.code === "invalid_state") { await setPending(null); setStatus({ kind: "unverified" }); }
       // δίκτυο, 502 ή οτιδήποτε άλλο: η πληρωμή μπορεί να έγινε, άρα ΔΕΝ είναι αποτυχία
       else { if (err.status === 0) setOnline(false); setStatus({ kind: "unknown", attempt, checkedAt: new Date() }); }
     } finally {
@@ -225,6 +227,9 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
   const onUrl = useCallback(async (url: string) => {
     const p = pendingRef.current;
     if (!isVivaResult(url) || !p) return;
+    // callback άλλης, παλιότερης πώλησης δεν αγγίζει αυτήν που πληρώνεται τώρα
+    const about = parseResult(url).clientTransactionId;
+    if (about && about !== p.saleId) return;
     await setPending({ ...p, callback: url });
     check();
   }, [check, setPending]);
@@ -297,16 +302,19 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
     const how = pending?.methodName || method?.name || "";
     const summary = pending ? `${amount} · ${how}${pending.items ? ` · ${pending.items} είδη` : ""} · ${time(pending.startedAt)}` : undefined;
     const card = (tone: Tone, label: string, title: string, text: string, actions: Action[], note?: string) => <StatusCard t={t} tone={tone} label={label} title={title} text={text} actions={actions} note={note} busy={busy} summary={summary} />;
+    // Όσο δεν έχει γυρίσει callback, το Viva Terminal μπορεί να μην άνοιξε ποτέ για αυτή την πώληση (χάθηκε η απάντηση του
+    // server): τότε η Viva δεν θα απαντήσει ποτέ και το ταμείο θα έμενε κλειδωμένο. Ο ταμίας το ανοίγει από εδώ.
+    const reopen: Action[] = pending && !pending.callback ? [{ label: "Άνοιξε το Viva Terminal", onPress: () => { setStatus({ kind: "waiting" }); void openViva(pending); } }] : [];
     switch (status.kind) {
       case "waiting": return card("neutral", "Σε εξέλιξη", "Περιμένουμε το Viva Terminal", `${how} · ${amount}. Η οθόνη αλλάζει μόνη της μόλις τελειώσει.`, [{ label: "Viva Terminal", onPress: () => pending && void openViva(pending) }, { label: "Έλεγχος πληρωμής", onPress: () => check(), primary: true }]);
       case "paid": return card("ok", "Ολοκληρώθηκε", `Πληρώθηκε ${amount}`, `${how}${status.aa != null ? ` · απόδειξη ${status.series ?? ""} ${status.aa}` : ""}.`, [{ label: "Νέα πώληση", primary: true, onPress: () => { setCart({}); setSelected(undefined); backToSale(); } }]);
-      case "unknown": return card("wait", "Περιμένει", "Δεν ξέρουμε ακόμα αν πληρώθηκε", "Η Viva δεν απάντησε. Ρωτάμε ξανά μόνοι μας. Μην χρεώσεις ξανά τον πελάτη.", [{ label: "Έλεγξε ξανά τώρα", primary: true, onPress: () => check(status.attempt) }], `Τελευταίος έλεγχος ${time(status.checkedAt)}`);
+      case "unknown": return card("wait", "Περιμένει", "Δεν ξέρουμε ακόμα αν πληρώθηκε", "Η Viva δεν απάντησε. Ρωτάμε ξανά μόνοι μας. Μην χρεώσεις ξανά τον πελάτη.", [...reopen, { label: "Έλεγξε ξανά τώρα", primary: true, onPress: () => check(status.attempt) }], `Τελευταίος έλεγχος ${time(status.checkedAt)}`);
       case "failed": return card("bad", "Θέλει ενέργεια", "Η πληρωμή δεν έγινε", "Ο πελάτης δεν χρεώθηκε. Η πώληση είναι όπως την άφησες.", [
         ...(lines.length ? methods.map((m) => ({ label: m.code === "cash" ? "Με μετρητά" : "Ξανά με κάρτα", onPress: () => { setMethodId(m.id); setStatus(undefined); if (m.code === "cash") setCash(true); else void startPayment(m); } })) : []),
         { label: "Πίσω στην πώληση", onPress: backToSale, primary: true },
       ]);
       case "unverified": return card("bad", "Θέλει ενέργεια", "Η πληρωμή δεν έγινε", "Η Viva δεν επιβεβαίωσε την πληρωμή. Μην δώσεις το προϊόν ως πληρωμένο· φώναξε τον υπεύθυνο.", [{ label: "Πίσω στην πώληση", onPress: backToSale, primary: true }]);
-      case "resume": return card("wait", "Περιμένει", "Έμεινε μια πληρωμή στη μέση", `Η εφαρμογή έκλεισε πριν μάθουμε αν πληρώθηκε: ${amount}${how ? `, ${how}` : ""}${pending ? `, ${time(pending.startedAt)}` : ""}.`, [{ label: "Έλεγξε αν πληρώθηκε", primary: true, onPress: () => check() }]);
+      case "resume": return card("wait", "Περιμένει", "Έμεινε μια πληρωμή στη μέση", `Η εφαρμογή έκλεισε πριν μάθουμε αν πληρώθηκε: ${amount}${how ? `, ${how}` : ""}${pending ? `, ${time(pending.startedAt)}` : ""}.`, [...reopen, { label: "Έλεγξε αν πληρώθηκε", primary: true, onPress: () => check() }]);
       case "offline": return card("bad", "Θέλει ενέργεια", "Δεν υπάρχει σύνδεση", "Το ταμείο δεν μπορεί να βγάλει απόδειξη χωρίς internet. Η πώληση που έγραψες μένει στη συσκευή.", [
         ...(catalog ? [{ label: "Πίσω στην πώληση", onPress: backToSale }] : []),
         { label: "Δοκίμασε ξανά", primary: true, onPress: () => { if (catalog && lines.length) void startPayment(); else { setStatus(undefined); loadCatalog(); } } },
