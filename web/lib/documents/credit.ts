@@ -22,7 +22,8 @@ export async function issueCredit(input: { orgId: string; saleId: string; live: 
       include: { lines: true, fiscal: true, device: true, payment: { include: { method: true } } },
     });
     if (!sale?.fiscal || sale.fiscal.status !== "SIGNED" || sale.fiscal.docType !== "11.1") return null;
-    if (await tx.fiscalDocument.findFirst({ where: { orgId: input.orgId, relatedId: sale.fiscal.id } })) return null; // ήδη πιστωμένη
+    // ήδη πιστωμένη ή σε εξέλιξη· ένα αποτυχημένο πιστωτικό δεν μετράει, αλλιώς η επιστροφή δεν ξαναδοκιμάζεται ποτέ
+    if (await tx.fiscalDocument.findFirst({ where: { orgId: input.orgId, relatedId: sale.fiscal.id, status: { not: "FAILED" } } })) return null;
 
     const type = await getDocType("11.4");
     const org = await tx.organization.findUniqueOrThrow({ where: { id: input.orgId } });
