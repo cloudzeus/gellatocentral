@@ -66,7 +66,8 @@ export async function postPurchaseInTransaction(
 
 export async function postPurchase(ctx: StockContext, docId: string) {
   try {
-    return await stockTransaction((tx) => postPurchaseInTransaction(tx, ctx, docId));
+    // τιμολόγιο με πολλές γραμμές: το προεπιλεγμένο όριο των 5 δευτ. του Prisma δεν φτάνει
+    return await stockTransaction((tx) => postPurchaseInTransaction(tx, ctx, docId), { timeout: 30_000, maxWait: 10_000 });
   } catch (error) {
     if (error instanceof StockError) throw new PurchaseError(STOCK_ERROR_MESSAGE[error.code]);
     if (error instanceof StockScopeError) throw new PurchaseError(STOCK_SCOPE_ERROR_MESSAGE[error.code]);
