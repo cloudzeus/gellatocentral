@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { requireStockContext } from "@/lib/stock-context";
 import { rotateVitrineToken, saveVitrineSetting, syncVitrineItems, updateVitrineItem } from "@/lib/vitrine-db";
 import { workflowMessage } from "@/lib/workflow-db";
+import { redirectUrl } from "@/lib/flash";
 
-const back = (query = ""): never => { revalidatePath("/vitrine"); redirect(`/vitrine${query}`); };
+const back = (query = ""): never => { revalidatePath("/vitrine"); redirect(redirectUrl(`/vitrine${query}`)); };
 const fail = (error: unknown): never => back(`?error=${encodeURIComponent(workflowMessage(error))}`);
 
 export async function saveVitrine(form: FormData) {

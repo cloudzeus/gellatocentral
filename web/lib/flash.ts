@@ -131,3 +131,10 @@ export function decodeFlash(raw: string | undefined | null): FlashCookie | null 
     return { id: f.id.slice(0, 40), kind: f.kind, title: clean(f.title), detail: typeof f.detail === "string" ? clean(f.detail) : undefined, href, linkText: href && typeof f.linkText === "string" ? clean(f.linkText) : undefined };
   } catch { return null; }
 }
+
+/**
+ * Διεύθυνση για redirect(): ό,τι δεν είναι ASCII (π.χ. ελληνικά σε ?saved=Το τμήμα αποθηκεύτηκε) κωδικοποιείται.
+ * Χωρίς αυτό ο server απαντά 500 («Invalid character in header content»), γιατί το redirect μιας server action
+ * ταξιδεύει σε κεφαλίδα HTTP. Ό,τι είναι ήδη κωδικοποιημένο (%CE%…) μένει ως έχει.
+ */
+export const redirectUrl = (url: string) => url.replace(/[^\x21-\x7e]/g, (char) => encodeURIComponent(char));

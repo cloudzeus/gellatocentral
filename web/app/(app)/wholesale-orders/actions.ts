@@ -9,6 +9,7 @@ import { requireStockContext } from "@/lib/stock-context";
 import { stockCostScale } from "@/lib/units";
 import { workflowMessage } from "@/lib/workflow-db";
 import { runTask } from "@/lib/tasks";
+import { redirectUrl } from "@/lib/flash";
 import {
   cancelDeliveryDocument, cancelWholesaleOrder, confirmWholesaleOrder, createB2bAccess,
   createDeliveryRoute, createWholesaleOrder, creditSalesDocument, deliverWholesaleOrder,
@@ -21,7 +22,7 @@ const date = (value: FormDataEntryValue | null) => { const text = String(value ?
 function refresh() {
   for (const path of ["/wholesale-orders", "/wholesale-orders/pricelists", "/wholesale-orders/routes", "/invoices"]) revalidatePath(path);
 }
-const back = (path: string, query = ""): never => { refresh(); revalidatePath(path); redirect(`${path}${query}`); };
+const back = (path: string, query = ""): never => { refresh(); revalidatePath(path); redirect(redirectUrl(`${path}${query}`)); };
 const fail = (path: string, error: unknown): never => back(path, `?error=${encodeURIComponent(workflowMessage(error))}`);
 
 export async function createWholesale(form: FormData) {

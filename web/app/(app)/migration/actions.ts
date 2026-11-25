@@ -7,8 +7,9 @@ import { activateMigrationCutover, createMigrationCutover, freezeMigrationCutove
 import { requireStockContext } from "@/lib/stock-context";
 import { workflowMessage } from "@/lib/workflow-db";
 import { runTask } from "@/lib/tasks";
+import { redirectUrl } from "@/lib/flash";
 
-const back = (query: string): never => { revalidatePath("/migration"); redirect(`/migration${query}`); };
+const back = (query: string): never => { revalidatePath("/migration"); redirect(redirectUrl(`/migration${query}`)); };
 const value = (form: FormData, key: string) => String(form.get(key) ?? "");
 
 export async function migrateLegacy(form: FormData) {

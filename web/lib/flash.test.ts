@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { decodeFlash, encodeFlash, flashFromUrl, savedMessage, withoutFlash } from "./flash.ts";
+import { decodeFlash, encodeFlash, flashFromUrl, redirectUrl, savedMessage, withoutFlash } from "./flash.ts";
 
 const q = (search: string) => new URLSearchParams(search);
 
@@ -59,4 +59,12 @@ test("άλλα params «έγινε»: toast με το κείμενο της οθ
   assert.equal(flashFromUrl("/orders", q("deleted=1")), null);
   assert.equal(withoutFlash("/counts/c1", "?created=1&replayed=1&tab=lines"), "/counts/c1?tab=lines");
   assert.equal(withoutFlash("/orders", "?deleted=1"), "/orders?deleted=1");
+});
+
+test("redirectUrl: τα ελληνικά κωδικοποιούνται, ό,τι είναι ήδη κωδικοποιημένο δεν αλλάζει", () => {
+  const url = redirectUrl("/staff?saved=Το τμήμα αποθηκεύτηκε");
+  assert.match(url, /^[\x21-\x7e]+$/);
+  assert.equal(new URL(url, "http://x").searchParams.get("saved"), "Το τμήμα αποθηκεύτηκε");
+  const encoded = `/orders?error=${encodeURIComponent("Λείπει ο προμηθευτής")}&tab=a#x`;
+  assert.equal(redirectUrl(encoded), encoded);
 });

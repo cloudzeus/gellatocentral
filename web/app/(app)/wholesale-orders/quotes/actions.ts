@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireStockContext } from "@/lib/stock-context";
 import { stockCostScale } from "@/lib/units";
 import { workflowMessage } from "@/lib/workflow-db";
+import { redirectUrl } from "@/lib/flash";
 import {
   acceptWholesaleQuote, convertWholesaleQuote, createWholesaleQuote, expireWholesaleQuote,
   rejectWholesaleQuote, sendWholesaleQuote, updateWholesaleQuote,
@@ -19,7 +20,7 @@ function refresh() {
   revalidatePath("/wholesale-orders");
   revalidatePath("/wholesale-orders/quotes");
 }
-const back = (path: string, query = ""): never => { refresh(); revalidatePath(path); redirect(`${path}${query}`); };
+const back = (path: string, query = ""): never => { refresh(); revalidatePath(path); redirect(redirectUrl(`${path}${query}`)); };
 const fail = (path: string, error: unknown): never => back(path, `?error=${encodeURIComponent(workflowMessage(error))}`);
 
 async function quoteInput(form: FormData, orgId: string) {

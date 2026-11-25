@@ -5,10 +5,11 @@ import { redirect } from "next/navigation";
 import { requireStockContext } from "@/lib/stock-context";
 import { createLeave, createScheduleLink, createShift, publishSchedule, saveDepartment, saveEmployee, saveEmployeePay } from "@/lib/staff-db";
 import { workflowMessage } from "@/lib/workflow-db";
+import { redirectUrl } from "@/lib/flash";
 
 const cents = (value: FormDataEntryValue | null) => Math.round(Number(String(value ?? "0").replace(",", ".")) * 100);
 const date = (value: FormDataEntryValue | null) => String(value ?? "") ? new Date(String(value)) : null;
-const back = (query = ""): never => { revalidatePath("/staff"); redirect(`/staff${query}`); };
+const back = (query = ""): never => { revalidatePath("/staff"); redirect(redirectUrl(`/staff${query}`)); };
 const fail = (error: unknown): never => back(`?error=${encodeURIComponent(workflowMessage(error))}`);
 
 export async function newDepartment(form: FormData) {

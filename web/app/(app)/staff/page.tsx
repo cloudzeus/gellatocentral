@@ -94,7 +94,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
   return <Page section="Ομάδα & δεδομένα" title="Προσωπικό & βάρδιες" description="Τμήματα, εργαζόμενοι, άδειες, δημοσιευμένα προγράμματα και εργατικό κόστος με ξεχωριστό απόρρητο" actions={<span className="flex flex-wrap gap-2">{canAdd ? <Modal label={<><Building /> Τμήμα</>} title="Νέο τμήμα"><form action={newDepartment} className="grid gap-3"><Field label="Όνομα" name="name" required maxLength={100} /><Select label="Είδος" name="kind" options={[["store", "Κατάστημα"], ["production", "Παραγωγή"], ["office", "Γραφείο"], ["other", "Άλλο"]]} /><Submit className={btn("default")}>Αποθήκευση</Submit></form></Modal> : null}{createEmployee}{createShift}{publish}</span>}>
     <div className="grid gap-5">
       {typeof query.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{query.error}</p> : null}
-      <section><h2 className="mb-3 font-semibold">Εργαζόμενοι</h2><Card>
+      <section className="min-w-0"><h2 className="mb-3 font-semibold">Εργαζόμενοι</h2><Card>
         <DataTable
           id="staff-employees"
           listing={{ ...eList, total: staffTotal, placeholder: "Όνομα, email ή τηλέφωνο", keys: keysOf("e"), params: others(query, "e", ["eactive"]), filters: [{ key: "eactive", label: "Κατάσταση", value: eActive, options: [["yes", "Ενεργοί"], ["no", "Ανενεργοί"]] }] }}
@@ -127,7 +127,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
           }))}
         />
       </Card></section>
-      <section><h2 className="mb-3 font-semibold">Βάρδιες</h2><Card>
+      <section className="min-w-0"><h2 className="mb-3 font-semibold">Βάρδιες</h2><Card>
         <DataTable
           id="staff-shifts"
           listing={{ ...sList, total: shiftTotal, placeholder: "Εργαζόμενος ή σημείωση", keys: keysOf("s"), params: others(query, "s") }}
@@ -153,7 +153,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
           }))}
         />
       </Card></section>
-      <section><div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">Άδειες</h2>{createLeave}</div><Card>
+      <section className="min-w-0"><div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">Άδειες</h2>{createLeave}</div><Card>
         <DataTable
           id="staff-leaves"
           listing={{ ...lList, total: leaveTotal, placeholder: "Εργαζόμενος ή σημείωση", keys: keysOf("l"), params: others(query, "l", ["lkind"]), filters: [{ key: "lkind", label: "Είδος", value: lKind, options: LEAVE_KINDS }] }}
@@ -175,7 +175,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
           }))}
         />
       </Card></section>
-      <section><h2 className="mb-3 font-semibold">Δημοσιεύσεις</h2><Card>
+      <section className="min-w-0"><h2 className="mb-3 font-semibold">Δημοσιεύσεις</h2><Card>
         <DataTable
           id="staff-publications"
           listing={{ ...pList, total: publicationTotal, placeholder: "Κατάστημα ή ποιος δημοσίευσε", keys: keysOf("p"), params: others(query, "p") }}
