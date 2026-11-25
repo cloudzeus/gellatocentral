@@ -113,8 +113,8 @@ export function PartyForm({ action, party, refs, geo, defaultRole }: { action: (
           </Button>
         </div>
         {found ? (
-          <Alert role={found.ok ? "status" : "alert"} className={cn("sm:col-span-2", found.ok ? "border-success/25 bg-success/10 text-success-ink" : "border-gold/30 bg-gold/10")}>
-            {found.ok ? <CircleCheck aria-hidden /> : <CircleAlert className="text-gold-ink" aria-hidden />}
+          <Alert role={found.ok ? "status" : "alert"} className={cn("sm:col-span-2", found.ok ? "border-success/25 bg-success/10 text-success-ink" : "border-warning/30 bg-warning/10")}>
+            {found.ok ? <CircleCheck aria-hidden /> : <CircleAlert className="text-warning-ink" aria-hidden />}
             <AlertTitle>{found.ok ? `Βρέθηκε${found.source ? ` (${found.source})` : ""}` : "Η αναζήτηση δεν ολοκληρώθηκε"}</AlertTitle>
             <AlertDescription className={found.ok ? "text-success-ink" : "text-foreground"}>
               {found.ok ? `Συμπληρώθηκαν όσα έδωσε το μητρώο. Έλεγξέ τα και άλλαξε ό,τι χρειάζεται${found.consultationNumber ? ` · αριθμός ελέγχου ${found.consultationNumber}` : ""}${found.cached ? " · από έλεγχο των τελευταίων 30 ημερών" : ""}${found.message ? ` · ${found.message}` : ""}` : found.message}

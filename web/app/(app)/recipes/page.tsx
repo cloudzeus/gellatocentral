@@ -97,7 +97,7 @@ export default async function RecipesPage({ searchParams }: PageProps<"/recipes"
               return {
                 id: r.id,
                 cells: {
-                  name: <Link href={`/recipes/${r.id}`} className="font-semibold underline-offset-2 hover:underline">{r.name}</Link>,
+                  name: <Link href={`/recipes/${r.id}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">{r.name}</Link>,
                   type: typeLabel,
                   product: r.product?.name ?? "—",
                   items: r._count.items,

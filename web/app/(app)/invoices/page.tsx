@@ -52,7 +52,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
   const now = new Date();
   const day = new Intl.DateTimeFormat("el-GR", { timeZone: "Europe/Athens" });
   return (
-    <Page section="Πελάτες & πωλήσεις" title="Παραστατικά χονδρικής" description="Τιμολόγια, πιστωτικά και δελτία παράδοσης με ανεξόφλητα και myDATA ιστορικό" actions={<Link href="/wholesale-orders" className={btn("outline", "sm")}><ArrowLeft /> Παραγγελίες</Link>}>
+    <Page section="Πελάτες & πωλήσεις" title="Παραστατικά χονδρικής" description="Τιμολόγια, πιστωτικά και δελτία παράδοσης με απλήρωτα και myDATA ιστορικό" actions={<Link href="/wholesale-orders" className={btn("outline", "sm")}><ArrowLeft /> Παραγγελίες</Link>}>
       <div className="grid gap-4">
         {typeof query.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{query.error}</p> : null}
         <Card>
@@ -73,7 +73,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/invoice
               { key: "order", label: "Παραγγελία" },
               { key: "date", label: "Ημερομηνία", sortable: true },
               { key: "total", label: "Σύνολο", numeric: true, sortable: true },
-              { key: "outstanding", label: "Ανεξόφλητο", numeric: true },
+              { key: "outstanding", label: "Απλήρωτο", numeric: true },
               { key: "status", label: "Κατάσταση" },
             ]}
             rows={documents.map((document) => {

@@ -856,7 +856,7 @@ export async function deleteOrg(form: FormData) {
   if (String(form.get("confirm") ?? "").trim() !== org.vatNumber) return lifeBack(orgId, `error=${encodeURIComponent("Για επιβεβαίωση γράψε το ΑΦΜ της επιχείρησης")}`);
   // δεν σβήνουμε επιχείρηση με αποδείξεις που δεν έφτασαν στο myDATA, ούτε πριν πάρει ο έμπορος το αρχείο του
   const checks = await closingChecks(orgId);
-  if (checks.stuck) return lifeBack(orgId, `error=${encodeURIComponent(`${checks.stuck} αποδείξεις δεν έχουν διαβιβαστεί (εκκρεμείς ή αποτυχημένες). Τακτοποίησέ τες πρώτα`)}`);
+  if (checks.stuck) return lifeBack(orgId, `error=${encodeURIComponent(`${checks.stuck} αποδείξεις δεν έχουν σταλεί (εκκρεμείς ή αποτυχημένες). Τακτοποίησέ τες πρώτα`)}`);
   if (checks.receipts && !checks.exportedAt) return lifeBack(orgId, `error=${encodeURIComponent("Δεν έχει κατέβει ακόμα το αντίγραφο των δεδομένων. Κατέβασέ το και δώσ' το στον πελάτη πριν από τη διαγραφή")}`);
   await kick(orgId);
   let result: { files: number; users: number };

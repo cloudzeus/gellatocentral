@@ -110,7 +110,7 @@ export default async function FinancePage({ searchParams }: PageProps<"/finance"
   const supplierOptions = suppliers.map((supplier): [string, string] => [supplier.id, supplier.name]);
   const purchaseOptions = payable.map((purchase): [string, string] => {
     const outstanding = purchaseTotals(purchase, purchase.lines).totalCents - (allocated.get(purchase.id) ?? 0);
-    return [purchase.id, `${purchase.number ?? purchase.id.slice(-8)} · ${supplierNames.get(purchase.supplierId) ?? "Προμηθευτής"} · ανεξόφλητο ${money(outstanding)}`];
+    return [purchase.id, `${purchase.number ?? purchase.id.slice(-8)} · ${supplierNames.get(purchase.supplierId) ?? "Προμηθευτής"} · απλήρωτο ${money(outstanding)}`];
   });
   const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Athens" });
   const monthFrom = `${today.slice(0, 8)}01`;
@@ -128,7 +128,7 @@ export default async function FinancePage({ searchParams }: PageProps<"/finance"
       {typeof query.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{query.error}</p> : null}
       <FinanceTools accounts={accounts.map((account) => ({ id: account.id, name: account.name, kind: account.kind }))} stores={stores} from={monthFrom} to={monthTo} canExport={ctx.can("finance.export")} canPay={ctx.can("staff.pay")} initialStatementHistory={statementHistory.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() }))} initialPayrollHistory={payrollHistory.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() }))} initialProvider={payrollProviderAvailability()} />
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{accounts.map((account) => <Card key={account.id} className="p-4"><div className="flex items-start justify-between gap-2"><div><p className="text-sm text-muted-foreground">{KIND[account.kind] ?? account.kind} · {account.storeId ? storeNames.get(account.storeId) : "Κεντρικός"}</p><h2 className="font-semibold">{account.name}</h2></div><Banknote className="size-5 text-muted-foreground" /></div><p className="mt-3 text-2xl font-bold">{money(account.openingBalanceCents + (balances.get(account.id) ?? 0))}</p><p className="text-xs text-muted-foreground">Αρχικό {money(account.openingBalanceCents)} · κινήσεις {money(balances.get(account.id))}</p></Card>)}{!accounts.length ? <Card className="p-6 text-sm text-muted-foreground sm:col-span-2 xl:col-span-4">Δεν υπάρχουν διαθέσιμοι λογαριασμοί στο δικαίωμά σου.</Card> : null}</section>
-      <Section title="Τιμολόγια αγοράς και ανεξόφλητα υπόλοιπα">
+      <Section title="Τιμολόγια αγοράς και απλήρωτα υπόλοιπα">
         <DataTable
           id="finance-purchase-invoices"
           listing={{ ...inv, total: invTotal, placeholder: "Αριθμός τιμολογίου ή προμηθευτής" }}
@@ -138,7 +138,7 @@ export default async function FinancePage({ searchParams }: PageProps<"/finance"
             { key: "supplier", label: "Προμηθευτής" },
             { key: "date", label: "Καταχωρήθηκε", sortable: true },
             { key: "total", label: "Σύνολο", numeric: true },
-            { key: "outstanding", label: "Ανεξόφλητο", numeric: true },
+            { key: "outstanding", label: "Απλήρωτο", numeric: true },
             { key: "status", label: "Πληρωμή" },
           ]}
           rows={purchases.map((purchase) => {

@@ -98,7 +98,7 @@ export default async function CatalogPage({ searchParams }: PageProps<"/platform
                           // eslint-disable-next-line @next/next/no-img-element -- έρχεται από το CDN του Bunny, όχι από τον optimizer του Next
                           <img src={t.imageUrl} alt="" className="size-8 shrink-0 rounded-md border border-border/60 object-cover" loading="lazy" />
                         ) : null}
-                        <span><Link href={`/platform/catalog/${t.id}`} className="font-semibold underline-offset-2 hover:underline">{t.name}</Link>{t.packaging ? <span className="block text-xs text-muted-foreground">{t.packaging}</span> : null}</span>
+                        <span><Link href={`/platform/catalog/${t.id}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">{t.name}</Link>{t.packaging ? <span className="block text-xs text-muted-foreground">{t.packaging}</span> : null}</span>
                       </span>
                     ),
                     ean: <span className="tabular-nums">{t.ean ?? "—"}</span>,

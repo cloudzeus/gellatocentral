@@ -92,7 +92,7 @@ export default async function QueuePage({ searchParams }: PageProps<"/platform/s
               return {
                 id: t.id,
                 cells: {
-                  number: <Link href={`/platform/support/${t.id}`} className="font-semibold underline-offset-2 hover:underline"><span className="mr-2 rounded-sm border border-dashed border-primary/30 bg-background px-1.5 py-0.5 font-mono text-xs font-medium">#{t.number}</span>{t.subject}</Link>,
+                  number: <Link href={`/platform/support/${t.id}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"><span className="mr-2 rounded-sm border border-dashed border-primary/30 bg-background px-1.5 py-0.5 font-mono text-xs font-medium">#{t.number}</span>{t.subject}</Link>,
                   org: t.org.name,
                   priority: <StatusBadge kind="ticketPriority" value={t.priority} />,
                   status: <StatusBadge kind="ticket" value={t.status} />,

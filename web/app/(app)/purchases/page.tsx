@@ -103,7 +103,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
       ) : null}>
       <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{q.error.slice(0, 300)}</p> : null}
-        {!suppliers.length || !warehouses.length ? <p className="rounded-lg bg-gold/15 px-4 py-3 text-sm text-gold-ink">Χρειάζεσαι πρώτα <Link href="/parties" className="underline">προμηθευτή</Link> και <Link href="/inventory" className="underline">αποθήκη</Link>.</p> : null}
+        {!suppliers.length || !warehouses.length ? <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm text-warning-ink">Χρειάζεσαι πρώτα <Link href="/parties" className="underline">προμηθευτή</Link> και <Link href="/inventory" className="underline">αποθήκη</Link>.</p> : null}
         <Card>
           <DataTable
             id="purchases"

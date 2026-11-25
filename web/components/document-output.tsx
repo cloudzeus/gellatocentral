@@ -65,7 +65,7 @@ function DocumentDeliveryPanel({ entityType, entityId }: { entityType: DocumentE
 
   if (loading) return <p className="text-sm text-muted-foreground">Φόρτωση συσχετισμένων παραληπτών…</p>;
   return <div className="grid gap-4">
-    {!enabled ? <p role="alert" className="rounded-lg bg-gold/15 p-3 text-sm text-gold-ink">Η εξωτερική αποστολή είναι απενεργοποιημένη. Ενεργοποιείται από Στοιχεία επιχείρησης και κάθε αποστολή εξακολουθεί να απαιτεί ρητή ενέργεια.</p> : null}
+    {!enabled ? <p role="alert" className="rounded-lg bg-warning/15 p-3 text-sm text-warning-ink">Η εξωτερική αποστολή είναι απενεργοποιημένη. Ενεργοποιείται από Στοιχεία επιχείρησης και κάθε αποστολή εξακολουθεί να απαιτεί ρητή ενέργεια.</p> : null}
     {!canSend ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">Δεν έχεις το απαιτούμενο δικαίωμα επεξεργασίας για εξωτερική αποστολή.</p> : null}
     {recipients.length ? <>
       <label className="grid gap-1 text-sm"><span className="font-medium">Συσχετισμένος παραλήπτης</span><select className="h-10 rounded-lg border border-input bg-card px-3" value={recipientId} onChange={(event) => { const next = recipients.find((row) => row.id === event.target.value); setRecipientId(event.target.value); setChannel(next?.email ? "email" : "viber"); setResult(null); }}>{recipients.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label>

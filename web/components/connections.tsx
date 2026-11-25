@@ -13,7 +13,7 @@ import { look } from "@/lib/status";
 
 /** Τι πρέπει να έχει οριστεί για να θεωρείται η ομάδα έτοιμη, και τι σημαίνει όταν δεν είναι. */
 const NEEDS: Record<Group, { keys: SettingKey[]; missing: string; test?: string }> = {
-  viva_isv: { keys: ["VIVA_ISV_CLIENT_ID", "VIVA_ISV_CLIENT_SECRET"], missing: "Χωρίς αυτά όλα τα ταμεία δουλεύουν δοκιμαστικά και δεν διαβιβάζουν αποδείξεις", test: "Δοκιμή σύνδεσης" },
+  viva_isv: { keys: ["VIVA_ISV_CLIENT_ID", "VIVA_ISV_CLIENT_SECRET"], missing: "Χωρίς αυτά όλα τα ταμεία δουλεύουν δοκιμαστικά και δεν στέλνουν αποδείξεις", test: "Δοκιμή σύνδεσης" },
   viva_platform: { keys: ["VIVA_PLATFORM_CLIENT_ID", "VIVA_PLATFORM_CLIENT_SECRET"], missing: "Χωρίς αυτά οι χρεώσεις εξοφλούνται μόνο χειροκίνητα, από την καρτέλα του συνδρομητή" },
   mailgun: { keys: ["MAILGUN_API_KEY", "MAILGUN_DOMAIN"], missing: "Χωρίς αυτά τα email μόνο καταγράφονται, δεν φεύγουν", test: "Δοκιμαστικό email σε μένα" },
   viber: { keys: ["VIBER_AUTH_TOKEN"], missing: "Χωρίς token δεν αποστέλλονται Viber text ειδοποιήσεις" },
@@ -46,7 +46,7 @@ export async function Connections({ q }: { q: Record<string, string | string[] |
               {need.test ? <form action={testConnection.bind(null, g)}><Submit className={btn("outline")}>{need.test}</Submit></form> : null}
               <Modal label="Αλλαγή" title={group.title} description={group.hint}>
                 <form key={fields.map(([k, d]) => ("secret" in d ? !!all[k] : all[k])).join()} action={saveConnection.bind(null, g)} className="grid gap-4 [&>button]:justify-self-end">
-                  {g === "openrouter" && openRouter.failed.length ? <p role="alert" className="rounded-lg bg-gold/10 px-3 py-2 text-sm text-gold-ink">Δεν φορτώθηκε η λίστα μοντέλων {openRouter.failed.join(" και ")}. Συμπλήρωσε το αντίστοιχο ID χειροκίνητα ή ξαναδοκίμασε σε λίγο.</p> : null}
+                  {g === "openrouter" && openRouter.failed.length ? <p role="alert" className="rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning-ink">Δεν φορτώθηκε η λίστα μοντέλων {openRouter.failed.join(" και ")}. Συμπλήρωσε το αντίστοιχο ID χειροκίνητα ή ξαναδοκίμασε σε λίγο.</p> : null}
                   {fields.map(([k, d]) => {
                     const loaded = k === "OPENROUTER_CHAT_MODEL" ? openRouter.chat : k === "OPENROUTER_EMBED_MODEL" ? openRouter.embed : undefined;
                     const options = loaded ? keepCurrent(loaded, all[k]) : d.options;

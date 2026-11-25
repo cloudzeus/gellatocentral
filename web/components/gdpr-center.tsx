@@ -52,7 +52,7 @@ export async function GdprCenter({ scope, base, sp }: { scope: string | null; ba
 
       <div className="flex flex-wrap items-center gap-3">
         <nav aria-label="Ενότητες GDPR" className="flex max-w-full overflow-x-auto rounded-lg border border-border bg-card p-0.5">
-          {Object.entries(TABS).map(([t, label]) => <Link key={t} href={href(t)} aria-current={t === tab ? "page" : undefined} className={cn("rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap pointer-coarse:py-2.5", t === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{label}</Link>)}
+          {Object.entries(TABS).map(([t, label]) => <Link key={t} href={href(t)} aria-current={t === tab ? "page" : undefined} className={cn("inline-flex min-h-9 items-center rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap pointer-coarse:min-h-11", t === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{label}</Link>)}
         </nav>
         <span className="flex-1" />
         <Modal label={<><Plus /> Νέο αίτημα διαγραφής</>} variant="default" title="Νέο αίτημα διαγραφής" description="Για αίτημα που ήρθε με email, τηλέφωνο ή έγγραφο. Η προθεσμία των 30 ημερών μετρά από σήμερα">

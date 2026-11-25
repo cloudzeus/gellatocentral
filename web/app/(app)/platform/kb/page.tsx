@@ -65,7 +65,7 @@ export default async function KbPage({ searchParams }: PageProps<"/platform/kb">
           {tiles.map((t) => (
             <Card key={t.label} className="px-5 py-4">
               <p className="font-medium text-muted-foreground">{t.label}</p>
-              <p className={cn("mt-1.5 text-3xl leading-tight font-semibold tabular-nums", t.warn && "text-gold-ink")}>{t.value}</p>
+              <p className={cn("mt-1.5 text-3xl leading-tight font-semibold tabular-nums", t.warn && "text-warning-ink")}>{t.value}</p>
               <p className="mt-1.5 text-muted-foreground">{t.hint}</p>
             </Card>
           ))}
@@ -107,7 +107,7 @@ export default async function KbPage({ searchParams }: PageProps<"/platform/kb">
               return {
                 id: a.id,
                 cells: {
-                  title: <><Link href={`/platform/kb/${a.id}`} className="font-semibold underline-offset-2 hover:underline">{a.title}</Link><span className="block text-xs text-muted-foreground">{CATEGORIES[a.category as keyof typeof CATEGORIES] ?? a.category}{a.sourceTicketId ? " · από αίτημα" : ""}</span></>,
+                  title: <><Link href={`/platform/kb/${a.id}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">{a.title}</Link><span className="block text-xs text-muted-foreground">{CATEGORIES[a.category as keyof typeof CATEGORIES] ?? a.category}{a.sourceTicketId ? " · από αίτημα" : ""}</span></>,
                   vis: a.internal ? "Εσωτερικό" : "Για τους πελάτες",
                   status: <StatusBadge kind="kb" value={a.status} />,
                   use: a.internal ? <span className="text-muted-foreground">—</span> : h === null ? <span className="text-muted-foreground">λίγες ψήφοι</span> : `Βοήθησε το ${h}%`,

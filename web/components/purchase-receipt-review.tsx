@@ -39,7 +39,7 @@ export function PurchaseReceiptReview({ reviewStatus, reviewedAt, reviewedByName
       {discrepancies.length ? (
         <ul className="grid gap-2">
           {discrepancies.map((item) => (
-            <li key={item.id} className="rounded-md border border-gold/40 bg-gold/10 p-3">
+            <li key={item.id} className="rounded-md border border-warning/40 bg-warning/10 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="warning">{item.basis === "AGREEMENT" ? "Ειδική συμφωνία" : "Προηγούμενη πραγματική αγορά"}</Badge>
                 <span className="text-xs font-semibold">{item.kind === "AGREEMENT_MISMATCH" ? "Ασυμφωνία τιμής" : "Αύξηση άνω του 5%"}</span>

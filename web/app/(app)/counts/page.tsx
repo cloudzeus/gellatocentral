@@ -79,7 +79,7 @@ export default async function CountsPage({ searchParams }: { searchParams: Promi
           {!ctx.can("counts.add") ? <p className="px-5 py-5 text-sm text-muted-foreground">Έχεις δικαίωμα προβολής, αλλά όχι δημιουργίας απογραφής.</p> : null}
           {ctx.can("counts.add") && !activeWarehouses.length ? <p className="px-5 py-5 text-sm text-muted-foreground">Δεν υπάρχει ενεργή αποθήκη στην οποία έχεις πρόσβαση.</p> : null}
           {ctx.can("counts.add") && activeWarehouses.length ? (
-            <form id="count-create" action={createCount} className="grid gap-4 px-5 py-5 md:grid-cols-2 md:items-end 2xl:grid-cols-[minmax(11rem,1fr)_minmax(11rem,1fr)_minmax(10rem,0.7fr)_minmax(15rem,1.3fr)_auto]">
+            <form id="count-create" action={createCount} className="grid gap-4 px-5 py-5 md:grid-cols-2 2xl:grid-cols-[minmax(11rem,1fr)_minmax(11rem,1fr)_minmax(10rem,0.7fr)_minmax(15rem,1.3fr)_auto] 2xl:items-end">
               <input type="hidden" name="clientKey" value={randomUUID()} />
               <label className="space-y-1 text-sm font-medium">Χώρος απογραφής
                 <select name="storeId" className={field} defaultValue="">

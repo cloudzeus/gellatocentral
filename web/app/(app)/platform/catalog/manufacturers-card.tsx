@@ -134,7 +134,7 @@ export async function ManufacturersCard({ searchParams }: { searchParams: Record
                     <div><p className="text-xs text-muted-foreground">Τελευταίος εμπλουτισμός</p><p className="mt-1 font-medium">{m.enrichedAt?.toLocaleDateString("el-GR") ?? "Ποτέ"}</p></div>
                     <div><p className="text-xs text-muted-foreground">Aliases</p><p className="mt-1 font-medium">{m.aliases.length ? m.aliases.join(", ") : "—"}</p></div>
                   </div>
-                  {m.enrichmentError ? <p className="rounded-lg bg-gold/10 px-3 py-2 text-xs text-gold-ink">{m.enrichmentError}</p> : null}
+                  {m.enrichmentError ? <p className="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning-ink">{m.enrichmentError}</p> : null}
                   {citations.length ? <div><p className="mb-2 text-xs font-semibold text-muted-foreground">Πηγές AI</p><div className="flex flex-wrap gap-2">{citations.map((citation, index) => <a key={citation.url} href={citation.url} target="_blank" rel="noreferrer" className={btn("outline", "sm")}>{citation.title || `Πηγή ${index + 1}`}<ExternalLink /></a>)}</div></div> : null}
 
                   <section>

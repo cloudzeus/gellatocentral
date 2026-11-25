@@ -298,7 +298,7 @@ export async function runLegacyMigration(ctx: StockContext, raw: unknown, mode: 
     const actual = await actualReconciliation(tx, ctx, bundle, units);
     const differences = reconciliationDifferences(expected, actual);
     if (differences.length) throw new WorkflowError(`Reconciliation απέτυχε και έγινε rollback: ${differences.slice(0, 8).join(" · ")}`);
-    const summary: Summary = { mode, results, expected, actual, differences, note: "Τα ποσά, τα ανεξόφλητα, οι ποσότητες και το κόστος συμφωνούν με το canonical export. Δεν δημιουργήθηκε νέα φορολογική αρίθμηση ή διαβίβαση myDATA." };
+    const summary: Summary = { mode, results, expected, actual, differences, note: "Τα ποσά, τα απλήρωτα, οι ποσότητες και το κόστος συμφωνούν με το canonical export. Δεν δημιουργήθηκε νέα φορολογική αρίθμηση ή διαβίβαση myDATA." };
     await tx.migrationRun.update({ where: { id: run.id }, data: { status: "IMPORTED", summary: json(summary) } });
     if (options) {
       await tx.migrationCutover.update({ where: { id: options.cutoverId }, data: options.kind === "BASELINE"

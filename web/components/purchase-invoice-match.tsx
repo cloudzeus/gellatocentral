@@ -44,7 +44,7 @@ export function PurchaseInvoiceMatch({ status, reviewedAt, reviewedByName, revie
             ? `Οι αποκλίσεις εγκρίθηκαν${reviewedAt ? ` στις ${dayTime.format(reviewedAt)}` : ""}${reviewedByName ? ` από ${reviewedByName}` : ""}.`
             : "Συγκρίνονται παραγγελία, συγκεκριμένη παραλαβή και πραγματικές γραμμές τιμολογίου. Η ροή υποστηρίζει μία παραλαβή ανά τιμολόγιο."}
       </p>
-      {discrepancies.length ? <ul className="grid gap-2">{discrepancies.map((item) => <li key={item.id} className="rounded-md border border-gold/40 bg-gold/10 p-3">
+      {discrepancies.length ? <ul className="grid gap-2">{discrepancies.map((item) => <li key={item.id} className="rounded-md border border-warning/40 bg-warning/10 p-3">
         <div className="flex flex-wrap items-center gap-2"><Badge tone="warning">{BASIS[item.basis as keyof typeof BASIS] ?? item.basis}</Badge><span className="text-xs font-semibold">{KIND[item.kind as keyof typeof KIND] ?? item.kind}</span></div>
         <p className="mt-2 text-xs">{item.reason}</p>
         {item.expectedQuantityBase != null ? <p className="mt-1 text-xs tabular-nums">Παραλαβή: <strong>{quantity.format(item.expectedQuantityBase)}</strong> · Τιμολόγιο: <strong>{quantity.format(item.actualQuantityBase ?? 0)}</strong> base units</p> : null}

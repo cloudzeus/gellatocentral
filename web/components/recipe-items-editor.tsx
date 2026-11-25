@@ -116,7 +116,7 @@ export function RecipeItemsEditor({
                 >
                   <Plus className="size-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">{i.name}</span>
-                  {!i.composition ? <span className="text-xs text-gold-ink">χωρίς σύσταση</span> : null}
+                  {!i.composition ? <span className="text-xs text-warning-ink">χωρίς σύσταση</span> : null}
                 </button>
               </li>
             ))}
@@ -153,7 +153,7 @@ export function RecipeItemsEditor({
               <GripVertical className="size-4 shrink-0 cursor-grab text-muted-foreground" aria-label="Σύρε για αλλαγή σειράς" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{item?.name ?? "—"}</span>
-                {!item?.composition ? <span className="text-xs text-gold-ink">χωρίς σύσταση — δεν μετράει σε PAC/POD</span> : null}
+                {!item?.composition ? <span className="text-xs text-warning-ink">χωρίς σύσταση — δεν μετράει σε PAC/POD</span> : null}
               </span>
               {item?.gramsPerPiece ? <span className="shrink-0 text-xs text-muted-foreground tabular-nums">≈ {piecesFromGrams(item, l.grams).toLocaleString("el-GR", { maximumFractionDigits: 1 })} τεμ.</span> : null}
               <input

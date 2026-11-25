@@ -15,7 +15,7 @@ type Entry = readonly [tone: Tone, text: string];
 const STATUS = {
   // Απόδειξη λιανικής και διαβίβασή της
   sale: { DRAFT: ["neutral", "Πρόχειρη"], AWAITING_PAYMENT: ["warning", "Περιμένει πληρωμή"], COMPLETED: ["success", "Ολοκληρώθηκε"], CANCELLED: ["neutral", "Ακυρώθηκε"] },
-  fiscal: { SIGNED: ["success", "Διαβιβάστηκε στην ΑΑΔΕ"], PENDING: ["warning", "Σε εξέλιξη"], NOT_SENT: ["warning", "Δοκιμαστική — δεν διαβιβάστηκε"], FAILED: ["danger", "Απέτυχε — θέλει ενέργεια"] },
+  fiscal: { SIGNED: ["success", "Στάλθηκε στην ΑΑΔΕ"], PENDING: ["warning", "Σε εξέλιξη"], NOT_SENT: ["warning", "Δοκιμαστική — δεν στάλθηκε"], FAILED: ["danger", "Απέτυχε — θέλει ενέργεια"] },
   // Αγορές
   purchaseOrder: { DRAFT: ["neutral", "Πρόχειρη"], SENT: ["warning", "Στάλθηκε — περιμένει παραλαβή"], PARTIAL: ["warning", "Μερική παραλαβή"], RECEIVED: ["success", "Παραλήφθηκε"], CANCELLED: ["neutral", "Ακυρώθηκε"] },
   purchase: { DRAFT: ["neutral", "Πρόχειρο"], POSTED: ["success", "Καταχωρήθηκε"], CANCELLED: ["neutral", "Ακυρώθηκε"] },

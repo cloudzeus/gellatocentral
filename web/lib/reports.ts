@@ -201,7 +201,7 @@ export type AgingTotals = { current: number; days1to30: number; days31to60: numb
 export const emptyAging = (): AgingTotals => ({ current: 0, days1to30: 0, days31to60: 0, days61to90: 0, over90: 0 });
 
 export function addAging(totals: AgingTotals, amountCents: number, dueAt: Date | null, at: Date) {
-  if (!Number.isSafeInteger(amountCents) || amountCents < 0) throw new Error("Άκυρο ανεξόφλητο ποσό");
+  if (!Number.isSafeInteger(amountCents) || amountCents < 0) throw new Error("Άκυρο απλήρωτο ποσό");
   totals[agingBucket(dueAt, at)] += amountCents;
   return totals;
 }

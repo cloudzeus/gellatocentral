@@ -623,7 +623,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               <p className="font-semibold">Οριστική διαγραφή</p>
               <p className="text-muted-foreground">Σβήνει καταστήματα, αποδείξεις, πελάτες, χρήστες και τα αρχεία στο Bunny. <b className="text-foreground">Δεν αναιρείται.</b></p>
               <ul className="space-y-1">
-                <li className={checks.stuck ? "font-medium text-destructive" : "text-muted-foreground"}>{checks.stuck ? `✕ ${checks.stuck} αποδείξεις δεν έχουν διαβιβαστεί στο myDATA` : `✓ Καμία απόδειξη σε εκκρεμότητα (${checks.receipts} συνολικά)`}</li>
+                <li className={checks.stuck ? "font-medium text-destructive" : "text-muted-foreground"}>{checks.stuck ? `✕ ${checks.stuck} αποδείξεις δεν έχουν σταλεί στο myDATA` : `✓ Καμία απόδειξη σε εκκρεμότητα (${checks.receipts} συνολικά)`}</li>
                 <li className={checks.receipts && !checks.exportedAt ? "font-medium text-destructive" : "text-muted-foreground"}>{checks.exportedAt ? `✓ Αντίγραφο δεδομένων: ${checks.exportedBy}, ${day(checks.exportedAt)}` : checks.receipts ? "✕ Δεν έχει κατέβει αντίγραφο των δεδομένων" : "✓ Δεν υπάρχουν αποδείξεις για αντίγραφο"}</li>
               </ul>
               {!me.can("settings.edit") ? <p className="text-xs text-muted-foreground">Μόνο Super Admin</p> : !org.closingAt ? <p className="text-xs text-muted-foreground">Ξεκίνα πρώτα το κλείσιμο</p> : !deletable ? <p className="text-xs text-muted-foreground">Διαθέσιμη από {day(org.deleteAfter!)}</p> : (

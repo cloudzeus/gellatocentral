@@ -111,7 +111,7 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
           rows={rows.map(({ o, stores, devices, cents, missing }) => ({
             id: o.id,
             cells: {
-              org: <><Link href={`/platform/${o.id}`} className="font-semibold underline-offset-2 hover:underline">{o.name}</Link><span className="block text-xs text-muted-foreground">ΑΦΜ {o.vatNumber}{o.slug ? ` · ${o.slug}` : ""}</span></>,
+              org: <><Link href={`/platform/${o.id}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">{o.name}</Link><span className="block text-xs text-muted-foreground">ΑΦΜ {o.vatNumber}{o.slug ? ` · ${o.slug}` : ""}</span></>,
               status: o.closingAt ? <StatusBadge look={look("danger", "Κλείνει")} /> : o.suspendedAt ? <StatusBadge look={look("danger", "Σε αναστολή")} /> : o.subscription ? <StatusBadge kind="subscription" value={o.subscription.status} /> : "—",
               until: o.subscription?.currentPeriodEnd.toLocaleDateString("el-GR") ?? "—",
               stores,

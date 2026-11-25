@@ -66,7 +66,7 @@ export function PartyIdentity(p: PartyIdentityProps) {
           </div>
         </div>
         {p.notes ? <p className="mt-3 whitespace-pre-wrap break-words border-t border-border/70 pt-3 text-sm leading-relaxed text-muted-foreground"><span className="font-semibold text-foreground">Σημειώσεις: </span>{p.notes}</p> : null}
-        <p className={`mt-3 flex items-start gap-2 text-xs ${p.complete ? "text-success-ink" : "text-gold-ink"}`}><CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />{p.complete ? `Πλήρη βασικά στοιχεία τιμολόγησης${p.verifiedAt ? ` · επαλήθευση μητρώου ${p.verifiedAt}` : ""}` : "Λείπουν βασικά στοιχεία τιμολόγησης · άνοιγμα στοιχείων για συμπλήρωση"}</p>
+        <p className={`mt-3 flex items-start gap-2 text-xs ${p.complete ? "text-success-ink" : "text-warning-ink"}`}><CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />{p.complete ? `Πλήρη βασικά στοιχεία τιμολόγησης${p.verifiedAt ? ` · επαλήθευση μητρώου ${p.verifiedAt}` : ""}` : "Λείπουν βασικά στοιχεία τιμολόγησης · άνοιγμα στοιχείων για συμπλήρωση"}</p>
       </div>
     </Card>
   );

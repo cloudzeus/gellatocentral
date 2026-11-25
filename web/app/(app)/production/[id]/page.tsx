@@ -122,7 +122,7 @@ export default async function ProductionBatchPage({ params, searchParams }: { pa
             rows={items.map((i) => ({
               id: i.id,
               cells: {
-                item: <Link href={`/items/${i.genericItemId}`} className="font-semibold underline-offset-2 hover:underline">{i.genericItem.name}</Link>,
+                item: <Link href={`/items/${i.genericItemId}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">{i.genericItem.name}</Link>,
                 grams: i.grams.toLocaleString("el-GR"),
                 quantity: i.lotId ? fmtQty(i.quantity, i.genericItem.baseUnit.dimension) : "χωρίς απόθεμα",
                 lot: i.lot?.batchNumber ?? (i.lotId ? "(χύμα)" : "—"),
