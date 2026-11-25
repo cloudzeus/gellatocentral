@@ -1,0 +1,96 @@
+<!doctype html><meta charset="utf-8"><title>Gelato Central · mockup</title><body style="margin:16px;font:14px system-ui">
+<style>
+.tw{font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.tw h3{font-size:15px;font-weight:600;margin:0 0 4px}.tw .cap{margin:0 0 12px;color:var(--muted-foreground,#555);font-size:13px}
+.fr{overflow:hidden;border:1px solid var(--border,#ccc);border-radius:8px;margin-bottom:24px}
+.crop{height:400px;position:relative}.crop .pos{position:absolute;right:0}.crop.b .pos{bottom:0}
+.pos{--bg:#0A0E18;--p:#10151F;--r:#171D2B;--fg:#E7E9EE;--mu:#868EA1;--fa:#5A6275;--ln:rgba(255,255,255,.075);--act:#C9AB6E;--on:#14110A;--wait:#E3B25A;--ok:#5FB98B;--bad:#E8697A;--selb:rgba(201,171,110,.55);
+width:1280px;height:800px;display:grid;grid-template:48px 1fr/200px 1fr 348px;background:var(--bg);color:var(--fg);font-size:12.5px;line-height:1.35;font-variant-numeric:tabular-nums;letter-spacing:.005em}
+.pos.lt{--bg:#F3F1EC;--p:#FFFFFF;--r:#ECE9E2;--fg:#1A2030;--mu:#616A7B;--fa:#959CAA;--ln:rgba(15,23,42,.1);--act:#131F3B;--on:#FFFFFF;--wait:#8A5300;--ok:#2B7550;--bad:#BF1525;--selb:rgba(19,31,59,.5)}
+.pos svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.pos .m{color:var(--mu)}.pos .f{color:var(--fa)}.pos .n{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11.5px}
+.bar{grid-column:1/-1;display:flex;align-items:center;border-bottom:1px solid var(--ln);background:var(--p)}
+.bar>div{height:100%;display:flex;align-items:center;gap:8px;padding:0 16px;border-right:1px solid var(--ln)}
+.bar .br{width:200px;font-weight:600;letter-spacing:.08em;font-size:12px}.bar .gr{flex:1;border:0}
+.bar .rt{border-right:0;border-left:1px solid var(--ln)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.av{width:24px;height:24px;border-radius:50%;background:var(--r);border:1px solid var(--ln);display:grid;place-items:center;font-size:10px;font-weight:600}
+.nav{border-right:1px solid var(--ln);background:var(--p);display:flex;flex-direction:column;padding:12px 8px}
+.nav a{display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border-radius:6px;color:var(--mu);font-weight:500}
+.nav a.on{background:var(--r);color:var(--fg)}.nav a i{margin-left:auto;font-style:normal;font-size:11px;color:var(--wait)}
+.nav h6{margin:auto 10px 8px;font-size:11px;font-weight:500;color:var(--fa)}
+.kv{display:flex;justify-content:space-between;padding:5px 10px;font-size:12px}.kv span{color:var(--mu)}
+.mid{display:flex;flex-direction:column;min-width:0}
+.tabs{display:flex;align-items:center;border-bottom:1px solid var(--ln);padding:0 20px;height:44px;gap:24px}
+.tabs a{height:100%;display:flex;align-items:center;gap:6px;color:var(--mu);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs a.on{color:var(--fg);border-color:var(--fg)}.tabs u{width:6px;height:6px;border-radius:1px;background:var(--c)}.tabs small{color:var(--fa);font-size:11px}
+.sr{margin-left:auto;height:30px;width:200px;border:1px solid var(--ln);border-radius:6px;display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--fa)}
+.sr kbd{margin-left:auto;font:10.5px ui-monospace,Menlo,monospace;border:1px solid var(--ln);border-radius:3px;padding:0 4px}
+.tools{display:flex;align-items:stretch;height:56px;border-bottom:1px solid var(--ln)}
+.tools a{width:88px;display:grid;place-items:center;align-content:center;gap:4px;font-size:10.5px;font-weight:500;letter-spacing:.04em;color:var(--mu);border-right:1px solid var(--ln)}
+.tools a svg{width:18px;height:18px}.tools .gap{flex:1;border:0}.tools .l{border-right:0;border-left:1px solid var(--ln)}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;padding:12px 12px 4px}
+.pr{height:92px;background:var(--k);color:#fff;border-radius:3px;padding:9px 10px 8px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
+.pr b{font-weight:600;font-size:13px;line-height:1.25}.pr div{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px}.pr div span:first-child{opacity:.75;font-family:ui-monospace,Menlo,monospace;font-size:10.5px}
+.pr.in{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--fg)}.pr .q{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.35);border-radius:3px;padding:1px 6px;font-weight:600;font-size:11.5px}
+.pr.off{background:var(--r);color:var(--fa)}.pr.in b{padding-right:38px}
+.cb{margin-top:auto;display:flex;border-top:1px solid var(--ln);background:var(--p)}
+.cb a{flex:1;height:68px;padding:10px 12px;border-right:1px solid var(--ln);display:flex;flex-direction:column;justify-content:space-between;font-weight:500;color:var(--mu);border-top:3px solid var(--c);margin-top:-1px}
+.cb a small{font-size:11px;color:var(--fa)}.cb a.on{background:var(--r);color:var(--fg)}.cb a:last-child{border-right:0}
+.lab{font-size:11px;font-weight:500;color:var(--fa);padding:14px 20px 8px}
+.fl{display:flex;flex-wrap:wrap;gap:6px;padding:0 20px}
+.fl span{height:32px;padding:0 12px;border:1px solid var(--ln);border-radius:6px;display:flex;align-items:center;gap:6px;color:var(--mu)}
+.fl .on{border-color:var(--selb);color:var(--fg);background:var(--r)}
+.hold{margin-top:auto;border-top:1px solid var(--ln);display:grid;grid-template-columns:repeat(4,1fr)}
+.hold div{padding:10px 16px;border-right:1px solid var(--ln);display:grid;gap:2px}.hold div:last-child{border:0}
+.hold p{margin:0;display:flex;justify-content:space-between;align-items:center}.st{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500}.st svg{width:11px;height:11px}
+.ord{border-left:1px solid var(--ln);background:var(--p);display:flex;flex-direction:column;min-height:0}
+.oh{display:flex;align-items:center;gap:8px;padding:0 16px;height:44px;border-bottom:1px solid var(--ln)}.oh b{font-size:14px;font-weight:600}
+.oh span:last-child{margin-left:auto;display:flex;gap:12px;color:var(--mu)}
+.li{display:grid;grid-template-columns:20px 1fr auto;gap:2px 8px;padding:10px 16px;border-bottom:1px solid var(--ln)}
+.li>i{font-style:normal;color:var(--fa)}.li>b{font-weight:500}.li>em{font-style:normal;font-weight:500;text-align:right}
+.li small{grid-column:2;color:var(--mu);font-size:11.5px}.li small+em{color:var(--mu);font-size:11.5px;font-weight:400}
+.li.sel{background:var(--r);box-shadow:inset 2px 0 0 var(--act)}
+.ed{grid-column:2/4;display:flex;gap:6px;margin-top:6px}.ed span{height:30px;padding:0 10px;border:1px solid var(--ln);border-radius:6px;display:flex;align-items:center;gap:6px;color:var(--mu);font-size:12px}
+.ed .stp{padding:0;gap:0;color:var(--fg)}.ed .stp i{width:30px;text-align:center;font-style:normal;color:var(--mu)}.ed .stp b{width:22px;text-align:center;font-weight:600}
+.sum{margin-top:auto;border-top:1px solid var(--ln);padding:12px 16px;display:grid;gap:5px}
+.sum p{margin:0;display:flex;justify-content:space-between;color:var(--mu)}.sum .t{color:var(--fg);align-items:baseline;padding-top:8px;margin-top:3px;border-top:1px solid var(--ln);font-weight:500}.sum .t b{font-size:24px;font-weight:600;letter-spacing:-.01em}
+.pay{padding:0 16px 16px;display:grid;gap:8px}
+.pm{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--ln);border-radius:6px}
+.pm span{height:36px;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--mu);border-right:1px solid var(--ln);font-weight:500}.pm span:last-child{border:0}
+.pm .on{color:var(--fg);background:var(--r)}
+.row{display:flex;gap:8px}.row>span{height:44px;border:1px solid var(--ln);border-radius:6px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 14px;color:var(--mu);font-weight:500}
+.row>.go{flex:1;border:0;background:var(--act);color:var(--on);font-weight:600;font-size:14px;justify-content:space-between}
+</style>
+<div class="tw" id="tw"></div>
+<script>
+const P={cart:'<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2 2h3l2.7 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 7H6"/>',clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',rec:'<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8H8M16 12H8M13 16H8"/>',cash:'<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/>',card:'<rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>',qr:'<rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3M12 7v3a2 2 0 0 1-2 2H7"/>',gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',srch:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',pause:'<path d="M9 5v14M15 5v14"/>',note:'<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',bin:'<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>',pct:'<path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',wifi:'<path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 20h.01"/>'};
+const s=n=>`<svg viewBox="0 0 24 24" aria-hidden="true">${P[n]}</svg>`;
+const C=[['Συχνά',24,'#8E96A3'],['Χωνάκια',14,'#B4762F'],['Κύπελλα',9,'#2F7FA8'],['Οικογενειακά',6,'#2E8A6A'],['Γρανίτες',7,'#B8526A'],['Καφές',12,'#7A5A44'],['Γλυκά',8,'#6B5FA8'],['Ποτά',16,'#4F5B6E']];
+const R=[['Χωνάκι 1 μπάλα','2,50','Χ1',1,1],['Χωνάκι 2 μπάλες','4,00','Χ2',1,2],['Χωνάκι 3 μπάλες','5,20','Χ3',1],['Χωνάκι παιδικό','1,80','Χ4',1],['Χωνάκι βάφλας','4,60','Χ6',1],['Χωνάκι vegan','3,40','Χ8',1,0,1],['Κύπελλο μικρό','2,80','Κ1',2],['Κύπελλο μεσαίο','4,20','Κ2',2],['Κύπελλο μεγάλο','5,50','Κ3',2],['Κύπελλο affogato','4,80','Κ5',2],['Οικογενειακό 500 g','9,00','Ο1',3],['Οικογενειακό 1 kg','16,00','Ο2',3],['Γρανίτα λεμόνι','3,00','Γ1',4],['Γρανίτα φράουλα','3,00','Γ2',4],['Espresso','1,80','Φ1',5],['Καπουτσίνο διπλός','3,20','Φ4',5,1],['Freddo espresso','2,80','Φ6',5],['Freddo cappuccino','3,20','Φ7',5],['Βάφλα με παγωτό','6,50','Λ1',6],['Μπισκότο σάντουιτς','3,80','Λ3',6],['Προφιτερόλ','4,50','Λ5',6],['Νερό 500 ml','0,50','Π1',7],['Σόδα','1,80','Π4',7],['Χυμός πορτοκάλι','3,50','Π7',7]];
+const F=[['Φιστίκι Αιγίνης',1],['Σοκολάτα bitter',1],['Βανίλια Μαδαγασκάρης'],['Φράουλα'],['Γιαούρτι μέλι'],['Καραμέλα αλατισμένη'],['Λεμόνι σορμπέ'],['Stracciatella'],['Φουντούκι'],['Μαστίχα']];
+const H=[['Α-12','3 είδη','11,30 €','4′','Μαρία Π.'],['Α-13','1 είδος','9,00 €','9′','Νίκος Κ.'],['Α-14','5 είδη','18,40 €','12′','Μαρία Π.'],['Α-15','2 είδη','7,20 €','18′','Νίκος Κ.']];
+const pos=lt=>`<div class="pos${lt?' lt':''}">
+<div class="bar"><div class="br">GELATO SYSTEM</div><div><b style="font-weight:500">Gelateria Πλάκα</b><span class="m">Ταμείο 1</span><span class="n f">ΑΛΠ</span></div><div class="gr"></div>
+<div class="rt"><span class="dot"></span><span class="m">Συνδεδεμένο</span></div><div class="rt n">12:41</div><div class="rt"><span class="av">ΜΠ</span>Μαρία Π.<span class="f">βάρδια από 08:02</span></div></div>
+<div class="nav">${[['cart','Πώληση',1],['clock','Σε αναμονή',0,'4'],['rec','Αποδείξεις'],['cash','Βάρδια'],['gear','Συσκευή']].map(([i,t,o,n])=>`<a class="${o?'on':''}">${s(i)}${t}${n?`<i>${n}</i>`:''}</a>`).join('')}
+<h6>Βάρδια σήμερα</h6><div class="kv"><span>Αποδείξεις</span>84</div><div class="kv"><span>Πωλήσεις</span>612,40 €</div><div class="kv"><span>Στο συρτάρι</span>238,10 €</div></div>
+<div class="mid"><div class="tools">${[['srch','ΑΝΑΖΗΤΗΣΗ'],['qr','ΚΩΔΙΚΟΣ'],['pct','ΕΚΠΤΩΣΗ'],['note','ΣΗΜΕΙΩΣΗ'],['user','ΠΕΛΑΤΗΣ']].map(([i,l])=>`<a>${s(i)}${l}</a>`).join('')}<a class="gap"></a>${[['pause','ΑΝΑΜΟΝΗ'],['rec','ΑΠΟΔΕΙΞΗ'],['cash','ΣΥΡΤΑΡΙ']].map(([i,l])=>`<a class="l">${s(i)}${l}</a>`).join('')}</div>
+<div class="grid">${R.map(([n,p,c,k,q,off])=>`<div class="pr${q?' in':''}${off?' off':''}" style="--k:${C[k][2]}"><b>${n}</b>${q?`<span class="q">× ${q}</span>`:''}<div><span>${c}</span><span>${off?'Εξαντλήθηκε':p}</span></div></div>`).join('')}</div>
+<div class="lab">Γεύσεις για «Χωνάκι 2 μπάλες» · διάλεξε 2</div><div class="fl">${F.map(([n,o])=>`<span class="${o?'on':''}">${n}</span>`).join('')}</div>
+<div class="cb">${C.map(([n,k,c],i)=>`<a class="${i?'':'on'}" style="--c:${c}">${n}<small>${k} είδη</small></a>`).join('')}</div></div>
+<div class="ord"><div class="oh"><b>Πώληση</b><span class="n m">ΑΛΠ 1042</span><span>${s('user')}${s('note')}${s('bin')}</span></div>
+<div class="li"><i>1</i><b>Χωνάκι 1 μπάλα</b><em>2,50</em><small>Βανίλια Μαδαγασκάρης</small></div>
+<div class="li sel"><i>2</i><b>Χωνάκι 2 μπάλες</b><em>8,00</em><small>Φιστίκι Αιγίνης, Σοκολάτα bitter</small><small>+ Έξτρα σαντιγί</small><em>0,60</em>
+<div class="ed"><span class="stp"><i>−</i><b>2</b><i>+</i></span><span>${s('pct')}Έκπτωση</span><span>${s('note')}Σημείωση</span></div></div>
+<div class="li"><i>3</i><b>Καπουτσίνο διπλός</b><em>3,20</em><small>Χωρίς ζάχαρη · πακέτο</small></div>
+<div class="sum"><p><span>Καθαρή αξία</span><span>12,65</span></p><p><span>ΦΠΑ 13%</span><span>1,65</span></p><p><span>Έκπτωση</span><span>0,00</span></p><p class="t"><span>Σύνολο</span><b>14,30 €</b></p></div>
+<div class="pay"><div class="pm"><span class="on">${s('cash')}Μετρητά</span><span>${s('card')}Κάρτα</span><span>${s('qr')}IRIS</span></div>
+<div class="row"><span>${s('pause')}Αναμονή</span><span class="go"><span>Είσπραξη</span><span>14,30 €</span></span></div></div></div></div>`;
+const el=document.getElementById('tw'),z=Math.min(1,(innerWidth-2)/1280),W=Math.min(1280,innerWidth-2);
+const full=lt=>`<div class="fr"><div style="zoom:${z}">${pos(lt)}</div></div>`;
+const crop=(lt,b)=>`<div class="fr crop${b?' b':''}" style="width:${W}px">${pos(lt)}</div>`;
+el.innerHTML=`<h3>Κεντρικό ταμείο · σκοτεινό</h3><p class="cap">Ολόκληρη η οθόνη (tablet 1280×800) σε σμίκρυνση.</p>${full(0)}
+<h3>Λεπτομέρεια σε πραγματικό μέγεθος</h3><p class="cap">Το δεξί μισό, όπως θα φαίνεται στο tablet: προϊόντα, γραμμές πώλησης, σύνολο, είσπραξη.</p>${crop(0)}${crop(0,1)}
+<h3>Κεντρικό ταμείο · φωτεινό</h3><p class="cap">Ίδια διάταξη, μόνο τα χρώματα αλλάζουν.</p>${full(1)}${crop(1,1)}`;
+</script>

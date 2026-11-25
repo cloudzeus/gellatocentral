@@ -9,6 +9,7 @@ import { outstandingCents, selectPriceList } from "@/lib/wholesale";
 import { b2bContext } from "@/lib/wholesale-db";
 import { submitB2bOrder } from "./actions";
 import { StatusBadge } from "@/components/status-badge";
+import { ExpiredLink } from "@/components/state-screen";
 
 // Το περιεχόμενο εξαρτάται πάντα από το προσωπικό token και από τρέχοντα δεδομένα.
 export const instant = false;
@@ -18,7 +19,7 @@ export default async function B2bPage({ params, searchParams }: PageProps<"/b2b/
   const { token } = await params;
   const query = await searchParams;
   let access;
-  try { access = await b2bContext(token); } catch { return <main className="mx-auto max-w-2xl p-6"><Card className="p-6"><h1 className="text-xl font-semibold">Ο σύνδεσμος δεν είναι διαθέσιμος</h1><p className="mt-2 text-sm text-muted-foreground">Ζήτα νέο προσωπικό σύνδεσμο από την επιχείρηση.</p></Card></main>; }
+  try { access = await b2bContext(token); } catch { return <ExpiredLink title="Ο σύνδεσμος παραγγελιών δεν ισχύει πια" />; }
   const orgId = access.orgId;
   const customerId = access.customerId;
   const [customer, lists, links, orders] = await Promise.all([
