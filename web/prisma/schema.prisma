@@ -324,6 +324,7 @@ model EmailLog {
   org       Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
+  @@index([orgId, createdAt])
 }
 
 // Μία γραμμή (id = 1) με τα στοιχεία της πλατφόρμας. Οι ρυθμίσεις σύνδεσης (Viva, Mailgun, Bunny) ζουν στον πίνακα Setting.
@@ -371,6 +372,7 @@ model Membership {
   groups     MembershipGroup[]
 
   @@unique([orgId, userId])
+  @@index([userId]) // οι επιχειρήσεις ενός χρήστη
 }
 
 // Ομάδα χρηστών μιας επιχείρησης: όνομα + δικαιώματα (κλειδιά area.action από lib/permissions.ts).
@@ -953,6 +955,7 @@ model Sale {
   @@unique([deviceId, series, aa])
   @@index([orgId, status, issuedAt])
   @@index([deviceId, status])
+  @@index([orgId, storeId, issuedAt]) // αναφορές ανά κατάστημα
 }
 
 model SaleLine {
@@ -967,6 +970,7 @@ model SaleLine {
   product        Product @relation(fields: [productId], references: [id])
 
   @@unique([saleId, productId])
+  @@index([productId]) // πωλήσεις ανά προϊόν (σελίδα παραγωγής)
 }
 
 model Payment {
@@ -2846,6 +2850,7 @@ model SalesDocument {
   @@unique([orgId, docType, series, aa])
   @@index([orgId, customerId, status, dueAt])
   @@index([orgId, orderId, status])
+  @@index([orgId, status, issuedAt]) // αναφορές και εξαγωγή λογιστή ανά περίοδο
 }
 
 model SalesDocumentLine {
@@ -3209,6 +3214,7 @@ model Expense {
 
   @@unique([orgId, supplierId, documentNumber])
   @@index([orgId, category, occurredAt])
+  @@index([orgId, occurredAt]) // αναφορές ανά περίοδο, χωρίς κατηγορία
 }
 
 model SupplierPayment {
