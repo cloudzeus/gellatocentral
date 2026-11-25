@@ -55,13 +55,14 @@ export const getCatalog = async (s: Session) => (await call<Catalog>(s, "/catalo
 export const createSale = async (s: Session, methodId: string, lines: { productId: string; quantity: number }[]) =>
   (await call<StartedSale>(s, "/sales", { methodId, lines })).data;
 
-export type Outcome = { state: "paid"; series: string | null; aa: number | null } | { state: "failed" } | { state: "unknown" };
+/** unknown.noPaymentYet: ο server ρώτησε τη Viva και εκείνη απάντησε ότι δεν έχει (ακόμα) πληρωμή για την πώληση. */
+export type Outcome = { state: "paid"; series: string | null; aa: number | null } | { state: "failed" } | { state: "unknown"; noPaymentYet: boolean };
 
 /** Αναφέρει στον server το callback του Viva Terminal. Ο server το διασταυρώνει με τη Viva πριν πει «πληρώθηκε». */
 export async function reportResult(s: Session, saleId: string, r: { success: boolean; transactionId?: string; callback: string }): Promise<Outcome> {
   const { status, data } = await call<{ ok?: true; pending?: true; series?: string | null; aa?: number | null }>(s, `/sales/${saleId}/result`, r);
   // 202: η Viva δεν έχει απαντήσει ακόμα. ΔΕΝ είναι επιτυχία.
-  if (status === 202 || data.pending) return { state: "unknown" };
+  if (status === 202 || data.pending) return { state: "unknown", noPaymentYet: true };
   // Ο server επιστρέφει αριθμό απόδειξης μόνο όταν η Viva βεβαίωσε την πληρωμή, ακόμη κι αν η συσκευή είπε «απέτυχε».
   if (r.success || data.aa != null) return { state: "paid", series: data.series ?? null, aa: data.aa ?? null };
   return { state: "failed" };
@@ -71,5 +72,5 @@ export async function reportResult(s: Session, saleId: string, r: { success: boo
 export async function checkResult(s: Session, saleId: string): Promise<Outcome> {
   const { data } = await call<{ status: string; series?: string | null; aa?: number | null }>(s, `/sales/${saleId}/result`);
   if (data.status === "completed") return { state: "paid", series: data.series ?? null, aa: data.aa ?? null };
-  return data.status === "failed" ? { state: "failed" } : { state: "unknown" };
+  return data.status === "failed" ? { state: "failed" } : { state: "unknown", noPaymentYet: data.status === "pending" };
 }
