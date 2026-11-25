@@ -25,7 +25,9 @@ RUN npm run build
 # χωρίς να σέρνουμε όλο το node_modules της εφαρμογής στην τελική εικόνα.
 FROM node:24-alpine AS migrate-deps
 WORKDIR /migrate
-RUN apk add --no-cache openssl && npm install --omit=dev prisma@7 dotenv@18
+# Ακριβείς εκδόσεις, ίδιες με το package-lock.json: αλλιώς ένα deploy μπορεί να τρέξει migrations με νεότερο CLI
+# από αυτό που δοκιμάστηκε. Όταν αναβαθμίζεται το prisma στο package.json, αλλάζει και εδώ.
+RUN apk add --no-cache openssl && npm install --omit=dev prisma@7.10.1 dotenv@18.0.10
 
 FROM node:24-alpine AS runner
 WORKDIR /app
@@ -47,4 +49,5 @@ COPY --chown=app:app docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 USER app
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 CMD wget -qO- http://127.0.0.1:3000/api/health >/dev/null || exit 1
 ENTRYPOINT ["./docker-entrypoint.sh"]
