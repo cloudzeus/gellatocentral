@@ -10,7 +10,7 @@ import { currentOrg } from "@/lib/auth";
 import { issueCreditNote, syncCreditNote } from "../actions";
 
 const FISCAL_STEP = {
-  SIGNED: { state: "done", detail: "Διαβιβάστηκε" },
+  SIGNED: { state: "done", detail: "Στάλθηκε" },
   PENDING: { state: "current", detail: "Περιμένουμε τη Viva" },
   NOT_SENT: { state: "todo", detail: "Δοκιμαστική: δεν στάλθηκε" },
   FAILED: { state: "failed", detail: "Απέτυχε: θέλει ενέργεια" },

@@ -10,6 +10,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { Modal } from "@/components/modal";
 import { requirePlatform } from "@/lib/auth";
+import { StatusBadge } from "@/components/status-badge";
 import { DetailGrid, Badge, btn, Card, Field, Page, Select } from "@/components/ui";
 import { db } from "@/lib/db";
 import { DEVICE_KIND, FOR, KIND_OPTIONS, readingStatus } from "@/lib/devices";
@@ -24,7 +25,7 @@ import { billableStores, nextCharge, planOf } from "@/lib/plan-data";
 import { daysBetween, MIN_PAUSE_DAYS, monthlyPreview } from "@/lib/plans";
 import { setupSteps } from "@/lib/setup";
 import { addDevice, addPrinter, addStore, addUser, addWarehouse, issueCharge, issuePairCode, markChargePaid, removeMember, resetMemberPassword, revokeDevice, saveOrgProfile, setRemoteId, startRemote, startTenantAccess, saveSubscription, saveViva, toggleActive, updateDevice, cancelClosing, deleteOrg, resumeOrg, startClosing, suspendOrg } from "../actions";
-import { STATUS } from "../status";
+import { look, statusOptions } from "@/lib/status";
 import { Submit } from "@/components/submit";
 
 const day = (d: Date) => d.toLocaleDateString("el-GR");
@@ -36,12 +37,12 @@ const LIFE = { ok: "Λειτουργεί κανονικά", grace: "Περίοδ
 const form = "grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end";
 
 /** Ενότητα με τίτλο, εξήγηση και μία ενέργεια (παράθυρο φόρμας) πάνω δεξιά. */
-function Section({ id, title, hint, saved, action, children }: { id: string; title: string; hint: string; saved: boolean; action?: ReactNode; children: ReactNode }) {
+function Section({ id, title, hint, action, children }: { id: string; title: string; hint: string; action?: ReactNode; children: ReactNode }) {
   return (
     <Card id={id} className="scroll-mt-28">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/70 px-5 py-4">
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg">{title} {saved ? <span role="status" className="ml-2 text-sm font-semibold text-success">Αποθηκεύτηκε</span> : null}</h2>
+          <h2 className="text-lg">{title}</h2>
           <p className="text-sm text-muted-foreground">{hint}</p>
         </div>
         {action}
@@ -99,6 +100,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
   const settings = await platformSettings();
   const sub = org.subscription;
+  const chargesTotal = sub ? await db.subscriptionCharge.count({ where: { subscriptionId: sub.id } }) : 0;
   const steps = setupSteps({ ...org, stores: org.stores.map((s) => ({ ...s, warehouses: org.warehouses.filter((w) => w.stores.some((l) => l.storeId === s.id)) })) });
   const doneCount = steps.filter((s) => s.done).length;
   const stores = org.stores.filter((s) => s.active);
@@ -146,7 +148,6 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const printerOptions: [string, string][] = [["", "Κανένας"], ...org.stores.flatMap((s) => s.printers.filter((p) => p.active).map((p): [string, string] => [p.id, `${p.name} · ${s.name}`]))];
   const tillOptions: [string, string][] = [["", "Καμία — ζυγαριά εργαστηρίου"], ...org.stores.flatMap((s) => s.devices.filter((d) => d.active && DEVICE_KIND[d.kind].invoices).map((d): [string, string] => [d.id, `${d.name} · ${s.name}`]))];
   const hidden = <input type="hidden" name="orgId" value={org.id} />;
-  const saved = (s: string) => q.saved === s;
   const mailFrom = await mailDomain();
   const save = <Submit className={btn("default")}>Αποθήκευση</Submit>;
 
@@ -170,7 +171,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Card>
 
         <Section
-          id="profile" title="Στοιχεία & email" hint="Η διεύθυνση της επιχείρησης και ο αποστολέας των email της" saved={saved("profile")}
+          id="profile" title="Στοιχεία & email" hint="Η διεύθυνση της επιχείρησης και ο αποστολέας των email της"
           action={me.can("setup.edit") && <Modal label={edit} title="Στοιχεία & email">
             <form key={[org.name, org.slug, org.contactEmail, org.emailFromName].join()} action={saveOrgProfile} className={form}>
               {hidden}
@@ -202,19 +203,19 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Card>
 
         <Section
-          id="subscription" title="Συνδρομή" hint={`Πακέτο «${plan.name}» · ${euro(monthly.totalCents)} τον μήνα προ ΦΠΑ${monthly.fullCents > monthly.totalCents ? ` (χωρίς παύση ${euro(monthly.fullCents)})` : ""}`} saved={saved("subscription")}
+          id="subscription" title="Συνδρομή" hint={`Πακέτο «${plan.name}» · ${euro(monthly.totalCents)} τον μήνα προ ΦΠΑ${monthly.fullCents > monthly.totalCents ? ` (χωρίς παύση ${euro(monthly.fullCents)})` : ""}`}
           action={me.can("billing.edit") && <Modal label={edit} title="Συνδρομή" description="Χειροκίνητη αλλαγή. Η εξόφληση μιας χρέωσης την παρατείνει αυτόματα.">
             <form key={`${sub?.status}-${sub?.currentPeriodEnd.toISOString()}-${sub?.planId}`} action={saveSubscription} className={form}>
               {hidden}
               <Select label="Πακέτο" name="planId" defaultValue={sub?.planId ?? ""} options={[["", "Προεπιλεγμένο"], ...plans.filter((p) => p.active || p.id === sub?.planId).map((p): [string, string] => [p.id, `${p.name} · ${euro(p.storeCents)} το κατάστημα`])]} />
-              <Select label="Κατάσταση" name="status" defaultValue={sub?.status ?? "TRIALING"} options={Object.entries(STATUS).map(([k, v]) => [k, v.text])} />
+              <Select label="Κατάσταση" name="status" defaultValue={sub?.status ?? "TRIALING"} options={statusOptions("subscription")} />
               <Field label="Ισχύει μέχρι" name="currentPeriodEnd" type="date" required defaultValue={(sub?.currentPeriodEnd ?? new Date()).toISOString().slice(0, 10)} />
               {save}
             </form>
           </Modal>}
         >
           <Facts items={[
-            ["Κατάσταση", sub ? <Badge tone={STATUS[sub.status].tone}>{STATUS[sub.status].text}</Badge> : null],
+            ["Κατάσταση", sub ? <StatusBadge kind="subscription" value={sub.status} /> : null],
             ["Ισχύει μέχρι", sub ? day(sub.currentPeriodEnd) : null],
             ["Πακέτο", <Link key="p" href="/platform/plans" className="font-semibold underline">{plan.name}</Link>],
             ["Ανά μήνα", euro(monthly.totalCents)],
@@ -238,7 +239,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                   id: l.storeId,
                   cells: {
                     store: <span className="font-semibold">{l.name}</span>,
-                    status: l.paused ? <Badge tone="warning">Σε παύση από {day(l.paused.startedAt)}</Badge> : <Badge tone="success">Σε λειτουργία</Badge>,
+                    status: l.paused ? <StatusBadge look={look("warning", `Σε παύση από ${day(l.paused.startedAt)}`)} /> : <StatusBadge look={look("success", "Σε λειτουργία")} />,
                     devices: `${l.devices} · ${euro(l.devicesCents)}`,
                     full: euro(l.fullCents),
                     pause: l.pauseDays ? `${l.pauseDays} ημέρες · ${l.discountCents > 0 ? "−" : "+"}${euro(Math.abs(l.discountCents))}` : "—",
@@ -301,7 +302,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                 {pauses.map((p) => { const days = daysBetween(p.startedAt, p.endedAt ?? new Date()); return (
                   <li key={p.id} className="flex flex-wrap items-center gap-3 px-5 py-2.5 text-sm">
                     <span className="min-w-0 flex-1">{p.store} · {day(p.startedAt)} {p.endedAt ? `έως ${day(p.endedAt)}` : ", συνεχίζεται"} <span className="text-muted-foreground">· {days} ημέρες · {p.startedByName}{p.settledThrough ? ` · έκπτωση δοσμένη ως ${day(p.settledThrough)}` : ""}</span></span>
-                    {days >= MIN_PAUSE_DAYS ? <Badge tone="success">Μετρά ως παύση</Badge> : p.endedAt ? <Badge>Κάτω από {MIN_PAUSE_DAYS} ημέρες: χρεώθηκε κανονικά</Badge> : <Badge tone="warning">Θέλει {MIN_PAUSE_DAYS - days} ημέρες ακόμα</Badge>}
+                    <StatusBadge look={days >= MIN_PAUSE_DAYS ? look("success", "Μετρά ως παύση") : p.endedAt ? look("neutral", `Κάτω από ${MIN_PAUSE_DAYS} ημέρες: χρεώθηκε κανονικά`) : look("warning", `Θέλει ${MIN_PAUSE_DAYS - days} ημέρες ακόμα`)} />
                   </li>
                 ); })}
               </ul>
@@ -318,18 +319,19 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                   <li key={c.id} className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
                     <span className="min-w-0 flex-1 tabular-nums">{day(c.periodStart)} – {day(c.periodEnd)} <span className="text-muted-foreground">· {c.stores} καταστ., {c.devices} συσκευές{c.planName ? ` · ${c.planName}` : ""}</span></span>
                     <b className="tabular-nums">{euro(c.amountCents)}</b>
-                    {c.paidAt ? <Badge tone="success">Πληρώθηκε {day(c.paidAt)}</Badge> : (
+                    {c.paidAt ? <StatusBadge look={look("success", `Πληρώθηκε ${day(c.paidAt)}`)} /> : (
                       <form action={markChargePaid.bind(null, c.id)}><Submit className={btn("success", "sm")}>Πληρώθηκε</Submit></form>
                     )}
                   </li>
                 ))}
               </ul>
             ) : <Empty>Καμία χρέωση ακόμα. Η έκδοση «φωτογραφίζει» τα σημερινά καταστήματα και συσκευές με τις τιμές του πακέτου· όταν σημειωθεί πληρωμένη, η συνδρομή παρατείνεται.</Empty>}
+            {chargesTotal > (sub?.charges.length ?? 0) ? <p className="border-t border-border/70 px-5 py-2.5 text-xs text-muted-foreground">Εμφανίζονται οι {sub?.charges.length} πιο πρόσφατες από {chargesTotal}</p> : null}
           </div>
         </Section>
 
         <Section
-          id="viva" title="Viva" hint="Ο έμπορος πρέπει να έχει συνδεθεί με τον λογαριασμό ISV και να έχει ενεργό το Viva Fiscal" saved={saved("viva")}
+          id="viva" title="Viva" hint="Ο έμπορος πρέπει να έχει συνδεθεί με τον λογαριασμό ISV και να έχει ενεργό το Viva Fiscal"
           action={me.can("setup.edit") && <Modal label={edit} title="Σύνδεση με Viva">
             <form key={org.vivaMerchantId} action={saveViva} className="grid gap-4 [&>button]:justify-self-end">
               {hidden}
@@ -342,7 +344,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Section>
 
         <Section
-          id="stores" title="Υποκαταστήματα" hint={`Κάθε ενεργό κατάστημα χρεώνεται ${euro(plan.storeCents)} τον μήνα (πακέτο «${plan.name}»)`} saved={saved("stores")}
+          id="stores" title="Υποκαταστήματα" hint={`Κάθε ενεργό κατάστημα χρεώνεται ${euro(plan.storeCents)} τον μήνα (πακέτο «${plan.name}»)`}
           action={me.can("setup.edit") && <Modal label={add} title="Νέο υποκατάστημα" description={`Προσθέτει ${euro(plan.storeCents)} τον μήνα στη συνδρομή`}>
             <form action={addStore} className={form}>{hidden}
               <Field label="Όνομα" name="name" required minLength={2} maxLength={60} placeholder="π.χ. Κατάστημα Τήνου" />
@@ -363,7 +365,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Section>
 
         <Section
-          id="warehouses" title="Αποθήκες" hint="Ανεξάρτητοι χώροι απόθεματος της επιχείρησης. Μία κεντρική αποθήκη μπορεί να εξυπηρετεί πολλά καταστήματα· τη σύνδεση και την προεπιλογή ανά κατάστημα τις διαχειρίζεται ο πελάτης στις Αποθήκες" saved={saved("warehouses")}
+          id="warehouses" title="Αποθήκες" hint="Ανεξάρτητοι χώροι απόθεματος της επιχείρησης. Μία κεντρική αποθήκη μπορεί να εξυπηρετεί πολλά καταστήματα· τη σύνδεση και την προεπιλογή ανά κατάστημα τις διαχειρίζεται ο πελάτης στις Αποθήκες"
           action={me.can("setup.edit") && <Modal label={add} title="Νέα αποθήκη">
             <form action={addWarehouse} className={form}>{hidden}
               <Field label="Όνομα" name="name" required minLength={2} maxLength={60} placeholder="π.χ. Κατάψυξη" />
@@ -384,7 +386,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Section>
 
         <Section
-          id="printers" title="Εκτυπωτές" hint="Θερμικοί εκτυπωτές αποδείξεων. Δένονται με ταμείο στην επόμενη ενότητα." saved={saved("printers")}
+          id="printers" title="Εκτυπωτές" hint="Θερμικοί εκτυπωτές αποδείξεων. Δένονται με ταμείο στην επόμενη ενότητα."
           action={me.can("setup.edit") && <Modal label={add} title="Νέος εκτυπωτής">
             <form action={addPrinter} className={form}>{hidden}
               <Field label="Όνομα" name="name" required minLength={2} maxLength={60} placeholder="π.χ. Εκτυπωτής πάγκου" />
@@ -404,7 +406,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Section>
 
         <Section
-          id="devices" title="Συσκευές" hint={`Ταμεία, οθόνες κουζίνας, ψυγεία, αυτόματοι πωλητές και ζυγαριές. Κάθε ενεργή συσκευή χρεώνεται με την τιμή του είδους της στο πακέτο «${plan.name}»`} saved={saved("devices")}
+          id="devices" title="Συσκευές" hint={`Ταμεία, οθόνες κουζίνας, ψυγεία, αυτόματοι πωλητές και ζυγαριές. Κάθε ενεργή συσκευή χρεώνεται με την τιμή του είδους της στο πακέτο «${plan.name}»`}
           action={me.can("setup.edit") && <Modal label={add} title="Νέα συσκευή" description="Διάλεξε είδος· η φόρμα δείχνει μόνο όσα χρειάζεται">
             <form action={addDevice} data-by-kind className={form}>{hidden}
               <Select label="Είδος" name="kind" options={KIND_OPTIONS} />
@@ -442,7 +444,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                     d.lastSeenAt && `τελευταία επαφή ${d.lastSeenAt.toLocaleString("el-GR", { dateStyle: "short", timeStyle: "short" })}`,
                   ].filter(Boolean).join(" · ")}
                 >
-                  {status ? <Badge tone={status.tone}>{status.text}</Badge> : null}
+                  {status ? <StatusBadge look={look(status.tone, status.text)} /> : null}
                   {me.can("setup.edit") ? (
                     <Modal label={<><Pencil /> Ρύθμιση</>} size="sm" title={`Ρύθμιση: ${d.name}`} description={kind.invoices ? `Σειρά ${d.series} · η σειρά δεν αλλάζει, για να μη σπάσει η αρίθμηση` : kind.label}>
                       <form key={[d.vivaTerminalId, d.printerId, d.macAddress, d.tailscaleIp, d.tempMin, d.tempMax, d.linkedDeviceId, d.defaultWarehouseId].join()} action={updateDevice} className={form}>
@@ -464,7 +466,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                       {d.pairCode && d.pairCodeExpiresAt && d.pairCodeExpiresAt > new Date() ? (
                         <span className="min-w-0 flex-1">Κωδικός σύζευξης: <b className="font-mono text-lg tracking-widest">{d.pairCode}</b> <span className="text-muted-foreground">· ισχύει ως τις {d.pairCodeExpiresAt.toLocaleTimeString("el-GR", { timeStyle: "short" })}, για μία χρήση</span></span>
                       ) : (
-                        <span className="min-w-0 flex-1">{d.pairedAt ? <Badge tone="success">Πιστοποιημένη από {day(d.pairedAt)}</Badge> : <Badge tone="warning">Δεν έχει πιστοποιηθεί</Badge>}{kind.measures ? <span className="ml-2 text-muted-foreground">Μετά τη σύζευξη στέλνει μετρήσεις στο /api/devices/readings</span> : null}</span>
+                        <span className="min-w-0 flex-1">{d.pairedAt ? <StatusBadge look={look("success", `Πιστοποιημένη από ${day(d.pairedAt)}`)} /> : <StatusBadge look={look("warning", "Δεν έχει πιστοποιηθεί")} />}{kind.measures ? <span className="ml-2 text-muted-foreground">Μετά τη σύζευξη στέλνει μετρήσεις στο /api/devices/readings</span> : null}</span>
                       )}
                       {d.remoteId && me.can("support.remote") ? (
                         <Modal label={<><MonitorUp /> Σύνδεση</>} size="sm" variant="default" title={`Απομακρυσμένη σύνδεση: ${d.name}`} description={`RustDesk ${showRemoteId(d.remoteId)}. Η σύνδεση καταγράφεται και ο πελάτης τη βλέπει στις Συσκευές του`}>
@@ -493,7 +495,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Section>
 
         <Section
-          id="users" title="Χρήστες & ρόλοι" hint="Επιχειρηματίας: όλα · Manager: όλα εκτός συνδρομής και χρηστών · Υπάλληλος: ταμείο και αποδείξεις. Ο συνδρομητής ορίζει και δικούς του ρόλους." saved={saved("users")}
+          id="users" title="Χρήστες & ρόλοι" hint="Επιχειρηματίας: όλα · Manager: όλα εκτός συνδρομής και χρηστών · Υπάλληλος: ταμείο και αποδείξεις. Ο συνδρομητής ορίζει και δικούς του ρόλους."
           action={me.can("users.add") && <Modal label={add} title="Νέος χρήστης" description="Χωρίς αρχικό κωδικό, ο χρήστης παίρνει email πρόσκλησης και τον ορίζει μόνος του">
             <form action={addUser} className={form}>{hidden}
               <Field label="Ονοματεπώνυμο" name="name" required minLength={2} maxLength={60} />
@@ -539,7 +541,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </Section>
 
         {me.can("parties.read") ? (
-          <Section id="parties" title="Συναλλασσόμενοι του συνδρομητή" saved={false} hint={`${partyTotal} στο αρχείο του: πελάτες, προμηθευτές, franchisees, συνεργάτες. Μόνο ανάγνωση· κάθε άνοιγμα καταγράφεται με το όνομά σου`}
+          <Section id="parties" title="Συναλλασσόμενοι του συνδρομητή" hint={`${partyTotal} στο αρχείο του: πελάτες, προμηθευτές, franchisees, συνεργάτες. Μόνο ανάγνωση· κάθε άνοιγμα καταγράφεται με το όνομά σου`}
             action={showParties ? <Link href={`/platform/${org.id}#parties`} className={btn("outline", "sm")}>Απόκρυψη</Link> : partyTotal ? <Link href={`/platform/${org.id}?parties=1#parties`} className={btn("outline", "sm")}>Εμφάνιση</Link> : null}>
             {showParties ? (
               <DataTable
@@ -578,11 +580,11 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         ) : null}
 
         <Section
-          id="lifecycle" title="Αναστολή και κλείσιμο" saved={saved("lifecycle")}
+          id="lifecycle" title="Αναστολή και κλείσιμο"
           hint={life.kind === "closing" ? `Κλείνει: η οριστική διαγραφή επιτρέπεται από ${org.deleteAfter ? day(org.deleteAfter) : "—"}` : life.kind === "suspended" ? `Σε αναστολή από ${day(org.suspendedAt!)}` : life.kind === "unpaid" ? "Περιορισμένη λειτουργία: η συνδρομή έχει λήξει" : life.kind === "grace" ? `Η συνδρομή έληξε: κλειδώνει σε ${life.daysLeft} ημέρες` : "Η επιχείρηση λειτουργεί κανονικά"}
         >
           <Facts items={[
-            ["Κατάσταση", <Badge key="s" tone={life.kind === "ok" ? "success" : life.kind === "grace" ? "warning" : "danger"}>{LIFE[life.kind]}</Badge>],
+            ["Κατάσταση", <StatusBadge key="s" look={look(life.kind === "ok" ? "success" : life.kind === "grace" ? "warning" : "danger", LIFE[life.kind])} />],
             ["Λόγος αναστολής", org.suspendedReason],
             ["Διαγραφή επιτρέπεται από", org.deleteAfter ? day(org.deleteAfter) : null],
           ]} />
@@ -621,7 +623,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               <p className="font-semibold">Οριστική διαγραφή</p>
               <p className="text-muted-foreground">Σβήνει καταστήματα, αποδείξεις, πελάτες, χρήστες και τα αρχεία στο Bunny. <b className="text-foreground">Δεν αναιρείται.</b></p>
               <ul className="space-y-1">
-                <li className={checks.stuck ? "font-medium text-destructive" : "text-muted-foreground"}>{checks.stuck ? `✕ ${checks.stuck} αποδείξεις δεν έχουν διαβιβαστεί στο myDATA` : `✓ Καμία απόδειξη σε εκκρεμότητα (${checks.receipts} συνολικά)`}</li>
+                <li className={checks.stuck ? "font-medium text-destructive" : "text-muted-foreground"}>{checks.stuck ? `✕ ${checks.stuck} αποδείξεις δεν έχουν σταλεί στο myDATA` : `✓ Καμία απόδειξη σε εκκρεμότητα (${checks.receipts} συνολικά)`}</li>
                 <li className={checks.receipts && !checks.exportedAt ? "font-medium text-destructive" : "text-muted-foreground"}>{checks.exportedAt ? `✓ Αντίγραφο δεδομένων: ${checks.exportedBy}, ${day(checks.exportedAt)}` : checks.receipts ? "✕ Δεν έχει κατέβει αντίγραφο των δεδομένων" : "✓ Δεν υπάρχουν αποδείξεις για αντίγραφο"}</li>
               </ul>
               {!me.can("settings.edit") ? <p className="text-xs text-muted-foreground">Μόνο Super Admin</p> : !org.closingAt ? <p className="text-xs text-muted-foreground">Ξεκίνα πρώτα το κλείσιμο</p> : !deletable ? <p className="text-xs text-muted-foreground">Διαθέσιμη από {day(org.deleteAfter!)}</p> : (

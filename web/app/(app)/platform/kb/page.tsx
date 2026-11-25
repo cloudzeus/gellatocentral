@@ -3,11 +3,13 @@ import Link from "next/link";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, Field, menuItem, Page, Select } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { btn, Card, cn, Field, menuItem, Page, Select } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
-import { helpful, KB_STATUS } from "@/lib/support/kb";
+import { statusOptions } from "@/lib/status";
+import { helpful } from "@/lib/support/kb";
 import { CATEGORIES } from "@/lib/support/rules";
 import { budget } from "@/lib/ai/agent";
 import { aiConfig } from "@/lib/ai/openrouter";
@@ -63,7 +65,7 @@ export default async function KbPage({ searchParams }: PageProps<"/platform/kb">
           {tiles.map((t) => (
             <Card key={t.label} className="px-5 py-4">
               <p className="font-medium text-muted-foreground">{t.label}</p>
-              <p className={cn("mt-1.5 text-3xl leading-tight font-semibold tabular-nums", t.warn && "text-gold-ink")}>{t.value}</p>
+              <p className={cn("mt-1.5 text-3xl leading-tight font-semibold tabular-nums", t.warn && "text-warning-ink")}>{t.value}</p>
               <p className="mt-1.5 text-muted-foreground">{t.hint}</p>
             </Card>
           ))}
@@ -74,7 +76,6 @@ export default async function KbPage({ searchParams }: PageProps<"/platform/kb">
             <div className="min-w-0 flex-1"><h2 className="text-lg">Μνήμη και agent</h2><p className="text-sm text-muted-foreground">{ai.memory ? "Τα δημοσιευμένα άρθρα και τα λυμένα αιτήματα γίνονται αναζητήσιμα με το νόημα. Τα αιτήματα ενός πελάτη χρησιμοποιούνται μόνο για τον ίδιο" : "Κλειστό: ορίζεται στις Ρυθμίσεις & email › OpenRouter. Μέχρι τότε η αναζήτηση γίνεται με λέξεις και δεν υπάρχουν προσχέδια"}</p></div>
             {ai.memory && me.can("support.kb") ? <form action={refreshMemory}><Submit className={btn("outline")}>Ενημέρωση μνήμης</Submit></form> : null}
           </div>
-          {typeof sp.saved === "string" ? <p role="status" className="mx-5 mt-4 rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{sp.saved.slice(0, 120)}</p> : null}
           <dl className="grid gap-x-6 gap-y-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
             <div><dt className="text-xs font-medium text-muted-foreground">Στη μνήμη</dt><dd className="font-semibold tabular-nums">{chunks.article} κομμάτια άρθρων · {chunks.ticket} από λυμένα αιτήματα</dd></div>
             <div><dt className="text-xs font-medium text-muted-foreground">Agent</dt><dd className="font-semibold">{ai.level >= 1 && ai.chat ? "Βοηθός υπαλλήλου: προσχέδια" : "Κλειστός"}</dd></div>
@@ -88,7 +89,7 @@ export default async function KbPage({ searchParams }: PageProps<"/platform/kb">
             listing={{
               ...list, total, placeholder: "Τίτλος ή κείμενο",
               filters: [
-                { key: "status", label: "Κατάσταση", value: status, options: Object.entries(KB_STATUS).map(([k, v]): [string, string] => [k, v.text]) },
+                { key: "status", label: "Κατάσταση", value: status, options: statusOptions("kb") },
                 { key: "vis", label: "Ορατότητα", value: vis, options: [["public", "Για τους πελάτες"], ["internal", "Εσωτερικά"]] },
               ],
             }}
@@ -106,9 +107,9 @@ export default async function KbPage({ searchParams }: PageProps<"/platform/kb">
               return {
                 id: a.id,
                 cells: {
-                  title: <><Link href={`/platform/kb/${a.id}`} className="font-semibold underline-offset-2 hover:underline">{a.title}</Link><span className="block text-xs text-muted-foreground">{CATEGORIES[a.category as keyof typeof CATEGORIES] ?? a.category}{a.sourceTicketId ? " · από αίτημα" : ""}</span></>,
+                  title: <><Link href={`/platform/kb/${a.id}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">{a.title}</Link><span className="block text-xs text-muted-foreground">{CATEGORIES[a.category as keyof typeof CATEGORIES] ?? a.category}{a.sourceTicketId ? " · από αίτημα" : ""}</span></>,
                   vis: a.internal ? "Εσωτερικό" : "Για τους πελάτες",
-                  status: <Badge tone={KB_STATUS[a.status].tone}>{KB_STATUS[a.status].text}</Badge>,
+                  status: <StatusBadge kind="kb" value={a.status} />,
                   use: a.internal ? <span className="text-muted-foreground">—</span> : h === null ? <span className="text-muted-foreground">λίγες ψήφοι</span> : `Βοήθησε το ${h}%`,
                   views: a.views,
                   updated: `${a.updatedByName ?? a.authorName} · ${day.format(a.updatedAt)}`,

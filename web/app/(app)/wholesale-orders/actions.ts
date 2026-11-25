@@ -1,5 +1,6 @@
 "use server";
 
+import { flashOk } from "@/lib/flash-server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -7,6 +8,8 @@ import { transmitSalesDocument } from "@/lib/mydata-outgoing";
 import { requireStockContext } from "@/lib/stock-context";
 import { stockCostScale } from "@/lib/units";
 import { workflowMessage } from "@/lib/workflow-db";
+import { runTask } from "@/lib/tasks";
+import { redirectUrl } from "@/lib/flash";
 import {
   cancelDeliveryDocument, cancelWholesaleOrder, confirmWholesaleOrder, createB2bAccess,
   createDeliveryRoute, createWholesaleOrder, creditSalesDocument, deliverWholesaleOrder,
@@ -19,7 +22,7 @@ const date = (value: FormDataEntryValue | null) => { const text = String(value ?
 function refresh() {
   for (const path of ["/wholesale-orders", "/wholesale-orders/pricelists", "/wholesale-orders/routes", "/invoices"]) revalidatePath(path);
 }
-const back = (path: string, query = ""): never => { refresh(); revalidatePath(path); redirect(`${path}${query}`); };
+const back = (path: string, query = ""): never => { refresh(); revalidatePath(path); redirect(redirectUrl(`${path}${query}`)); };
 const fail = (path: string, error: unknown): never => back(path, `?error=${encodeURIComponent(workflowMessage(error))}`);
 
 export async function createWholesale(form: FormData) {
@@ -41,6 +44,7 @@ export async function createWholesale(form: FormData) {
       warehouseId: String(form.get("warehouseId") ?? ""), neededAt: date(form.get("neededAt")),
       note: String(form.get("note") ?? ""), lines,
     });
+    await flashOk("Η παραγγελία χονδρικής δημιουργήθηκε");
     back(`/wholesale-orders/${order.id}`);
   } catch (error) { fail("/wholesale-orders", error); }
 }
@@ -97,7 +101,18 @@ export async function creditInvoice(form: FormData) {
 export async function transmitInvoice(form: FormData) {
   const ctx = await requireStockContext("invoices.edit");
   const id = String(form.get("documentId") ?? "");
-  try { await transmitSalesDocument(ctx, id); back(`/invoices/${id}`, "?saved=Η διαβίβαση ολοκληρώθηκε"); } catch (error) { fail(`/invoices/${id}`, error); }
+  try {
+    const document = await db.salesDocument.findFirst({ where: { id, orgId: ctx.orgId }, select: { series: true, aa: true } });
+    const label = document ? `${document.series}-${document.aa}` : "Τιμολόγιο";
+    // «Ξανά» επιτρέπεται (lib/task-kinds.ts): η transmitSalesDocument αποκλείει ήδη τη διπλή αποστολή
+    // (SIGNED → επιστρέφει, conditional claim για ταυτόχρονες κλήσεις, idempotencyKey προς τον πάροχο).
+    await runTask({ orgId: ctx.orgId, userId: ctx.userId, userName: ctx.userName }, { kind: "aade.invoice", title: `Αποστολή τιμολογίου ${label} στην ΑΑΔΕ`, permission: "invoices.read", total: 1 }, async (task) => {
+      await task.step(label);
+      try { await transmitSalesDocument(ctx, id); await task.ok(); task.result(`/invoices/${id}`); }
+      catch (error) { await task.fail({ id, label, reason: workflowMessage(error) }); throw error; }
+    });
+    back(`/invoices/${id}`, "?saved=Η διαβίβαση ολοκληρώθηκε");
+  } catch (error) { fail(`/invoices/${id}`, error); }
 }
 
 export async function customerPayment(form: FormData) {

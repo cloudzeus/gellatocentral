@@ -4,7 +4,9 @@ import { DataTable } from "@/components/data-table";
 import { Modal, RoutedModal } from "@/components/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shadcn/tabs";
 import { Submit } from "@/components/submit";
-import { DetailGrid, Badge, btn, Card, menuItem, Page } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { DetailGrid, btn, Card, menuItem, Page } from "@/components/ui";
+import { look } from "@/lib/status";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatManufacturerBrand } from "@/lib/manufacturer";
@@ -61,7 +63,6 @@ export default async function CatalogPage({ searchParams }: PageProps<"/platform
       actions={<div className="flex flex-wrap gap-2"><Link href="/platform/catalog/category-matches" className={btn("outline")}><ScanSearch /> Συσχετίσεις ζαχαροπλαστικής</Link><Modal label={<><Plus /> Νέο είδος</>} variant="default" size="sm" title="Νέο είδος καταλόγου" wide><ItemForm categoryOptions={categoryOptions} brandOptions={brandOptions} units={units} /></Modal></div>}>
       <div className="grid max-w-6xl gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Ο κατάλογος ενημερώθηκε</p> : null}
 
         <Tabs key={tab} defaultValue={tab} className="gap-4">
           <TabsList aria-label="Ενότητες καταλόγου" className="grid w-full grid-cols-3 group-data-[orientation=horizontal]/tabs:h-12 pointer-coarse:group-data-[orientation=horizontal]/tabs:h-[52px] sm:inline-flex sm:w-fit">
@@ -97,14 +98,14 @@ export default async function CatalogPage({ searchParams }: PageProps<"/platform
                           // eslint-disable-next-line @next/next/no-img-element -- έρχεται από το CDN του Bunny, όχι από τον optimizer του Next
                           <img src={t.imageUrl} alt="" className="size-8 shrink-0 rounded-md border border-border/60 object-cover" loading="lazy" />
                         ) : null}
-                        <span><Link href={`/platform/catalog/${t.id}`} className="font-semibold underline-offset-2 hover:underline">{t.name}</Link>{t.packaging ? <span className="block text-xs text-muted-foreground">{t.packaging}</span> : null}</span>
+                        <span><Link href={`/platform/catalog/${t.id}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">{t.name}</Link>{t.packaging ? <span className="block text-xs text-muted-foreground">{t.packaging}</span> : null}</span>
                       </span>
                     ),
                     ean: <span className="tabular-nums">{t.ean ?? "—"}</span>,
                     category: t.category ? (t.category.parentId ? "— " : "") + t.category.name : "—",
                     brand: t.brand ? `${formatManufacturerBrand(t.brand.manufacturer.name, t.brand.name)}` : "—",
                     content: <span className="tabular-nums">{(t.contentQty / t.contentUnit.toBase).toLocaleString("el-GR")} {t.contentUnit.code}</span>,
-                    status: t.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>,
+                    status: t.active ? <StatusBadge look={look("success", "Ενεργό")} /> : <StatusBadge look={look("neutral", "Κρυφό")} />,
                   },
                   details: {
                     label: t.name,

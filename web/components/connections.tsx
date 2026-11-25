@@ -7,11 +7,13 @@ import { AUTO_MODEL, modelChoices, type ModelOption } from "@/lib/ai/openrouter-
 import { fieldsOf, type Group, GROUPS, type SettingKey, settings } from "@/lib/config";
 import { Modal } from "./modal";
 import { Submit } from "./submit";
-import { Badge, btn, Card, Field, Select } from "./ui";
+import { btn, Card, Field, Select } from "./ui";
+import { StatusBadge } from "./status-badge";
+import { look } from "@/lib/status";
 
 /** Τι πρέπει να έχει οριστεί για να θεωρείται η ομάδα έτοιμη, και τι σημαίνει όταν δεν είναι. */
 const NEEDS: Record<Group, { keys: SettingKey[]; missing: string; test?: string }> = {
-  viva_isv: { keys: ["VIVA_ISV_CLIENT_ID", "VIVA_ISV_CLIENT_SECRET"], missing: "Χωρίς αυτά όλα τα ταμεία δουλεύουν δοκιμαστικά και δεν διαβιβάζουν αποδείξεις", test: "Δοκιμή σύνδεσης" },
+  viva_isv: { keys: ["VIVA_ISV_CLIENT_ID", "VIVA_ISV_CLIENT_SECRET"], missing: "Χωρίς αυτά όλα τα ταμεία δουλεύουν δοκιμαστικά και δεν στέλνουν αποδείξεις", test: "Δοκιμή σύνδεσης" },
   viva_platform: { keys: ["VIVA_PLATFORM_CLIENT_ID", "VIVA_PLATFORM_CLIENT_SECRET"], missing: "Χωρίς αυτά οι χρεώσεις εξοφλούνται μόνο χειροκίνητα, από την καρτέλα του συνδρομητή" },
   mailgun: { keys: ["MAILGUN_API_KEY", "MAILGUN_DOMAIN"], missing: "Χωρίς αυτά τα email μόνο καταγράφονται, δεν φεύγουν", test: "Δοκιμαστικό email σε μένα" },
   viber: { keys: ["VIBER_AUTH_TOKEN"], missing: "Χωρίς token δεν αποστέλλονται Viber text ειδοποιήσεις" },
@@ -38,13 +40,13 @@ export async function Connections({ q }: { q: Record<string, string | string[] |
             <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
               {ready ? <CircleCheck className="size-6 shrink-0 text-success" /> : <CircleAlert className="size-6 shrink-0 text-gold" />}
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg">{group.title} {q.saved === g ? <span role="status" className="ml-2 text-sm font-semibold text-success">Αποθηκεύτηκε</span> : null}</h2>
+                <h2 className="text-lg">{group.title}</h2>
                 <p className="text-sm text-muted-foreground">{ready ? group.hint : `Δεν έχει ρυθμιστεί. ${need.missing}`}</p>
               </div>
               {need.test ? <form action={testConnection.bind(null, g)}><Submit className={btn("outline")}>{need.test}</Submit></form> : null}
               <Modal label="Αλλαγή" title={group.title} description={group.hint}>
                 <form key={fields.map(([k, d]) => ("secret" in d ? !!all[k] : all[k])).join()} action={saveConnection.bind(null, g)} className="grid gap-4 [&>button]:justify-self-end">
-                  {g === "openrouter" && openRouter.failed.length ? <p role="alert" className="rounded-lg bg-gold/10 px-3 py-2 text-sm text-gold-ink">Δεν φορτώθηκε η λίστα μοντέλων {openRouter.failed.join(" και ")}. Συμπλήρωσε το αντίστοιχο ID χειροκίνητα ή ξαναδοκίμασε σε λίγο.</p> : null}
+                  {g === "openrouter" && openRouter.failed.length ? <p role="alert" className="rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning-ink">Δεν φορτώθηκε η λίστα μοντέλων {openRouter.failed.join(" και ")}. Συμπλήρωσε το αντίστοιχο ID χειροκίνητα ή ξαναδοκίμασε σε λίγο.</p> : null}
                   {fields.map(([k, d]) => {
                     const loaded = k === "OPENROUTER_CHAT_MODEL" ? openRouter.chat : k === "OPENROUTER_EMBED_MODEL" ? openRouter.embed : undefined;
                     const options = loaded ? keepCurrent(loaded, all[k]) : d.options;
@@ -63,7 +65,7 @@ export async function Connections({ q }: { q: Record<string, string | string[] |
                 <div key={k} className="min-w-0">
                   <dt className="text-xs font-medium text-muted-foreground">{d.label}</dt>
                   <dd className="truncate font-semibold">
-                    {d.secret ? <Badge tone={all[k] ? "success" : "warning"}>{all[k] ? "Ορισμένο" : "Δεν έχει οριστεί"}</Badge>
+                    {d.secret ? <StatusBadge look={look(all[k] ? "success" : "warning", all[k] ? "Ορισμένο" : "Δεν έχει οριστεί")} />
                       : k === "OPENROUTER_CHAT_MODEL" && all[k] === AUTO_MODEL ? "Αυτόματη · χαμηλότερο κόστος"
                       : d.options ? (d.options.find(([v]) => v === all[k]) ?? d.options[0])[1]
                       : all[k] || <span className="font-normal text-muted-foreground">Δεν έχει οριστεί</span>}

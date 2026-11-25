@@ -4,7 +4,9 @@ import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Checkbox } from "@/components/shadcn/checkbox";
 import { Submit } from "@/components/submit";
-import { DetailGrid, Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { DetailGrid, btn, Card, Field, menuItem, Page } from "@/components/ui";
+import { look } from "@/lib/status";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
@@ -74,7 +76,6 @@ export default async function UsagePage({ searchParams }: PageProps<"/platform/u
     <Page section="Πλατφόρμα" title="Υπηρεσίες pay-as-you-go" description="Χρέωση ανά χρήση και πραγματική κατανάλωση τρέχοντος μήνα. Το markup ορίζεται κεντρικά από την πλατφόρμα">
       <div className="grid max-w-7xl gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Οι υπηρεσίες ενημερώθηκαν</p> : null}
         <Card>
           <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
             <div className="min-w-0 flex-1"><h2 className="text-lg">Υπηρεσίες</h2><p className="text-sm text-muted-foreground">{active} ενεργές από {serviceTotal} που ταιριάζουν</p></div>
@@ -102,7 +103,7 @@ export default async function UsagePage({ searchParams }: PageProps<"/platform/u
                 label: <span className="font-semibold">{s.label}</span>,
                 unit: s.unitLabel,
                 markup: `${s.markupPercent}%`,
-                status: s.active ? <Badge tone="success">Ενεργή</Badge> : <Badge>Κλειστή</Badge>,
+                status: s.active ? <StatusBadge look={look("success", "Ενεργή")} /> : <StatusBadge look={look("neutral", "Κλειστή")} />,
               },
               details: {
                 label: s.label,

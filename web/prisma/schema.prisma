@@ -250,6 +250,7 @@ model Organization {
   vitrineSettings        VitrineSetting[]
   vitrineViews           VitrineDailyView[]
   migrationRuns          MigrationRun[]
+  taskRuns               TaskRun[]
   migrationCutover       MigrationCutover?
 }
 
@@ -3417,4 +3418,34 @@ model MigrationRecord {
 
   @@unique([orgId, entityType, externalId])
   @@index([orgId, runId, status])
+}
+
+// Εργασία που κρατά πάνω από δύο δευτερόλεπτα (πολλά αντικείμενα ή εξωτερική υπηρεσία). Η πρόοδός της γράφεται εδώ,
+// ώστε το παράθυρο «Εργασίες» να τη δείχνει και μετά από αλλαγή οθόνης ή ανανέωση, από όποιο αντίγραφο του server
+// κι αν ρωτήσει ο browser. Δεν αντικαθιστά τα Run/Import/Batch μοντέλα (εκείνα είναι το αποτέλεσμα)· κρατά μόνο την πορεία.
+model TaskRun {
+  id          String        @id @default(cuid())
+  orgId       String? // null = εργασία της πλατφόρμας
+  userId      String // ποιος την ξεκίνησε (σε αυτόν ανοίγει μόνο του το παράθυρο)
+  userName    String
+  kind        String // π.χ. "catalog.enrich" — κλειδί του registry στο lib/task-kinds.ts
+  title       String // «Εμπλουτισμός κατασκευαστών»
+  permission  String // το δικαίωμα που χρειάζεται όποιος τη βλέπει
+  status      String        @default("RUNNING") // RUNNING | DONE | PARTIAL | FAILED
+  total       Int? // null = δεν μετριέται σε βήματα (αόριστη μπάρα)
+  done        Int           @default(0)
+  failed      Int           @default(0)
+  current     String? // «Τώρα: Α-1009»
+  error       String? // ο λόγος σε απλά λόγια
+  resultHref  String?
+  failures    Json? // [{ id, label, reason }] όσα απέτυχαν: τα δείχνει το «Δες ποιες απέτυχαν» και τα ξανατρέχει το «Ξανά»
+  seenAt      DateTime? // πότε είδε την αποτυχία όποιος την ξεκίνησε
+  startedAt   DateTime      @default(now())
+  heartbeatAt DateTime      @default(now())
+  finishedAt  DateTime?
+  org         Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, startedAt])
+  @@index([userId, startedAt])
+  @@index([status, heartbeatAt])
 }

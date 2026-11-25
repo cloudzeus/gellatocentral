@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
 import { TicketThread } from "@/components/ticket-thread";
+import { StatusBadge } from "@/components/status-badge";
 import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -13,14 +14,14 @@ import { searchArticles } from "@/lib/support/kb-data";
 import { articleFromTicket } from "../../kb/actions";
 import { aiConfig } from "@/lib/ai/openrouter";
 import { decideDraft, makeDraft } from "../agent-actions";
-import { ACTIVE, CATEGORIES, type Category, PRIORITY, type Priority, responseClock, STATUS, type Status } from "@/lib/support/rules";
+import { look, statusOptions } from "@/lib/status";
+import { ACTIVE, CATEGORIES, type Category, type Priority, responseClock, type Status } from "@/lib/support/rules";
 import { assignToMe, resolve, setPriority } from "@/app/(app)/support/actions";
 import { startRemote } from "../../actions";
 
 const day = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeZone: "Europe/Athens" });
 const CONF: Record<string, { tone: "success" | "warning" | "danger"; text: string }> = { high: { tone: "success", text: "Βεβαιότητα υψηλή" }, medium: { tone: "warning", text: "Βεβαιότητα μέτρια" }, low: { tone: "danger", text: "Βεβαιότητα χαμηλή: έλεγξέ το" } };
-const SAVED: Record<string, string> = { draft: "Το προσχέδιο είναι έτοιμο. Διάβασέ το πριν το στείλεις", rejected: "Το προσχέδιο απορρίφθηκε", reply: "Το μήνυμα καταχωρίστηκε", resolved: "Το αίτημα σημειώθηκε ως λυμένο", assigned: "Το αίτημα ανατέθηκε σε σένα", priority: "Η προτεραιότητα άλλαξε" };
-const DOT = { success: "bg-success", warning: "bg-gold", danger: "bg-destructive", neutral: "bg-muted-foreground/40" };
+const DOT = { success: "bg-success", warning: "bg-warning", danger: "bg-destructive", neutral: "bg-muted-foreground/40" };
 
 export default async function SupportTicketPage({ params, searchParams }: PageProps<"/platform/support/[id]">) {
   const me = await requirePlatform("support.tickets");
@@ -44,7 +45,7 @@ export default async function SupportTicketPage({ params, searchParams }: PagePr
   // Η κατάσταση της επιχείρησης αυτή τη στιγμή, ώστε ο υπάλληλος να μη χρειάζεται να ρωτήσει τα βασικά
   const facts: { tone: keyof typeof DOT; text: string; detail?: string }[] = [
     { tone: sub && sub.currentPeriodEnd > new Date() ? "success" : "danger", text: sub ? (sub.currentPeriodEnd > new Date() ? "Συνδρομή σε ισχύ" : "Η συνδρομή έχει λήξει") : "Χωρίς συνδρομή", detail: sub ? `έως ${day.format(sub.currentPeriodEnd)}` : undefined },
-    { tone: unsent ? "danger" : "success", text: unsent ? `${unsent} ${unsent === 1 ? "απόδειξη δεν διαβιβάστηκε" : "αποδείξεις δεν διαβιβάστηκαν"} στην ΑΑΔΕ` : "Όλες οι αποδείξεις έχουν διαβιβαστεί" },
+    { tone: unsent ? "danger" : "success", text: unsent ? `${unsent} ${unsent === 1 ? "απόδειξη δεν στάλθηκε" : "αποδείξεις δεν στάλθηκαν"} στην ΑΑΔΕ` : "Όλες οι αποδείξεις έχουν σταλεί" },
     ...devices.flatMap((d) => {
       const st = DEVICE_KIND[d.kind].measures ? readingStatus(d, d.readings[0]) : null;
       if (st && d.readings[0] && st.tone !== "success" && st.tone !== "neutral") return [{ tone: st.tone, text: `${d.name}: ${st.text}`, detail: d.store.name }];
@@ -56,13 +57,12 @@ export default async function SupportTicketPage({ params, searchParams }: PagePr
   return (
     <Page section="Υποστήριξη πελατών › Αιτήματα" title={ticket.subject} description={`#${ticket.number} · ${ticket.org.name}${device ? ` · ${device.name}` : ""} · ${CATEGORIES[ticket.category as Category] ?? ticket.category} · το άνοιξε ο χρήστης ${ticket.openedByName}`}
       actions={<>
-        <Badge tone={PRIORITY[priority].tone}>{PRIORITY[priority].label}</Badge><Badge tone={clock.tone}>{clock.text}</Badge>
+        <StatusBadge kind="ticketPriority" value={priority} /><StatusBadge look={look(clock.tone, clock.text)} />
         {ticket.assigneeId === me.id ? null : <form action={assignToMe.bind(null, ticket.id)}><Submit className={btn("outline")}>Ανάθεση σε μένα</Submit></form>}
         {ACTIVE.includes(status) ? <form action={resolve.bind(null, ticket.id)}><Submit className={btn("default")}><CircleCheck /> Λύθηκε</Submit></form> : null}
       </>}>
       <div className="grid max-w-7xl gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-4">
-          {typeof q.saved === "string" && SAVED[q.saved] ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{SAVED[q.saved]}</p> : null}
           {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{q.error.slice(0, 200)}</p> : null}
           {ai.level >= 1 && ai.chat && status !== "CLOSED" ? (
             <Card id="agent" className={run ? "scroll-mt-28 border-gold shadow-[inset_3px_0_0_var(--gold)]" : "scroll-mt-28"}>
@@ -93,13 +93,13 @@ export default async function SupportTicketPage({ params, searchParams }: PagePr
         </div>
         <div className="min-w-0 space-y-4">
           <Card>
-            <div className="flex items-center gap-3 px-5 pt-4 pb-3"><h2 className="min-w-0 flex-1 text-base">Το αίτημα</h2><Badge tone={STATUS[status].tone}>{STATUS[status].label}</Badge></div>
+            <div className="flex items-center gap-3 px-5 pt-4 pb-3"><h2 className="min-w-0 flex-1 text-base">Το αίτημα</h2><StatusBadge kind="ticket" value={status} /></div>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border px-5 py-4">
               <div><dt className="text-xs font-medium text-muted-foreground">Ανάθεση</dt><dd className="font-semibold">{ticket.assigneeName ?? "Κανείς ακόμα"}</dd></div>
               <div><dt className="text-xs font-medium text-muted-foreground">Βαθμολογία πελάτη</dt><dd className="font-semibold">{ticket.rating ? `${ticket.rating} από 5` : "—"}</dd></div>
             </dl>
             <form key={priority} action={setPriority.bind(null, ticket.id)} className="flex items-end gap-2 border-t border-border px-5 py-4">
-              <div className="min-w-0 flex-1"><Select label="Προτεραιότητα" name="priority" defaultValue={priority} options={Object.entries(PRIORITY).map(([k, v]): [string, string] => [k, v.label])} /></div>
+              <div className="min-w-0 flex-1"><Select label="Προτεραιότητα" name="priority" defaultValue={priority} options={statusOptions("ticketPriority")} /></div>
               <Submit className={btn("outline")}>Αλλαγή</Submit>
             </form>
           </Card>
@@ -136,7 +136,7 @@ export default async function SupportTicketPage({ params, searchParams }: PagePr
           <Card>
             <h2 className="px-5 pt-4 pb-3 text-base">Άλλα αιτήματα του πελάτη</h2>
             {others.length === 0 ? <p className="border-t border-border px-5 py-4 text-muted-foreground">Είναι το πρώτο του αίτημα</p> : (
-              <ul>{others.map((o) => <li key={o.id} className="border-t border-border"><Link href={`/platform/support/${o.id}`} className="flex min-h-11 items-center gap-3 px-5 py-1.5 hover:bg-secondary"><span className="shrink-0 rounded-sm border border-dashed border-primary/30 bg-background px-1.5 py-0.5 font-mono text-xs font-medium">#{o.number}</span><span className="min-w-0 flex-1 truncate font-medium">{o.subject}</span><Badge tone={STATUS[o.status as Status].tone}>{STATUS[o.status as Status].label}</Badge></Link></li>)}</ul>
+              <ul>{others.map((o) => <li key={o.id} className="border-t border-border"><Link href={`/platform/support/${o.id}`} className="flex min-h-11 items-center gap-3 px-5 py-1.5 hover:bg-secondary"><span className="shrink-0 rounded-sm border border-dashed border-primary/30 bg-background px-1.5 py-0.5 font-mono text-xs font-medium">#{o.number}</span><span className="min-w-0 flex-1 truncate font-medium">{o.subject}</span><StatusBadge kind="ticket" value={o.status} /></Link></li>)}</ul>
             )}
           </Card>
         </div>

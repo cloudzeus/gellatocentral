@@ -2,6 +2,7 @@
 // Χρήστες, ομάδες και ρόλοι του συνδρομητή. Κάθε action θέλει το ανάλογο δικαίωμα users.* (read/add/edit/delete)
 // και δουλεύει ΜΟΝΟ στη δική του επιχείρηση. Τα δικαιώματα ενός μέλους είναι η ένωση ρόλου + ομάδων.
 
+import { flashFail } from "@/lib/flash-server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -127,7 +128,7 @@ export async function setMemberActive(membershipId: string, active: boolean) {
 export async function sendResetLink(membershipId: string) {
   const { org, user: actor } = await currentOrg("users.edit");
   const m = await db.membership.findFirst({ where: { id: id.parse(membershipId), orgId: org.id }, include: { user: true } });
-  if (!m) return;
+  if (!m) { await flashFail("Δεν έγινε: ο χρήστης δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   if (m.user.disabledAt) return fail("Ο χρήστης είναι απενεργοποιημένος. Ενεργοποίησέ τον πρώτα");
   const url = await createResetLink(m.userId, 72, org);
   await sendMail({ to: m.user.email, template: "passwordReset", org, mail: templates.passwordReset(await platformSettings(), { name: m.user.name, url }) });
@@ -172,7 +173,7 @@ export async function saveRole(form: FormData) {
 export async function deleteRole(roleId: string) {
   const { org, user: actor } = await currentOrg("users.delete");
   const role = await db.orgRole.findFirst({ where: { id: id.parse(roleId), orgId: org.id }, include: { _count: { select: { members: true } } } });
-  if (!role) return;
+  if (!role) { await flashFail("Δεν έγινε: ο ρόλος δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   if (role.locked || role.system) return fail("Οι ρόλοι του συστήματος δεν διαγράφονται");
   if (role._count.members) return fail(`Ο ρόλος «${role.name}» έχει ${role._count.members} χρήστες. Άλλαξέ τους ρόλο πρώτα.`);
   await db.orgRole.delete({ where: { id: role.id } });
@@ -200,7 +201,7 @@ export async function saveGroup(form: FormData) {
 export async function deleteGroup(groupId: string) {
   const { org, user: actor } = await currentOrg("users.delete");
   const group = await db.orgGroup.findFirst({ where: { id: id.parse(groupId), orgId: org.id } });
-  if (!group) return;
+  if (!group) { await flashFail("Δεν έγινε: η ομάδα δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   await db.orgGroup.delete({ where: { id: group.id } }); // οι συνδέσεις μελών φεύγουν μαζί (Cascade)
   await logAccess({ orgId: org.id, actorName: actor.name, action: "group.deleted", target: group.name });
   done("group");

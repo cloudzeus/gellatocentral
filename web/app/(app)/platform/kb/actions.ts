@@ -1,4 +1,5 @@
 "use server";
+import { flashOk } from "@/lib/flash-server";
 import { indexArticle } from "@/lib/ai/memory";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -15,6 +16,7 @@ export async function createArticle(form: FormData) {
   const category = String(form.get("category"));
   if (title.length < 5 || !isCategory(category)) redirect(`/platform/kb?error=${encodeURIComponent("Γράψε τίτλο με τουλάχιστον 5 χαρακτήρες")}`);
   const article = await db.kbArticle.create({ data: { title, category, internal: form.get("internal") === "on", body: "", authorName: me.name } });
+  await flashOk("Το άρθρο βοήθειας δημιουργήθηκε");
   redirect(`/platform/kb/${article.id}`);
 }
 

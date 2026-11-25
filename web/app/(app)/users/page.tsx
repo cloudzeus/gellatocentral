@@ -11,11 +11,10 @@ import { filterParam, listParams } from "@/lib/paging";
 import { AREAS, canGrant, orgPermissionsOf, permissionLabel } from "@/lib/permissions";
 import { deleteGroup, deleteRole, inviteUser, removeMember, saveGroup, saveRole, sendResetLink, setMemberActive, updateMember } from "./actions";
 import { Submit } from "@/components/submit";
+import { StatusBadge } from "@/components/status-badge";
 
-const SAVED: Record<string, string> = { invited: "Η πρόσκληση στάλθηκε με email", member: "Ο χρήστης ενημερώθηκε", removed: "Η πρόσβαση αφαιρέθηκε", disabled: "Ο χρήστης απενεργοποιήθηκε και αποσυνδέθηκε από παντού", enabled: "Ο χρήστης ενεργοποιήθηκε ξανά", reset: "Στάλθηκε email για ορισμό κωδικού", role: "Οι ρόλοι ενημερώθηκαν", group: "Οι ομάδες ενημερώθηκαν" };
 const form = "grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end";
 const when = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Athens" });
-const STATUS = { active: ["success", "Ενεργός"], pending: ["warning", "Εκκρεμεί η πρόσκληση"], disabled: ["neutral", "Απενεργοποιημένος"] } as const;
 
 /** Κουτάκια επιλογής (καταστήματα ή ομάδες). Κανένα τσεκαρισμένο κατάστημα = όλα. */
 function CheckList({ name, options, selected, emptyNote }: { name: string; options: [string, string][]; selected: string[]; emptyNote?: string }) {
@@ -51,13 +50,14 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
   const roleIds = (await db.orgRole.findMany({ where: { orgId: org.id }, select: { id: true } })).map((r) => r.id);
   const role = filterParam(q, "role", roleIds);
   const where = { orgId: org.id, ...(role ? { roleId: role } : {}), ...(list.q ? { user: { OR: [{ name: { contains: list.q, mode: "insensitive" as const } }, { email: { contains: list.q, mode: "insensitive" as const } }] } } : {}) };
-  const [members, total, roles, groups, stores, history] = await Promise.all([
+  const [members, total, roles, groups, stores, history, historyTotal] = await Promise.all([
     db.membership.findMany({ where, orderBy: list.sort === "role" ? { role: { name: list.dir } } : { user: { name: list.sort === "user" ? list.dir : "asc" } }, skip: list.skip, take: list.take, include: { user: true, role: true, stores: { include: { store: true } }, groups: { include: { group: true } } } }),
     db.membership.count({ where }),
     db.orgRole.findMany({ where: { orgId: org.id }, orderBy: [{ locked: "desc" }, { system: "desc" }, { name: "asc" }], include: { _count: { select: { members: true } } } }),
     db.orgGroup.findMany({ where: { orgId: org.id }, orderBy: { name: "asc" }, include: { _count: { select: { members: true } } } }),
     db.store.findMany({ where: { orgId: org.id, active: true }, orderBy: { name: "asc" } }),
     db.accessEvent.findMany({ where: { orgId: org.id }, orderBy: { createdAt: "desc" }, take: 30 }),
+    db.accessEvent.count({ where: { orgId: org.id } }),
   ]);
   // μόνο ρόλοι και ομάδες που δικαιούται να δώσει όποιος βλέπει τη σελίδα
   const roleOptions = roles.filter((r) => canGrant(mine, orgPermissionsOf(r))).map((r): [string, string] => [r.id, r.name]);
@@ -84,7 +84,6 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
     >
       <div className="max-w-7xl space-y-4">
         {q.error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν έγινε: {String(q.error)}</p> : null}
-        {typeof q.saved === "string" && SAVED[q.saved] ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success">{SAVED[q.saved]}</p> : null}
 
         <Card>
           <div className="border-b border-border/70 px-5 py-4"><h2 className="text-lg">Χρήστες</h2></div>
@@ -108,7 +107,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
                 role: <Badge tone={m.role.locked ? "success" : "neutral"}>{m.role.name}</Badge>,
                 groups: m.groups.length ? m.groups.map((g) => <Badge key={g.groupId} tone="neutral">{g.group.name}</Badge>) : <span className="text-muted-foreground">—</span>,
                 store: m.stores.length ? m.stores.map((s) => s.store.name).join(", ") : "Όλα",
-                status: <Badge tone={STATUS[accountStatus(m.user)][0]}>{STATUS[accountStatus(m.user)][1]}</Badge>,
+                status: <StatusBadge kind="account" value={accountStatus(m.user)} />,
                 seen: m.user.lastLoginAt ? when.format(m.user.lastLoginAt) : <span className="text-muted-foreground">Ποτέ</span>,
                 edit: can("users.edit") ? (
                   <Modal label={<><Pencil /> Ρόλος</>} size="sm" title={m.user.name} description={m.user.email}>
@@ -218,7 +217,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
         <Card id="history" className="scroll-mt-28">
           <div className="border-b border-border/70 px-5 py-4">
             <h2 className="text-lg">Ιστορικό αλλαγών</h2>
-            <p className="text-sm text-muted-foreground">Ποιος άλλαξε χρήστη, ρόλο ή δικαίωμα και πότε. Οι 30 πιο πρόσφατες</p>
+            <p className="text-sm text-muted-foreground">Ποιος άλλαξε χρήστη, ρόλο ή δικαίωμα και πότε</p>
           </div>
           {history.length ? (
             <ul className="divide-y divide-border/70">
@@ -228,6 +227,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
                   <p className="text-xs text-muted-foreground tabular-nums">{e.actorName} · {when.format(e.createdAt)}</p>
                 </li>
               ))}
+              {historyTotal > history.length ? <li className="px-5 py-2.5 text-xs text-muted-foreground">Εμφανίζονται οι {history.length} πιο πρόσφατες από {historyTotal}</li> : null}
             </ul>
           ) : <p className="px-5 py-6 text-sm text-muted-foreground">Καμία αλλαγή ακόμα. Κάθε πρόσκληση, αλλαγή ρόλου ή απενεργοποίηση θα φαίνεται εδώ</p>}
         </Card>

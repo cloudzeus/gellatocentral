@@ -1,10 +1,12 @@
 import { ArrowDownLeft, ArrowUpRight, FileClock, Info, ReceiptText, ShoppingCart, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "@/components/data-table";
-import { DetailGrid, Badge, Card, cn } from "@/components/ui";
+import { DetailGrid, Card, cn } from "@/components/ui";
 import { FiscalBadge, dateTime } from "@/lib/labels";
 import { euro } from "@/lib/money";
 import type { PartyAccountDocument, PartyAccountPayment, PartyAccountSummary } from "@/lib/party-account";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 export type AccountView = "ledger" | "documents" | "payments" | "orders";
 export const ACCOUNT_VIEWS: Record<AccountView, string> = { ledger: "Καρτέλα", documents: "Παραστατικά", payments: "Πληρωμές", orders: "Παραγγελίες" };
@@ -14,8 +16,8 @@ const accountHref = (base: string, view: AccountView = "ledger") => `${base}?tab
 export function PartyAccountSummary({ summary, base }: { summary: PartyAccountSummary; base: string }) {
   const items = [
     { label: "Υπόλοιπο πελάτη", value: summary.balanceCents, hint: summary.balanceCents > 0 ? "Οφειλή προς είσπραξη" : summary.balanceCents < 0 ? "Πιστωτικό υπέρ του πελάτη" : "Δεν υπάρχει ανοιχτή οφειλή", view: "ledger" as const },
-    { label: "Χρεώσεις", value: summary.chargesCents, hint: "Διαβιβασμένα παραστατικά", view: "documents" as const },
-    { label: "Πιστώσεις", value: summary.creditsCents, hint: "Διαβιβασμένα πιστωτικά", view: "documents" as const },
+    { label: "Χρεώσεις", value: summary.chargesCents, hint: "Παραστατικά που στάλθηκαν", view: "documents" as const },
+    { label: "Πιστώσεις", value: summary.creditsCents, hint: "Πιστωτικά που στάλθηκαν", view: "documents" as const },
     { label: "Εισπράξεις", value: summary.paymentsCents, hint: "Επιτυχείς πληρωμές πωλήσεων", view: "payments" as const },
   ];
   return (
@@ -31,7 +33,7 @@ export function PartyAccountSummary({ summary, base }: { summary: PartyAccountSu
           </Link>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">Το υπόλοιπο υπολογίζεται από παραστατικά που έχουν διαβιβαστεί στην ΑΑΔΕ και επιτυχείς πληρωμές συνδεδεμένων πωλήσεων.</p>
+      <p className="text-xs text-muted-foreground">Το υπόλοιπο υπολογίζεται από παραστατικά που έχουν σταλεί στην ΑΑΔΕ και επιτυχείς πληρωμές συνδεδεμένων πωλήσεων.</p>
     </section>
   );
 }
@@ -76,7 +78,7 @@ export function PartyAccount({ base, view, summary, documents, payments, partyId
           </div>
           <DataTable
             id={`party-ledger-${partyId}`}
-            empty="Δεν υπάρχουν διαβιβασμένα παραστατικά ή επιτυχείς πληρωμές για αυτόν τον πελάτη."
+            empty="Δεν υπάρχουν παραστατικά που στάλθηκαν ή επιτυχείς πληρωμές για αυτόν τον πελάτη."
             columns={[
               { key: "date", label: "Ημερομηνία" },
               { key: "entry", label: "Κίνηση", required: true, wrap: true },
@@ -164,7 +166,7 @@ export function PartyAccount({ base, view, summary, documents, payments, partyId
                 method: payment.method,
                 origin: payment.origin,
                 amount: <span className="whitespace-nowrap font-semibold">{euro(payment.amountCents)}</span>,
-                status: <Badge tone={payment.success ? "success" : "danger"}>{payment.success ? "Επιτυχής" : "Απέτυχε"}</Badge>,
+                status: <StatusBadge look={look(payment.success ? "success" : "danger", payment.success ? "Επιτυχής" : "Απέτυχε")} />,
               },
             }))}
           />

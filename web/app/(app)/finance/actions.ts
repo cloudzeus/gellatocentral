@@ -5,11 +5,12 @@ import { redirect } from "next/navigation";
 import { closeCashRegister, createExpense, createFinanceAccount, recordSupplierPayment, reopenCashRegister, saveBudgetTarget, transferFinanceFunds } from "@/lib/finance-db";
 import { requireStockContext } from "@/lib/stock-context";
 import { workflowMessage } from "@/lib/workflow-db";
+import { redirectUrl } from "@/lib/flash";
 
 const cents = (value: FormDataEntryValue | null) => Math.round(Number(String(value ?? "0").replace(",", ".")) * 100);
 const text = (form: FormData, key: string) => String(form.get(key) ?? "") || null;
 const date = (value: FormDataEntryValue | null) => String(value ?? "") ? new Date(String(value)) : new Date(NaN);
-const back = (query = ""): never => { revalidatePath("/finance"); redirect(`/finance${query}`); };
+const back = (query = ""): never => { revalidatePath("/finance"); redirect(redirectUrl(`/finance${query}`)); };
 const fail = (error: unknown): never => back(`?error=${encodeURIComponent(workflowMessage(error))}`);
 
 export async function newAccount(form: FormData) {

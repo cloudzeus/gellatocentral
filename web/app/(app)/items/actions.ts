@@ -1,5 +1,6 @@
 "use server";
 
+import { flashOk } from "@/lib/flash-server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -62,6 +63,8 @@ async function setGenericItemsActive(ids: string[], active: boolean) {
   const result = await db.genericItem.updateMany({ where: { id: { in: unique }, orgId: org.id }, data: { active } });
   revalidatePath("/items");
   if (result.count !== unique.length) return "Ορισμένα είδη δεν βρέθηκαν στην επιχείρηση· ανανέωσε τη λίστα";
+  const n = unique.length;
+  await flashOk(active ? (n === 1 ? "Το είδος ενεργοποιήθηκε" : `${n} είδη ενεργοποιήθηκαν`) : n === 1 ? "Το είδος έγινε κρυφό" : `${n} είδη έγιναν κρυφά`);
 }
 
 export async function activateGenericItems(ids: string[]) {
@@ -123,6 +126,7 @@ export async function copyComposition(genericItemId: string) {
     create: { ...compositionCopyData(source), orgId: org.id, genericItemId },
     update: compositionCopyData(source),
   });
+  await flashOk("Η σύσταση αντιγράφηκε από τον κατάλογο");
   back(path, "?copied=1");
 }
 
@@ -182,6 +186,7 @@ export async function removeMappings(genericItemId: string, ids: string[]) {
   revalidatePath(`/items/${genericItemId}`);
   revalidatePath("/items");
   if (result.count !== unique.length) return "Ορισμένες συσκευασίες δεν ανήκουν σε αυτό το είδος· ανανέωσε τη σελίδα";
+  await flashOk(unique.length === 1 ? "Η σύνδεση με τη συσκευασία αφαιρέθηκε" : `${unique.length} συνδέσεις με συσκευασίες αφαιρέθηκαν`);
 }
 
 async function setSupplierItemsActive(genericItemId: string, ids: string[], active: boolean) {
@@ -197,6 +202,8 @@ async function setSupplierItemsActive(genericItemId: string, ids: string[], acti
   });
   revalidatePath(`/items/${genericItemId}`);
   if (result.count !== unique.length) return "Ορισμένες συνδέσεις προμηθευτών δεν ανήκουν σε αυτό το είδος· ανανέωσε τη σελίδα";
+  const n = unique.length;
+  await flashOk(active ? (n === 1 ? "Η σύνδεση προμηθευτή ενεργοποιήθηκε" : `${n} συνδέσεις προμηθευτών ενεργοποιήθηκαν`) : n === 1 ? "Η σύνδεση προμηθευτή απενεργοποιήθηκε" : `${n} συνδέσεις προμηθευτών απενεργοποιήθηκαν`);
 }
 
 export async function activateSupplierItems(genericItemId: string, ids: string[]) {

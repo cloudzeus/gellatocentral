@@ -9,12 +9,13 @@ import { filterParam, listParams } from "@/lib/paging";
 import { DataTable } from "./data-table";
 import { Modal } from "./modal";
 import { Submit } from "./submit";
-import { Badge, btn, Card, cn, Field } from "./ui";
+import { btn, Card, cn, Field } from "./ui";
+import { StatusBadge } from "./status-badge";
+import { look, statusOptions } from "@/lib/status";
 
 const when = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Athens" });
 const dayOnly = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeZone: "Europe/Athens" });
 const TABS = { requests: "Αιτήματα διαγραφής", consents: "Συναινέσεις", log: "Ημερολόγιο" } as const;
-const STATUS = { PENDING: { tone: "warning", text: "Ανοιχτό" }, COMPLETED: { tone: "success", text: "Ολοκληρώθηκε" }, REJECTED: { tone: "neutral", text: "Απορρίφθηκε" } } as const;
 const SOURCE: Record<string, string> = { activation: "Ενεργοποίηση λογαριασμού", self: "Ο ίδιος", admin: "Καταχώριση διαχειριστή" };
 const SUMMARY: Record<string, string> = { tickets: "αιτήματα υποστήριξης (χωρίς όνομα)", customer: "καρτέλα πελάτη", account: "λογαριασμός", files: "αρχεία", sessions: "συνεδρίες", memberships: "συμμετοχές", emails: "email στο ιστορικό", consents: "συναινέσεις (χωρίς IP)", uploads: "αναφορές σε ανεβάσματα" };
 
@@ -37,7 +38,6 @@ export async function GdprCenter({ scope, base, sp }: { scope: string | null; ba
 
   return (
     <div className="max-w-7xl space-y-4">
-      {typeof sp.ok === "string" ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{sp.ok.slice(0, 200)}</p> : null}
       {typeof sp.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{sp.error.slice(0, 300)}</p> : null}
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -52,7 +52,7 @@ export async function GdprCenter({ scope, base, sp }: { scope: string | null; ba
 
       <div className="flex flex-wrap items-center gap-3">
         <nav aria-label="Ενότητες GDPR" className="flex max-w-full overflow-x-auto rounded-lg border border-border bg-card p-0.5">
-          {Object.entries(TABS).map(([t, label]) => <Link key={t} href={href(t)} aria-current={t === tab ? "page" : undefined} className={cn("rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap pointer-coarse:py-2.5", t === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{label}</Link>)}
+          {Object.entries(TABS).map(([t, label]) => <Link key={t} href={href(t)} aria-current={t === tab ? "page" : undefined} className={cn("inline-flex min-h-9 items-center rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap pointer-coarse:min-h-11", t === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{label}</Link>)}
         </nav>
         <span className="flex-1" />
         <Modal label={<><Plus /> Νέο αίτημα διαγραφής</>} variant="default" title="Νέο αίτημα διαγραφής" description="Για αίτημα που ήρθε με email, τηλέφωνο ή έγγραφο. Η προθεσμία των 30 ημερών μετρά από σήμερα">
@@ -84,7 +84,7 @@ async function Requests({ scope, sp }: Part) {
   return (
     <DataTable
       id="gdpr-requests"
-      listing={{ ...list, total, placeholder: "Όνομα ή email", filters: [{ key: "status", label: "Κατάσταση", value: status, options: Object.entries(STATUS).map(([k, v]): [string, string] => [k, v.text]) }] }}
+      listing={{ ...list, total, placeholder: "Όνομα ή email", filters: [{ key: "status", label: "Κατάσταση", value: status, options: statusOptions("erasure") }] }}
       empty="Κανένα αίτημα διαγραφής ακόμα. Όταν κάποιος το ζητήσει, θα εμφανιστεί εδώ με την προθεσμία του"
       columns={[
         { key: "who", label: "Πρόσωπο", required: true },
@@ -103,8 +103,8 @@ async function Requests({ scope, sp }: Part) {
             who: r.subjectLabel ? <><span className="font-medium">{r.subjectLabel}</span>{r.reason ? <span className="block text-xs text-muted-foreground">{r.reason}</span> : null}</> : <span className="text-muted-foreground">Τα στοιχεία σβήστηκαν · {r.subjectHash.slice(0, 8)}</span>,
             kind: SUBJECT_TYPES[r.subjectType as SubjectType] ?? r.subjectType,
             requested: dayOnly.format(r.requestedAt),
-            due: r.status !== "PENDING" ? <span className="text-muted-foreground">{r.decidedAt ? `Έκλεισε ${dayOnly.format(r.decidedAt)}` : "—"}</span> : <Badge tone={left < 0 ? "danger" : left <= 7 ? "warning" : "neutral"}>{left < 0 ? `Εκπρόθεσμο ${-left} ημ.` : left === 0 ? "Λήγει σήμερα" : `Σε ${left} ημ.`}</Badge>,
-            status: <><Badge tone={STATUS[r.status].tone}>{STATUS[r.status].text}</Badge>{r.status === "REJECTED" && r.decisionNote ? <span className="mt-1 block text-xs text-muted-foreground">{r.decisionNote}</span> : null}{counts.length ? <span className="mt-1 block text-xs text-muted-foreground">{counts.map(([k, v]) => `${v} ${SUMMARY[k] ?? k}`).join(" · ")}</span> : null}</>,
+            due: r.status !== "PENDING" ? <span className="text-muted-foreground">{r.decidedAt ? `Έκλεισε ${dayOnly.format(r.decidedAt)}` : "—"}</span> : <StatusBadge look={look(left < 0 ? "danger" : left <= 7 ? "warning" : "neutral", left < 0 ? `Εκπρόθεσμο ${-left} ημ.` : left === 0 ? "Λήγει σήμερα" : `Σε ${left} ημ.`)} />,
+            status: <><StatusBadge kind="erasure" value={r.status} />{r.status === "REJECTED" && r.decisionNote ? <span className="mt-1 block text-xs text-muted-foreground">{r.decisionNote}</span> : null}{counts.length ? <span className="mt-1 block text-xs text-muted-foreground">{counts.map(([k, v]) => `${v} ${SUMMARY[k] ?? k}`).join(" · ")}</span> : null}</>,
             act: r.status === "PENDING" ? (
               <span className="flex flex-wrap gap-1.5">
                 <Modal label={<><Trash2 /> Διαγραφή</>} size="sm" variant="outline" title="Οριστική διαγραφή δεδομένων" description={r.subjectLabel ?? undefined}>
@@ -166,7 +166,7 @@ async function Consents({ scope, sp }: Part) {
         cells: {
           who: who ? <><span className="font-medium">{who.name}</span><span className="block text-xs text-muted-foreground">{who.email}</span></> : <span className="text-muted-foreground">{c.subjectType === "user" ? "Διαγραμμένος χρήστης" : `${SUBJECT_TYPES[c.subjectType as SubjectType] ?? c.subjectType} ${c.subjectId.slice(0, 8)}`}</span>,
           purpose: PURPOSES[c.purpose as Purpose]?.label ?? c.purpose,
-          state: <Badge tone={c.granted ? "success" : "neutral"}>{c.granted ? "Ισχύει" : "Ανακλήθηκε"}</Badge>,
+          state: <StatusBadge look={look(c.granted ? "success" : "neutral", c.granted ? "Ισχύει" : "Ανακλήθηκε")} />,
           version: c.version,
           at: when.format(c.at),
           source: SOURCE[c.source] ?? c.source,

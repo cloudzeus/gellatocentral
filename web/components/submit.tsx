@@ -4,9 +4,11 @@
 import { LoaderCircle } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useFormStatus } from "react-dom";
+import { useBusy } from "@/lib/use-busy";
 
 export function Submit({ children, disabled, pendingText, ...p }: ComponentProps<"button"> & { pendingText?: string }) {
   const { pending } = useFormStatus();
+  useBusy(pending);
   return (
     <button {...p} disabled={disabled || pending} aria-busy={pending || undefined}>
       {pending ? <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden /> : null}

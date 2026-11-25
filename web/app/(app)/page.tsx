@@ -12,6 +12,8 @@ import { db } from "@/lib/db";
 import { DEVICE_KIND, readingStatus } from "@/lib/devices";
 import { euro } from "@/lib/money";
 import type { Permission } from "@/lib/permissions";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 type Hour = { h: number; total: number };
 type Meta = { now_hour: number; today: string; y_same: number; y_total: number; y_count: number };
@@ -243,7 +245,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
           <Card>
             <Link href="/finance" className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 rounded-xl px-5 py-4 -outline-offset-2 md:grid-cols-[auto_minmax(0,1fr)_auto]">
               <h2 className="font-sans text-sm font-semibold">Στόχος {today.month}</h2>
-              <span className="justify-self-end md:col-start-3"><Badge tone={pace.tone === "behind" ? "warning" : "success"}>{pace.tone === "behind" ? `Πίσω ${euro(pace.gapCents)}` : pace.tone === "ok" ? "Μέσα στον στόχο" : "Ο στόχος πιάστηκε"}</Badge></span>
+              <span className="justify-self-end md:col-start-3"><StatusBadge look={look(pace.tone === "behind" ? "warning" : "success", pace.tone === "behind" ? `Πίσω ${euro(pace.gapCents)}` : pace.tone === "ok" ? "Μέσα στον στόχο" : "Ο στόχος πιάστηκε")} /></span>
               <p className="text-muted-foreground tabular-nums max-md:col-span-2 md:col-start-1 md:row-start-2">{euro(sold)} από {euro(target.salesCents)}</p>
               <div className="max-md:col-span-2 md:col-start-2 md:row-span-2 md:row-start-1">
                 <div className="relative">
@@ -362,7 +364,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
                     {/* ο αριθμός απόδειξης σαν απόκομμα: το σήμα της εφαρμογής */}
                     <span className="shrink-0 rounded-sm border border-dashed border-primary/30 bg-background px-1.5 py-1 font-mono text-xs leading-none font-medium">{s.series}-{s.aa}</span>
                     <span className="min-w-0 flex-1 text-muted-foreground tabular-nums">{s.issuedAt ? time.format(s.issuedAt) : ""}{s.payment ? ` · ${s.payment.method.name}` : ""}</span>
-                    {s.fiscal && s.fiscal.status !== "SIGNED" ? <Badge tone="danger">Δεν στάλθηκε</Badge> : null}
+                    {s.fiscal && s.fiscal.status !== "SIGNED" ? <StatusBadge kind="fiscal" value={s.fiscal.status} /> : null}
                     <span className="w-18 shrink-0 text-right font-semibold tabular-nums">{euro(s.totalCents)}</span>
                   </Link>
                 </li>
@@ -379,7 +381,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
                   <li key={d.id} className={ROW}>
                     <Icon className="size-4 shrink-0 text-muted-foreground" />
                     <span className="min-w-0 flex-1"><span className="block truncate font-medium">{d.name}</span><span className="block truncate text-xs text-muted-foreground">{d.store.name} · {DEVICE_KIND[d.kind].label}</span></span>
-                    {st ? <Badge tone={st.tone}>{st.text}</Badge> : d.kind !== "POS_WEB" && !d.pairedAt ? <Badge tone="warning">Δεν έχει συνδεθεί</Badge> : <Badge tone="success">Ενεργή</Badge>}
+                    <StatusBadge look={st ? look(st.tone, st.text) : d.kind !== "POS_WEB" && !d.pairedAt ? look("warning", "Δεν έχει συνδεθεί") : look("success", "Ενεργή")} />
                   </li>
                 );
               })}

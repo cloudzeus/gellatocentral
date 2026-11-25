@@ -1,15 +1,16 @@
 import { Files } from "@/components/files";
 import Image from "next/image";
-import { Badge, btn, Card, Page } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { btn, Card, Page } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
+import { look } from "@/lib/status";
 import { platformSettings } from "@/lib/mail/send";
 import { BACKUP_CHECK_DAYS, daysSince, DR_SCENARIOS, RESTORE_DRILL_DAYS } from "@/lib/ops";
 import { recordContinuityCheck } from "../actions";
 import { Submit } from "@/components/submit";
 
-export default async function ContinuityPage({ searchParams }: PageProps<"/platform/continuity">) {
+export default async function ContinuityPage() {
   await requirePlatform("settings.read");
-  const saved = (await searchParams).saved;
   const s = await platformSettings();
   const checks = [
     { key: "backup" as const, title: "Έλεγχος αντιγράφων ασφαλείας", at: s.lastBackupCheckAt, every: BACKUP_CHECK_DAYS, how: "Άνοιξε τον χώρο αντιγράφων και επιβεβαίωσε ότι υπάρχει αντίγραφο των τελευταίων 24 ωρών και ότι το μέγεθός του είναι λογικό.", action: "Τα έλεγξα σήμερα" },
@@ -19,8 +20,6 @@ export default async function ContinuityPage({ searchParams }: PageProps<"/platf
   return (
     <Page section="Υποδομή & ασφάλεια" title="Συνέχεια λειτουργίας" description="Τι γίνεται όταν κάτι χαλάσει, και πότε επιβεβαιώθηκε τελευταία φορά ότι το σχέδιο δουλεύει">
       <div className="max-w-7xl space-y-4">
-        {saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success">Καταγράφηκε</p> : null}
-
         <div className="grid gap-4 md:grid-cols-2">
           {checks.map((c) => {
             const days = daysSince(c.at);
@@ -29,7 +28,7 @@ export default async function ContinuityPage({ searchParams }: PageProps<"/platf
               <Card key={c.key} className="flex flex-col gap-3 p-5">
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="text-lg">{c.title}</h2>
-                  <Badge tone={late ? "danger" : "success"}>{days === null ? "Δεν έχει γίνει ποτέ" : days === 0 ? "Σήμερα" : `Πριν από ${days} ${days === 1 ? "ημέρα" : "ημέρες"}`}</Badge>
+                  <StatusBadge look={look(late ? "danger" : "success", days === null ? "Δεν έχει γίνει ποτέ" : days === 0 ? "Σήμερα" : `Πριν από ${days} ${days === 1 ? "ημέρα" : "ημέρες"}`)} />
                 </div>
                 <p className="text-sm text-muted-foreground">{c.how}</p>
                 <p className={`text-sm font-semibold ${late ? "text-destructive" : "text-muted-foreground"}`}>{late ? `Χρειάζεται τώρα: πρέπει να γίνεται κάθε ${c.every} ημέρες.` : `Επόμενος σε ${c.every - days!} ημέρες.`}</p>

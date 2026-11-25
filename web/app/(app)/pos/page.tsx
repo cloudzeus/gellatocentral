@@ -32,8 +32,8 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
     <Page section="Ταμείο & τιμολόγηση" title="Ταμείο" description={`${device.name} · σειρά ${device.series} · επόμενη απόδειξη #${device.nextAa}`}>
       {pending ? <meta httpEquiv="refresh" content="3" /> : null}
       {!live ? (
-        <p className="mb-4 rounded-lg border border-gold/40 bg-gold/10 px-4 py-3 text-sm font-medium">
-          Δοκιμαστική λειτουργία: οι αποδείξεις αποθηκεύονται αλλά ΔΕΝ διαβιβάζονται στην ΑΑΔΕ. Δεν έχουν οριστεί κλειδιά Viva.
+        <p className="mb-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm font-medium">
+          Δοκιμαστική λειτουργία: οι αποδείξεις αποθηκεύονται αλλά ΔΕΝ στέλνονται στην ΑΑΔΕ. Δεν έχουν οριστεί κλειδιά Viva.
         </p>
       ) : null}
 

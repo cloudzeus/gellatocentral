@@ -4,9 +4,11 @@ import { useState, useTransition } from "react";
 import { Printer } from "lucide-react";
 import { btn } from "./ui";
 import { recordBrowserPrint } from "@/app/(app)/print/actions";
+import { useBusy } from "@/lib/use-busy";
 
 export function PrintDocumentButton({ entityType, entityId }: { entityType: "production_batch" | "recipe"; entityId: string }) {
   const [pending, start] = useTransition();
+  useBusy(pending);
   const [error, setError] = useState("");
   return <div className="print:hidden"><button type="button" className={btn("default")} disabled={pending} onClick={() => start(async () => {
     setError("");

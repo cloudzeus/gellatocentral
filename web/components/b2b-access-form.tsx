@@ -4,11 +4,13 @@ import { useState, useTransition } from "react";
 import { KeyRound } from "lucide-react";
 import { issueB2bAccess } from "@/app/(app)/wholesale-orders/actions";
 import { btn, Field } from "./ui";
+import { useBusy } from "@/lib/use-busy";
 
 export function B2bAccessForm({ customerId }: { customerId: string }) {
   const [expiresAt, setExpiresAt] = useState("");
   const [result, setResult] = useState<{ token: string | null; error: string | null } | null>(null);
   const [pending, start] = useTransition();
+  useBusy(pending);
   return <div className="grid gap-3 rounded-lg border border-border/70 p-3">
     <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto]">
       <Field label="Λήξη συνδέσμου (προαιρετικά)" type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />

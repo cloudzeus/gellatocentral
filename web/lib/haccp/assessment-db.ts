@@ -2,6 +2,7 @@
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { db } from "@/lib/db";
 import { evaluateHaccp, type HaccpAssessment } from "./evaluator.ts";
+import type { TaskReporter } from "@/lib/task-progress";
 
 export async function assessTenant(orgId: string, options: { storeIds?: string[]; persist?: boolean; now?: Date } = {}): Promise<HaccpAssessment> {
   const scoped = options.storeIds?.length ? { in: options.storeIds } : undefined;
@@ -15,12 +16,15 @@ export async function assessTenant(orgId: string, options: { storeIds?: string[]
   return result;
 }
 
-export async function assessAllTenants(now = new Date()) {
+/** `progress`: προαιρετική αναφορά προόδου για το παράθυρο «Εργασίες». */
+export async function assessAllTenants(now = new Date(), progress?: TaskReporter) {
   const orgs = await db.organization.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
   const results = [];
   for (const org of orgs) {
+    await progress?.step(org.name);
     const result = await assessTenant(org.id, { persist: true, now });
     results.push({ orgId: org.id, name: org.name, score: result.score, critical: result.critical, warnings: result.warnings });
+    await progress?.ok();
   }
   return results;
 }

@@ -36,16 +36,15 @@ import { resolvePrice } from "@/lib/purchase-pricing";
 import { partyRefs } from "@/lib/refs";
 import { canEvaluateSupplier, loadSupplierEvaluation } from "@/lib/supplier-evaluation";
 import { ACTIVE as OPEN_TICKETS } from "@/lib/support/rules";
-import { STATUS as SUBSCRIPTION } from "../../platform/status";
 import { deleteAddress, deleteBank, deleteChannel, deleteContact, flagContact, locateParty, logActivity, primaryChannel, requestCustomerErasure, saveAddress, saveBank, saveChannel, saveContact, saveParty, setCustomerConsent, setPrimaryBank, touchActivity } from "../actions";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 const day = new Intl.DateTimeFormat("el-GR", { dateStyle: "long", timeZone: "Europe/Athens" });
-const SAVED: Record<string, string> = { "1": "Τα στοιχεία αποθηκεύτηκαν", address: "Οι διευθύνσεις ενημερώθηκαν", contact: "Οι επαφές ενημερώθηκαν", channel: "Τα τηλέφωνα και τα email ενημερώθηκαν", bank: "Οι τραπεζικοί λογαριασμοί ενημερώθηκαν", located: "Η έδρα βρέθηκε στον χάρτη από τη διεύθυνσή της. Έλεγξε ότι η πινέζα είναι στο σωστό σημείο", consent: "Η συναίνεση καταγράφηκε", erasure: `Το αίτημα διαγραφής καταχωρίστηκε. Απάντηση μέσα σε ${DUE_DAYS} ημέρες` };
 const sub = "grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end";
 const coordText = (lat: number | null, lng: number | null) => (lat != null && lng != null ? `${lat.toFixed(4).replace(".", ",")} · ${lng.toFixed(4).replace(".", ",")}` : null);
 const KIND_OPTIONS = Object.entries(ADDRESS_KINDS) as [string, string][];
 const TABS = { overview: "Επισκόπηση", account: "Οικονομικά", transactions: "Είδη & αγορές", evaluation: "Αξιολόγηση", contacts: "Επαφές", places: "Διευθύνσεις & χάρτης", files: "Αρχεία", details: "Στοιχεία & τράπεζες" } as const;
-const PURCHASE_STATUS = { DRAFT: { label: "Πρόχειρο", tone: "warning" }, POSTED: { label: "Καταχωρημένο", tone: "success" }, CANCELLED: { label: "Ακυρωμένο", tone: "neutral" } } as const;
 type Tab = keyof typeof TABS;
 const INPUT = "h-9 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
 type Channel = { id: string; kind: string; value: string; label: string | null; isPrimary: boolean };
@@ -264,7 +263,6 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
       actions={<>{party.linkedOrg ? <Link href={`/platform/${party.linkedOrg.id}`} className={btn("outline")}>Σελίδα συνδρομητή</Link> : null}<Link href={scope.base} className={btn("outline")}>Όλοι</Link></>}>
       <datalist id="channel-labels">{CHANNEL_LABELS.map((l) => <option key={l} value={l} />)}</datalist>
       <div className={cn("max-w-7xl space-y-4", scope.canEdit && "max-md:pb-16")}>
-        {typeof q.saved === "string" && SAVED[q.saved] ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{SAVED[q.saved]}</p> : null}
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν έγινε: {q.error.slice(0, 220)}</p> : null}
 
         <PartyIdentity
@@ -322,7 +320,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                   <Card>
                     <div className="border-b border-border px-5 py-3"><h2 className="text-lg">Ως συνδρομητής</h2></div>
                     <ul className="divide-y divide-border/70">
-                      <li className="flex flex-wrap items-center gap-2 px-5 py-3"><span className="min-w-0 flex-1"><b>Συνδρομή</b><span className="block text-sm text-muted-foreground">{subscription.plan?.name ?? "Βασικό πακέτο"} · ως {day.format(subscription.currentPeriodEnd)}</span></span><Badge tone={SUBSCRIPTION[subscription.status].tone}>{SUBSCRIPTION[subscription.status].text}</Badge></li>
+                      <li className="flex flex-wrap items-center gap-2 px-5 py-3"><span className="min-w-0 flex-1"><b>Συνδρομή</b><span className="block text-sm text-muted-foreground">{subscription.plan?.name ?? "Βασικό πακέτο"} · ως {day.format(subscription.currentPeriodEnd)}</span></span><StatusBadge kind="subscription" value={subscription.status} /></li>
                       <li className="flex flex-wrap items-center gap-2 px-5 py-3"><span className="min-w-0 flex-1"><b>Χρεώσεις</b><span className="block text-sm text-muted-foreground">{unpaid ? `Απλήρωτα ${euro(unpaid)}: επικοινώνησε πριν κλειδώσει` : "Καμία απλήρωτη"}</span></span><Link href={`/platform/${party.linkedOrg!.id}`} className={btn("outline", "sm")}>Άνοιγμα</Link></li>
                       <li className="flex flex-wrap items-center gap-2 px-5 py-3"><span className="min-w-0 flex-1"><b>Αιτήματα υποστήριξης</b><span className="block text-sm text-muted-foreground">{openTickets ? `${openTickets} ανοιχτ${openTickets === 1 ? "ό" : "ά"}: περιμένουν απάντηση` : "Κανένα ανοιχτό"}</span></span><Link href="/platform/support" className={btn("outline", "sm")}>Αιτήματα</Link></li>
                     </ul>
@@ -419,7 +417,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                     barcode: <span className="break-all font-mono text-xs">{item.barcode ?? item.tradeItem.ean ?? "—"}</span>,
                     pack: item.packQty,
                     price: item.current ? <span className="whitespace-nowrap font-semibold">{euro(item.current.priceCents)}</span> : "—",
-                    status: <Badge tone={item.active ? "success" : "neutral"}>{item.active ? "Ενεργό" : "Ανενεργό"}</Badge>,
+                    status: <StatusBadge look={look(item.active ? "success" : "neutral", item.active ? "Ενεργό" : "Ανενεργό")} />,
                   },
                   details: {
                     label: item.tradeItem.name,
@@ -454,7 +452,6 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                 ]}
                 rows={purchases.map((doc) => {
                   const totals = calculatePurchaseDocument(doc.lines, doc);
-                  const status = PURCHASE_STATUS[doc.status as keyof typeof PURCHASE_STATUS] ?? { label: doc.status, tone: "neutral" as const };
                   return {
                     id: doc.id,
                     cells: {
@@ -465,7 +462,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                       net: <span className="whitespace-nowrap">{euro(totals.totalNetCents)}</span>,
                       vat: <span className="whitespace-nowrap">{euro(totals.totalVatCents)}</span>,
                       total: <span className="whitespace-nowrap font-semibold">{euro(totals.totalCents)}</span>,
-                      status: <Badge tone={status.tone}>{status.label}</Badge>,
+                      status: <StatusBadge kind="purchase" value={doc.status} />,
                     },
                     details: {
                       label: doc.number ?? doc.id,
@@ -508,7 +505,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                       <li key={c.id} className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3", !c.active && "opacity-70")}>
                         <span className="grid size-9 shrink-0 place-items-center rounded-full bg-secondary text-xs font-semibold text-muted-foreground" aria-hidden>{initials(c.person.name)}</span>
                         <div className="min-w-0 basis-52 flex-1">
-                          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold">{c.person.name}{c.isPrimary ? <Badge tone="success"><Star className="size-3" aria-hidden /> Κύρια επαφή</Badge> : null}{c.active ? null : <Badge>Δεν εργάζεται πλέον εδώ</Badge>}</p>
+                          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold">{c.person.name}{c.isPrimary ? <Badge tone="success"><Star className="size-3" aria-hidden /> Κύρια επαφή</Badge> : null}{c.active ? null : <StatusBadge look={look("neutral", "Δεν εργάζεται πλέον εδώ")} />}</p>
                           <p className="text-sm text-muted-foreground">{[c.title, c.address ? (c.address.label ?? c.address.city ?? c.address.street) : "Έδρα", c.notes].filter(Boolean).join(" · ")}</p>
                           {others.length ? <p className="text-xs text-muted-foreground">Επαφή και σε: {others.map((l, i) => <span key={l.id}>{i ? ", " : ""}<Link href={`${scope.base}/${l.party.id}?tab=contacts`} className="font-medium text-foreground underline underline-offset-2">{l.party.name}</Link></span>)}</p> : null}
                         </div>
@@ -585,7 +582,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
           <Card>
             <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
               <div className="min-w-0 basis-56 flex-1">
-                <h2 className="text-lg">Στοιχεία {party.vatCheckedAt ? <Badge tone="success">Επιβεβαιώθηκαν από το μητρώο {day.format(party.vatCheckedAt)}</Badge> : null}</h2>
+                <h2 className="text-lg">Στοιχεία {party.vatCheckedAt ? <StatusBadge look={look("success", `Επιβεβαιώθηκαν από το μητρώο ${day.format(party.vatCheckedAt)}`)} /> : null}</h2>
                 <p className="text-sm text-muted-foreground">{missing.length ? `Για τιμολόγιο λείπουν: ${missing.join(", ")}` : "Τα στοιχεία τιμολόγησης είναι πλήρη"}</p>
               </div>
               {scope.canEdit ? <Modal wide label={<><Pencil /> Αλλαγή</>} title="Στοιχεία συναλλασσόμενου"><PartyForm action={saveParty.bind(null, party.id)} party={{ ...party, viberSubscriberId: viber?.value ?? null }} refs={refs} geo={{ breadcrumb: crumbs.get("hq"), cityId: party.cityId, city: party.city, areaId: party.areaId, areaName: party.geoArea?.name ?? null, regionText: party.region }} /></Modal> : null}
@@ -632,7 +629,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                 <li className="space-y-2 px-5 py-3">
                   <p className="font-medium">{PURPOSES.customer_marketing.label}</p>
                   <p className="text-sm text-muted-foreground">Καταχώρισε τη συναίνεση μόνο αν την έδωσε ρητά</p>
-                  <div className="flex flex-wrap items-center gap-2"><Badge tone={marketing?.granted ? "success" : "neutral"}>{marketing?.granted ? `Ναι, από ${day.format(marketing.at)}` : marketing ? `Ανακλήθηκε ${day.format(marketing.at)}` : "Δεν έχει δοθεί"}</Badge><form action={setCustomerConsent.bind(null, party.id, !marketing?.granted)}><Submit className={btn("outline", "sm")}>{marketing?.granted ? "Ανάκληση" : "Καταχώριση συναίνεσης"}</Submit></form></div>
+                  <div className="flex flex-wrap items-center gap-2"><StatusBadge look={look(marketing?.granted ? "success" : "neutral", marketing?.granted ? `Ναι, από ${day.format(marketing.at)}` : marketing ? `Ανακλήθηκε ${day.format(marketing.at)}` : "Δεν έχει δοθεί")} /><form action={setCustomerConsent.bind(null, party.id, !marketing?.granted)}><Submit className={btn("outline", "sm")}>{marketing?.granted ? "Ανάκληση" : "Καταχώριση συναίνεσης"}</Submit></form></div>
                 </li>
                 <li className="flex flex-wrap items-center gap-3 px-5 py-3">
                   <div className="min-w-0 basis-40 flex-1"><p className="font-medium">Αντίγραφο των δεδομένων του</p><p className="text-sm text-muted-foreground">Αν ζητήσει τι κρατάς για αυτόν</p></div>
@@ -640,7 +637,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                 </li>
                 <li className="flex flex-wrap items-center gap-3 px-5 py-3">
                   <div className="min-w-0 basis-40 flex-1"><p className="font-medium">Διαγραφή των δεδομένων του</p><p className="text-sm text-muted-foreground">{request ? `Ανοιχτό αίτημα από ${day.format(request.requestedAt)}. ${daysLeft(request.dueAt) >= 0 ? `Απομένουν ${daysLeft(request.dueAt)} ημέρες` : "Η προθεσμία πέρασε"}` : `Ανοίγει αίτημα με προθεσμία ${DUE_DAYS} ημερών`}</p></div>
-                  {request ? (tenant.permissions.includes("gdpr.edit") ? <Link href="/gdpr" className={btn("outline", "sm")}>Στα αιτήματα</Link> : <Badge tone="warning">Σε εξέταση</Badge>) : (
+                  {request ? (tenant.permissions.includes("gdpr.edit") ? <Link href="/gdpr" className={btn("outline", "sm")}>Στα αιτήματα</Link> : <StatusBadge look={look("warning", "Σε εξέταση")} />) : (
                     <Modal label={<><Trash2 /> Αίτημα</>} size="sm" variant="outline" title="Αίτημα διαγραφής" description={`Το εξετάζει ο υπεύθυνος GDPR της επιχείρησης μέσα σε ${DUE_DAYS} ημέρες`}>
                       <form action={requestCustomerErasure.bind(null, party.id)} className="grid gap-4 [&>button]:justify-self-end">
                         <Field label="Πώς ήρθε το αίτημα" name="reason" maxLength={500} hint="π.χ. με email στις 12/11. Σβήνεται όταν ολοκληρωθεί" />

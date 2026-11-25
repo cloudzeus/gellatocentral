@@ -4,13 +4,14 @@ import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
 import { TicketSubject } from "@/components/ticket-subject";
-import { Badge, btn, Card, menuItem, Page, Select } from "@/components/ui";
+import { btn, Card, menuItem, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
 import { memberScope } from "@/lib/support";
-import { ACTIVE, CATEGORIES, STATUS, type Status, URGENCY } from "@/lib/support/rules";
+import { ACTIVE, CATEGORIES, URGENCY } from "@/lib/support/rules";
 import { createTicket } from "./actions";
+import { StatusBadge } from "@/components/status-badge";
 
 const when = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Athens" });
 
@@ -53,7 +54,7 @@ export default async function SupportPage({ searchParams }: PageProps<"/support"
       }>
       <div className="max-w-7xl space-y-4">
         {typeof sp.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{sp.error.slice(0, 200)}</p> : null}
-        {waiting > 0 ? <p className="rounded-lg border border-gold/40 bg-gold/10 px-4 py-3 font-medium">{waiting === 1 ? "Ένα αίτημα περιμένει" : `${waiting} αιτήματα περιμένουν`} τη δική σου απάντηση</p> : null}
+        {waiting > 0 ? <p className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 font-medium">{waiting === 1 ? "Ένα αίτημα περιμένει" : `${waiting} αιτήματα περιμένουν`} τη δική σου απάντηση</p> : null}
         <Card>
           <DataTable
             id="my-tickets"
@@ -70,8 +71,8 @@ export default async function SupportPage({ searchParams }: PageProps<"/support"
               return {
                 id: t.id,
                 cells: {
-                  ticket: <Link href={`/support/${t.id}`} className="font-semibold underline-offset-2 hover:underline"><span className="mr-2 rounded-sm border border-dashed border-primary/30 bg-background px-1.5 py-0.5 font-mono text-xs font-medium">#{t.number}</span>{t.subject}</Link>,
-                  status: <Badge tone={STATUS[t.status as Status].tone}>{STATUS[t.status as Status].customer}</Badge>,
+                  ticket: <Link href={`/support/${t.id}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"><span className="mr-2 rounded-sm border border-dashed border-primary/30 bg-background px-1.5 py-0.5 font-mono text-xs font-medium">#{t.number}</span>{t.subject}</Link>,
+                  status: <StatusBadge kind="ticketCustomer" value={t.status} />,
                   last: last ? `${last.authorKind === "support" ? `${last.authorName} από την υποστήριξη` : last.authorKind === "system" ? "Ενημέρωση" : last.authorName} · ${when.format(last.createdAt)}` : "—",
                   by: t.openedByName,
                 },

@@ -46,7 +46,7 @@ export default async function StockLotPage({ params }: { params: Promise<{ id: s
       actions={<Link href="/inventory/stock?view=lots" className={btn("outline", "sm")}><ArrowLeft /> Παρτίδες & FEFO</Link>}
     >
       <div className="grid max-w-7xl gap-4">
-        {expiry.status === "expired" ? <p role="alert" className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive"><TriangleAlert className="size-4" /> Η παρτίδα έληξε πριν από {-expiry.days!} ημέρες. Το υπόλοιπο πρέπει να αποσυρθεί με αιτιολογημένη ενέργεια.</p> : expiry.status === "today" || expiry.status === "urgent" || expiry.status === "soon" ? <p role="status" className="flex items-center gap-2 rounded-lg bg-gold/15 px-4 py-3 text-sm font-medium text-gold-ink"><TriangleAlert className="size-4" /> {expiry.status === "today" ? "Λήγει σήμερα" : `Λήγει σε ${expiry.days} ημέρες`} · προτεραιοποιείται από τη FEFO.</p> : null}
+        {expiry.status === "expired" ? <p role="alert" className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive"><TriangleAlert className="size-4" /> Η παρτίδα έληξε πριν από {-expiry.days!} ημέρες. Το υπόλοιπο πρέπει να αποσυρθεί με αιτιολογημένη ενέργεια.</p> : expiry.status === "today" || expiry.status === "urgent" || expiry.status === "soon" ? <p role="status" className="flex items-center gap-2 rounded-lg bg-warning/15 px-4 py-3 text-sm font-medium text-warning-ink"><TriangleAlert className="size-4" /> {expiry.status === "today" ? "Λήγει σήμερα" : `Λήγει σε ${expiry.days} ημέρες`} · προτεραιοποιείται από τη FEFO.</p> : null}
 
         <Card>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 px-5 py-4 text-sm sm:grid-cols-4">

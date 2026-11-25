@@ -2,11 +2,13 @@ import Link from "next/link";
 import { ScanSearch, Search } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Submit } from "@/components/submit";
-import { DetailGrid, Badge, btn, Card, Page } from "@/components/ui";
+import { DetailGrid, btn, Card, Page } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { listParams } from "@/lib/paging";
 import { isExpired } from "@/lib/production";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 // Ιχνηλασιμότητα (Καν. 178/2002 άρ. 18 — ΕΦΕΤ): κοινή αναζήτηση σε παρτίδες υλικού και παραγωγής.
 export default async function TraceabilityPage({ searchParams }: PageProps<"/traceability">) {
@@ -90,7 +92,7 @@ export default async function TraceabilityPage({ searchParams }: PageProps<"/tra
                     item: l.genericItem.name,
                     supplier: l.document ? `${l.document.supplier.name}${l.document.number ? ` · ${l.document.number}` : ""}` : "—",
                     warehouse: l.warehouse.name,
-                    expiry: <span className="inline-flex flex-wrap items-center gap-1">{l.expiresAt ? dayFmt.format(l.expiresAt) : "—"}{isExpired(l.expiresAt) ? <Badge tone="danger">Έληξε</Badge> : null}</span>,
+                    expiry: <span className="inline-flex flex-wrap items-center gap-1">{l.expiresAt ? dayFmt.format(l.expiresAt) : "—"}{isExpired(l.expiresAt) ? <StatusBadge look={look("danger", "Έληξε")} /> : null}</span>,
                   },
                   details: {
                     label: l.batchNumber ?? "Παρτίδα χωρίς αριθμό",

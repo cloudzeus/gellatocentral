@@ -1,5 +1,6 @@
 "use server";
 
+import { flashFail } from "@/lib/flash-server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -45,7 +46,10 @@ export async function attachStore(form: FormData) {
   const d = z
     .object({ warehouseId: id, storeId: id, priority: z.coerce.number().int().min(0).max(999).default(100), isDefault: z.literal("on").optional() })
     .safeParse(Object.fromEntries(form));
-  if (!d.success) redirect("/inventory");
+  if (!d.success) {
+    await flashFail("Δεν έγινε: διάλεξε αποθήκη και κατάστημα");
+    redirect("/inventory");
+  }
   try {
     await db.$transaction((tx) => attachWarehouse(tx, { orgId: org.id, storeId: d.data.storeId, warehouseId: d.data.warehouseId, isDefault: d.data.isDefault === "on", priority: d.data.priority }));
   } catch (e) {

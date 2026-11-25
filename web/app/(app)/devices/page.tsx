@@ -1,11 +1,13 @@
 import { Plus } from "lucide-react";
 import { Modal } from "@/components/modal";
-import { Badge, btn, Card, Page, Select } from "@/components/ui";
+import { btn, Card, Page, Select } from "@/components/ui";
 import { db } from "@/lib/db";
 import { DEVICE_KIND, FOR, KIND_OPTIONS, readingStatus } from "@/lib/devices";
 import { currentOrg } from "@/lib/auth";
 import { addDevice, toggleDevice } from "./actions";
 import { Submit } from "@/components/submit";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 const field = "h-8.5 w-full rounded-lg border border-input bg-card px-2.5 text-sm pointer-coarse:h-11";
 
@@ -14,7 +16,10 @@ const when = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "
 export default async function DevicesPage() {
   const { org, can } = await currentOrg("devices.read");
   const stores = await db.store.findMany({ where: { orgId: org.id }, orderBy: { name: "asc" }, include: { devices: { orderBy: { createdAt: "asc" }, include: { readings: { orderBy: { at: "desc" }, take: 1 } } } } });
-  const accesses = await db.remoteAccess.findMany({ where: { orgId: org.id }, orderBy: { at: "desc" }, take: 20, include: { device: { select: { name: true } } } });
+  const [accesses, accessTotal] = await Promise.all([
+    db.remoteAccess.findMany({ where: { orgId: org.id }, orderBy: { at: "desc" }, take: 20, include: { device: { select: { name: true } } } }),
+    db.remoteAccess.count({ where: { orgId: org.id } }),
+  ]);
   return (
     <Page section="Ταμείο & τιμολόγηση" title="Συσκευές" description={`Ταμεία, οθόνες κουζίνας, ψυγεία, αυτόματοι πωλητές και ζυγαριές. Κάθε ενεργή συσκευή χρεώνεται με την τιμή του πακέτου σου (βλ. Συνδρομή)`}
       actions={
@@ -48,8 +53,8 @@ export default async function DevicesPage() {
                         <p className="font-semibold">{d.name}</p>
                         <p className="text-xs text-muted-foreground">{[kind.label, kind.invoices && `σειρά ${d.series} · επόμενη #${d.nextAa}`, kind.invoices && (d.vivaTerminalId ? `τερματικό ${d.vivaTerminalId}` : "χωρίς τερματικό Viva"), kind.storage && (d.tempMin !== null || d.tempMax !== null) && `όρια ${d.tempMin ?? "…"} έως ${d.tempMax ?? "…"} °C`].filter(Boolean).join(" · ")}</p>
                       </div>
-                      {status ? <Badge tone={status.tone}>{status.text}</Badge> : null}
-                      <Badge tone={d.active ? "success" : "neutral"}>{!d.active ? "Ανενεργή" : kind.invoices ? "Ενεργή — χρεώνεται" : "Ενεργή — χωρίς χρέωση"}</Badge>
+                      {status ? <StatusBadge look={look(status.tone, status.text)} /> : null}
+                      <StatusBadge look={look(d.active ? "success" : "neutral", !d.active ? "Ανενεργή" : kind.invoices ? "Ενεργή — χρεώνεται" : "Ενεργή — χωρίς χρέωση")} />
                       {can("devices.edit") ? <form action={toggleDevice.bind(null, d.id)}><Submit className={btn("outline", "sm")}>{d.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form> : null}
                     </li>
                   );
@@ -74,6 +79,7 @@ export default async function DevicesPage() {
                 ))}
               </ul>
             )}
+            {accessTotal > accesses.length ? <p className="border-t border-border/70 px-5 py-2.5 text-xs text-muted-foreground">Εμφανίζονται οι {accesses.length} πιο πρόσφατες από {accessTotal}</p> : null}
           </Card>
         </div>
     </Page>

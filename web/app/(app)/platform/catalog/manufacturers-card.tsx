@@ -3,19 +3,13 @@ import Link from "next/link";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
+import { StatusBadge } from "@/components/status-badge";
 import { Badge, btn, Card, Field, Select } from "@/components/ui";
 import { INGREDIENT_CATEGORIES, safeHttpsUrl, type IngredientCategory } from "@/lib/catalog-enrichment";
 import { db } from "@/lib/db";
 import { normalizeManufacturerName } from "@/lib/manufacturer";
 import { filterParam } from "@/lib/paging";
 import { deleteBrand, deleteBrands, deleteManufacturer, deleteManufacturers, enrichManufacturer, enrichManufacturers, saveBrand, saveManufacturer } from "./actions";
-
-const STATUS = {
-  pending: { label: "Αναμένει AI", tone: "neutral" as const },
-  enriched: { label: "Εμπλουτισμένος", tone: "success" as const },
-  review: { label: "Χρειάζεται έλεγχο", tone: "warning" as const },
-  error: { label: "Σφάλμα AI", tone: "danger" as const },
-};
 
 type Citation = { url: string; title: string | null };
 function citationsOf(source: unknown): Citation[] {
@@ -113,7 +107,6 @@ export async function ManufacturersCard({ searchParams }: { searchParams: Record
         rows={manufacturers.map((m) => {
           const website = safeHttpsUrl(m.website);
           const citations = citationsOf(m.enrichmentSource);
-          const status = STATUS[m.enrichmentStatus as keyof typeof STATUS] ?? STATUS.pending;
           return {
             id: m.id,
             cells: {
@@ -128,7 +121,7 @@ export async function ManufacturersCard({ searchParams }: { searchParams: Record
               ),
               brands: m._count.brands,
               ingredients: m._count.ingredients,
-              status: <Badge tone={status.tone}>{status.label}</Badge>,
+              status: <StatusBadge kind="enrichment" value={m.enrichmentStatus} />,
               preview: m.brands.length ? m.brands.slice(0, 4).map((b) => b.name).join(", ") : "χωρίς brands",
             },
             details: {
@@ -141,7 +134,7 @@ export async function ManufacturersCard({ searchParams }: { searchParams: Record
                     <div><p className="text-xs text-muted-foreground">Τελευταίος εμπλουτισμός</p><p className="mt-1 font-medium">{m.enrichedAt?.toLocaleDateString("el-GR") ?? "Ποτέ"}</p></div>
                     <div><p className="text-xs text-muted-foreground">Aliases</p><p className="mt-1 font-medium">{m.aliases.length ? m.aliases.join(", ") : "—"}</p></div>
                   </div>
-                  {m.enrichmentError ? <p className="rounded-lg bg-gold/10 px-3 py-2 text-xs text-gold-ink">{m.enrichmentError}</p> : null}
+                  {m.enrichmentError ? <p className="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning-ink">{m.enrichmentError}</p> : null}
                   {citations.length ? <div><p className="mb-2 text-xs font-semibold text-muted-foreground">Πηγές AI</p><div className="flex flex-wrap gap-2">{citations.map((citation, index) => <a key={citation.url} href={citation.url} target="_blank" rel="noreferrer" className={btn("outline", "sm")}>{citation.title || `Πηγή ${index + 1}`}<ExternalLink /></a>)}</div></div> : null}
 
                   <section>

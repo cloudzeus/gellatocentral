@@ -1,5 +1,6 @@
 "use server";
 
+import { flashFail, flashOk } from "@/lib/flash-server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -29,11 +30,11 @@ const input = z
 export async function addDevice(form: FormData) {
   const { org } = await currentOrg("devices.add");
   const parsed = input.safeParse(Object.fromEntries(form));
-  if (!parsed.success) return; // η φόρμα έχει ήδη ελέγξει τα πεδία· εδώ φτάνει μόνο πειραγμένο αίτημα ή ελλιπές ταμείο
+  if (!parsed.success) { await flashFail("Δεν αποθηκεύτηκε: έλεγξε τα πεδία της συσκευής"); return; } // η φόρμα έχει ήδη ελέγξει τα πεδία· εδώ φτάνει μόνο πειραγμένο αίτημα ή ελλιπές ταμείο
   const data = parsed.data;
   // το κατάστημα πρέπει να ανήκει στην επιχείρηση· η σειρά είναι μοναδική ανά επιχείρηση
-  if (!(await db.store.findFirst({ where: { id: data.storeId, orgId: org.id } }))) return;
-  if (data.series && (await db.device.findFirst({ where: { orgId: org.id, series: data.series } }))) return;
+  if (!(await db.store.findFirst({ where: { id: data.storeId, orgId: org.id } }))) { await flashFail("Δεν αποθηκεύτηκε: το κατάστημα δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
+  if (data.series && (await db.device.findFirst({ where: { orgId: org.id, series: data.series } }))) { await flashFail(`Δεν αποθηκεύτηκε: η σειρά ${data.series} χρησιμοποιείται ήδη από άλλο ταμείο`, "Γράψε άλλη σειρά και δοκίμασε ξανά."); return; }
   await db.$transaction(async (tx) => {
     // ψυγείο και αυτόματος πωλητής είναι και αποθηκευτικοί χώροι: δένονται αμέσως στο κατάστημα της συσκευής
     // (η attachWarehouse κάνει προεπιλογή μόνο αν το κατάστημα δεν έχει ήδη)
@@ -43,6 +44,7 @@ export async function addDevice(form: FormData) {
   });
   revalidatePath("/devices");
   revalidatePath("/billing");
+  await flashOk(`Η συσκευή «${data.name}» αποθηκεύτηκε`);
 }
 
 export async function toggleDevice(deviceId: string) {
@@ -51,4 +53,6 @@ export async function toggleDevice(deviceId: string) {
   if (device) await db.device.update({ where: { id: device.id }, data: { active: !device.active } });
   revalidatePath("/devices");
   revalidatePath("/billing");
+  if (device) await flashOk(`Η συσκευή «${device.name}» ${device.active ? "απενεργοποιήθηκε" : "ενεργοποιήθηκε"}`);
+  else await flashFail("Δεν έγινε: η συσκευή δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά.");
 }

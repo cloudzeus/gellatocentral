@@ -3,7 +3,8 @@ import Link from "next/link";
 import { requirePlatform } from "@/lib/auth";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
-import { Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { btn, Card, Field, menuItem, Page } from "@/components/ui";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { filterParam, listParams } from "@/lib/paging";
@@ -13,7 +14,7 @@ import { monthlyPreview } from "@/lib/plans";
 import { setupSteps } from "@/lib/setup";
 import { vivaConfigured, vivaEnv } from "@/lib/viva/cloud-terminal";
 import { checkViva, createOrganization } from "./actions";
-import { STATUS } from "./status";
+import { look, statusOptions } from "@/lib/status";
 import { Submit } from "@/components/submit";
 
 export default async function PlatformPage({ searchParams }: PageProps<"/platform">) {
@@ -67,7 +68,6 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
           </form>
         </Modal>
       }>
-      {q.saved === "deleted" ? <p role="status" className="mb-4 rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Η επιχείρηση και τα αρχεία της διαγράφηκαν οριστικά</p> : null}
       {q.error && !q.viva ? <p role="alert" className="mb-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν δημιουργήθηκε: {String(q.error)}</p> : null}
       <div className="grid gap-4 md:grid-cols-3">
         {tiles.map((t) => (
@@ -97,7 +97,7 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
       <Card className="mt-4">
         <DataTable
           id="subscribers"
-          listing={{ ...list, total, placeholder: "Επωνυμία, ΑΦΜ ή υποτομέας", filters: [{ key: "status", label: "Συνδρομή", value: status, options: Object.entries(STATUS).map(([k, v]): [string, string] => [k, v.text]) }] }}
+          listing={{ ...list, total, placeholder: "Επωνυμία, ΑΦΜ ή υποτομέας", filters: [{ key: "status", label: "Συνδρομή", value: status, options: statusOptions("subscription") }] }}
           empty="Καμία επιχείρηση ακόμα. Πάτησε «Νέα επιχείρηση»."
           columns={[
             { key: "org", label: "Επιχείρηση", required: true, sortable: true },
@@ -111,13 +111,13 @@ export default async function PlatformPage({ searchParams }: PageProps<"/platfor
           rows={rows.map(({ o, stores, devices, cents, missing }) => ({
             id: o.id,
             cells: {
-              org: <><Link href={`/platform/${o.id}`} className="font-semibold underline-offset-2 hover:underline">{o.name}</Link><span className="block text-xs text-muted-foreground">ΑΦΜ {o.vatNumber}{o.slug ? ` · ${o.slug}` : ""}</span></>,
-              status: o.closingAt ? <Badge tone="danger">Κλείνει</Badge> : o.suspendedAt ? <Badge tone="danger">Σε αναστολή</Badge> : o.subscription ? <Badge tone={STATUS[o.subscription.status].tone}>{STATUS[o.subscription.status].text}</Badge> : "—",
+              org: <><Link href={`/platform/${o.id}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">{o.name}</Link><span className="block text-xs text-muted-foreground">ΑΦΜ {o.vatNumber}{o.slug ? ` · ${o.slug}` : ""}</span></>,
+              status: o.closingAt ? <StatusBadge look={look("danger", "Κλείνει")} /> : o.suspendedAt ? <StatusBadge look={look("danger", "Σε αναστολή")} /> : o.subscription ? <StatusBadge kind="subscription" value={o.subscription.status} /> : "—",
               until: o.subscription?.currentPeriodEnd.toLocaleDateString("el-GR") ?? "—",
               stores,
               devices,
               monthly: euro(cents),
-              setup: missing ? <Badge tone="warning">Λείπουν {missing}</Badge> : <Badge tone="success">Έτοιμη</Badge>,
+              setup: missing ? <StatusBadge look={look("warning", `Λείπουν ${missing}`)} /> : <StatusBadge look={look("success", "Έτοιμη")} />,
             },
             menu: (
               <>
