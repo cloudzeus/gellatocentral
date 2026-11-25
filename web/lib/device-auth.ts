@@ -1,3 +1,4 @@
+import { issuerOf } from "./documents/issuer";
 import { createHash } from "node:crypto";
 import { db } from "./db";
 
@@ -21,13 +22,14 @@ export async function deviceFromRequest(req: Request) {
   if (!token) return null;
   const device = await db.device.findFirst({
     where: { apiTokenHash: hashToken(token), active: true, store: { active: true } },
-    include: { store: { include: { org: true } } },
+    include: { store: { include: { org: true, legalEntity: true } } },
   });
   if (!device || !ipAllowed(device, req)) return null;
   // «τελευταία επαφή» για την κονσόλα· όχι σε κάθε αίτημα, για να μη γράφουμε συνέχεια
   if (!device.lastSeenAt || Date.now() - device.lastSeenAt.getTime() > 60_000)
     await db.device.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } });
-  return { org: device.store.org, store: device.store, device };
+  // ο εκδότης των αποδείξεων: το κατάστημα με δικό του ΑΦΜ ή η επιχείρηση
+  return { org: device.store.org, store: device.store, device, issuer: issuerOf(device.store.org, device.store.legalEntity) };
 }
 
 /** Μόνο ταμείο Android με σειρά αποδείξεων: οι υπόλοιπες συσκευές δεν εκδίδουν αποδείξεις. */

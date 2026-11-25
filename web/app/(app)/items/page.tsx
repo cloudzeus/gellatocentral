@@ -41,6 +41,7 @@ export default async function ItemsPage({ searchParams }: PageProps<"/items">) {
       <Field label="Όνομα είδους" name="name" required minLength={2} maxLength={80} defaultValue={g?.name} hint="Γενικά, όπως θα μπαίνει στη συνταγή: «γάλα φρέσκο», «ζάχαρη άχνη»" />
       <Select label="Μονάδα κατανάλωσης" name="baseUnitId" defaultValue={g?.baseUnitId ?? units.find((u) => u.code === "mg")?.id} options={units.map((u): [string, string] => [u.id, `${u.nameEL} (${u.code})`])} />
       <Select label="ΦΠΑ αγοράς" name="vatRateId" defaultValue={g?.vatRateId ?? ""} options={[["", "— χωρίς προεπιλογή —"], ...vatRates.map((v): [string, string] => [v.id, `${v.name} ${v.rate}%`])]} />
+      <Select label="Φύση στα παραστατικά" name="nature" defaultValue={g?.nature ?? "GOODS"} hint="Από αυτό βγαίνει ο χαρακτηρισμός εσόδου στο myDATA όταν το είδος τιμολογείται" options={[["GOODS", "Εμπόρευμα (μεταπώληση)"], ["PRODUCT", "Προϊόν δικής παραγωγής"], ["SERVICE", "Υπηρεσία"]]} />
       <Submit pendingText="Αποθήκευση…" className={btn("default")}>{g ? "Αποθήκευση" : "Προσθήκη"}</Submit>
     </form>
   );

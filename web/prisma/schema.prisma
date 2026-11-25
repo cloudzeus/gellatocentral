@@ -193,6 +193,7 @@ model Organization {
   tickets              Ticket[]
   documentSeries       DocumentSeries[]
   fiscalDocuments      FiscalDocument[]
+  legalEntities        LegalEntity[]
   compositions         Composition[]
   recipes              Recipe[]
   recipeItems          RecipeItem[]
@@ -209,10 +210,10 @@ model Organization {
   phone                  String?
   logoUrl                String?
   labelExtraText         String?
-  mrpUsageDays           Int                    @default(28)
-  mrpCoverDays           Int                    @default(4)
-  mrpSporadicDays        Int                    @default(4)
-  externalSendingEnabled Boolean                @default(false)
+  mrpUsageDays           Int                       @default(28)
+  mrpCoverDays           Int                       @default(4)
+  mrpSporadicDays        Int                       @default(4)
+  externalSendingEnabled Boolean                   @default(false)
   purchaseOrders         PurchaseOrder[]
   purchaseReceipts       PurchaseReceipt[]
   mrpSettings            MrpItemSetting[]
@@ -437,6 +438,29 @@ model OrgRole {
   @@unique([orgId, name])
 }
 
+// Υποκατάστημα με δικό του ΑΦΜ (άλλη εταιρεία του ίδιου ομίλου, συνήθως σε άλλη πόλη): εκδίδει με τα δικά του στοιχεία,
+// με δικά του κλειδιά myDATA και δικό του έμπορο Viva. Τα βιβλία και τα υπόλοιπα πελατών χωρίζουν ανά ΑΦΜ.
+model LegalEntity {
+  id             String       @id @default(cuid())
+  orgId          String
+  name           String // επωνυμία όπως στο Taxisnet
+  vatNumber      String // ΑΦΜ
+  taxOffice      String? // ΔΟΥ
+  address        String?
+  city           String?
+  postalCode     String?
+  phone          String?
+  vivaMerchantId String? // έμπορος Viva του ΑΦΜ (κάτω από τον ISV)
+  aadeUserId     String?
+  aadeSubKey     String?
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  stores         Store[]
+
+  @@unique([orgId, vatNumber])
+}
+
 model Store {
   id               String             @id @default(cuid())
   orgId            String
@@ -459,6 +483,9 @@ model Store {
   areaId           String?
   geoArea          GeoArea?           @relation(fields: [areaId], references: [id], onDelete: SetNull)
   geocodedAt       DateTime? // πότε βρέθηκαν οι συντεταγμένες από την υπηρεσία χάρτη
+  // Εκδότης των παραστατικών του καταστήματος: κενό = η ίδια η επιχείρηση (Organization.vatNumber)
+  legalEntityId    String?
+  legalEntity      LegalEntity?       @relation(fields: [legalEntityId], references: [id], onDelete: Restrict)
   active           Boolean            @default(true)
   org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   devices          Device[]
@@ -802,15 +829,15 @@ enum PurchaseStatus {
 // Παραστατικό αγοράς: INVOICE έχει χρηματοοικονομική οφειλή, RECEIPT μόνο την πρώτη εγγραφή αποθέματος.
 // Δεν είναι FiscalDocument: εκείνο είναι τα παραστατικά που ΕΚΔΙΔΟΥΜΕ εμείς.
 model PurchaseDoc {
-  id                 String         @id @default(cuid())
+  id                 String           @id @default(cuid())
   orgId              String
   supplierId         String
   warehouseId        String // πού μπήκε ή θα μπει το απόθεμα της αγοράς
-  kind               String         @default("INVOICE") // INVOICE | RECEIPT — η παραλαβή δεν είναι χρηματοοικονομικό παραστατικό
+  kind               String           @default("INVOICE") // INVOICE | RECEIPT — η παραλαβή δεν είναι χρηματοοικονομικό παραστατικό
   number             String? // ο αριθμός τιμολογίου του προμηθευτή ή περιγραφή παραλαβής
   issuedAt           DateTime? // ημερομηνία έκδοσης τιμολογίου / πραγματοποίησης παραλαβής
-  status             PurchaseStatus @default(DRAFT)
-  source             String         @default("manual") // manual | ocr | mydata | order | receipt
+  status             PurchaseStatus   @default(DRAFT)
+  source             String           @default("manual") // manual | ocr | mydata | order | receipt
   note               String?
   mydataMark         String? // μοναδικός αριθμός καταχώρισης myDATA (dedupe στη μηχανογραφημένη λήψη)
   supplierSnapshot   Json? // τα στοιχεία όπως ίσχυαν στο παραστατικό, όχι ζωντανή αναφορά στο Party
@@ -819,14 +846,14 @@ model PurchaseDoc {
   paymentTerms       String?
   shippingMethod     String?
   shippingAddress    String?
-  shippingCostCents  Int            @default(0) // καθαρή αξία προ ΦΠΑ
-  otherExpensesCents Int            @default(0) // καθαρή αξία προ ΦΠΑ
-  expensesVatRate    Int            @default(24) // snapshot συντελεστή των εξόδων
+  shippingCostCents  Int              @default(0) // καθαρή αξία προ ΦΠΑ
+  otherExpensesCents Int              @default(0) // καθαρή αξία προ ΦΠΑ
+  expensesVatRate    Int              @default(24) // snapshot συντελεστή των εξόδων
   createdByName      String
-  createdAt          DateTime       @default(now())
-  org                Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  supplier           Party          @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  warehouse          Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  createdAt          DateTime         @default(now())
+  org                Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  supplier           Party            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  warehouse          Warehouse        @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
   lines              PurchaseLine[]
   lots               StockLot[]
   receiptInvoice     PurchaseReceipt? @relation("PurchaseReceiptInvoice")
@@ -838,7 +865,7 @@ model PurchaseDoc {
 
 // Γραμμή τιμολογίου αγοράς: όπως ήρθε από τον προμηθευτή + η αντιστοίχισή της (lib/purchases.ts).
 model PurchaseLine {
-  id             String        @id @default(cuid())
+  id             String                    @id @default(cuid())
   orgId          String
   documentId     String
   supplierCode   String? // ο κωδικός του προμηθευτή όπως τυπώθηκε
@@ -846,8 +873,8 @@ model PurchaseLine {
   description    String // η περιγραφή όπως ήρθε από τον προμηθευτή
   quantity       Int // σε μονάδα παραστατικού (π.χ. κιβώτια) — βλ. packQty του SupplierItem
   unitPriceCents Int // αρχική τιμή μονάδας παραστατικού, προ έκπτωσης και ΦΠΑ, σε λεπτά
-  discountBps    Int           @default(0) // έκπτωση γραμμής σε basis points: 1250 = 12,50%
-  vatRate        Int           @default(0) // snapshot ποσοστού ΦΠΑ· 0 σημαίνει μηδενικός συντελεστής
+  discountBps    Int                       @default(0) // έκπτωση γραμμής σε basis points: 1250 = 12,50%
+  vatRate        Int                       @default(0) // snapshot ποσοστού ΦΠΑ· 0 σημαίνει μηδενικός συντελεστής
   // Ιχνηλασιμότητα: από GS1 σάρωση ή χειροκίνητα — τροφοδοτούν το StockLot της παραλαβής
   batchNumber    String?
   expiresAt      DateTime?
@@ -859,10 +886,10 @@ model PurchaseLine {
   tradeItemId    String?
   genericItemId  String? // τελικό: πού «πέφτει» το απόθεμα
   matchNote      String? // code | ean | manual — πώς βρέθηκε (για μάθηση/έλεγχο)
-  document       PurchaseDoc   @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  supplierItem   SupplierItem? @relation(fields: [supplierItemId], references: [id], onDelete: SetNull)
-  tradeItem      TradeItem?    @relation(fields: [tradeItemId], references: [id], onDelete: SetNull)
-  genericItem    GenericItem?  @relation(fields: [genericItemId], references: [id], onDelete: SetNull)
+  document       PurchaseDoc               @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  supplierItem   SupplierItem?             @relation(fields: [supplierItemId], references: [id], onDelete: SetNull)
+  tradeItem      TradeItem?                @relation(fields: [tradeItemId], references: [id], onDelete: SetNull)
+  genericItem    GenericItem?              @relation(fields: [genericItemId], references: [id], onDelete: SetNull)
   invoiceMatch   PurchaseInvoiceLineMatch?
 
   @@index([orgId, documentId])
@@ -1010,40 +1037,49 @@ model DocumentType {
 // ξεχωριστά ανά τύπο και χαρακτήρα σειράς, όπως απαιτεί η ΑΑΔΕ (lib/documents/series.ts).
 model DocumentSeries {
   id        String           @id @default(cuid())
-  orgId     String
+  orgId     String? // κενό = σειρά της πλατφόρμας (τιμολόγηση συνδρομών), όπως στο Party
   storeId   String?
   docType   String // κωδικός myDATA: "1.1", "2.1", "5.1", "11.4"…
   code      String // ο χαρακτήρας σειράς, π.χ. "ΤΙΜ-Α"
+  name      String? // περιγραφή για τις οθόνες
   nextAa    Int              @default(1)
-  org       Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  active    Boolean          @default(true) // ανενεργή δεν προτείνεται και δεν εκδίδει
+  isDefault Boolean          @default(false) // προτείνεται για τον τύπο (στο κατάστημα, αν έχει)
+  transmit  Boolean          @default(true) // false = εσωτερική σειρά, δεν διαβιβάζεται (χρεοπιστώσεις)
+  org       Organization?    @relation(fields: [orgId], references: [id], onDelete: Cascade)
   store     Store?           @relation(fields: [storeId], references: [id], onDelete: SetNull)
   documents FiscalDocument[]
 
-  @@unique([orgId, docType, code])
+  @@unique([orgId, docType, code]) // για την πλατφόρμα (orgId κενό) τη μοναδικότητα την κρατά μερικός δείκτης στο migration
 }
 
 // Φορολογικό παραστατικό διαβίβασης: απόδειξη POS (με Sale) ή τιμολόγιο/πιστωτικό/δελτίο
 // (με Party). Ο τύπος και οι κανόνες του στο lib/documents/types.ts.
 model FiscalDocument {
-  id               String           @id @default(cuid())
-  orgId            String
-  saleId           String?          @unique // κενό σε τιμολόγια χονδρικής/συνδρομών: δεν προέρχονται από ταμείο
+  id               String              @id @default(cuid())
+  orgId            String? // κενό = παραστατικό της πλατφόρμας προς συνδρομητή
+  chargeId         String?             @unique // τιμολόγιο συνδρομής: η χρέωση που τιμολογεί
+  aa               Int? // ο αριθμός στη σειρά (οι αποδείξεις POS τον έχουν στο request)
+  totalCents       Int? // σύνολο με ΦΠΑ, με το πρόσημο του τύπου
+  mark             String? // MARK της ΑΑΔΕ μετά τη διαβίβαση· με αυτό συσχετίζονται τα πιστωτικά
+  saleId           String?             @unique // κενό σε τιμολόγια χονδρικής/συνδρομών: δεν προέρχονται από ταμείο
   partyId          String? // ο συναλλασσόμενος για αντικριζόμενα (1.x, 2.x, 5.x) και απλοποιημένο (11.3)
   seriesId         String? // κενή για αποδείξεις POS: η σειρά τους είναι της συσκευής
-  docType          String           @default("11.1") // κωδικός myDATA
+  docType          String              @default("11.1") // κωδικός myDATA
   relatedId        String? // 5.1/11.4: το αρχικό παραστατικό που πιστώνεται (συσχετιζόμενο)
-  receiptReference String           @unique // cbReceiptReference: με αυτό συσχετίζονται τα πιστωτικά
+  receiptReference String              @unique // cbReceiptReference: με αυτό συσχετίζονται τα πιστωτικά
   status           FiscalStatus
   request          Json // το fiscalisationData που στείλαμε
   response         Json? // ftState, ftSignatures, QR κ.λπ.
   error            String?
-  createdAt        DateTime         @default(now())
-  org              Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  sale             Sale?            @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  party            Party?           @relation(fields: [partyId], references: [id], onDelete: SetNull)
-  series           DocumentSeries?  @relation(fields: [seriesId], references: [id], onDelete: SetNull)
-  related          FiscalDocument?  @relation("DocumentCredit", fields: [relatedId], references: [id], onDelete: SetNull)
-  creditedBy       FiscalDocument[] @relation("DocumentCredit")
+  createdAt        DateTime            @default(now())
+  org              Organization?       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  charge           SubscriptionCharge? @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+  sale             Sale?               @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  party            Party?              @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  series           DocumentSeries?     @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  related          FiscalDocument?     @relation("DocumentCredit", fields: [relatedId], references: [id], onDelete: SetNull)
+  creditedBy       FiscalDocument[]    @relation("DocumentCredit")
 
   @@index([orgId, docType, createdAt])
 }
@@ -1062,7 +1098,7 @@ model Subscription {
 
 // Μηνιαία χρέωση: «φωτογραφία» του πλήθους καταστημάτων και συσκευών εκείνη τη στιγμή.
 model SubscriptionCharge {
-  id                String       @id @default(cuid())
+  id                String          @id @default(cuid())
   subscriptionId    String
   periodStart       DateTime
   periodEnd         DateTime
@@ -1073,9 +1109,10 @@ model SubscriptionCharge {
   planName          String?
   paidAt            DateTime?
   // Πληρωμή με κάρτα στον λογαριασμό Viva της πλατφόρμας (Smart Checkout)
-  vivaOrderCode     String?      @unique
+  vivaOrderCode     String?         @unique
   vivaTransactionId String?
-  subscription      Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  invoice           FiscalDocument?
+  subscription      Subscription    @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@unique([subscriptionId, periodStart])
 }
@@ -1613,10 +1650,18 @@ model TradeItem {
 
 // Γενικό είδος του συνδρομητή («γάλα φρέσκο», «ζάχαρη άχνη») — αυτό που μπαίνει στις συνταγές.
 // Η βασική του μονάδα είναι η μονάδα κατανάλωσης· οι ποσότητες κρατιούνται πάντα σε αυτήν (Int, βλ. Unit).
+// Φύση γραμμής στο myDATA (ψηφίο S του ftChargeItemCase της Viva): από αυτήν βγαίνει ο χαρακτηρισμός εσόδου
+enum ItemNature {
+  GOODS // εμπόρευμα για μεταπώληση → category1_1
+  PRODUCT // προϊόν δικής παραγωγής → category1_2
+  SERVICE // υπηρεσία → category1_3
+}
+
 model GenericItem {
   id                String                @id @default(cuid())
   orgId             String
   name              String
+  nature            ItemNature            @default(GOODS)
   baseUnitId        String
   vatRateId         String? // συντελεστής ΦΠΑ αγοράς (προεπιλογή στις αγορές/συμφωνίες)
   // Μέσο σταθμισμένο κόστος σε εκατοστά λεπτού ανά kg/l ή 1.000 τεμάχια — γράφεται στην αποδοχή τιμολογίου
@@ -2294,19 +2339,19 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderLine {
-  id              String        @id @default(cuid())
+  id              String                     @id @default(cuid())
   orgId           String
   orderId         String
   genericItemId   String
   supplierItemId  String?
   orderedBaseQty  Int
-  receivedBaseQty Int           @default(0)
-  packQty         Int           @default(1)
+  receivedBaseQty Int                        @default(0)
+  packQty         Int                        @default(1)
   unitPriceCents  Int
-  discountBps     Int           @default(0)
-  vatRate         Int           @default(0)
+  discountBps     Int                        @default(0)
+  vatRate         Int                        @default(0)
   note            String?
-  order           PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order           PurchaseOrder              @relation(fields: [orderId], references: [id], onDelete: Cascade)
   invoiceMatches  PurchaseInvoiceLineMatch[]
 
   @@unique([orderId, genericItemId])
@@ -2314,33 +2359,33 @@ model PurchaseOrderLine {
 }
 
 model PurchaseReceipt {
-  id                   String                      @id @default(cuid())
-  orgId                String
-  orderId              String
-  purchaseDocId        String                      @unique
-  invoiceDocId         String?                     @unique // το πολύ ένα χρηματοοικονομικό τιμολόγιο ανά παραλαβή
-  clientKey            String
-  requestHash          String
-  reviewStatus         String                      @default("PROVISIONAL") // PROVISIONAL | REVIEWED — ρητός έλεγχος πριν από τιμολόγιο
-  reviewedAt           DateTime?
-  reviewedByName       String?
-  reviewNote           String?
-  invoiceRequestHash   String?
-  invoiceMatchStatus   String                      @default("PENDING") // PENDING | MATCHED | DISCREPANCY | REVIEWED
-  invoiceReviewedAt    DateTime?
+  id                    String                       @id @default(cuid())
+  orgId                 String
+  orderId               String
+  purchaseDocId         String                       @unique
+  invoiceDocId          String?                      @unique // το πολύ ένα χρηματοοικονομικό τιμολόγιο ανά παραλαβή
+  clientKey             String
+  requestHash           String
+  reviewStatus          String                       @default("PROVISIONAL") // PROVISIONAL | REVIEWED — ρητός έλεγχος πριν από τιμολόγιο
+  reviewedAt            DateTime?
+  reviewedByName        String?
+  reviewNote            String?
+  invoiceRequestHash    String?
+  invoiceMatchStatus    String                       @default("PENDING") // PENDING | MATCHED | DISCREPANCY | REVIEWED
+  invoiceReviewedAt     DateTime?
   invoiceReviewedByName String?
-  invoiceReviewNote    String?
-  reversedAt           DateTime?
-  reversalReason       String?
-  createdByName        String
-  createdAt            DateTime                    @default(now())
-  org                  Organization                @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  order                PurchaseOrder               @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  invoiceDoc           PurchaseDoc?                @relation("PurchaseReceiptInvoice", fields: [invoiceDocId], references: [id], onDelete: Restrict)
-  lines                PurchaseReceiptLine[]
-  discrepancies        PurchaseReceiptDiscrepancy[]
-  invoiceMatches       PurchaseInvoiceLineMatch[]
-  invoiceDiscrepancies PurchaseInvoiceDiscrepancy[]
+  invoiceReviewNote     String?
+  reversedAt            DateTime?
+  reversalReason        String?
+  createdByName         String
+  createdAt             DateTime                     @default(now())
+  org                   Organization                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  order                 PurchaseOrder                @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  invoiceDoc            PurchaseDoc?                 @relation("PurchaseReceiptInvoice", fields: [invoiceDocId], references: [id], onDelete: Restrict)
+  lines                 PurchaseReceiptLine[]
+  discrepancies         PurchaseReceiptDiscrepancy[]
+  invoiceMatches        PurchaseInvoiceLineMatch[]
+  invoiceDiscrepancies  PurchaseInvoiceDiscrepancy[]
 
   @@unique([orgId, clientKey])
   @@index([orgId, orderId, createdAt])
@@ -2368,18 +2413,18 @@ model PurchaseReceiptLine {
 
 // Δομημένη τιμολογιακή ασυμφωνία παραλαβής· γράφεται μία φορά μαζί με την παραλαβή.
 model PurchaseReceiptDiscrepancy {
-  id                String             @id @default(cuid())
-  orgId             String
-  receiptId         String
-  receiptLineId     String             @unique
-  basis             String // AGREEMENT | PREVIOUS_PURCHASE
-  kind              String // AGREEMENT_MISMATCH | PRICE_INCREASE
+  id                 String              @id @default(cuid())
+  orgId              String
+  receiptId          String
+  receiptLineId      String              @unique
+  basis              String // AGREEMENT | PREVIOUS_PURCHASE
+  kind               String // AGREEMENT_MISMATCH | PRICE_INCREASE
   expectedPriceCents Int
   actualPriceCents   Int
-  reason            String
-  createdAt         DateTime           @default(now())
-  receipt           PurchaseReceipt     @relation(fields: [receiptId], references: [id], onDelete: Cascade)
-  receiptLine       PurchaseReceiptLine @relation(fields: [receiptLineId], references: [id], onDelete: Cascade)
+  reason             String
+  createdAt          DateTime            @default(now())
+  receipt            PurchaseReceipt     @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  receiptLine        PurchaseReceiptLine @relation(fields: [receiptLineId], references: [id], onDelete: Cascade)
 
   @@index([orgId, receiptId])
   @@index([orgId, kind, createdAt])
@@ -2387,43 +2432,43 @@ model PurchaseReceiptDiscrepancy {
 
 // Σταθερή τριπλή σύνδεση και snapshot των πραγματικών δεδομένων τιμολογίου ανά γραμμή.
 model PurchaseInvoiceLineMatch {
-  id              String           @id @default(cuid())
-  orgId           String
-  receiptId       String
-  orderLineId     String
-  receiptLineId   String           @unique
-  invoiceLineId   String           @unique
-  quantityBase    Int
-  unitPriceCents  Int
-  discountBps     Int              @default(0)
-  vatRate         Int
-  createdAt       DateTime         @default(now())
-  receipt         PurchaseReceipt  @relation(fields: [receiptId], references: [id], onDelete: Cascade)
-  orderLine       PurchaseOrderLine @relation(fields: [orderLineId], references: [id], onDelete: Restrict)
-  receiptLine     PurchaseReceiptLine @relation(fields: [receiptLineId], references: [id], onDelete: Cascade)
-  invoiceLine     PurchaseLine     @relation(fields: [invoiceLineId], references: [id], onDelete: Cascade)
-  discrepancies   PurchaseInvoiceDiscrepancy[]
+  id             String                       @id @default(cuid())
+  orgId          String
+  receiptId      String
+  orderLineId    String
+  receiptLineId  String                       @unique
+  invoiceLineId  String                       @unique
+  quantityBase   Int
+  unitPriceCents Int
+  discountBps    Int                          @default(0)
+  vatRate        Int
+  createdAt      DateTime                     @default(now())
+  receipt        PurchaseReceipt              @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  orderLine      PurchaseOrderLine            @relation(fields: [orderLineId], references: [id], onDelete: Restrict)
+  receiptLine    PurchaseReceiptLine          @relation(fields: [receiptLineId], references: [id], onDelete: Cascade)
+  invoiceLine    PurchaseLine                 @relation(fields: [invoiceLineId], references: [id], onDelete: Cascade)
+  discrepancies  PurchaseInvoiceDiscrepancy[]
 
   @@index([orgId, receiptId])
 }
 
 model PurchaseInvoiceDiscrepancy {
-  id                    String   @id @default(cuid())
-  orgId                 String
-  receiptId             String
-  matchId               String
-  basis                 String // AGREEMENT | ORDER | RECEIPT | ACCOUNTING
-  kind                  String // QUANTITY_MISMATCH | PRICE_MISMATCH | VAT_MISMATCH
-  expectedQuantityBase  Int?
-  actualQuantityBase    Int?
+  id                     String                   @id @default(cuid())
+  orgId                  String
+  receiptId              String
+  matchId                String
+  basis                  String // AGREEMENT | ORDER | RECEIPT | ACCOUNTING
+  kind                   String // QUANTITY_MISMATCH | PRICE_MISMATCH | VAT_MISMATCH
+  expectedQuantityBase   Int?
+  actualQuantityBase     Int?
   expectedUnitPriceCents Int?
   actualUnitPriceCents   Int?
-  expectedVatRate       Int?
-  actualVatRate         Int?
-  reason                String
-  createdAt             DateTime @default(now())
-  receipt               PurchaseReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
-  match                 PurchaseInvoiceLineMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  expectedVatRate        Int?
+  actualVatRate          Int?
+  reason                 String
+  createdAt              DateTime                 @default(now())
+  receipt                PurchaseReceipt          @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  match                  PurchaseInvoiceLineMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
 
   @@unique([matchId, kind])
   @@index([orgId, receiptId])
@@ -2600,19 +2645,19 @@ model ProductionPlan {
 
 // Ατομικό ημερήσιο κλείσιμο: το snapshot δεσμεύει plans, αυτόματα ημιέτοιμα και τελικές παρτίδες.
 model ProductionDayClose {
-  id                     String   @id @default(cuid())
+  id                     String       @id @default(cuid())
   orgId                  String
   warehouseId            String
   destinationWarehouseId String
-  businessDate           DateTime @db.Date
+  businessDate           DateTime     @db.Date
   clientKey              String
   requestHash            String
-  status                 String   @default("COMPLETED")
+  status                 String       @default("COMPLETED")
   snapshot               Json
   createdById            String?
   createdByName          String
-  closedAt               DateTime @default(now())
-  createdAt              DateTime @default(now())
+  closedAt               DateTime     @default(now())
+  createdAt              DateTime     @default(now())
   org                    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, clientKey])
@@ -3031,16 +3076,16 @@ model ScheduleLink {
 }
 
 model FinanceAccount {
-  id                  String                   @id @default(cuid())
+  id                  String                    @id @default(cuid())
   orgId               String
   storeId             String?
   name                String
-  kind                String                   @default("bank")
-  openingBalanceCents Int                      @default(0)
+  kind                String                    @default("bank")
+  openingBalanceCents Int                       @default(0)
   openingAt           DateTime
-  active              Boolean                  @default(true)
-  createdAt           DateTime                 @default(now())
-  org                 Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  active              Boolean                   @default(true)
+  createdAt           DateTime                  @default(now())
+  org                 Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
   transactions        FinanceTransaction[]
   statementImports    FinanceStatementImport[]
   payrollExecutions   PayrollPaymentExecution[]
@@ -3073,25 +3118,25 @@ model FinanceTransaction {
 
 // Αποθηκευμένο snapshot statement· η αντιστοίχιση δεν συνεπάγεται νέα ledger κίνηση.
 model FinanceStatementImport {
-  id                String                @id @default(cuid())
-  orgId             String
-  accountId         String
-  storeId           String?
-  reviewId          String
-  sourceName        String?
-  fromDate          DateTime              @db.Date
-  toDate            DateTime              @db.Date
-  totalAmountCents  Int
-  matchedCount      Int
-  unmatchedCount    Int
-  ambiguousCount    Int
-  conflictCount     Int
-  createdById       String?
-  createdByName     String
-  createdAt         DateTime              @default(now())
-  org               Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  account           FinanceAccount        @relation(fields: [accountId], references: [id], onDelete: Restrict)
-  rows              FinanceStatementRow[]
+  id               String                @id @default(cuid())
+  orgId            String
+  accountId        String
+  storeId          String?
+  reviewId         String
+  sourceName       String?
+  fromDate         DateTime              @db.Date
+  toDate           DateTime              @db.Date
+  totalAmountCents Int
+  matchedCount     Int
+  unmatchedCount   Int
+  ambiguousCount   Int
+  conflictCount    Int
+  createdById      String?
+  createdByName    String
+  createdAt        DateTime              @default(now())
+  org              Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  account          FinanceAccount        @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  rows             FinanceStatementRow[]
 
   @@unique([orgId, reviewId])
   @@index([orgId, accountId, createdAt])
@@ -3099,23 +3144,23 @@ model FinanceStatementImport {
 }
 
 model FinanceStatementRow {
-  id                     String                @id @default(cuid())
-  orgId                  String
-  importId               String
-  line                   Int
-  externalId             String?
-  reference              String?
-  description            String?
-  bookedAt               DateTime              @db.Date
-  amountCents            Int
-  status                 String
-  reasons                String[]
-  matchedTransactionId   String?
+  id                      String                 @id @default(cuid())
+  orgId                   String
+  importId                String
+  line                    Int
+  externalId              String?
+  reference               String?
+  description             String?
+  bookedAt                DateTime               @db.Date
+  amountCents             Int
+  status                  String
+  reasons                 String[]
+  matchedTransactionId    String?
   candidateTransactionIds String[]
-  vivaCandidates         Json?
-  suggestedKind          String?
-  import                 FinanceStatementImport @relation(fields: [importId], references: [id], onDelete: Cascade)
-  matchedTransaction     FinanceTransaction?    @relation(fields: [matchedTransactionId], references: [id], onDelete: SetNull)
+  vivaCandidates          Json?
+  suggestedKind           String?
+  import                  FinanceStatementImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  matchedTransaction      FinanceTransaction?    @relation(fields: [matchedTransactionId], references: [id], onDelete: SetNull)
 
   @@unique([importId, line])
   @@index([orgId, matchedTransactionId])
@@ -3124,24 +3169,24 @@ model FinanceStatementRow {
 
 // Η προετοιμασία παγώνει pay/IBAN μόνο για χρήστες με finance.export + staff.pay.
 model PayrollPaymentBatch {
-  id                String                   @id @default(cuid())
-  orgId             String
-  storeId           String?
-  batchId           String
-  fromDate          DateTime                 @db.Date
-  toDate            DateTime                 @db.Date
-  status            String                   @default("PREPARED")
-  totalAmountCents  Int
-  readyAmountCents  Int
-  employeeCount     Int
-  readyCount        Int
-  reviewCount       Int
-  createdById       String?
-  createdByName     String
-  createdAt         DateTime                 @default(now())
-  org               Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  items             PayrollPaymentItem[]
-  executions        PayrollPaymentExecution[]
+  id               String                    @id @default(cuid())
+  orgId            String
+  storeId          String?
+  batchId          String
+  fromDate         DateTime                  @db.Date
+  toDate           DateTime                  @db.Date
+  status           String                    @default("PREPARED")
+  totalAmountCents Int
+  readyAmountCents Int
+  employeeCount    Int
+  readyCount       Int
+  reviewCount      Int
+  createdById      String?
+  createdByName    String
+  createdAt        DateTime                  @default(now())
+  org              Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  items            PayrollPaymentItem[]
+  executions       PayrollPaymentExecution[]
 
   @@unique([orgId, batchId])
   @@index([orgId, storeId, fromDate, toDate])
@@ -3149,7 +3194,7 @@ model PayrollPaymentBatch {
 }
 
 model PayrollPaymentItem {
-  id              String             @id @default(cuid())
+  id              String              @id @default(cuid())
   orgId           String
   batchId         String
   employeeId      String
@@ -3160,7 +3205,7 @@ model PayrollPaymentItem {
   workedMinutes   Int
   reviewStatus    String
   issues          String[]
-  executionStatus String             @default("NOT_EXECUTED")
+  executionStatus String              @default("NOT_EXECUTED")
   batch           PayrollPaymentBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
   @@unique([batchId, employeeId])
@@ -3349,34 +3394,34 @@ model UserPreference {
 
 // Μία ελεγχόμενη μετάβαση ανά tenant· το ιστορικό runs παραμένει ανεξάρτητα από την τρέχουσα φάση.
 model MigrationCutover {
-  id              String                @id @default(cuid())
-  orgId           String                @unique
-  source          String
-  status          MigrationCutoverStatus @default(PREPARING)
-  cursor          String?
-  baselineRunId   String?               @unique
-  finalRunId      String?               @unique
-  adapterEvidence Json?
-  smoke           Json?
-  createdById     String?
-  createdByName   String
-  frozenById      String?
-  frozenByName    String?
-  frozenAt        DateTime?
-  readyAt         DateTime?
-  activatedById   String?
-  activatedByName String?
-  activatedAt     DateTime?
-  rolledBackById  String?
+  id               String                 @id @default(cuid())
+  orgId            String                 @unique
+  source           String
+  status           MigrationCutoverStatus @default(PREPARING)
+  cursor           String?
+  baselineRunId    String?                @unique
+  finalRunId       String?                @unique
+  adapterEvidence  Json?
+  smoke            Json?
+  createdById      String?
+  createdByName    String
+  frozenById       String?
+  frozenByName     String?
+  frozenAt         DateTime?
+  readyAt          DateTime?
+  activatedById    String?
+  activatedByName  String?
+  activatedAt      DateTime?
+  rolledBackById   String?
   rolledBackByName String?
-  rolledBackAt    DateTime?
-  rollbackReason  String?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  org             Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  baselineRun     MigrationRun?         @relation("MigrationBaseline", fields: [baselineRunId], references: [id], onDelete: SetNull)
-  finalRun        MigrationRun?         @relation("MigrationFinal", fields: [finalRunId], references: [id], onDelete: SetNull)
-  runs            MigrationRun[]        @relation("MigrationCutoverRuns")
+  rolledBackAt     DateTime?
+  rollbackReason   String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  org              Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  baselineRun      MigrationRun?          @relation("MigrationBaseline", fields: [baselineRunId], references: [id], onDelete: SetNull)
+  finalRun         MigrationRun?          @relation("MigrationFinal", fields: [finalRunId], references: [id], onDelete: SetNull)
+  runs             MigrationRun[]         @relation("MigrationCutoverRuns")
 
   @@index([status, updatedAt])
 }

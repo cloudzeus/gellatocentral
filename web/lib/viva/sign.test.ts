@@ -1,0 +1,16 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+import { parseSignResponse, VivaSignError } from "./sign.ts";
+
+test("απάντηση του demo για 2.1: MARK, UID, QR και PDF", () => {
+  const r = parseSignResponse(readFileSync(new URL("./fixtures/sign-2.1-demo.json", import.meta.url), "utf8"));
+  assert.equal(r.mark, "400001977048610");
+  assert.equal(r.uid, "24248980F621C57D504716BAE77B19CF09725D18");
+  assert.match(r.qrUrl ?? "", /^https:\/\/mydataapidev\.aade\.gr\/TimologioQR/);
+  assert.match(r.pdfUrl ?? "", /^https:\/\/receipts-sandbox\.fiskaltrust\.eu\//);
+});
+
+test("χωρίς MARK: σφάλμα, ώστε το παραστατικό να ξανασταλεί", () => {
+  assert.throws(() => parseSignResponse(JSON.stringify({ transmissionIndicator: 2, ftStateData: { GR: { GovernmentApi: { ProtocolResponse: "<ResponseDoc><message>myDATA down</message></ResponseDoc>" } } } })), VivaSignError);
+});

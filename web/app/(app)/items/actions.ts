@@ -28,6 +28,7 @@ export async function saveGenericItem(form: FormData) {
       name: z.string().trim().min(2, "Γράψε όνομα είδους").max(80),
       baseUnitId: z.string().min(1),
       vatRateId: z.string().max(80),
+      nature: z.enum(["GOODS", "PRODUCT", "SERVICE"]).default("GOODS"),
     })
     .safeParse(Object.fromEntries(form));
   if (!d.success) return fail(d.error.issues[0].message);
@@ -41,7 +42,7 @@ export async function saveGenericItem(form: FormData) {
   if (d.data.vatRateId && !vatRate) return fail("Άγνωστος συντελεστής ΦΠΑ");
   const name = d.data.name;
   if (await db.genericItem.findFirst({ where: { orgId: org.id, name, NOT: { id: d.data.genericItemId || undefined } } })) return fail(`Υπάρχει ήδη είδος «${name}»`);
-  const data = { name, baseUnitId: unit.id, vatRateId: vatRate?.id ?? null };
+  const data = { name, baseUnitId: unit.id, vatRateId: vatRate?.id ?? null, nature: d.data.nature };
   if (d.data.genericItemId) await db.genericItem.updateMany({ where: { id: d.data.genericItemId, orgId: org.id }, data });
   else await db.genericItem.create({ data: { ...data, orgId: org.id } });
   back("/items", "?saved=1");

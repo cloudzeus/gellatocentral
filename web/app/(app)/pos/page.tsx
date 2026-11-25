@@ -1,16 +1,16 @@
 import { Banknote, CreditCard, Minus, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { Badge, btn, Card, Page } from "@/components/ui";
+import { Badge, btn, Card, Page, Select } from "@/components/ui";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { posPaymentMethods } from "@/lib/payment-methods";
 import { currentContext } from "@/lib/tenant";
 import { vivaConfigured } from "@/lib/viva/cloud-terminal";
-import { addLine, cancelPending, changeQuantity, clearSale, pay, syncPayment } from "./actions";
+import { addLine, cancelPending, changeQuantity, chooseTill, clearSale, pay, syncPayment } from "./actions";
 import { Submit } from "@/components/submit";
 
 export default async function PosPage({ searchParams }: PageProps<"/pos">) {
-  const { org, device } = await currentContext();
+  const { org, device, tills } = await currentContext();
   const cat = (await searchParams).cat;
 
   const pendingId = (await db.sale.findFirst({ where: { deviceId: device.id, status: "AWAITING_PAYMENT" }, select: { id: true } }))?.id;
@@ -29,7 +29,14 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
   const live = await vivaConfigured();
 
   return (
-    <Page section="Ταμείο & τιμολόγηση" title="Ταμείο" description={`${device.name} · σειρά ${device.series} · επόμενη απόδειξη #${device.nextAa}`}>
+    <Page section="Ταμείο & τιμολόγηση" title="Ταμείο" description={`${device.name} · σειρά ${device.series} · επόμενη απόδειξη #${device.nextAa}`}
+      actions={tills.length > 1 && !pending ? (
+        // πολλά ταμεία στο κατάστημα: ο καθένας δουλεύει στο δικό του, με δικό του τερματικό Viva και αρίθμηση
+        <form action={chooseTill} className="flex items-end gap-2">
+          <Select label="Ταμείο" name="deviceId" defaultValue={device.id} options={tills.map((t) => [t.id, `${t.name} · ${t.store}`])} />
+          <Submit className={btn("outline", "default", "h-11")}>Αλλαγή</Submit>
+        </form>
+      ) : undefined}>
       {pending ? <meta httpEquiv="refresh" content="3" /> : null}
       {!live ? (
         <p className="mb-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm font-medium">

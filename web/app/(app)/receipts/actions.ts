@@ -20,14 +20,14 @@ export async function issueCreditNote(saleId: string) {
   if (!credit) throw new Error("Η απόδειξη δεν μπορεί να πιστωθεί: δεν έχει σταλεί ή έχει ήδη πιστωθεί.");
   if (live) {
     try {
-      if (!credit.device.vivaTerminalId || !org.vivaMerchantId) throw new Error("Λείπει το τερματικό Viva του ταμείου ή ο κωδικός εμπόρου της επιχείρησης.");
+      if (!credit.device.vivaTerminalId || !credit.merchantId) throw new Error("Λείπει το τερματικό Viva του ταμείου ή ο κωδικός εμπόρου της επιχείρησης.");
       await startRefund({
         sessionId: credit.reference,
         terminalId: credit.device.vivaTerminalId,
         cashRegisterId: credit.device.id,
         amountCents: credit.doc.totalCents,
         merchantReference: credit.documentId,
-        terminalMerchantId: org.vivaMerchantId,
+        terminalMerchantId: credit.merchantId,
         fiscalisationData: credit.doc.data,
       });
     } catch (e) {

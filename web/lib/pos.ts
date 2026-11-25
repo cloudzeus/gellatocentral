@@ -12,7 +12,7 @@ export class PosError extends Error {
   }
 }
 
-type Ctx = { org: { id: string; vatNumber: string }; device: { id: string; series: string } };
+type Ctx = { org: { id: string }; issuer: { vatNumber: string }; device: { id: string; series: string } }; // issuer: lib/documents/issuer.ts
 
 /**
  * Κλειδώνει τη συσκευή, δίνει ΑΑ και γράφει πληρωμή + παραστατικό.
@@ -35,7 +35,7 @@ export async function issueSale(ctx: Ctx, saleId: string, methodId: string, live
     const reference = randomUUID(); // νέο σε κάθε προσπάθεια: η Viva επιστρέφει το παλιό αποτέλεσμα σε ίδιο sessionId
     const issuedAt = new Date();
     const receipt = buildReceipt({
-      merchantVat: ctx.org.vatNumber,
+      merchantVat: ctx.issuer.vatNumber,
       series: ctx.device.series,
       aa: nextAa,
       reference,
@@ -71,7 +71,7 @@ export async function pendingSale(db: Pick<Prisma.TransactionClient, "sale">, ct
   const method = sale?.payment?.method;
   if (!sale || !sale.aa || !sale.issuedAt || !sale.payment?.vivaSessionId || !method?.payItemCase) return null;
   const receipt = buildReceipt({
-    merchantVat: ctx.org.vatNumber, series: sale.series ?? ctx.device.series, aa: sale.aa, reference: sale.payment.vivaSessionId, moment: sale.issuedAt,
+    merchantVat: ctx.issuer.vatNumber, series: sale.series ?? ctx.device.series, aa: sale.aa, reference: sale.payment.vivaSessionId, moment: sale.issuedAt,
     payItem: { description: method.name, payItemCase: method.payItemCase }, lines: sale.lines,
   });
   return { saleId: sale.id, reference: sale.payment.vivaSessionId, receipt, methodId: method.id, methodName: method.name, issuedAt: sale.issuedAt };

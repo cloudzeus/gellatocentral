@@ -529,8 +529,9 @@ export function aadeProviderForOrganization(orgId: string, organization: AadeOrg
   return new AadeMyDataProvider({ orgId, issuerVat: organization.vatNumber, userId: organization.aadeUserId.trim(), subscriptionKey: organization.aadeSubKey.trim() }, dependencies);
 }
 
-export async function createAadeMyDataProvider(orgId: string, dependencies: AadeProviderDependencies = {}): Promise<MyDataProvider> {
-  const organization = await db.organization.findFirst({
+/** issuer: ο εκδότης του καταστήματος (lib/documents/issuer.ts)· χωρίς αυτόν, τα στοιχεία της επιχείρησης. */
+export async function createAadeMyDataProvider(orgId: string, dependencies: AadeProviderDependencies = {}, issuer?: { vatNumber: string; aadeUserId: string | null; aadeSubKey: string | null }): Promise<MyDataProvider> {
+  const organization = issuer ? { id: orgId, ...issuer } : await db.organization.findFirst({
     where: { id: orgId },
     select: { id: true, vatNumber: true, aadeUserId: true, aadeSubKey: true },
   });

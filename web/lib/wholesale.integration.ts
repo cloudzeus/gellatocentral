@@ -14,6 +14,10 @@ import {
 } from "./wholesale-db.ts";
 import { WorkflowError } from "./workflow-db.ts";
 
+// Σειρά παραστατικών της δοκιμής (η έκδοση δέχεται μόνο υπάρχουσα σειρά)
+const newSeries = (orgId: string, docType: string) =>
+  db.documentSeries.create({ data: { orgId, docType, code: `${docType}-${randomUUID().slice(0, 8)}` }, select: { id: true } }).then((s) => s.id);
+
 const databaseOptions = { skip: !process.env.DATABASE_URL };
 const KG = 1_000_000;
 
@@ -96,7 +100,7 @@ test("PostgreSQL WSL: FEFO, route, invoice χωρίς διπλή έξοδο, pay
     assert.equal(order.totalCents, 2480);
     await confirmWholesaleOrder(ctx, order.id);
     const route = await createDeliveryRoute(ctx, { storeId: f.storeId, name: "Διαδρομή integration", plannedFor: new Date("2026-11-23T10:00:00.000Z"), orderIds: [order.id] });
-    const delivery = await deliverWholesaleOrder(ctx, { orderId: order.id, series: `ΔΑ-${randomUUID().slice(0, 8)}`, stopId: route.stops[0]!.id, deliveredAt: new Date("2026-11-23T11:00:00.000Z"), recipientName: "Παραλήπτης integration", proofNote: "Υπογραφή δοκιμής" });
+    const delivery = await deliverWholesaleOrder(ctx, { orderId: order.id, seriesId: await newSeries(f.orgId, "9.3"), stopId: route.stops[0]!.id, deliveredAt: new Date("2026-11-23T11:00:00.000Z"), recipientName: "Παραλήπτης integration", proofNote: "Υπογραφή δοκιμής" });
     assert.equal(delivery.lines.length, 2);
     assert.equal(delivery.lines.find((line) => line.lotId === f.earlyLotId)?.quantityBase, KG);
     assert.equal(delivery.lines.find((line) => line.lotId === f.lateLotId)?.quantityBase, KG);
@@ -104,11 +108,11 @@ test("PostgreSQL WSL: FEFO, route, invoice χωρίς διπλή έξοδο, pay
     assert.equal(await stockBalance(db, { orgId: f.orgId, warehouseId: f.warehouseId, genericItemId: f.genericItemId, lotId: f.lateLotId }), 4 * KG);
     assert.equal((await db.deliveryRoute.findUnique({ where: { id: route.id } }))?.status, "COMPLETED");
     const negativeAfterDelivery = await db.stockMovement.count({ where: { orgId: f.orgId, documentId: delivery.id, quantity: { lt: 0 } } });
-    const invoice = await invoiceWholesaleOrder(ctx, { orderId: order.id, series: `ΤΙΜ-${randomUUID().slice(0, 8)}`, issuedAt: new Date("2026-11-23T12:00:00.000Z") });
+    const invoice = await invoiceWholesaleOrder(ctx, { orderId: order.id, seriesId: await newSeries(f.orgId, "1.1"), issuedAt: new Date("2026-11-23T12:00:00.000Z") });
     assert.equal(invoice.lines.length, 2);
     assert.equal(await db.stockMovement.count({ where: { orgId: f.orgId, documentId: invoice.id } }), 0);
     assert.equal(await db.stockMovement.count({ where: { orgId: f.orgId, documentId: delivery.id, quantity: { lt: 0 } } }), negativeAfterDelivery);
-    assert.equal((await invoiceWholesaleOrder(ctx, { orderId: order.id, series: "ignored" })).id, invoice.id);
+    assert.equal((await invoiceWholesaleOrder(ctx, { orderId: order.id, seriesId: await newSeries(f.orgId, "1.1") })).id, invoice.id);
 
     let calls = 0;
     const provider: MyDataProvider = { async submit(submission) {
@@ -138,17 +142,17 @@ test("PostgreSQL WSL: FEFO, route, invoice χωρίς διπλή έξοδο, pay
     assert.equal(receiptLedger.storeId, f.storeId);
     await assert.rejects(recordCustomerPayment(ctx, { clientKey: randomUUID(), customerId: f.customerId, amountCents: 2000, paidAt: new Date(), allocations: [{ documentId: invoice.id, amountCents: 2000 }] }), WorkflowError);
     await assert.rejects(recordCustomerPayment(ctx, { clientKey: randomUUID(), customerId: f.otherCustomerId, amountCents: 100, paidAt: new Date(), allocations: [{ documentId: invoice.id, amountCents: 100 }] }), WorkflowError);
-    await assert.rejects(creditSalesDocument(ctx, { documentId: invoice.id, series: "ΠΙΣΤ", reason: "Δεν επιτρέπεται με είσπραξη" }), WorkflowError);
+    await assert.rejects(creditSalesDocument(ctx, { documentId: invoice.id, seriesId: await newSeries(f.orgId, "5.1"), reason: "Δεν επιτρέπεται με είσπραξη" }), WorkflowError);
 
     const second = await createWholesaleOrder(ctx, { customerId: f.customerId, storeId: f.storeId, warehouseId: f.warehouseId, lines: [{ genericItemId: f.genericItemId, quantityBase: KG, unitPriceCents: 1000, vatRate: 24 }] });
     await confirmWholesaleOrder(ctx, second.id);
-    await deliverWholesaleOrder(ctx, { orderId: second.id, series: "ΔΑ-2" });
-    const secondInvoice = await invoiceWholesaleOrder(ctx, { orderId: second.id, series: "ΤΙΜ-2" });
+    await deliverWholesaleOrder(ctx, { orderId: second.id, seriesId: await newSeries(f.orgId, "9.3") });
+    const secondInvoice = await invoiceWholesaleOrder(ctx, { orderId: second.id, seriesId: await newSeries(f.orgId, "1.1") });
     const balanceBeforeCredit = await stockBalance(db, { orgId: f.orgId, warehouseId: f.warehouseId, genericItemId: f.genericItemId, lotId: f.lateLotId });
-    const credit = await creditSalesDocument(ctx, { documentId: secondInvoice.id, series: "ΠΙΣΤ-2", reason: "Επιστροφή integration" });
+    const credit = await creditSalesDocument(ctx, { documentId: secondInvoice.id, seriesId: await newSeries(f.orgId, "5.1"), reason: "Επιστροφή integration" });
     assert.equal(credit.docType, "5.1");
     assert.equal(await stockBalance(db, { orgId: f.orgId, warehouseId: f.warehouseId, genericItemId: f.genericItemId, lotId: f.lateLotId }), balanceBeforeCredit + KG);
-    await assert.rejects(invoiceWholesaleOrder(ctx, { orderId: second.id, series: "ΤΙΜ-3" }), WorkflowError);
+    await assert.rejects(invoiceWholesaleOrder(ctx, { orderId: second.id, seriesId: await newSeries(f.orgId, "1.1") }), WorkflowError);
   } finally { await cleanup(f); }
 });
 

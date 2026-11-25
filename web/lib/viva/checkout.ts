@@ -6,7 +6,7 @@ import { settings } from "../config";
 
 const VIVA_TIMEOUT_MS = 15_000; // όπως στο cloud-terminal: μια Viva που δεν απαντά δεν κρατά το αίτημα ανοιχτό
 
-async function platform() {
+export async function platform() {
   const c = await settings("VIVA_ENV", "VIVA_PLATFORM_CLIENT_ID", "VIVA_PLATFORM_CLIENT_SECRET", "VIVA_PLATFORM_SOURCE_CODE", "VIVA_PLATFORM_MERCHANT_ID", "VIVA_PLATFORM_API_KEY");
   const demo = c.VIVA_ENV !== "production";
   return { merchantId: c.VIVA_PLATFORM_MERCHANT_ID, apiKey: c.VIVA_PLATFORM_API_KEY, id: c.VIVA_PLATFORM_CLIENT_ID, secret: c.VIVA_PLATFORM_CLIENT_SECRET, source: c.VIVA_PLATFORM_SOURCE_CODE, accounts: demo ? "https://demo-accounts.vivapayments.com" : "https://accounts.vivapayments.com", api: demo ? "https://demo-api.vivapayments.com" : "https://api.vivapayments.com", checkout: demo ? "https://demo.vivapayments.com" : "https://www.vivapayments.com" };
@@ -14,7 +14,7 @@ async function platform() {
 
 export const checkoutConfigured = async () => { const c = await platform(); return Boolean(c.id && c.secret); };
 
-async function bearer(): Promise<string> {
+export async function platformBearer(): Promise<string> {
   const c = await platform();
   const basic = Buffer.from(`${c.id}:${c.secret}`).toString("base64");
   const res = await fetch(`${c.accounts}/connect/token`, { method: "POST", headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" }, body: "grant_type=client_credentials", cache: "no-store", signal: AbortSignal.timeout(VIVA_TIMEOUT_MS) });
@@ -27,7 +27,7 @@ export async function createOrder(input: { amountCents: number; description: str
   const c = await platform();
   const res = await fetch(`${c.api}/checkout/v2/orders`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${await bearer()}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${await platformBearer()}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       amount: input.amountCents,
       customerTrns: input.description,
@@ -44,7 +44,7 @@ export async function createOrder(input: { amountCents: number; description: str
 
 /** Ρωτά τη Viva για μια συναλλαγή. Η πληρωμή μετράει ΜΟΝΟ αν η Viva απαντήσει statusId "F" (ολοκληρωμένη). */
 export async function getTransaction(transactionId: string) {
-  const res = await fetch(`${(await platform()).api}/checkout/v2/transactions/${encodeURIComponent(transactionId)}`, { headers: { Authorization: `Bearer ${await bearer()}` }, cache: "no-store", signal: AbortSignal.timeout(VIVA_TIMEOUT_MS) });
+  const res = await fetch(`${(await platform()).api}/checkout/v2/transactions/${encodeURIComponent(transactionId)}`, { headers: { Authorization: `Bearer ${await platformBearer()}` }, cache: "no-store", signal: AbortSignal.timeout(VIVA_TIMEOUT_MS) });
   if (!res.ok) return null;
   const t = (await res.json()) as { statusId: string; orderCode: number | string; amount: number };
   return { paid: t.statusId === "F", orderCode: String(t.orderCode), amountCents: Math.round(t.amount * 100) };

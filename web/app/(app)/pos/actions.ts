@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { tenantWriteTransaction } from "@/lib/migration-cutover";
 import { completeSale, failSale, issueSale } from "@/lib/pos";
-import { currentContext } from "@/lib/tenant";
+import { currentContext, POS_DEVICE_COOKIE } from "@/lib/tenant";
 import { startSale, vivaConfigured, VivaUnknownOutcomeError } from "@/lib/viva/cloud-terminal";
 import { syncBrowserPayment } from "@/lib/viva/browser-payment";
 
@@ -52,7 +53,7 @@ export async function pay(methodId: string) {
   z.string().min(1).max(40).parse(methodId);
   const ctx = await currentContext();
   const live = await vivaConfigured();
-  if (live && !(ctx.org.vivaMerchantId && ctx.device.vivaTerminalId))
+  if (live && !(ctx.issuer.vivaMerchantId && ctx.device.vivaTerminalId))
     throw new Error("Λείπει ο κωδικός εμπόρου Viva ή το τερματικό της συσκευής.");
   const draft = await db.sale.findFirst({ where: { deviceId: ctx.device.id, status: "DRAFT" }, select: { id: true } });
   const started = draft && (await issueSale(ctx, draft.id, methodId, live));
@@ -66,7 +67,7 @@ export async function pay(methodId: string) {
         cashRegisterId: ctx.device.id,
         amountCents: started.receipt.totalCents,
         merchantReference: started.saleId,
-        terminalMerchantId: ctx.org.vivaMerchantId!,
+        terminalMerchantId: ctx.issuer.vivaMerchantId!,
         fiscalisationData: started.receipt.data,
       });
     } catch (e) {
@@ -113,5 +114,14 @@ export async function syncPayment(saleId: string) {
 export async function cancelPending(saleId: string) {
   const ctx = await currentContext();
   await failSale(ctx.device.id, id.parse(saleId), "Ακυρώθηκε από τον ταμία", undefined, ctx.org.id);
+  revalidatePath("/pos");
+}
+
+/** Ποιο ταμείο του καταστήματος χρησιμοποιεί αυτός ο browser. Μόνο ταμεία στα οποία έχει πρόσβαση ο χρήστης. */
+export async function chooseTill(form: FormData) {
+  const id = z.string().cuid().parse(form.get("deviceId"));
+  const { tills } = await currentContext();
+  if (!tills.some((t) => t.id === id)) throw new Error("Το ταμείο δεν είναι διαθέσιμο για τον λογαριασμό σου.");
+  (await cookies()).set(POS_DEVICE_COOKIE, id, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
   revalidatePath("/pos");
 }
