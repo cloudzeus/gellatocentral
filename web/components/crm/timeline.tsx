@@ -1,5 +1,5 @@
 // Το χρονολόγιο ενός συναλλασσόμενου: ό,τι έγραψε άνθρωπος και ό,τι έγινε μόνο του, με χρώμα και εικονίδιο ανά είδος.
-import { CalendarClock, Check, CreditCard, FileText, LifeBuoy, Mail, PauseCircle, Phone, Pin, ScanLine, StickyNote, Trash2, Users } from "lucide-react";
+import { CalendarClock, Check, CreditCard, FileText, LifeBuoy, Mail, PackageCheck, PauseCircle, Phone, Pin, ScanLine, ShoppingCart, StickyNote, Trash2, Users, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { dueText, taskState, type TimelineItem } from "@/lib/crm";
 import { Submit } from "../submit";
@@ -13,6 +13,10 @@ const LOOK: Record<string, { icon: typeof Phone; cls: string; label: string }> =
   task: { icon: CalendarClock, cls: "bg-gold/18 text-gold-ink", label: "Εργασία" },
   file: { icon: FileText, cls: "bg-secondary text-muted-foreground", label: "Αρχείο" },
   document: { icon: ScanLine, cls: "bg-secondary text-muted-foreground", label: "Παραστατικό" },
+  purchase_order: { icon: ShoppingCart, cls: "bg-primary/10 text-primary", label: "Παραγγελία προμηθευτή" },
+  purchase_receipt: { icon: PackageCheck, cls: "bg-success/12 text-success-ink", label: "Παραλαβή" },
+  wholesale_order: { icon: ShoppingCart, cls: "bg-gold/18 text-gold-ink", label: "Παραγγελία πελάτη" },
+  payment: { icon: WalletCards, cls: "bg-success/12 text-success-ink", label: "Πληρωμή / είσπραξη" },
   ticket: { icon: LifeBuoy, cls: "bg-primary/10 text-primary", label: "Αίτημα" },
   charge: { icon: CreditCard, cls: "bg-secondary text-muted-foreground", label: "Χρέωση" },
   pause: { icon: PauseCircle, cls: "bg-secondary text-muted-foreground", label: "Παύση" },

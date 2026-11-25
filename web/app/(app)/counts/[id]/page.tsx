@@ -167,7 +167,7 @@ export default async function CountPage({ params, searchParams }: { params: Prom
         {draft ? <Card className="px-5 py-5">
           <div className="flex flex-wrap items-center gap-4">
             <div className="min-w-0 flex-1"><h2 className="text-lg font-semibold">Οριστικοποίηση</h2><p className="mt-1 text-sm text-muted-foreground">Απαιτούνται πραγματική ποσότητα σε κάθε γραμμή και αιτιολογία 3–200 χαρακτήρων σε κάθε διαφορά. Επιτρέπεται μία οριστική απογραφή ανά αποθήκη και ημερομηνία.</p></div>
-            {canFinalize && count.lines.length ? <form id="count-finalize" action={finalizeCount.bind(null, count.id)}>{count.store ? <OnlineOnlyFinalize formId="count-finalize" className={btn("default")}><CheckCircle2 /> Οριστικοποίηση απογραφής</OnlineOnlyFinalize> : <Submit className={btn("default")} pendingText="Οριστικοποίηση…"><CheckCircle2 /> Οριστικοποίηση απογραφής</Submit>}</form> : null}
+            {canFinalize && count.lines.length ? <form id="count-finalize" action={finalizeCount.bind(null, count.id)}>{count.store ? <OnlineOnlyFinalize formId="count-finalize" className={btn("default")} identity={{ orgId: ctx.orgId, userId: ctx.userId }} countId={count.id}><CheckCircle2 /> Οριστικοποίηση απογραφής</OnlineOnlyFinalize> : <Submit className={btn("default")} pendingText="Οριστικοποίηση…"><CheckCircle2 /> Οριστικοποίηση απογραφής</Submit>}</form> : null}
           </div>
           {!ctx.can("counts.finalize") ? <p className="mt-3 text-sm text-muted-foreground">Δεν έχεις δικαίωμα οριστικοποίησης.</p> : null}
         </Card> : null}

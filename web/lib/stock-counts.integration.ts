@@ -8,6 +8,7 @@ import {
   addStockCountLotLine,
   createStockCount,
   finalizeStockCount,
+  readStockCountRevision,
   updateStockCountMeasurements,
 } from "./stock-counts.ts";
 import { StockCountError } from "./stock-count-request.ts";
@@ -467,5 +468,40 @@ test("PostgreSQL STK-08: concurrent device edits επιτρέπουν μία ε�
     assert.equal(await db.stockCountEdit.count({ where: { orgId: f.orgId, countId: created.id } }), 1);
   } finally {
     await cleanup(f);
+  }
+});
+
+test("PostgreSQL STK-08: conflict snapshot είναι read-only και tenant/store/warehouse scoped", databaseOptions, async () => {
+  const f = await fixture();
+  const foreign = await fixture();
+  try {
+    await seed(f, 10);
+    const store = await db.store.create({ data: { orgId: f.orgId, name: "Conflict snapshot STK-08" } });
+    await db.storeWarehouse.create({ data: { storeId: store.id, warehouseId: f.warehouseId } });
+    const created = await createStockCount(context(f), input(f, { storeId: store.id }));
+    const initial = await readStockCountRevision(context(f), created.id);
+    assert.equal(initial.status, "DRAFT");
+    assert.equal(initial.lines.length, 1);
+    assert.equal(initial.lines[0]?.expectedQty, 10);
+    assert.equal(initial.lines[0]?.currentQty, null);
+    assert.equal(initial.lines[0]?.itemName, "Γάλα STK-05");
+
+    const first = await updateStockCountMeasurements(context(f), created.id, [
+      { lineId: initial.lines[0]!.lineId, actualQty: 8, reason: "μέτρηση άλλης συσκευής" },
+    ], { clientKey: randomUUID(), expectedUpdatedAt: new Date(initial.updatedAt) });
+    const current = await readStockCountRevision(context(f), created.id);
+    assert.equal(current.updatedAt, first.updatedAt.toISOString());
+    assert.equal(current.lines[0]?.currentQty, 8);
+    assert.equal(current.lines[0]?.currentReason, "μέτρηση άλλης συσκευής");
+    assert.equal(current.lines[0]?.expectedQty, 10);
+    await expectScopeCode(readStockCountRevision(context(f, [f.otherWarehouseId]), created.id), "WAREHOUSE_NOT_FOUND");
+    await expectCountCode(readStockCountRevision(context(foreign), created.id), "COUNT_NOT_FOUND");
+
+    await finalizeStockCount(context(f), created.id);
+    assert.equal((await readStockCountRevision(context(f), created.id)).status, "FINALIZED");
+    assert.equal(await db.stockMovement.count({ where: { orgId: f.orgId, source: "count" } }), 1);
+  } finally {
+    await cleanup(f);
+    await cleanup(foreign);
   }
 });

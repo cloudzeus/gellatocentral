@@ -15,6 +15,23 @@ export type OfflineCountMeasurementsPayload = {
 };
 export type OfflineCountPayload = OfflineCountCreatePayload | OfflineCountMeasurementsPayload;
 export type OfflineCountStatus = "queued" | "syncing" | "conflict";
+
+export type OfflineCountRevisionLine = {
+  lineId: string;
+  itemName: string;
+  batchNumber: string | null;
+  unitCode: string;
+  expectedQty: number;
+  currentQty: number | null;
+  currentReason: string | null;
+};
+export type OfflineCountRevision = {
+  countId: string;
+  status: "DRAFT" | "FINALIZED";
+  updatedAt: string;
+  lines: OfflineCountRevisionLine[];
+};
+
 export type OfflineCountEntry = {
   key: string;
   orgId: string;
@@ -26,6 +43,8 @@ export type OfflineCountEntry = {
   payload: OfflineCountPayload;
   status: OfflineCountStatus;
   error: string | null;
+  /** Read-only server snapshot· δεν αποτελεί από μόνο του άδεια overwrite. */
+  conflict?: OfflineCountRevision | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -69,6 +88,7 @@ export function newOfflineCountEntry(
     payload,
     status: "queued",
     error: null,
+    conflict: null,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
   };
@@ -108,6 +128,67 @@ export function recoverOfflineCountEntry(entry: OfflineCountEntry, now = new Dat
 
 export function canSyncOfflineCount(entry: Pick<OfflineCountEntry, "status">): boolean {
   return entry.status === "queued";
+}
+
+export type OfflineCountConflictRow = {
+  lineId: string;
+  itemName: string;
+  batchNumber: string | null;
+  unitCode: string;
+  expectedQty: number | null;
+  currentQty: number | null;
+  currentReason: string | null;
+  actualQty: number | null;
+  localReason: string | null;
+  localPresent: boolean;
+  serverPresent: boolean;
+};
+
+/** Ενώνει server και local γραμμές χωρίς να αλλάξει καμία από τις δύο εκδόσεις. */
+export function offlineCountConflictRows(entry: OfflineCountEntry): OfflineCountConflictRow[] {
+  if (entry.payload.kind !== "measurements" || !entry.conflict) return [];
+  const localById = new Map(entry.payload.measurements.map((line) => [line.lineId, line]));
+  const serverById = new Map(entry.conflict.lines.map((line) => [line.lineId, line]));
+  const lineIds = [...new Set([...serverById.keys(), ...localById.keys()])].sort();
+  return lineIds.map((lineId) => {
+    const server = serverById.get(lineId);
+    const local = localById.get(lineId);
+    return {
+      lineId,
+      itemName: server?.itemName ?? "Γραμμή εκτός τρέχουσας απογραφής",
+      batchNumber: server?.batchNumber ?? null,
+      unitCode: server?.unitCode ?? "",
+      expectedQty: server?.expectedQty ?? null,
+      currentQty: server?.currentQty ?? null,
+      currentReason: server?.currentReason ?? null,
+      actualQty: local?.actualQty ?? null,
+      localReason: local?.reason?.trim() || null,
+      localPresent: !!local,
+      serverPresent: !!server,
+    };
+  });
+}
+
+/** Rebase επιτρέπεται μόνο σε draft και μόνο αν όλες οι τοπικές γραμμές υπάρχουν ακόμη στον server. */
+export function canResolveOfflineCount(entry: OfflineCountEntry): boolean {
+  return entry.payload.kind === "measurements"
+    && entry.status === "conflict"
+    && entry.conflict?.status === "DRAFT"
+    && entry.conflict.countId === entry.payload.countId
+    && entry.payload.measurements.every((line) => entry.conflict?.lines.some((server) => server.lineId === line.lineId));
+}
+
+/** Νέα πρόθεση = νέο key και ρητό revision· οι τοπικές μετρήσεις δεν αλλάζουν σιωπηλά. */
+export function confirmOfflineCountResolution(entry: OfflineCountEntry, clientKey: string, now = new Date()): OfflineCountEntry {
+  if (!canResolveOfflineCount(entry) || entry.payload.kind !== "measurements" || !entry.conflict) {
+    throw new Error("OFFLINE_COUNT_CONFLICT_NOT_RESOLVABLE");
+  }
+  return newOfflineCountEntry(
+    { orgId: entry.orgId, userId: entry.userId, deviceId: entry.deviceId },
+    clientKey,
+    { ...entry.payload, expectedUpdatedAt: entry.conflict.updatedAt },
+    now,
+  );
 }
 
 export function shouldClearOfflineQueue(

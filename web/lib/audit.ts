@@ -2,7 +2,7 @@
 import type { Prisma } from "./generated/prisma/client";
 
 export type AuditDb = Pick<Prisma.TransactionClient, "auditEvent">;
-export type AuditActor = { id: string; name: string };
+export type AuditActor = { id: string | null; name: string };
 export type AuditInput = {
   orgId: string;
   actor: AuditActor;
@@ -38,7 +38,7 @@ export async function writeAudit(tx: AuditDb, input: AuditInput) {
   return tx.auditEvent.create({
     data: {
       orgId: text(input.orgId, "tenant", 80),
-      actorId: text(input.actor.id, "actor", 80),
+      actorId: input.actor.id === null ? null : text(input.actor.id, "actor", 80),
       actorName: text(input.actor.name, "όνομα actor", 120),
       action: actionKey(input.action),
       entityType: entityKey(input.entityType),

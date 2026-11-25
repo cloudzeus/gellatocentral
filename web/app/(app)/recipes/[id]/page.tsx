@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Factory, Pencil } from "lucide-react";
+import { ArrowLeft, Factory, Pencil, Printer } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { RecipeAnalysisPanel } from "@/components/recipe-analysis-panel";
 import { RecipeItemsEditor } from "@/components/recipe-items-editor";
@@ -18,13 +18,15 @@ export default async function RecipePage({ params, searchParams }: { params: Pro
   const { org, can } = await currentOrg("recipes.read");
   const { id } = await params;
   const q = await searchParams;
-  const [recipe, items, products] = await Promise.all([
+  const [recipe, items, products, outputItems] = await Promise.all([
     db.recipe.findFirst({ where: { id, orgId: org.id }, include: { items: { orderBy: { sortOrder: "asc" } }, product: { select: { name: true } } } }),
     recipeEditorItems(org.id),
     db.product.findMany({ where: { orgId: org.id, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.genericItem.findMany({ where: { orgId: org.id, active: true, trackStock: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   if (!recipe) notFound();
   const productOptions: [string, string][] = [["", "— Χωρίς σύνδεση —"], ...products.map((p): [string, string] => [p.id, p.name])];
+  const outputOptions: [string, string][] = [["", "— Χωρίς παραγόμενο απόθεμα —"], ...outputItems.map((item): [string, string] => [item.id, item.name])];
   const byId = new Map(items.map((i) => [i.id, i]));
   const savedAnalysis = analyzeRecipe(
     recipe.items.map((l) => {
@@ -44,6 +46,7 @@ export default async function RecipePage({ params, searchParams }: { params: Pro
           <Link href="/recipes" className={btn("outline", "sm")}>
             <ArrowLeft /> Συνταγές
           </Link>
+          {recipe.items.length ? <Link href={`/print/recipes/${recipe.id}`} target="_blank" className={btn("outline", "sm")}><Printer /> Τεχνικό δελτίο</Link> : null}
           {can("production.add") && recipe.active && recipe.items.length ? (
             <Link href="/production" className={btn("outline", "sm")}>
               <Factory /> Παραγωγή
@@ -60,6 +63,10 @@ export default async function RecipePage({ params, searchParams }: { params: Pro
                     <Field label="Μέγεθος δόσης (g)" name="batchGrams" required inputMode="numeric" defaultValue={String(recipe.batchGrams)} />
                   </div>
                   <Select label="Προϊόν βιτρίνας" name="productId" defaultValue={recipe.productId ?? ""} options={productOptions} />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Select label="Παραγόμενο είδος αποθέματος" name="outputGenericItemId" defaultValue={recipe.outputGenericItemId ?? ""} options={outputOptions} />
+                    <Field label="Διάρκεια ζωής (ημέρες)" name="shelfLifeDays" type="number" min={1} max={3650} step={1} defaultValue={recipe.shelfLifeDays ?? ""} />
+                  </div>
                   <Field label="Σημειώσεις" name="notes" maxLength={500} defaultValue={recipe.notes ?? ""} />
                   <Submit className={btn("default")}>Αποθήκευση</Submit>
                 </form>

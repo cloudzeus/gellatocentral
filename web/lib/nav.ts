@@ -21,7 +21,7 @@ export const NAV: { title: string; icon: LucideIcon; group?: boolean; items: Nav
   {
     title: "Συνταγολόγιο", icon: ChefHat,
     items: [
-      { to: "/materials", label: "Α΄ Ύλες", icon: Boxes },
+      { to: "/materials", label: "Α΄ Ύλες", icon: Boxes, ready: true },
       { to: "/recipes", label: "Συνταγές", icon: ChefHat, ready: true },
       { to: "/products", label: "Προϊόντα", icon: Package, ready: true },
       { to: "/items", label: "Γενικά είδη", icon: Boxes, ready: true },
@@ -44,23 +44,23 @@ export const NAV: { title: string; icon: LucideIcon; group?: boolean; items: Nav
       { to: "/inventory/transfers", label: "Μεταφορές", icon: ArrowRightLeft, ready: true },
       { to: "/purchases", label: "Τιμολόγια αγοράς", icon: Truck, ready: true },
       { to: "/counts", label: "Απογραφές", icon: ClipboardCheck, ready: true },
-      { to: "/orders", label: "Παραγγελίες υλών", icon: ClipboardList },
+      { to: "/orders", label: "Παραγγελίες υλών", icon: ClipboardList, ready: true },
     ],
   },
   {
     title: "Πελάτες & πωλήσεις", icon: Contact,
     items: [
       { to: "/parties", label: "Συναλλασσόμενοι", icon: Contact, ready: true },
-      { to: "/wholesale-orders", label: "Παραγγελίες", icon: ShoppingCart },
-      { to: "/invoices", label: "Παραστατικά", icon: FileText },
-      { to: "/vitrine", label: "Βιτρίνα", icon: MonitorSmartphone },
+      { to: "/wholesale-orders", label: "Παραγγελίες", icon: ShoppingCart, ready: true },
+      { to: "/invoices", label: "Παραστατικά", icon: FileText, ready: true },
+      { to: "/vitrine", label: "Βιτρίνα", icon: MonitorSmartphone, ready: true },
     ],
   },
   {
     title: "Ομάδα & δεδομένα", icon: Users,
     items: [
-      { to: "/staff", label: "Προσωπικό", icon: CalendarDays },
-      { to: "/reports", label: "Αναφορές", icon: BarChart3 },
+      { to: "/staff", label: "Προσωπικό", icon: CalendarDays, ready: true },
+      { to: "/reports", label: "Αναφορές", icon: BarChart3, ready: true },
     ],
   },
   {
@@ -70,7 +70,7 @@ export const NAV: { title: string; icon: LucideIcon; group?: boolean; items: Nav
       { to: "/support", label: "Τα αιτήματά μου", icon: LifeBuoy, ready: true },
     ],
   },
-  { title: "Οικονομικά", icon: Landmark, items: [{ to: "/finance", label: "Οικονομικά", icon: Landmark }] },
+  { title: "Οικονομικά", icon: Landmark, items: [{ to: "/finance", label: "Οικονομικά", icon: Landmark, ready: true }] },
   {
     title: "Πλατφόρμα", icon: Building2,
     items: [
@@ -113,7 +113,8 @@ export const NAV: { title: string; icon: LucideIcon; group?: boolean; items: Nav
     title: "Ρυθμίσεις", icon: Settings,
     items: [
       { to: "/billing", label: "Συνδρομή", icon: CreditCard, ready: true },
-      { to: "/company", label: "Στοιχεία επιχείρησης", icon: Store },
+      { to: "/company", label: "Στοιχεία επιχείρησης", icon: Store, ready: true },
+      { to: "/migration", label: "Μεταφορά δεδομένων", icon: Database, ready: true },
       { to: "/users", label: "Χρήστες & ρόλοι", icon: Users, ready: true },
       { to: "/gdpr", label: "GDPR & συναινέσεις", icon: ShieldCheck, ready: true },
     ],

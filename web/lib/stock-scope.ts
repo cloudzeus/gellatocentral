@@ -8,6 +8,7 @@ export const STOCK_SCOPE_ERROR = [
   "WAREHOUSE_NOT_FOUND",
   "WAREHOUSE_INACTIVE",
   "WAREHOUSE_NOT_ALLOWED_FOR_STORE",
+  "GLOBAL_SCOPE_NOT_ALLOWED",
 ] as const;
 export type StockScopeErrorCode = (typeof STOCK_SCOPE_ERROR)[number];
 
@@ -17,6 +18,7 @@ export const STOCK_SCOPE_ERROR_MESSAGE: Record<StockScopeErrorCode, string> = {
   WAREHOUSE_NOT_FOUND: "Η αποθήκη δεν βρέθηκε ή δεν έχεις πρόσβαση",
   WAREHOUSE_INACTIVE: "Η αποθήκη είναι ανενεργή",
   WAREHOUSE_NOT_ALLOWED_FOR_STORE: "Η αποθήκη δεν εξυπηρετεί αυτό το κατάστημα",
+  GLOBAL_SCOPE_NOT_ALLOWED: "Η καθολική ενέργεια απαιτεί πρόσβαση σε όλα τα καταστήματα και αποθήκες",
 };
 
 export class StockScopeError extends Error {
@@ -53,6 +55,11 @@ export function warehouseScopeWhere(ctx: Pick<StockContext, "orgId" | "storeIds"
   if (ctx.warehouseIds.length) return { orgId: ctx.orgId, id: { in: [...ctx.warehouseIds] } };
   if (ctx.storeIds.length) return { orgId: ctx.orgId, stores: { some: { storeId: { in: [...ctx.storeIds] } } } };
   return { orgId: ctx.orgId };
+}
+
+/** Καθολικά μηχανήματα/ρυθμίσεις δεν μεταβάλλονται από χρήστη με μερικό scope. */
+export function assertGlobalStockScope(ctx: Pick<StockContext, "storeIds" | "warehouseIds">) {
+  if (ctx.storeIds.length || ctx.warehouseIds.length) throw new StockScopeError("GLOBAL_SCOPE_NOT_ALLOWED");
 }
 
 async function assertStore(tx: StockScopeDb, ctx: StockContext, storeId: string, forWrite: boolean) {

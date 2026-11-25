@@ -2,18 +2,21 @@ import Link from "next/link";
 import { Eye, Factory, Plus } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { DetailGrid, Card, Page, btn } from "@/components/ui";
-import { currentOrg } from "@/lib/auth";
+import { requireStockContext } from "@/lib/stock-context";
+import { warehouseScopeWhere } from "@/lib/stock-scope";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { listParams } from "@/lib/paging";
 
 // Παρτίδες παραγωγής: κάθε κλείσιμο τραβάει FEFO τα υλικά και κρατά πλήρη ιχνηλασιμότητα.
 export default async function ProductionPage({ searchParams }: PageProps<"/production">) {
-  const { org, can } = await currentOrg("production.read");
+  const ctx = await requireStockContext("production.read");
+  const { can } = ctx;
   const q = await searchParams;
   const list = listParams(q, 50, ["batch", "recipe", "warehouse", "quantity", "cost", "producedAt"]);
   const where = {
-    orgId: org.id,
+    orgId: ctx.orgId,
+    warehouse: warehouseScopeWhere(ctx),
     ...(list.q ? { OR: [
       { batchNumber: { contains: list.q, mode: "insensitive" as const } },
       { recipe: { name: { contains: list.q, mode: "insensitive" as const } } },
@@ -29,14 +32,14 @@ export default async function ProductionPage({ searchParams }: PageProps<"/produ
   const [batches, total, recipes, warehouses] = await Promise.all([
     db.productionBatch.findMany({ where, orderBy, skip: list.skip, take: list.take, include: { recipe: { select: { name: true } }, warehouse: { select: { name: true } }, _count: { select: { items: true } } } }),
     db.productionBatch.count({ where }),
-    db.recipe.findMany({ where: { orgId: org.id, active: true, items: { some: {} } }, orderBy: { name: "asc" }, select: { id: true, name: true, batchGrams: true } }),
-    db.warehouse.findMany({ where: { orgId: org.id, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.recipe.findMany({ where: { orgId: ctx.orgId, active: true, items: { some: {} } }, orderBy: { name: "asc" }, select: { id: true, name: true, batchGrams: true } }),
+    db.warehouse.findMany({ where: { ...warehouseScopeWhere(ctx), active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   const dayFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeZone: "Europe/Athens" });
 
   return (
     <Page section="Παραγωγή" title="Παραγωγή" description="Παρτίδες παραγωγής με FEFO κατανάλωση υλικών και ιχνηλασιμότητα"
-      actions={can("production.add") && recipes.length && warehouses.length ? <Link href="/production/new" className={btn("default", "sm")}><Plus /> Νέα παραγωγή</Link> : null}>
+      actions={<div className="flex flex-wrap gap-2"><Link href="/production/plans" className={btn("outline", "sm")}>Προγραμματισμός</Link><Link href="/production/forecast" className={btn("outline", "sm")}>Πρόβλεψη 7 ημερών</Link>{can("production.add") ? <Link href="/production/close" className={btn("outline", "sm")}>Κλείσιμο ημέρας</Link> : null}<Link href="/production/machines" className={btn("outline", "sm")}>Μηχανήματα</Link>{can("production.add") && recipes.length && warehouses.length ? <Link href="/production/new" className={btn("default", "sm")}><Plus /> Νέα παραγωγή</Link> : null}</div>}>
       <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Η παραγωγή δεν ολοκληρώθηκε: {q.error.slice(0, 300)}</p> : null}
         {!recipes.length ? <p className="rounded-lg bg-gold/15 px-4 py-3 text-sm text-gold-ink">Δεν υπάρχει ενεργή συνταγή με γραμμές — ξεκίνα από τις <Link href="/recipes" className="underline">Συνταγές</Link>.</p> : null}

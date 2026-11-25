@@ -18,6 +18,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // ο κόμβος δεν κρατά τίποτα δικό του στον δίσκο: έτσι τρέχουν όσα αντίγραφα θέλουμε πίσω από load balancer
   output: "standalone",
+  serverExternalPackages: ["pdfkit", "exceljs"],
+  outputFileTracingIncludes: { "/api/documents/[entityType]/[entityId]": ["./lib/documents/assets/*.ttf"] },
   poweredByHeader: false,
   headers: async () => [{ source: "/:path*", headers: securityHeaders }],
   // ανάπτυξη: η εφαρμογή ανοίγει και από 127.0.0.1, όχι μόνο από localhost

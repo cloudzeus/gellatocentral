@@ -11,12 +11,14 @@ import { GdprError, recordConsent, requestErasure } from "@/lib/gdpr";
 import { geocode } from "@/lib/geocode";
 import { ensureGeoArea, validGeoIds } from "@/lib/geo";
 import { cleanChannel, formDate, isActivityKind, isChannelKind, type ChannelKind } from "@/lib/crm";
-import { cleanCoords, cleanIban, cleanRoles, isAddressKind } from "@/lib/parties";
+import { cleanCoords, cleanEuroCents, cleanIban, cleanNonNegativeInt, cleanRoles, cleanWeekdays, isAddressKind } from "@/lib/parties";
 import { activePaymentMethod } from "@/lib/payment-methods";
 import { partyScope, type PartyScope } from "@/lib/party-scope";
 
 const text = (max: number) => z.string().trim().max(max).transform((v) => v || null);
 const email = text(160).refine((v) => !v || z.string().email().safeParse(v).success, "Το email δεν είναι έγκυρο");
+const euroCents = z.string().trim().refine((v) => v === "" || cleanEuroCents(v) !== null, "Το ποσό πρέπει να είναι μη αρνητικό, με το πολύ δύο δεκαδικά και εντός των ορίων του συστήματος").transform((v) => cleanEuroCents(v));
+const leadTimeDays = z.string().trim().refine((v) => v === "" || cleanNonNegativeInt(v) !== null, "Οι ημέρες προετοιμασίας πρέπει να είναι μη αρνητικός ακέραιος εντός των ορίων του συστήματος").transform((v) => cleanNonNegativeInt(v));
 const schema = z.object({
   name: z.string().trim().min(2, "Γράψε την επωνυμία ή το ονοματεπώνυμο").max(160),
   tradeName: text(160),
@@ -38,6 +40,9 @@ const schema = z.object({
   areaId: text(30),
   areaName: text(80).optional().transform((v) => v ?? null),
   paymentTermsDays: z.string().trim().transform((v) => (v === "" ? null : Number(v))).refine((v) => v === null || (Number.isInteger(v) && v >= 0 && v <= 365), "Οι ημέρες πίστωσης είναι από 0 έως 365"),
+  creditLimitCents: euroCents,
+  leadTimeDays,
+  minOrderValueCents: euroCents,
   paymentMethodId: text(40), // id τρόπου πληρωμής από την κοινή λίστα (τα seeded είναι «pm_cash»…, όχι cuid)
   notes: text(1000),
 });
@@ -70,6 +75,8 @@ export async function saveParty(id: string | null, form: FormData) {
   const back = id ? `${s.base}/${id}` : s.base;
   const d = schema.safeParse(Object.fromEntries(form));
   if (!d.success) return fail(back, d.error.issues[0].message);
+  const orderDays = cleanWeekdays(form.getAll("orderDays")), deliveryDays = cleanWeekdays(form.getAll("deliveryDays"));
+  if (orderDays === null || deliveryDays === null) return fail(back, "Οι ημέρες παραγγελίας και παράδοσης πρέπει να είναι έγκυρες ημέρες εβδομάδας");
   // ο τρόπος πληρωμής πρέπει να υπάρχει και να είναι ενεργός στην κοινή λίστα· αλλιώς μένει κενό
   if (d.data.paymentMethodId && !(await activePaymentMethod(d.data.paymentMethodId))) d.data.paymentMethodId = null;
   const { areaName, ...fields } = d.data; // το areaName δεν είναι στήλη: γίνεται περιοχή στην κοινή λίστα
@@ -84,7 +91,7 @@ export async function saveParty(id: string | null, form: FormData) {
   if (vat && (await db.party.findFirst({ where: { orgId: s.orgId, vatNumber: vat, ...(id ? { id: { not: id } } : {}) } }))) return fail(back, `Υπάρχει ήδη συναλλασσόμενος με ΑΦΜ ${vat}. Άνοιξε την καρτέλα του και πρόσθεσέ του τον ρόλο`);
   // «επιβεβαιώθηκε από το μητρώο» ισχύει μόνο αν η φόρμα το δηλώνει ΚΑΙ το ΑΦΜ δεν άλλαξε μετά την αναζήτηση
   const checked = form.get("vatCheckedFor") === `${d.data.countryCode}${vat ?? ""}` && vat ? { vatCheckedAt: new Date() } : {};
-  const data = { ...fields, vatNumber: vat, roles, ...coords(form, back), ...checked, regionCode: geo.regionCode, cityId: geo.cityId, areaId };
+  const data = { ...fields, vatNumber: vat, roles, orderDays, deliveryDays, ...coords(form, back), ...checked, regionCode: geo.regionCode, cityId: geo.cityId, areaId };
   if (id) {
     const before = await owned(s, id);
     await db.party.update({ where: { id: before.id }, data: before.vatNumber !== vat && !("vatCheckedAt" in checked) ? { ...data, vatCheckedAt: null } : data });

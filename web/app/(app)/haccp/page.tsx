@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BookOpen, CheckCircle2, FilePlus2, Printer, ShieldCheck } from "lucide-react";
+import { DocumentPdfButton } from "@/components/document-output";
 import { Badge, btn, Card, Page } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -24,7 +25,8 @@ export default async function HaccpPage({ searchParams }: PageProps<"/haccp">) {
   ]);
   const checkMap = new Map(checks.map((item) => [item.sourceId, item]));
   const scoreTone = assessment.score >= 80 ? "success" : assessment.score >= 50 ? "warning" : "danger";
-  return <Page section="Παραγωγή" title="HACCP & ΕΦΕΤ" description="Οδηγός, τεκμηρίωση, αυτόματα έντυπα και έλεγχος ελλείψεων" actions={ctx.can("haccp.add") ? <Link href="/haccp/records/new" className={btn("default", "sm")}><FilePlus2 /> Νέα καταχώριση</Link> : null}>
+  const month = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Athens", year: "numeric", month: "2-digit" }).format(new Date());
+  return <Page section="Παραγωγή" title="HACCP & ΕΦΕΤ" description="Οδηγός, τεκμηρίωση, αυτόματα έντυπα και έλεγχος ελλείψεων" actions={<span className="flex flex-wrap gap-2"><DocumentPdfButton entityType="haccp_monthly" entityId={month} />{ctx.can("haccp.add") ? <Link href="/haccp/records/new" className={btn("default", "sm")}><FilePlus2 /> Νέα καταχώριση</Link> : null}</span>}>
     <div className="grid max-w-[110rem] gap-5">
       <nav aria-label="Ενότητες HACCP" className="flex flex-wrap gap-2">{views.map(([key, label]) => <Link key={key} href={`/haccp?view=${key}`} className={btn(view === key ? "default" : "outline", "sm")}>{label}</Link>)}</nav>
       <p className="rounded-lg bg-secondary/45 px-4 py-3 text-sm text-muted-foreground">Ο δείκτης μετρά <strong>πληρότητα τεκμηρίωσης</strong>, όχι νομική συμμόρφωση ή πιστοποίηση. Τα όρια, η ανάλυση κινδύνων και η διάθεση προϊόντος απαιτούν τεκμηρίωση και ευθύνη της επιχείρησης.</p>

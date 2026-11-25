@@ -22,6 +22,9 @@ export const ACTION_LABEL = {
   finalize: "Οριστικοποίηση",
   correct: "Διόρθωση αποθέματος",
   cancel: "Ακύρωση",
+  pay: "Αμοιβές & τραπεζικά",
+  reopen: "Επανοίγμα ταμείου",
+  export: "Εξαγωγή",
 } as const;
 export type Action = keyof typeof ACTION_LABEL;
 
@@ -46,15 +49,16 @@ export const AREAS = [
   { key: "recipes", group: "Συνταγολόγιο", label: "Συνταγές", hint: "Συνταγές παγωτού: γραμμές σε γραμμάρια, τεχνική ανάλυση (PAC/POD) και κόστος", actions: ["read", "add", "edit"] },
   { key: "production", group: "Παραγωγή", label: "Παραγωγή", hint: "Παρτίδες παραγωγής: FEFO κατανάλωση υλικών από το απόθεμα και ιχνηλασιμότητα", actions: ["read", "add"] },
   { key: "haccp", group: "Παραγωγή", label: "HACCP", hint: "Έλεγχοι, μετρήσεις, αποκλίσεις και διορθωτικές ενέργειες", actions: ["read", "add", "edit"] },
-  { key: "staff", group: "Ομάδα & αναφορές", label: "Προσωπικό", hint: "Εργαζόμενοι, τμήματα και βάρδιες", actions: ["read", "add", "edit", "delete"] },
+  { key: "staff", group: "Ομάδα & αναφορές", label: "Προσωπικό", hint: "Εργαζόμενοι, τμήματα, βάρδιες και αμοιβές με ξεχωριστό απόρρητο", actions: ["read", "add", "edit", "delete", "pay"] },
   { key: "reports", group: "Ομάδα & αναφορές", label: "Αναφορές", hint: "Επιχειρησιακές αναφορές και συγκεντρωτική εικόνα", actions: ["read"] },
-  { key: "finance", group: "Οικονομικά", label: "Οικονομικά", hint: "Έσοδα, έξοδα και ταμειακή εικόνα", actions: ["read", "edit"] },
+  { key: "finance", group: "Οικονομικά", label: "Οικονομικά", hint: "Έσοδα, έξοδα, ταμείο, exports και ελεγχόμενο reopen", actions: ["read", "edit", "reopen", "export"] },
   { key: "vitrine", group: "Πελάτες & πωλήσεις", label: "Βιτρίνα", hint: "Δημοσιευμένη παρουσίαση προϊόντων και διαθεσιμότητας", actions: ["read", "edit"] },
   { key: "tickets", group: "Υποστήριξη", label: "Αιτήματα υποστήριξης", hint: "Βλέπει και απαντά στα αιτήματα όλης της επιχείρησης (ο καθένας βλέπει πάντα τα δικά του)", actions: ["manage"] },
   { key: "billing", group: "Ρυθμίσεις", label: "Συνδρομή", hint: "Το κόστος της συνδρομής και η πληρωμή της", actions: ["read"] },
   { key: "stores", group: "Ρυθμίσεις", label: "Εποχιακή παύση καταστημάτων", hint: "Κλείνει και ανοίγει ξανά ένα κατάστημα για την περίοδο που δεν λειτουργεί (αλλάζει τη χρέωση)", actions: ["pause"] },
   { key: "users", group: "Ρυθμίσεις", label: "Χρήστες, ομάδες & ρόλοι", hint: "Προσκλήσεις, ομάδες, ρόλοι και δικαιώματα", actions: ["read", "add", "edit", "delete"] },
   { key: "gdpr", group: "Ρυθμίσεις", label: "GDPR & συναινέσεις", hint: "Συναινέσεις, αιτήματα διαγραφής και ημερολόγιο προσωπικών δεδομένων", actions: ["read", "edit"] },
+  { key: "migration", group: "Ρυθμίσεις", label: "Μεταφορά παλιών δεδομένων", hint: "Dry-run, ελεγχόμενη εισαγωγή, reconciliation και rollback ανά tenant", actions: ["read", "add"] },
 ] as const satisfies readonly AreaDef[];
 export type AreaKey = (typeof AREAS)[number]["key"];
 export type Permission = `${AreaKey}.${string}`;
@@ -132,6 +136,7 @@ const PAGE: Record<string, Permission> = {
   "/staff": "staff.read",
   "/reports": "reports.read",
   "/finance": "finance.read",
+  "/migration": "migration.read",
 };
 export const permissionFor = (path: string): Permission => {
   // Το πιο ειδικό route υπερισχύει: /inventory/stock δεν πρέπει να κληρονομεί warehouses.read.

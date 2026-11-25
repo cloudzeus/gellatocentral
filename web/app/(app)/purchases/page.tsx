@@ -31,6 +31,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
   const status = filterParam(q, "status", ["DRAFT", "POSTED", "CANCELLED"]);
   const where = {
     orgId: org.id,
+    kind: "INVOICE",
     ...(supplier ? { supplierId: supplier } : {}),
     ...(warehouse ? { warehouseId: warehouse } : {}),
     ...(status ? { status } : {}),
@@ -91,7 +92,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
   );
 
   return (
-    <Page section="Αποθήκη & αγορές" title="Τιμολόγια αγοράς" description="Παραλαβές από προμηθευτές: η αποδοχή γράφει αποθέματα και παρτίδες και ενημερώνει τις τιμές"
+    <Page section="Αποθήκη & αγορές" title="Τιμολόγια αγοράς" description="Χρηματοοικονομικά παραστατικά προμηθευτών· το απόθεμα γράφεται μόνο όταν δεν έχει ήδη καταχωρηθεί με παραλαβή"
       actions={can("purchases.add") && suppliers.length && warehouses.length ? (
         <span className="flex flex-wrap gap-2">
           {org.aadeUserId && org.aadeSubKey ? <Modal label={<><Download /> Λήψη από myDATA</>} size="sm" title="Λήψη τιμολογίων από myDATA">{mydataForm}</Modal> : null}

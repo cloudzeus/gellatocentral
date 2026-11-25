@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowRight, ArrowUp, Banknote, BarChart3, CircleCheck, CreditCard, Plus, ReceiptText, Store, TabletSmartphone, ThermometerSnowflake, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { RankChart, ShareChart, type TrendPoint, TrendChart } from "@/components/charts";
 import { Badge, btn, Card, cn, Page } from "@/components/ui";
 import { WidgetBoard } from "@/components/widget-board";
@@ -26,7 +27,7 @@ const day = new Intl.DateTimeFormat("el-GR", { weekday: "long", day: "numeric", 
 // «Σήμερα» = ημέρα Αθήνας (το issuedAt αποθηκεύεται σε UTC)
 const LOCAL = `("issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')`;
 const NOW = `(now() AT TIME ZONE 'Europe/Athens')`;
-const SCOPE = `"orgId" = $1 AND ($2::text IS NULL OR "storeId" = $2) AND status = 'COMPLETED'`;
+const SCOPE = `"orgId" = $1 AND ($2::text[] IS NULL OR "storeId" = ANY($2)) AND status = 'COMPLETED'`;
 
 const Head = ({ title, note, href, all }: { title: string; note?: string | number; href?: string; all?: string }) => (
   <div className="flex items-baseline gap-3 px-5 pt-4 pb-3">
@@ -39,15 +40,19 @@ const ROW = "flex min-h-11 items-center gap-3 border-t border-border px-5 py-1.5
 const DOT = { danger: "bg-destructive", warning: "bg-gold" };
 
 export default async function DashboardPage({ searchParams }: PageProps<"/">) {
-  const { org, permissions } = await currentOrg("dashboard.read");
-  const stores = await db.store.findMany({ where: { orgId: org.id, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } });
+  const { org, permissions, storeIds, warehouseIds } = await currentOrg("dashboard.read");
+  const warehouseOnly = warehouseIds.length > 0 && storeIds.length === 0;
+  const stores = warehouseOnly ? [] : await db.store.findMany({ where: { orgId: org.id, active: true, ...(storeIds.length ? { id: { in: [...storeIds] } } : {}) }, orderBy: { name: "asc" }, select: { id: true, name: true } });
   const sp = await searchParams;
   const wanted = sp.store;
   const period = (typeof sp.period === "string" && sp.period in PERIODS ? sp.period : "today") as keyof typeof PERIODS;
   const span = period === "today" ? 0 : Number(period);
-  const store = stores.find((s) => s.id === wanted) ?? null;
-  const args = [org.id, store?.id ?? null] as const;
-  const inStore = store ? { storeId: store.id } : {};
+  const store = typeof wanted === "string" ? stores.find((s) => s.id === wanted) ?? null : null;
+  if (wanted !== undefined && !store) notFound();
+  // null = όλα· [] = κανένα store-only δεδομένο σε warehouse-only membership.
+  const scopedStoreIds: string[] | null = store ? [store.id] : storeIds.length ? [...storeIds] : warehouseOnly ? [] : null;
+  const args = [org.id, scopedStoreIds] as const;
+  const inStore = scopedStoreIds === null ? {} : { storeId: { in: scopedStoreIds } };
 
   const byHour = (dayOffset: number) =>
     db.$queryRawUnsafe<Hour[]>(`SELECT extract(hour FROM ${LOCAL})::int AS h, sum("totalCents")::int AS total FROM "Sale" WHERE ${SCOPE} AND ${LOCAL}::date = ${NOW}::date - ${dayOffset} GROUP BY 1 ORDER BY 1`, ...args);
@@ -61,24 +66,40 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
        FROM "Sale" WHERE ${SCOPE} AND ${LOCAL}::date = ${NOW}::date - 1`, ...args),
     db.$queryRawUnsafe<{ method: string; ledger: string; total: number; n: number }[]>(
       `SELECT m.name AS method, m."ledgerKind"::text AS ledger, sum(p."amountCents")::int AS total, count(*)::int AS n FROM "Payment" p JOIN "Sale" s ON s.id = p."saleId" JOIN "PaymentMethod" m ON m.id = p."methodId"
-       WHERE s."orgId" = $1 AND ($2::text IS NULL OR s."storeId" = $2) AND s.status = 'COMPLETED' AND (s."issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')::date = ${NOW}::date GROUP BY 1, 2`, ...args),
+       WHERE s."orgId" = $1 AND ($2::text[] IS NULL OR s."storeId" = ANY($2)) AND s.status = 'COMPLETED' AND (s."issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')::date = ${NOW}::date GROUP BY 1, 2`, ...args),
     db.$queryRawUnsafe<Top[]>(
       `SELECT l.name, sum(l.quantity)::int AS qty, sum(l.quantity * l."unitPriceCents")::int AS total FROM "SaleLine" l JOIN "Sale" s ON s.id = l."saleId"
-       WHERE s."orgId" = $1 AND ($2::text IS NULL OR s."storeId" = $2) AND s.status = 'COMPLETED' AND (s."issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')::date = ${NOW}::date
+       WHERE s."orgId" = $1 AND ($2::text[] IS NULL OR s."storeId" = ANY($2)) AND s.status = 'COMPLETED' AND (s."issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')::date = ${NOW}::date
        GROUP BY 1 ORDER BY 3 DESC LIMIT 5`, ...args),
-    db.sale.findMany({ where: { orgId: org.id, status: "COMPLETED", ...inStore }, orderBy: { issuedAt: "desc" }, take: 5, include: { payment: { include: { method: true } }, fiscal: true } }),
-    db.fiscalDocument.count({ where: { sale: { orgId: org.id, status: "COMPLETED", ...inStore }, status: { not: "SIGNED" } } }),
-    db.device.findMany({ where: { store: { orgId: org.id }, active: true, ...inStore }, orderBy: { createdAt: "asc" }, include: { store: true, readings: { orderBy: { at: "desc" }, take: 1 } } }),
-    db.subscription.findUnique({ where: { orgId: org.id } }),
+    permissions.includes("receipts.read") ? db.sale.findMany({ where: { orgId: org.id, status: "COMPLETED", ...inStore }, orderBy: { issuedAt: "desc" }, take: 5, include: { payment: { include: { method: true } }, fiscal: true } }) : Promise.resolve([]),
+    permissions.includes("receipts.read") ? db.fiscalDocument.count({ where: { sale: { orgId: org.id, status: "COMPLETED", ...inStore }, status: { not: "SIGNED" } } }) : Promise.resolve(0),
+    permissions.includes("devices.read") ? db.device.findMany({ where: { store: { orgId: org.id }, active: true, ...inStore }, orderBy: { createdAt: "asc" }, include: { store: true, readings: { orderBy: { at: "desc" }, take: 1 } } }) : Promise.resolve([]),
+    permissions.includes("billing.read") ? db.subscription.findUnique({ where: { orgId: org.id } }) : Promise.resolve(null),
     // ημερήσια σύνολα: η περίοδος που ζητήθηκε και η αμέσως προηγούμενη ίδιου μήκους
     span
       ? db.$queryRawUnsafe<Day[]>(`SELECT ${LOCAL}::date::text AS d, sum("totalCents")::int AS total FROM "Sale" WHERE ${SCOPE} AND ${LOCAL}::date > ${NOW}::date - ${span * 2} GROUP BY 1`, ...args)
       : Promise.resolve([] as Day[]),
     db.$queryRawUnsafe<{ id: string; name: string; total: number }[]>(
       `SELECT c.id, c.name, sum(l.quantity * l."unitPriceCents")::int AS total FROM "SaleLine" l JOIN "Sale" s ON s.id = l."saleId" JOIN "Product" p ON p.id = l."productId" JOIN "Category" c ON c.id = p."categoryId"
-       WHERE s."orgId" = $1 AND ($2::text IS NULL OR s."storeId" = $2) AND s.status = 'COMPLETED' AND (s."issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')::date = ${NOW}::date
+       WHERE s."orgId" = $1 AND ($2::text[] IS NULL OR s."storeId" = ANY($2)) AND s.status = 'COMPLETED' AND (s."issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')::date = ${NOW}::date
        GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 6`, ...args),
   ]);
+
+  const now = new Date();
+  const { stockAlerts } = await import("@/lib/stock-alerts");
+  const { athensDayRange } = await import("@/lib/production-day-close");
+  const year = Number(new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Athens", year: "numeric" }).format(now));
+  const month = Number(new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Athens", month: "numeric" }).format(now));
+  const target = permissions.includes("finance.read") && (store || (!storeIds.length && !warehouseIds.length))
+    ? await db.budgetTarget.findFirst({ where: { orgId: org.id, storeId: store?.id ?? null, year, month } })
+    : null;
+  const [stock, haccpDeviations, dueRoutes, outstandingDocuments] = await Promise.all([
+    permissions.includes("stock.read") ? stockAlerts(db, { orgId: org.id, storeIds: store ? [store.id] : storeIds, warehouseIds }, now) : Promise.resolve({ thresholds: [], lowStock: [], expiringLots: [] }),
+    permissions.includes("haccp.read") ? db.haccpRecord.count({ where: { orgId: org.id, result: "DEVIATION", status: { not: "COMPLETED" }, ...inStore } }) : Promise.resolve(0),
+    permissions.includes("wholesale.read") ? db.deliveryRoute.count({ where: { orgId: org.id, status: "PLANNED", plannedFor: { lt: new Date(now.getTime() + 86400000) }, ...inStore } }) : Promise.resolve(0),
+    permissions.includes("invoices.read") ? db.salesDocument.findMany({ where: { orgId: org.id, status: "ISSUED", docType: "1.1", ...inStore }, select: { id: true, totalCents: true, allocations: { select: { amountCents: true } } } }) : Promise.resolve([]),
+  ]);
+  const monthSales = target ? await db.sale.aggregate({ where: { orgId: org.id, status: "COMPLETED", issuedAt: { gte: athensDayRange(`${year}-${String(month).padStart(2, "0")}-01`).start }, ...inStore }, _sum: { totalCents: true } }) : null;
 
   const ledgerSum = (l: string) => paid.filter((p) => p.ledger === l).reduce((s, p) => s + p.total, 0);
 
@@ -115,6 +136,13 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   for (const { d } of status) if (d.kind !== "POS_WEB" && !d.pairedAt) issues.push({ tone: "warning", text: `${d.name}: δεν έχει συνδεθεί ακόμα`, detail: d.store.name, href: "/devices", action: "Σύζευξη" });
   const daysLeft = subscription ? daysUntil(subscription.currentPeriodEnd) : null;
   if (daysLeft !== null && daysLeft <= 7) issues.push({ tone: daysLeft < 0 ? "danger" : "warning", text: daysLeft < 0 ? "Η συνδρομή έληξε" : `Η συνδρομή λήγει σε ${daysLeft} ${daysLeft === 1 ? "ημέρα" : "ημέρες"}`, href: "/billing", action: "Συνδρομή" });
+  if (stock.lowStock.length) issues.push({ tone: "warning", text: `${stock.lowStock.length} ${stock.lowStock.length === 1 ? "είδος έχει" : "είδη έχουν"} χαμηλό απόθεμα`, href: "/inventory/alerts", action: "Απόθεμα" });
+  if (stock.expiringLots.length) issues.push({ tone: "warning", text: `${stock.expiringLots.length} ${stock.expiringLots.length === 1 ? "παρτίδα λήγει" : "παρτίδες λήγουν"} σύντομα`, href: "/inventory/alerts", action: "Παρτίδες" });
+  if (haccpDeviations) issues.push({ tone: "danger", text: `${haccpDeviations} ανοιχτές αποκλίσεις HACCP`, href: "/haccp", action: "Έλεγχος" });
+  if (dueRoutes) issues.push({ tone: "warning", text: `${dueRoutes} ${dueRoutes === 1 ? "δρομολόγιο πρέπει" : "δρομολόγια πρέπει"} να παραδοθεί`, href: "/wholesale-orders", action: "Παραδόσεις" });
+  const outstanding = outstandingDocuments.filter((d) => d.totalCents > d.allocations.reduce((sum, a) => sum + a.amountCents, 0)).length;
+  if (outstanding) issues.push({ tone: "warning", text: `${outstanding} ${outstanding === 1 ? "τιμολόγιο έχει" : "τιμολόγια έχουν"} ανεξόφλητο υπόλοιπο`, href: "/invoices", action: "Ανεξόφλητα" });
+  if (target && target.salesCents > (monthSales?._sum.totalCents ?? 0)) issues.push({ tone: "warning", text: "Ο μηνιαίος στόχος πωλήσεων δεν έχει επιτευχθεί", detail: `${euro(monthSales?._sum.totalCents ?? 0)} από ${euro(target.salesCents)}`, href: "/finance", action: "Στόχος" });
 
   const shortcuts = ([
     { href: "/pos", label: "Ταμείο", needs: "pos.use", icon: Store },

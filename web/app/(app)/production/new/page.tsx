@@ -3,7 +3,8 @@ import { ArrowLeft, Factory } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Submit } from "@/components/submit";
 import { DetailGrid, Badge, btn, Card, Field, Page, Select } from "@/components/ui";
-import { currentOrg } from "@/lib/auth";
+import { requireStockContext } from "@/lib/stock-context";
+import { warehouseScopeWhere } from "@/lib/stock-scope";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { listParams } from "@/lib/paging";
@@ -13,11 +14,12 @@ import { createBatch } from "../actions";
 
 // Server-driven FEFO προεπισκόπηση: ο ίδιος σχεδιασμός χρησιμοποιείται και στο κλείσιμο.
 export default async function NewProductionPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { org } = await currentOrg("production.add");
+  const ctx = await requireStockContext("production.add");
   const q = await searchParams;
-  const [recipes, warehouses] = await Promise.all([
-    db.recipe.findMany({ where: { orgId: org.id, active: true, items: { some: {} } }, orderBy: { name: "asc" }, select: { id: true, name: true, batchGrams: true } }),
-    db.warehouse.findMany({ where: { orgId: org.id, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  const [recipes, warehouses, generics] = await Promise.all([
+    db.recipe.findMany({ where: { orgId: ctx.orgId, active: true, items: { some: {} } }, orderBy: { name: "asc" }, select: { id: true, name: true, batchGrams: true, outputGenericItemId: true } }),
+    db.warehouse.findMany({ where: { ...warehouseScopeWhere(ctx), active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.genericItem.findMany({ where: { orgId: ctx.orgId, active: true, trackStock: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   const dayFmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeZone: "UTC" });
   const fmtQty = (qty: number, dimension: string) =>
@@ -32,7 +34,8 @@ export default async function NewProductionPage({ searchParams }: { searchParams
   let planError: string | null = null;
   if (recipeId && warehouseId && Number.isInteger(quantityGrams) && quantityGrams > 0) {
     try {
-      plan = await planProduction(db, org.id, recipeId, warehouseId, quantityGrams);
+      await requireStockContext("production.add", { warehouseId });
+      plan = await planProduction(db, ctx.orgId, recipeId, warehouseId, quantityGrams);
     } catch (e) {
       planError = e instanceof ProductionError ? e.message : "Άγνωστο σφάλμα σχεδιασμού";
     }
@@ -126,12 +129,18 @@ export default async function NewProductionPage({ searchParams }: { searchParams
                 },
               }))}
             />
-            <form action={createBatch} className="grid gap-3 border-t border-border/70 px-5 py-4 sm:grid-cols-[1fr_1fr_auto]">
+            <form action={createBatch} className="grid items-end gap-3 border-t border-border/70 px-5 py-4 md:grid-cols-3">
               <input type="hidden" name="recipeId" value={plan.recipe.id} />
               <input type="hidden" name="warehouseId" value={plan.warehouse.id} />
               <input type="hidden" name="quantityGrams" value={plan.quantityGrams} />
-              <Field label="Αριθμός παρτίδας" name="batchNumber" maxLength={40} hint="Κενό = αυτόματος (YYYYMMDD-N)" />
-              <Field label="Σημείωση" name="note" maxLength={120} hint="π.χ. «πρωινή βάρδια»" />
+              <Select label="Αποθήκη output" name="destinationWarehouseId" defaultValue={plan.warehouse.id} options={warehouses.map((row): [string, string] => [row.id, row.name])} />
+              <Select label="Παραγόμενο είδος" name="outputGenericItemId" defaultValue={plan.recipe.outputGenericItemId ?? ""} options={[["", "Χωρίς απόθεμα output (παλιή συμπεριφορά)"], ...generics.map((row): [string, string] => [row.id, row.name])]} />
+              <Field label="Πραγματική ποσότητα (g)" name="actualQuantityGrams" type="number" min={1} max={plan.quantityGrams} defaultValue={plan.quantityGrams} required />
+              <Field label="Αιτιολογία φύρας" name="scrapReason" maxLength={300} hint="Υποχρεωτική όταν η απόδοση είναι μικρότερη" />
+              <Field label="Εργασία (λεπτά)" name="labourMinutes" type="number" min={0} defaultValue={0} />
+              <Field label="Εργατικό κόστος €" name="labourCost" inputMode="decimal" defaultValue="0" />
+              <Field label="Αριθμός παρτίδας" name="batchNumber" maxLength={80} hint="Κενό = αυτόματος (YYYYMMDD-N)" />
+              <Field label="Σημείωση" name="note" maxLength={500} hint="π.χ. «πρωινή βάρδια»" />
               <div className="flex items-end">
                 {plan.blocked ? <span className="text-sm text-muted-foreground">Συμπλήρωσε απόθεμα για να κλείσει</span> : <Submit className={btn("default")}><Factory /> Κλείσιμο παρτίδας</Submit>}
               </div>

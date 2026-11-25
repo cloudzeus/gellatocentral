@@ -23,6 +23,7 @@ export async function saveRecipe(form: FormData) {
       name: z.string().trim().min(2, "Γράψε όνομα συνταγής").max(80),
       type: z.string().max(20),
       productId: z.string().max(80),
+      outputGenericItemId: z.string().max(80),
       notes: z.string().trim().max(500),
     })
     .safeParse(Object.fromEntries(form));
@@ -31,10 +32,14 @@ export async function saveRecipe(form: FormData) {
   if (!RECIPE_TYPES.some((t) => t.value === d.data.type)) return fail("Άγνωστος τύπος συνταγής");
   const batchGrams = Number(String(form.get("batchGrams") ?? "").replace(",", "."));
   if (!Number.isInteger(batchGrams) || batchGrams < 100 || batchGrams > 500_000) return fail("Το μέγεθος δόσης είναι 100–500.000 g");
-  // Το προϊόν βιτρίνας (ιχνηλασιμότητα: παρτίδα → πωλήσεις) πρέπει να είναι της επιχείρησης
+  // Το προϊόν βιτρίνας και το παραγόμενο απόθεμα είναι πάντα εγγραφές του ίδιου tenant.
   if (d.data.productId && !(await db.product.findFirst({ where: { id: d.data.productId, orgId: org.id }, select: { id: true } }))) return fail("Άγνωστο προϊόν βιτρίνας");
+  if (d.data.outputGenericItemId && !(await db.genericItem.findFirst({ where: { id: d.data.outputGenericItemId, orgId: org.id, active: true, trackStock: true }, select: { id: true } }))) return fail("Άγνωστο ή μη αποθευτικό παραγόμενο είδος");
+  const rawShelfLife = String(form.get("shelfLifeDays") ?? "").trim();
+  const shelfLifeDays = rawShelfLife ? Number(rawShelfLife) : null;
+  if (shelfLifeDays != null && (!Number.isInteger(shelfLifeDays) || shelfLifeDays < 1 || shelfLifeDays > 3650)) return fail("Η διάρκεια ζωής είναι 1–3.650 ημέρες");
   if (await db.recipe.findFirst({ where: { orgId: org.id, name: d.data.name, NOT: { id: d.data.recipeId || undefined } } })) return fail(`Υπάρχει ήδη συνταγή «${d.data.name}»`);
-  const data = { name: d.data.name, type: d.data.type, batchGrams, productId: d.data.productId || null, notes: d.data.notes || null };
+  const data = { name: d.data.name, type: d.data.type, batchGrams, productId: d.data.productId || null, outputGenericItemId: d.data.outputGenericItemId || null, shelfLifeDays, notes: d.data.notes || null };
   if (d.data.recipeId) {
     await db.recipe.updateMany({ where: { id: d.data.recipeId, orgId: org.id }, data });
     back(`/recipes/${d.data.recipeId}`, "?saved=1");

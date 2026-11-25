@@ -6,7 +6,6 @@ import { euro } from "@/lib/money";
 import {
   METRIC_LABEL,
   RECIPE_TYPE_LABEL,
-  analyzeRecipe,
   balanceBar,
   stabilizerDoseCheck,
   targetFor,

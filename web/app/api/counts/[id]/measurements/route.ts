@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { stockCountHttpError } from "@/lib/stock-count-http";
-import { updateStockCountMeasurements } from "@/lib/stock-counts";
+import { readStockCountRevision, updateStockCountMeasurements } from "@/lib/stock-counts";
 import { stockApiContext } from "@/lib/stock-context";
 
 const editSchema = z.object({
@@ -12,6 +12,21 @@ const editSchema = z.object({
     reason: z.string().max(200).nullable().optional(),
   })).min(1).max(1000),
 });
+
+/** Η επίλυση conflict διαβάζει μόνο την τρέχουσα revision· δεν γράφει και δεν κάνει finalize. */
+export async function GET(_request: Request, context: RouteContext<"/api/counts/[id]/measurements">) {
+  const { id } = await context.params;
+  const countId = z.string().cuid().safeParse(id);
+  if (!countId.success) return Response.json({ code: "COUNT_NOT_FOUND", message: "Η απογραφή δεν βρέθηκε ή δεν έχεις πρόσβαση" }, { status: 404 });
+  try {
+    const access = await stockApiContext("counts.edit");
+    if ("error" in access) return access.error;
+    const result = await readStockCountRevision(access.ctx, countId.data);
+    return Response.json(result, { headers: { "cache-control": "no-store" } });
+  } catch (error) {
+    return stockCountHttpError(error);
+  }
+}
 
 export async function POST(request: Request, context: RouteContext<"/api/counts/[id]/measurements">) {
   const { id } = await context.params;

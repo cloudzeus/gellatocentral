@@ -3,6 +3,49 @@
 Ημερομηνία: 2026-11-22
 Σκοπός: πλήρης λειτουργική κάλυψη της παλιάς εφαρμογής πάνω στο νέο multi-tenant μοντέλο, χωρίς απλή αντιγραφή της παλιάς αρχιτεκτονικής.
 
+## 0. Πραγματική κατάσταση υλοποίησης — 2026-11-24
+
+Η κύρια επιχειρησιακή αλυσίδα έχει μεταφερθεί στο νέο server-side, tenant-aware μοντέλο. Η παρακάτω καταγραφή διαχωρίζει τη λειτουργική υλοποίηση από εξωτερικές ολοκληρώσεις και production cutover· δεν σημαίνει ότι κάθε P1/P2 επέκταση έχει ολοκληρωθεί.
+
+### Υλοποιημένοι και ελεγμένοι λειτουργικοί κορμοί
+
+- **SaaS/RBAC:** ενιαία permissions, module access, tenant/store/warehouse scopes, audit και προστασία ευαίσθητων δεδομένων αμοιβών.
+- **Απόθεμα:** υπολοίπα από append-only κινήσεις, παρτίδες/FEFO, λήξεις, low stock, ατομικές μεταφορές, απογραφές, παγωμένα snapshots, διορθώσεις και idempotent retries.
+- **Αγορές:** παραγγελίες, παραλαβές/αναίρεση, σύνδεση με `PurchaseDoc`, MRP και RFQ με περιορισμένα δημόσια tokens.
+- **Παραγωγή:** υποσυνταγές, αναδρομική ανάλυση, recipe snapshots, προγραμματισμός, ημερήσιο κλείσιμο, output correction, HACCP/holds, μηχανήματα και πρόβλεψη ζήτησης.
+- **Χονδρική:** τιμοκατάλογοι, παραγγελίες, δρομολόγια/παραδόσεις, δελτία/τιμολόγια/πιστωτικά, εισπράξεις/allocations, B2B portal και χρονολόγιο πελάτη.
+- **Προσωπικό/οικονομικά:** μητρώο, βάρδιες/άδειες, δημοσιεύσεις και προσωπικά links, payroll summary, λογαριασμοί/transfers, έξοδα, πληρωμές, cash close/reopen, budgets και εταιρικά στοιχεία.
+- **Αναφορές/βιτρίνα:** scoped dashboard, πωλήσεις/COGS/P&L/VAT/aging/cash, αναφορές παραγωγής και δημόσια βιτρίνα με tokens και ανώνυμα view counts.
+- **Μεταφορά:** canonical JSON, strict validation, dry-run, ατομικό/idempotent import για parties, items, lots και ιστορικά παραστατικά, reconciliation και ελεγχόμενο rollback μόνο των εγγραφών του run.
+- **Δοκιμαστικά δεδομένα:** επαναλήψιμο `npm run demo:seed` μόνο με ρητή επιβεβαίωση και database name `gelato_agent_*`, χωρίς users/passwords/sessions ή φορολογική διαβίβαση.
+- **Κεντρικό E2E:** `lib/business-e2e.integration.ts` καλύπτει PO → receipt/FEFO → subrecipe/day close/correction → transfer → count → wholesale/delivery/invoice/credit → payment → cash close → P&L, με δεύτερο tenant, scoped χρήστη και χειροκίνητα αναμενόμενα ποσά.
+
+### Μερική κάλυψη ή εκκρεμότητες πριν από πλήρη παραγωγική ισοτιμία
+
+| ID | Πραγματικό υπόλοιπο |
+|---|---|
+| SAAS-05, PRC-03, PRD-06, HACCP-03, WHL-05 | Υπάρχει κοινό authenticated contract πραγματικού PDF με tenant/store/warehouse RBAC, ιδιωτική αποθήκευση, `/api/files/<id>` download και `DocumentDelivery`/audit. Browser-print παραμένει διαθέσιμο ως ξεχωριστή ενέργεια. Email/Viber παραμένουν external-delivery pending· δεν δηλώνεται πραγματική αποστολή χωρίς provider. |
+| STK-08, STK-09 | Offline IndexedDB drafts/ουρά με tenant/user/device partitioning, idempotency, read-only server snapshot και ρητή επιβεβαίωση conflict με νέο key. Unsynced μετρήσεις μπλοκάρουν finalize. Low-stock/expiry alerts καλύπτονται εντός εφαρμογής. |
+| WHL-03, WHL-09 | Πλήρης κατάσταση προσφοράς, πραγματικό PDF από snapshots και ατομική/idempotent μετατροπή μόνο αποδεκτής προσφοράς σε DRAFT παραγγελία με ιστορικό. Πραγματική email/Viber αποστολή παραμένει pending χωρίς provider. |
+| PTY-06, PTY-07, PRC-10 | CRM 360 από scoped πραγματικές εγγραφές, masked IBAN και αξιολόγηση προμηθευτή από POSTED αγορές/παραλαβές με on-time και αποκλίσεις. Σε μερικό scope οι πληρωμές εμφανίζουν μόνο ορατά allocations· δεν υπάρχει αυθαίρετο συνολικό score. |
+| WHL-06 | Υπάρχει server-side abstraction, idempotency και ασφαλές retry. Ο default `DisabledMyDataProvider` δεν διαβιβάζει· δεν έχει συνδεθεί production πάροχος και δεν εκδίδεται πραγματικό MARK. |
+| STF-03 | Δημοσιεύσεις/snapshots έχουν πραγματικό PDF, XLSX, CSV και ICS από το snapshot. Σε κάθε νέα έκδοση προετοιμάζονται records μόνο για added/removed/changed εργαζομένους με status `PREPARED`· πραγματική εξωτερική αποστολή παραμένει pending χωρίς provider. |
+| FIN-03, FIN-05 | Υπάρχει stateless CSV bank/Viva review με `MATCHED`/`UNMATCHED`/`AMBIGUOUS`/`CONFLICT`, duplicates και commission. Δεν αποθηκεύονται statement/matches και δεν συνδέεται live bank feed. Payroll preparation JSON/CSV παραμένει `NOT_EXECUTED`· πραγματική τραπεζική πληρωμή δεν πραγματοποιείται. |
+| FIN-08, RPT-02 | Accountant JSON/CSV exports με tenant/store/period φίλτρα και μόνο επίσημες εγγραφές. Κερδοφορία ανά γεύση/είδος με πραγματικό ιστορικό COGS και deterministic επιμερισμό υλικών, εργατικών, φύρας και POS commissions. Γενικό payroll, store shifts, λοιπά έξοδα και count waste δεν αποδίδονται αυθαίρετα σε γεύση· ελλιπές ιστορικό εμφανίζεται ως μη επιμερισμένο. |
+| MIG-01 έως MIG-06 | Το import δέχεται τον τεκμηριωμένο canonical JSON, όχι απευθείας κάθε παλιό πίνακα. Freeze, τελικό delta, ενεργοποίηση tenant και production cutover δεν έχουν εκτελεστεί. |
+
+Οι integration έλεγχοι προορίζονται αποκλειστικά για isolated `gelato_agent_*` βάση. Σε αποτυχημένη απόπειρα στις 24/11/2026, επειδή το `prisma.config.ts` προτιμά το `DIRECT_URL`, εφαρμόστηκαν στην configured βάση οι 8 migrations από `20261123213000_business_workflows` έως `20261124223000_wholesale_quotes`. Το seed απέτυχε πριν γράψει δεδομένα· δεν ακολούθησε rollback ή άλλη κλήση στη configured βάση. Οι επόμενοι έλεγχοι ορίζουν ρητά και `DATABASE_URL` και `DIRECT_URL` στην προσωρινή βάση.
+
+### Επαλήθευση υλοποίησης
+
+- **483/483 unit tests** με `npm test` και **60/60 integration/E2E δοκιμές** σειριακά στην isolated βάση.
+- Επιτυχή TypeScript strict check, ESLint, production build, Prisma validate και `git diff --check`.
+- **77 migrations** έχουν εφαρμοστεί στην isolated βάση ελέγχου· το seed ολοκληρώθηκε επιτυχώς στην ίδια βάση.
+- Η κεντρική E2E ροή επαληθεύει χειροκίνητα υπολογισμένα ποσά, idempotent retries, tenant/store/warehouse isolation και pay privacy.
+- Το `npm audit --omit=dev` αναφέρει **5 ευπάθειες: 3 high και 2 moderate**. Οι high αφορούν `prisma`/`effect` και οι moderate `uuid` μέσω `exceljs`. Δεν εφαρμόστηκε breaking `npm audit fix --force`· απαιτείται ξεχωριστή αναβάθμιση/αποτίμηση.
+
+---
+
 ## 1. Αφετηρία και κανόνες
 
 ### Υπάρχων κορμός που επαναχρησιμοποιείται

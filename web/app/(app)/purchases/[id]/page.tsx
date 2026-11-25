@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, Plus, Settings2, Trash2, X } from "lucide-react";
 import { BarcodeField } from "@/components/barcode-field";
@@ -5,6 +6,8 @@ import { DataTable } from "@/components/data-table";
 import { Files } from "@/components/files";
 import { PrintButton } from "@/components/print-button";
 import { PurchaseDocument } from "@/components/purchase-document";
+import { PurchaseInvoiceMatch } from "@/components/purchase-invoice-match";
+import { PurchaseReceiptReview } from "@/components/purchase-receipt-review";
 import { Submit } from "@/components/submit";
 import { DetailGrid, Badge, btn, Card, Field, menuItem, Page, Select, TextareaField } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
@@ -15,11 +18,12 @@ import { calculatePurchaseDocument, documentParty, partySnapshot } from "@/lib/p
 import { priceCheck } from "@/lib/purchase-pricing";
 import { perPackCents } from "@/lib/purchases";
 import { addLine, cancelDoc, postDoc, rematchLine, removeLine, removeLines, updateDoc } from "../actions";
+import { reviewInvoiceReceipt } from "../../orders/actions";
 
 const day = (d: Date | null) => (d ? new Intl.DateTimeFormat("el-GR", { timeZone: "UTC" }).format(d) : "—");
 const inputDay = (d: Date | null) => d?.toISOString().slice(0, 10) ?? "";
 const amount = (cents: number) => (cents / 100).toFixed(2);
-const MATCH_LABEL: Record<string, string> = { code: "κωδικός", ean: "barcode", manual: "χειροκίνητα" };
+const MATCH_LABEL: Record<string, string> = { code: "κωδικός", ean: "barcode", manual: "χειροκίνητα", "three-way-receipt": "τριπλός έλεγχος" };
 
 // Καρτέλα τιμολογίου αγοράς: το ίδιο server-rendered έγγραφο για οθόνη και εκτύπωση, με ξεχωριστή ζώνη εργασίας.
 export default async function PurchaseDocPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -33,10 +37,16 @@ export default async function PurchaseDocPage({ params, searchParams }: { params
       supplier: true,
       warehouse: true,
       lines: { orderBy: { id: "asc" }, include: { tradeItem: true, genericItem: true, supplierItem: { include: { prices: { orderBy: { validFrom: "desc" } } } } } },
+      receiptInvoice: { include: { discrepancies: true, invoiceDiscrepancies: true } },
     },
   });
   if (!doc) notFound();
-  const draft = doc.status === "DRAFT";
+  const isReceipt = doc.kind === "RECEIPT";
+  const receiptReview = isReceipt
+    ? await db.purchaseReceipt.findFirst({ where: { purchaseDocId: doc.id, orgId: org.id }, include: { discrepancies: true, invoiceDiscrepancies: true } })
+    : doc.receiptInvoice;
+  // Το DRAFT συνδεδεμένου invoice κλειδώνει· δεν περνά από τον generic stock writer ή τις γενικές φόρμες.
+  const draft = doc.status === "DRAFT" && !doc.receiptInvoice;
   const [supplierItems, vatRates] = await Promise.all([
     draft ? db.supplierItem.findMany({ where: { orgId: org.id, supplierId: doc.supplierId, active: true }, include: { tradeItem: true }, orderBy: { tradeItem: { name: "asc" } } }) : [],
     db.vatRate.findMany({ where: { active: true }, orderBy: { rate: "desc" } }),
@@ -125,13 +135,20 @@ export default async function PurchaseDocPage({ params, searchParams }: { params
   };
 
   return (
-    <Page section="Αποθήκη & αγορές" title={`Τιμολόγιο αγοράς ${doc.number ?? ""}`}
+    <Page section="Αποθήκη & αγορές" title={`${isReceipt ? "Παραλαβή" : "Τιμολόγιο αγοράς"} ${doc.number ?? ""}`}
       description={`${doc.supplier.name} · ${day(doc.issuedAt)} · ${doc.status === "DRAFT" ? "πρόχειρο" : doc.status === "POSTED" ? "καταχωρημένο" : "ακυρωμένο"} από ${doc.createdByName}`}
       actions={<span className="flex flex-wrap gap-2 print:hidden"><PrintButton />{draft && can("purchases.edit") ? <><form action={cancelDoc.bind(null, doc.id)}><Submit className={btn("ghost")}><X /> Ακύρωση</Submit></form>{doc.lines.length && !unmatched.length ? <form action={postDoc.bind(null, doc.id)}><Submit className={btn("default")}><Check /> Αποδοχή αποθέματος · {euro(totals.totalCents)}</Submit></form> : null}</> : null}</span>}>
       <div className="grid max-w-7xl gap-4 print:max-w-none print:gap-0">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive print:hidden">Δεν αποθηκεύτηκε: {q.error.slice(0, 300)}</p> : null}
         {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink print:hidden">{q.saved === "ocr" ? "Το OCR ολοκληρώθηκε και το πρωτότυπο συνδέθηκε. Έλεγξε όλα τα πεδία πριν από την αποδοχή." : "Το τιμολόγιο ενημερώθηκε"}</p> : null}
         {q.posted ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink print:hidden">Το τιμολόγιο καταχωρήθηκε: αποθέματα, παρτίδες και τιμές ενημερώθηκαν</p> : null}
+        {isReceipt ? <p className="rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground print:hidden">Η παραλαβή έχει γράψει απόθεμα, παρτίδα και κόστος, αλλά δεν δημιουργεί οφειλή και δεν συμμετέχει σε ΦΠΑ ή οικονομικές αναφορές αγορών.</p> : null}
+        {receiptReview ? <Card className="grid gap-3 p-4 print:hidden">
+          <PurchaseReceiptReview reviewStatus={receiptReview.reviewStatus} reviewedAt={receiptReview.reviewedAt} reviewedByName={receiptReview.reviewedByName} reviewNote={receiptReview.reviewNote} discrepancies={receiptReview.discrepancies} />
+          {receiptReview.invoiceDocId ? <PurchaseInvoiceMatch status={receiptReview.invoiceMatchStatus} reviewedAt={receiptReview.invoiceReviewedAt} reviewedByName={receiptReview.invoiceReviewedByName} reviewNote={receiptReview.invoiceReviewNote} discrepancies={receiptReview.invoiceDiscrepancies} /> : null}
+          {can("orders.edit") && receiptReview.invoiceMatchStatus === "DISCREPANCY" ? <form action={reviewInvoiceReceipt} className="grid items-end gap-2 rounded-lg border border-gold/40 bg-gold/5 p-3 sm:grid-cols-[1fr_auto]"><input type="hidden" name="orderId" value={receiptReview.orderId} /><input type="hidden" name="receiptId" value={receiptReview.id} /><TextareaField label="Τεκμηριωμένη αιτιολογία αποκλίσεων" name="note" required minLength={3} maxLength={500} /><Submit className={btn("default", "sm")} pendingText="Οριστική αποδοχή…">Αποδοχή & οικονομική καταχώριση</Submit></form> : null}
+          {!isReceipt ? <Link href={`/purchases/${receiptReview.purchaseDocId}`} className="inline-block text-xs font-semibold underline underline-offset-4">Άνοιγμα παραλαβής προέλευσης</Link> : null}
+        </Card> : null}
         {doc.source === "ocr" && draft ? <p className="rounded-lg border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-gold-ink print:hidden"><strong>Απαιτείται ανθρώπινη επαλήθευση.</strong> Σύγκρινε αριθμό, ποσότητες, εκπτώσεις, ΦΠΑ και σύνολα με το πρωτότυπο. Το OCR δεν κάνει μόνο του καταχώριση αποθέματος.</p> : null}
         {metadataForm}
         {draft && can("purchases.add") ? lineForm : null}
@@ -189,7 +206,7 @@ export default async function PurchaseDocPage({ params, searchParams }: { params
             })}
           />
         </Card> : null}
-        <p className="text-xs text-muted-foreground print:hidden">Η αποδοχή γράφει τις ποσότητες στη βασική μονάδα του γενικού είδους, δημιουργεί παρτίδες με λήξη και ενημερώνει τον τιμοκατάλογο με την τιμή μετά την έκπτωση.</p>
+        <p className="text-xs text-muted-foreground print:hidden">{isReceipt ? "Η παραλαβή είναι μη χρηματοοικονομικό παραστατικό· η οφειλή προκύπτει μόνο από το συνδεδεμένο τιμολόγιο." : doc.source === "receipt" ? "Το τιμολόγιο συνδέεται με ήδη καταχωρημένη παραλαβή και δεν ξαναγράφει απόθεμα, μέσο κόστος ή τιμές προμηθευτή." : "Η αποδοχή γράφει τις ποσότητες στη βασική μονάδα του γενικού είδους, δημιουργεί παρτίδες με λήξη και ενημερώνει τον τιμοκατάλογο με την τιμή μετά την έκπτωση."}</p>
       </div>
     </Page>
   );

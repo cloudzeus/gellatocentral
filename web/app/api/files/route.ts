@@ -1,7 +1,7 @@
 // Ανέβασμα αρχείου: ο browser στέλνει εδώ, ο server ελέγχει πρόσβαση και περιεχόμενο και το προωθεί στο Bunny.
 import { getUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canAccess, FileError, saveFile } from "@/lib/storage";
+import { canAccessFile, FileError, saveFile } from "@/lib/storage";
 import { storageConfigured } from "@/lib/storage/bunny";
 import { CATEGORIES, isCategory } from "@/lib/storage/rules";
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const category = form?.get("category");
   if (!form || !(file instanceof File) || !isCategory(category)) return fail(400, "Λείπει το αρχείο ή το είδος του");
   const orgId = text(form.get("orgId"));
-  if (!canAccess(user, orgId, category)) return fail(403, "Δεν έχεις δικαίωμα να ανεβάσεις εδώ");
+  if (!(await canAccessFile(user, orgId, category))) return fail(403, "Δεν έχεις δικαίωμα να ανεβάσεις εδώ");
   if (file.size > CATEGORIES[category].maxBytes) return fail(413, `Το αρχείο είναι μεγαλύτερο από ${Math.round(CATEGORIES[category].maxBytes / 1048576)} MB`);
   const refType = text(form.get("refType"));
   const refId = text(form.get("refId"));

@@ -6,7 +6,8 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { completeSale, failSale, issueSale } from "@/lib/pos";
 import { currentContext } from "@/lib/tenant";
-import { getSession, startSale, vivaConfigured } from "@/lib/viva/cloud-terminal";
+import { startSale, vivaConfigured } from "@/lib/viva/cloud-terminal";
+import { syncBrowserPayment } from "@/lib/viva/browser-payment";
 
 const id = z.string().cuid();
 
@@ -81,13 +82,32 @@ export async function pay(methodId: string) {
 /** Ρωτά τη Viva για την πληρωμή που περιμένει. Ασφαλές να κληθεί ξανά και ξανά. */
 export async function syncPayment(saleId: string) {
   const ctx = await currentContext();
-  const sale = await db.sale.findFirst({ where: { id: saleId, deviceId: ctx.device.id, status: "AWAITING_PAYMENT" }, include: { payment: true } });
-  if (!sale?.payment?.vivaSessionId) return;
-  const session = await getSession(sale.payment.vivaSessionId);
-  if (!session) return; // ακόμα στο τερματικό
-  const raw = session as Prisma.InputJsonObject;
-  if (session.success === true) await completeSale(ctx.device.id, sale.id, raw, String(session.transactionId ?? ""));
-  else await failSale(ctx.device.id, sale.id, `Η πληρωμή δεν ολοκληρώθηκε (eventId ${String(session.eventId)})`, raw);
+  const sale = await db.sale.findFirst({
+    where: {
+      id: saleId,
+      orgId: ctx.org.id,
+      storeId: ctx.store.id,
+      deviceId: ctx.device.id,
+      status: { in: ["AWAITING_PAYMENT", "COMPLETED"] },
+    },
+    select: {
+      id: true, orgId: true, storeId: true, deviceId: true, status: true, totalCents: true,
+      payment: { select: { amountCents: true, vivaSessionId: true } },
+    },
+  });
+  if (!sale) return { status: "not_found" } as const;
+  const status = sale.status;
+  if (status !== "AWAITING_PAYMENT" && status !== "COMPLETED") return { status: "not_found" } as const;
+
+  return syncBrowserPayment({ ...sale, status }, {
+    orgId: ctx.org.id,
+    storeId: ctx.store.id,
+    deviceId: ctx.device.id,
+    terminalId: ctx.device.vivaTerminalId,
+  }, {
+    complete: (raw, transactionId) => completeSale(ctx.device.id, sale.id, raw, transactionId),
+    fail: (reason, raw) => failSale(ctx.device.id, sale.id, reason, raw),
+  });
 }
 
 export async function cancelPending(saleId: string) {

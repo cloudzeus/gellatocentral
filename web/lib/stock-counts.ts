@@ -41,6 +41,62 @@ type CountHeader = {
 export type StockCountResult = { id: string; replayed: boolean };
 export type StockCountFinalizeResult = StockCountResult & { lineCount: number; correctionCount: number };
 
+export type StockCountRevision = {
+  countId: string;
+  status: "DRAFT" | "FINALIZED";
+  updatedAt: string;
+  lines: {
+    lineId: string;
+    itemName: string;
+    batchNumber: string | null;
+    unitCode: string;
+    expectedQty: number;
+    currentQty: number | null;
+    currentReason: string | null;
+  }[];
+};
+
+/** Read-only snapshot για σύγκριση conflict· ο επανέλεγχος scope γίνεται πριν από κάθε αποκάλυψη τιμών. */
+export async function readStockCountRevision(ctx: StockContext, countId: string): Promise<StockCountRevision> {
+  const count = await db.stockCount.findFirst({
+    where: { id: entityId(countId), orgId: ctx.orgId },
+    select: {
+      id: true,
+      storeId: true,
+      warehouseId: true,
+      status: true,
+      updatedAt: true,
+      lines: {
+        select: {
+          id: true,
+          expectedQty: true,
+          actualQty: true,
+          reason: true,
+          genericItem: { select: { name: true, baseUnit: { select: { code: true } } } },
+          lot: { select: { batchNumber: true } },
+        },
+        orderBy: [{ genericItem: { name: "asc" } }, { lotId: "asc" }],
+      },
+    },
+  });
+  if (!count) throw new StockCountError("COUNT_NOT_FOUND");
+  await assertStockScope(db, ctx, { storeId: count.storeId ?? undefined, warehouseId: count.warehouseId });
+  return {
+    countId: count.id,
+    status: count.status,
+    updatedAt: count.updatedAt.toISOString(),
+    lines: count.lines.map((line) => ({
+      lineId: line.id,
+      itemName: line.genericItem.name,
+      batchNumber: line.lot?.batchNumber ?? null,
+      unitCode: line.genericItem.baseUnit.code,
+      expectedQty: line.expectedQty,
+      currentQty: line.actualQty,
+      currentReason: line.reason,
+    })),
+  };
+}
+
 function isUniqueConflict(error: unknown): boolean {
   let current: unknown = error;
   for (let depth = 0; depth < 5 && current && typeof current === "object"; depth += 1) {
@@ -59,6 +115,20 @@ function entityId(value: string): string {
 async function databaseNow(tx: Pick<Prisma.TransactionClient, "$queryRaw">): Promise<Date> {
   const rows = await tx.$queryRaw<{ now: Date }[]>`SELECT CURRENT_TIMESTAMP AS now`;
   if (!rows[0]) throw new StockCountError("INVALID_COUNT_REQUEST");
+  return rows[0].now;
+}
+
+/** Το JS Date αποκόπτει τα microseconds, ενώ το TIMESTAMP(3) στρογγυλοποιεί· το snapshot στρογγυλοποιείται προς τα πάνω. */
+async function databaseSnapshotAt(tx: Pick<Prisma.TransactionClient, "$queryRaw">): Promise<Date> {
+  const rows = await tx.$queryRaw<{ now: Date }[]>`SELECT DATE_TRUNC('milliseconds', CURRENT_TIMESTAMP) + INTERVAL '1 millisecond' AS now`;
+  if (!rows[0]) throw new StockCountError("INVALID_COUNT_REQUEST");
+  return rows[0].now;
+}
+
+/** Το database clock μπορεί να έχει ίδιο millisecond· κάθε committed edit προχωρά τουλάχιστον 1 ms. */
+async function nextStockCountRevision(tx: Pick<Prisma.TransactionClient, "$queryRaw">, previous: Date): Promise<Date> {
+  const rows = await tx.$queryRaw<{ now: Date }[]>`SELECT GREATEST(CURRENT_TIMESTAMP, ${previous.toISOString()}::timestamptz + INTERVAL '1 millisecond') AS now`;
+  if (!rows[0] || rows[0].now.getTime() <= previous.getTime()) throw new StockCountError("INVALID_COUNT_REQUEST");
   return rows[0].now;
 }
 
@@ -91,8 +161,9 @@ async function createInTransaction(
   const replay = await existingCount(tx, ctx.orgId, request.clientKey, requestHash);
   if (replay) return replay;
 
-  // Η ώρα και τα balances διαβάζονται από το ίδιο Serializable database snapshot.
-  const snapshotAt = await databaseNow(tx);
+  // Το αποκλειστικό lock καλύπτει και τη στρογγυλοποίηση προς τα πάνω· κανένα movement δεν μπαίνει πριν από το commit.
+  await lockStockWarehouses(tx, ctx.orgId, [request.warehouseId], true);
+  const snapshotAt = await databaseSnapshotAt(tx);
   const nonzero = (await stockBalances(tx, {
     orgId: ctx.orgId,
     warehouseIds: [request.warehouseId],
@@ -238,7 +309,7 @@ export async function updateStockCountMeasurements(
       });
       if (result.count !== 1) throw new StockCountError("COUNT_ALREADY_FINALIZED");
     }
-    const updatedAt = await databaseNow(tx);
+    const updatedAt = await nextStockCountRevision(tx, count.updatedAt);
     const touched = await tx.stockCount.updateMany({
       where: { id: count.id, orgId: ctx.orgId, status: "DRAFT" },
       data: { updatedAt },
@@ -296,7 +367,7 @@ export async function addStockCountLine(
           unitCostHundredths: generic.avgCostHundredths,
         },
       });
-      await tx.stockCount.update({ where: { id: count.id }, data: { updatedAt: await databaseNow(tx) } });
+      await tx.stockCount.update({ where: { id: count.id }, data: { updatedAt: await nextStockCountRevision(tx, count.updatedAt) } });
     });
   } catch (error) {
     if (isUniqueConflict(error)) throw new StockCountError("DUPLICATE_COUNT_LINE");
@@ -338,7 +409,7 @@ export async function addStockCountLotLine(
           unitCostHundredths: generic.avgCostHundredths,
         },
       });
-      await tx.stockCount.update({ where: { id: count.id }, data: { updatedAt: await databaseNow(tx) } });
+      await tx.stockCount.update({ where: { id: count.id }, data: { updatedAt: await nextStockCountRevision(tx, count.updatedAt) } });
     });
   } catch (error) {
     if (isUniqueConflict(error)) throw new StockCountError("LOT_ALREADY_EXISTS");
@@ -458,7 +529,21 @@ export async function finalizeStockCount(ctx: StockContext, countId: string): Pr
   try {
     return await stockTransaction((tx) => finalizeInTransaction(tx, ctx, countId));
   } catch (error) {
-    if (isUniqueConflict(error)) throw new StockCountError("FINALIZED_COUNT_EXISTS");
+    const unique = isUniqueConflict(error);
+    const staleSnapshot = error instanceof StockError && error.code === "STOCK_CHANGED_SINCE_SNAPSHOT";
+    const alreadyFinalized = error instanceof StockCountError && error.code === "COUNT_ALREADY_FINALIZED";
+    if (!unique && !staleSnapshot && !alreadyFinalized) throw error;
+
+    // Μετά το rollback η committed κατάσταση διαχωρίζει replay ίδιου count από γνήσιο stale draft.
+    const committed = await db.stockCount.findFirst({
+      where: { id: entityId(countId), orgId: ctx.orgId, status: "FINALIZED" },
+      select: { id: true, storeId: true, warehouseId: true },
+    });
+    if (committed) {
+      await assertStockScope(db, ctx, { storeId: committed.storeId ?? undefined, warehouseId: committed.warehouseId });
+      return finalizeResult(db, ctx, committed.id, true);
+    }
+    if (unique) throw new StockCountError("FINALIZED_COUNT_EXISTS");
     throw error;
   }
 }

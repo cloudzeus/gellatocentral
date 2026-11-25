@@ -1,7 +1,7 @@
 // Tests για τον κανόνα ανάλυσης τιμής αγοράς (lib/pricing.ts).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolvePrice, priceCheck, shouldWritePrice, type PriceLine } from "./purchase-pricing.ts";
+import { resolvePrice, priceCheck, reviewReceiptPrice, shouldWritePrice, type PriceLine } from "./purchase-pricing.ts";
 
 const d = (s: string) => new Date(`${s}T12:00:00Z`);
 const catalog = (priceCents: number, from: string): PriceLine => ({ priceCents, minPackQty: null, validFrom: d(from), validTo: null });
@@ -94,4 +94,53 @@ test("κάτω από το ελάχιστο της συμφωνίας: συγκ�
   const lines: PriceLine[] = [catalog(100, "2026-01-01"), { priceCents: 85, minPackQty: 50, validFrom: d("2026-01-01"), validTo: null }];
   const c = priceCheck(100, lines, 10, d("2026-11-20")); // 10 < 50: δεν ισχύει η συμφωνία
   assert.deepEqual(c, { expectedCents: 100, agreement: false, diffCents: 0 });
+});
+
+// ---- Τιμολογιακός έλεγχος παραλαβής ----
+
+const KG = 1_000_000;
+
+test("παραλαβή: η κανονικοποιημένη τιμή συμφωνεί με την ειδική συμφωνία", () => {
+  const result = reviewReceiptPrice({ unitPriceCents: 1000 }, KG, { priceCents: 1000, contentQty: KG });
+  assert.deepEqual(result, { basis: "AGREEMENT", kind: null, expectedPriceCents: 1000, actualPriceCents: 1000 });
+});
+
+test("παραλαβή: κάθε απόκλιση από την ειδική συμφωνία καταγράφεται, χωρίς όριο 5%", () => {
+  const result = reviewReceiptPrice({ unitPriceCents: 1001 }, KG, { priceCents: 1000, contentQty: KG });
+  assert.equal(result.basis, "AGREEMENT");
+  assert.equal(result.kind, "AGREEMENT_MISMATCH");
+  assert.equal(result.expectedPriceCents, 1000);
+  assert.equal(result.actualPriceCents, 1001);
+});
+
+test("παραλαβή: ακριβώς 5% αύξηση από προηγούμενη αγορά δεν είναι discrepancy", () => {
+  const result = reviewReceiptPrice(
+    { unitPriceCents: 1050 }, KG, undefined,
+    { unitPriceCents: 2000, packQty: 2, contentQty: KG },
+  );
+  assert.deepEqual(result, { basis: "PREVIOUS_PURCHASE", kind: null, expectedPriceCents: 1000, actualPriceCents: 1050 });
+});
+
+test("παραλαβή: αύξηση αυστηρά άνω του 5% είναι discrepancy μετά κανονικοποίηση συσκευασίας", () => {
+  const result = reviewReceiptPrice(
+    { unitPriceCents: 1051 }, KG, undefined,
+    { unitPriceCents: 2000, packQty: 2, contentQty: KG },
+  );
+  assert.deepEqual(result, { basis: "PREVIOUS_PURCHASE", kind: "PRICE_INCREASE", expectedPriceCents: 1000, actualPriceCents: 1051 });
+});
+
+test("παραλαβή: μείωση τιμής δεν είναι discrepancy", () => {
+  const result = reviewReceiptPrice(
+    { unitPriceCents: 900 }, KG, undefined,
+    { unitPriceCents: 1000, packQty: 1, contentQty: KG },
+  );
+  assert.equal(result.kind, null);
+  assert.equal(result.basis, "PREVIOUS_PURCHASE");
+});
+
+test("παραλαβή: χωρίς συμφωνία ή προηγούμενη αγορά δεν εφευρίσκεται σύγκριση", () => {
+  assert.deepEqual(
+    reviewReceiptPrice({ unitPriceCents: 1000 }, KG),
+    { basis: "NO_BASELINE", kind: null, expectedPriceCents: null, actualPriceCents: null },
+  );
 });

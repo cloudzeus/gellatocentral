@@ -1,7 +1,8 @@
 "use client";
 
 // Progressive enhancement: οι Server Component forms μένουν fallback· IndexedDB μπαίνει μόνο στις store απογραφές.
-import { CloudOff, RefreshCw, Trash2 } from "lucide-react";
+import { AlertTriangle, CloudOff, RefreshCw, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { btn } from "@/components/ui";
@@ -11,13 +12,20 @@ import {
   enqueueOfflineCount,
   listOfflineCounts,
   OFFLINE_QUEUE_EVENT,
+  refreshOfflineCountConflict,
+  resolveOfflineCountConflict,
   syncOfflineCountEntry,
   syncOfflineCounts,
 } from "@/lib/offline-count-db";
-import type { OfflineCountEntry } from "@/lib/offline-count-queue";
+import {
+  canResolveOfflineCount,
+  offlineCountConflictRows,
+  type OfflineCountEntry,
+} from "@/lib/offline-count-queue";
 
 type Identity = { orgId: string; userId: string };
 type Status = { kind: "queued" | "conflict" | "error"; text: string } | null;
+const dateTime = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Athens" });
 
 function errorText(code: string | null): string {
   const labels: Record<string, string> = {
@@ -29,6 +37,10 @@ function errorText(code: string | null): string {
     STOCK_CHANGED_SINCE_SNAPSHOT: "Το απόθεμα άλλαξε μετά το snapshot",
     FINALIZED_COUNT_EXISTS: "Υπάρχει ήδη οριστικοποιημένη απογραφή για την ημέρα",
     IDEMPOTENCY_KEY_REUSED: "Το κλειδί συγχρονισμού αντιστοιχεί σε διαφορετικό payload",
+    INVALID_COUNT_REQUEST: "Το τοπικό αίτημα δεν είναι πλέον έγκυρο· έλεγξε τα πεδία",
+    INVALID_COUNT_LINE: "Η τοπική μέτρηση ή αιτιολογία δεν είναι έγκυρη",
+    UNAUTHORIZED: "Η συνεδρία έληξε· συνδέσου ξανά πριν από τον συγχρονισμό",
+    FORBIDDEN: "Δεν έχεις πλέον δικαίωμα επεξεργασίας αυτής της απογραφής",
   };
   return code ? labels[code] ?? code : "Η εγγραφή χρειάζεται έλεγχο";
 }
@@ -77,6 +89,36 @@ export function OfflineCountCreate({ identity, formId }: { identity: Identity; f
 export function OfflineCountMeasurements({ identity, formId, countId, expectedUpdatedAt }: { identity: Identity; formId: string; countId: string; expectedUpdatedAt: string }) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>(null);
+
+  useEffect(() => {
+    let active = true;
+    let dirty = false;
+    const form = document.getElementById(formId);
+    const edited = () => { dirty = true; };
+    form?.addEventListener("input", edited);
+    // Μόνο queued draft επανέρχεται στη φόρμα· conflicted τιμές εμφανίζονται δίπλα-δίπλα στον πίνακα επίλυσης.
+    void listOfflineCounts(identity).then((entries) => {
+      if (!active || dirty) return; // Αργό IndexedDB read δεν σβήνει νέα πληκτρολόγηση του χρήστη.
+      const drafts = entries.filter((entry) => entry.payload.kind === "measurements"
+        && entry.payload.countId === countId
+        && (entry.status === "queued" || entry.status === "syncing"))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      const draft = drafts[0];
+      if (!draft || draft.payload.kind !== "measurements") return;
+      for (const line of draft.payload.measurements) {
+        const actual = document.querySelector<HTMLInputElement>(`input[name="actual_${line.lineId}"]`);
+        const reason = document.querySelector<HTMLTextAreaElement>(`textarea[name="reason_${line.lineId}"]`);
+        if (actual) actual.value = line.actualQty === null ? "" : String(line.actualQty);
+        if (reason) reason.value = line.reason ?? "";
+      }
+      setStatus({ kind: "queued", text: "Επαναφέρθηκαν οι μη συγχρονισμένες τοπικές μετρήσεις. Έλεγξέ τις πριν από νέα αποθήκευση." });
+    }).catch(() => undefined);
+    return () => {
+      active = false;
+      form?.removeEventListener("input", edited);
+    };
+  }, [countId, formId, identity]);
+
   useEffect(() => {
     const form = document.getElementById(formId);
     if (!(form instanceof HTMLFormElement)) return;
@@ -117,10 +159,61 @@ export function OfflineCountMeasurements({ identity, formId, countId, expectedUp
   return status ? <p role="status" className={`px-5 py-3 text-sm ${status.kind === "error" || status.kind === "conflict" ? "text-destructive" : "text-muted-foreground"}`}>{status.text}</p> : null;
 }
 
+function quantity(value: number | null, unitCode: string): string {
+  if (value === null) return "—";
+  return `${value}${unitCode ? ` ${unitCode}` : ""}`;
+}
+
+function ConflictDetails({ entry, busy, onRefresh, onResolve, onAccept }: {
+  entry: OfflineCountEntry;
+  busy: boolean;
+  onRefresh: (entry: OfflineCountEntry) => void;
+  onResolve: (entry: OfflineCountEntry) => void;
+  onAccept: (entry: OfflineCountEntry) => void;
+}) {
+  if (entry.payload.kind !== "measurements") return null;
+  const rows = offlineCountConflictRows(entry);
+  const revision = entry.conflict;
+  return (
+    <div className="mt-3 w-full rounded-lg border border-destructive/30 bg-background p-3">
+      <div className="flex items-start gap-2 text-sm font-semibold text-destructive"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><span>Απαιτείται νέα επιβεβαίωση· δεν έγινε overwrite στον server.</span></div>
+      {revision ? (
+        <>
+          <p className="mt-2 text-xs text-muted-foreground">Έκδοση τοπικής υποβολής: {dateTime.format(new Date(entry.payload.expectedUpdatedAt))} · Τρέχουσα server έκδοση: {dateTime.format(new Date(revision.updatedAt))}{revision.status === "FINALIZED" ? " · Οριστικοποιημένη" : ""}</p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[54rem] border-collapse text-xs">
+              <thead><tr className="text-left text-muted-foreground"><th className="px-2 py-2">Είδος / παρτίδα</th><th className="px-2 py-2 text-right">Αναμενόμενο snapshot</th><th className="px-2 py-2 text-right">Τρέχον στον server</th><th className="px-2 py-2 text-right">Τοπικό πραγματικό</th></tr></thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.lineId} className="border-t border-border/70 align-top">
+                    <td className="px-2 py-2 font-medium">{row.itemName}<span className="block font-normal text-muted-foreground">{row.batchNumber ?? "Χωρίς παρτίδα"}{!row.serverPresent ? " · δεν υπάρχει πλέον στον server" : !row.localPresent ? " · δεν υπήρχε στην τοπική υποβολή" : ""}</span></td>
+                    <td className="px-2 py-2 text-right tabular-nums">{quantity(row.expectedQty, row.unitCode)}</td>
+                    <td className="px-2 py-2 text-right tabular-nums">{quantity(row.currentQty, row.unitCode)}{row.currentReason ? <span className="block max-w-48 whitespace-normal text-left text-muted-foreground">Αιτιολογία server: {row.currentReason}</span> : null}</td>
+                    <td className="px-2 py-2 text-right font-semibold tabular-nums">{row.localPresent ? quantity(row.actualQty, row.unitCode) : "—"}{row.localReason ? <span className="block max-w-48 whitespace-normal text-left font-normal text-muted-foreground">Τοπική αιτιολογία: {row.localReason}</span> : null}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : <p className="mt-2 text-xs text-muted-foreground">Φόρτωσε την τρέχουσα server έκδοση για να δεις αναμενόμενο, τρέχον και τοπικό πραγματικό πριν αποφασίσεις.</p>}
+      <div className="mt-3 flex flex-wrap justify-end gap-2">
+        <Link href={`/counts/${entry.payload.countId}`} className={btn("ghost", "sm")}>Άνοιγμα server απογραφής</Link>
+        <button type="button" disabled={busy} className={btn("outline", "sm")} onClick={() => onRefresh(entry)}><RefreshCw /> {revision ? "Ανανέωση server τιμών" : "Προβολή τιμών"}</button>
+        <button type="button" disabled={busy} className={btn("outline", "sm")} onClick={() => onAccept(entry)}>Αποδοχή server & διαγραφή τοπικού</button>
+        {canResolveOfflineCount(entry) ? <button type="button" disabled={busy} className={btn("default", "sm")} onClick={() => onResolve(entry)}>Νέα επιβεβαίωση τοπικών τιμών</button> : null}
+      </div>
+    </div>
+  );
+}
+
 export function OfflineCountQueue({ identity }: { identity: Identity }) {
+  const router = useRouter();
   const [entries, setEntries] = useState<OfflineCountEntry[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
   const refresh = useCallback(async () => {
     try {
       setEntries(await listOfflineCounts(identity));
@@ -150,6 +243,34 @@ export function OfflineCountQueue({ identity }: { identity: Identity }) {
     };
   }, [refresh, sync]);
 
+  const showConflict = async (entry: OfflineCountEntry) => {
+    if (!navigator.onLine) { setActionError("Η ανάγνωση των server τιμών απαιτεί σύνδεση."); return; }
+    setBusy(entry.key); setActionError("");
+    try { await refreshOfflineCountConflict(entry); await refresh(); }
+    catch (cause) { setActionError(cause instanceof Error ? cause.message : "Οι server τιμές δεν φορτώθηκαν."); }
+    finally { setBusy(null); }
+  };
+  const resolve = async (entry: OfflineCountEntry) => {
+    if (!window.confirm("Έλεγξες τις στήλες Αναμενόμενο / Τρέχον server / Τοπικό πραγματικό; Να επαναποσταλούν οι τοπικές τιμές με νέα επιβεβαίωση;")) return;
+    setBusy(entry.key); setActionError("");
+    try {
+      const queued = await resolveOfflineCountConflict(entry);
+      if (navigator.onLine && queued.status === "queued") {
+        const result = await syncOfflineCountEntry(queued);
+        if (result.ok) router.refresh();
+      }
+      await refresh();
+    } catch { setActionError("Η νέα επιβεβαίωση δεν αποθηκεύτηκε. Το αρχικό conflict παραμένει στην ουρά."); }
+    finally { setBusy(null); }
+  };
+  const accept = async (entry: OfflineCountEntry) => {
+    if (!window.confirm("Να διαγραφούν οριστικά οι τοπικές τιμές αυτής της εγγραφής; Οι server τιμές δεν αλλάζουν.")) return;
+    setBusy(entry.key); setActionError("");
+    try { await deleteOfflineCount(entry.key); await refresh(); router.refresh(); }
+    catch { setActionError("Η τοπική εγγραφή δεν διαγράφηκε."); }
+    finally { setBusy(null); }
+  };
+
   if (!ready || (!entries.length && !error)) return null;
   return (
     <section aria-label="Τοπική ουρά απογραφών" className="rounded-xl border border-border bg-card p-4 shadow-xs">
@@ -158,22 +279,27 @@ export function OfflineCountQueue({ identity }: { identity: Identity }) {
         <button type="button" className={btn("outline", "sm")} onClick={() => void sync()}><RefreshCw /> Συγχρονισμός</button>
       </div>
       {error ? <p role="alert" className="mt-3 text-sm text-destructive">Η τοπική ουρά δεν είναι διαθέσιμη σε αυτό το browser.</p> : null}
+      {actionError ? <p role="alert" className="mt-3 text-sm text-destructive">{actionError}</p> : null}
       <ul className="mt-3 space-y-2">
         {entries.map((entry) => (
-          <li key={entry.key} className="flex flex-wrap items-center gap-3 rounded-lg bg-secondary/35 px-3 py-2 text-sm">
-            <div className="min-w-0 flex-1"><span className="font-medium">{entry.payload.kind === "create" ? "Νέο προσχέδιο καταστήματος" : "Μετρήσεις προσχεδίου"}</span><span className="block text-xs text-muted-foreground">Τοπική έκδοση {entry.localRevision} · {entry.status === "conflict" ? "Χρειάζεται επίλυση" : entry.status === "syncing" ? "Συγχρονίζεται" : "Σε αναμονή"}</span>{entry.error ? <span className={`block text-xs ${entry.status === "conflict" ? "text-destructive" : "text-muted-foreground"}`}>{errorText(entry.error)}</span> : null}</div>
-            {entry.status === "queued" ? <button type="button" className={btn("outline", "sm")} onClick={() => void syncOfflineCountEntry(entry).then(refresh)}>Δοκιμή</button> : null}
-            <button type="button" aria-label="Διαγραφή τοπικής εγγραφής" title="Διαγραφή τοπικής εγγραφής" className={btn("ghost", "sm")} onClick={() => { if (window.confirm("Να διαγραφεί αυτή η τοπική εγγραφή; Η server απογραφή δεν αλλάζει.")) void deleteOfflineCount(entry.key).then(refresh); }}><Trash2 /></button>
+          <li key={entry.key} className="rounded-lg bg-secondary/35 px-3 py-2 text-sm">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1"><span className="font-medium">{entry.payload.kind === "create" ? "Νέο προσχέδιο καταστήματος" : "Μετρήσεις προσχεδίου"}</span><span className="block text-xs text-muted-foreground">Τοπική έκδοση {entry.localRevision} · {entry.status === "conflict" ? "Χρειάζεται επίλυση" : entry.status === "syncing" ? "Συγχρονίζεται" : "Σε αναμονή"}</span>{entry.error ? <span className={`block text-xs ${entry.status === "conflict" ? "text-destructive" : "text-muted-foreground"}`}>{errorText(entry.error)}</span> : null}</div>
+              {entry.status === "queued" ? <button type="button" className={btn("outline", "sm")} onClick={() => void syncOfflineCountEntry(entry).then(refresh)}>Δοκιμή</button> : null}
+              {entry.status !== "conflict" ? <button type="button" aria-label="Διαγραφή τοπικής εγγραφής" title="Διαγραφή τοπικής εγγραφής" className={btn("ghost", "sm")} onClick={() => { if (window.confirm("Να διαγραφεί αυτή η τοπική εγγραφή; Η server απογραφή δεν αλλάζει.")) void deleteOfflineCount(entry.key).then(refresh); }}><Trash2 /></button> : null}
+            </div>
+            {entry.status === "conflict" ? <ConflictDetails entry={entry} busy={busy === entry.key} onRefresh={(value) => void showConflict(value)} onResolve={(value) => void resolve(value)} onAccept={(value) => void accept(value)} /> : null}
           </li>
         ))}
       </ul>
-      {entries.some((entry) => entry.status === "conflict") ? <p className="mt-3 text-xs text-muted-foreground">Για conflict, άνοιγε την server απογραφή, ανανέωσε και μετάφερε χειροκίνητα ό,τι ισχύει. Η τοπική εγγραφή διαγράφεται μόνο με τη δική σου επιλογή.</p> : null}
+      {entries.some((entry) => entry.status === "conflict") ? <p className="mt-3 text-xs text-muted-foreground">Κάθε επαναποστολή μετά από conflict χρησιμοποιεί νέο κλειδί και την εμφανιζόμενη server revision. Αν μεσολαβήσει άλλη αλλαγή, θα ζητηθεί ξανά επιβεβαίωση.</p> : null}
     </section>
   );
 }
 
-export function OnlineOnlyFinalize({ formId, className, children }: { formId: string; className: string; children: React.ReactNode }) {
+export function OnlineOnlyFinalize({ formId, className, children, identity, countId }: { formId: string; className: string; children: React.ReactNode; identity?: Identity; countId?: string }) {
   const [online, setOnline] = useState(true);
+  const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -185,17 +311,30 @@ export function OnlineOnlyFinalize({ formId, className, children }: { formId: st
       window.removeEventListener("offline", update);
     };
   }, []);
+  useEffect(() => {
+    if (!identity || !countId) return;
+    const check = async () => {
+      try {
+        const entries = await listOfflineCounts(identity);
+        setPending(entries.some((entry) => entry.payload.kind === "measurements" && entry.payload.countId === countId));
+      } catch { setPending(false); }
+    };
+    const listener = () => void check();
+    void check();
+    window.addEventListener(OFFLINE_QUEUE_EVENT, listener);
+    return () => window.removeEventListener(OFFLINE_QUEUE_EVENT, listener);
+  }, [countId, identity]);
   return (
     <div className="grid justify-items-end gap-2">
       <button
         type="submit"
         form={formId}
         className={className}
-        aria-disabled={!online}
+        aria-disabled={!online || pending}
         onClick={(event) => {
-          if (!online) {
+          if (!online || pending) {
             event.preventDefault();
-            setMessage("Η οριστικοποίηση απαιτεί online σύνδεση και ενημερωμένες μετρήσεις.");
+            setMessage(pending ? "Συγχρόνισε ή επίλυσε πρώτα όλες τις τοπικές μετρήσεις αυτής της απογραφής." : "Η οριστικοποίηση απαιτεί online σύνδεση και ενημερωμένες μετρήσεις.");
             return;
           }
           if (!window.confirm("Οριστικοποίηση της απογραφής με τις τρέχουσες online μετρήσεις;")) event.preventDefault();

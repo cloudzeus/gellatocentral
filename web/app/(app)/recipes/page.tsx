@@ -33,11 +33,12 @@ export default async function RecipesPage({ searchParams }: PageProps<"/recipes"
         : list.sort === "status" ? { active: direction }
           : list.sort === "name" ? { name: direction }
             : [{ active: "desc" as const }, { name: "asc" as const }];
-  const [recipes, total, items, products] = await Promise.all([
+  const [recipes, total, items, products, outputItems] = await Promise.all([
     db.recipe.findMany({ where, orderBy, skip: list.skip, take: list.take, include: { items: { include: { genericItem: true } }, product: { select: { name: true } }, _count: { select: { items: true } } } }),
     db.recipe.count({ where }),
     recipeEditorItems(org.id),
     db.product.findMany({ where: { orgId: org.id, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.genericItem.findMany({ where: { orgId: org.id, active: true, trackStock: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   const byId = new Map(items.map((i) => [i.id, i]));
   const analysisById = new Map(recipes.map((r) => [r.id, analyzeRecipe(
@@ -48,6 +49,7 @@ export default async function RecipesPage({ searchParams }: PageProps<"/recipes"
     r.type,
   )]));
   const productOptions: [string, string][] = [["", "— Χωρίς σύνδεση —"], ...products.map((p): [string, string] => [p.id, p.name])];
+  const outputOptions: [string, string][] = [["", "— Χωρίς παραγόμενο απόθεμα —"], ...outputItems.map((item): [string, string] => [item.id, item.name])];
 
   return (
     <Page section="Συνταγολόγιο" title="Συνταγές" description="Βάσεις και γεύσεις παγωτού με τεχνική ανάλυση (PAC/POD, στερεά, σημείο πήξης) και κόστος"
@@ -60,6 +62,10 @@ export default async function RecipesPage({ searchParams }: PageProps<"/recipes"
               <Field label="Μέγεθος δόσης (g)" name="batchGrams" required inputMode="numeric" defaultValue="5000" hint="Τυπική παραγωγή, για κοστολόγηση" />
             </div>
             <Select label="Προϊόν βιτρίνας" name="productId" options={productOptions} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Select label="Παραγόμενο είδος αποθέματος" name="outputGenericItemId" options={outputOptions} />
+              <Field label="Διάρκεια ζωής (ημέρες)" name="shelfLifeDays" type="number" min={1} max={3650} step={1} />
+            </div>
             <FormPending label="Δημιουργία συνταγής…" />
             <Submit pendingText="Δημιουργία…" className={btn("default")}>Δημιουργία</Submit>
           </form>

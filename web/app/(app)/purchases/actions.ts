@@ -79,7 +79,7 @@ export async function updateDoc(form: FormData) {
   if (shippingCostCents == null || otherExpensesCents == null || expensesVatRate == null) return fail("Έλεγξε τα έξοδα και τον συντελεστή ΦΠΑ τους", path);
   const { org } = await currentOrg("purchases.edit");
   const result = await db.purchaseDoc.updateMany({
-    where: { id: docId, orgId: org.id, status: "DRAFT" },
+    where: { id: docId, orgId: org.id, status: "DRAFT", receiptInvoice: { is: null } },
     data: {
       number: parsed.data.number || null, issuedAt, note: parsed.data.note || null,
       paymentMethod: blank(form.get("paymentMethod"), 120), paymentTerms: blank(form.get("paymentTerms"), 120),
@@ -119,7 +119,7 @@ export async function addLine(form: FormData) {
     .safeParse(raw);
   if (!d.success) return fail(d.error.issues[0].message, path);
   const { org } = await currentOrg("purchases.add");
-  const doc = await db.purchaseDoc.findFirst({ where: { id: docId, orgId: org.id } });
+  const doc = await db.purchaseDoc.findFirst({ where: { id: docId, orgId: org.id, receiptInvoice: { is: null } } });
   if (!doc) return fail("Άγνωστο τιμολόγιο");
   if (doc.status !== "DRAFT") return fail("Το τιμολόγιο έχει καταχωρηθεί — δεν αλλάζει", path);
 
@@ -177,7 +177,7 @@ export async function rematchLine(form: FormData) {
   const supplierItemId = String(raw.supplierItemId ?? "");
   if (!lineId || !supplierItemId) return fail("Διάλεξε είδος προμηθευτή", path);
   const { org } = await currentOrg("purchases.edit");
-  const line = await db.purchaseLine.findFirst({ where: { id: lineId, orgId: org.id }, include: { document: true } });
+  const line = await db.purchaseLine.findFirst({ where: { id: lineId, orgId: org.id, document: { receiptInvoice: { is: null } } }, include: { document: true } });
   if (!line || line.document.status !== "DRAFT") return fail("Η γραμμή δεν βρέθηκε ή το τιμολόγιο έχει καταχωρηθεί", path);
   const si = await db.supplierItem.findFirst({ where: { id: supplierItemId, orgId: org.id, supplierId: line.document.supplierId } });
   if (!si) return fail("Η σύνδεση προμηθευτή δεν βρέθηκε", path);
@@ -195,7 +195,7 @@ export async function rematchLine(form: FormData) {
 
 export async function removeLine(lineId: string, docId: string) {
   const { org } = await currentOrg("purchases.edit");
-  const doc = await db.purchaseDoc.findFirst({ where: { id: docId, orgId: org.id } });
+  const doc = await db.purchaseDoc.findFirst({ where: { id: docId, orgId: org.id, receiptInvoice: { is: null } } });
   if (doc?.status === "DRAFT") await db.purchaseLine.deleteMany({ where: { id: lineId, orgId: org.id } });
   back(`/purchases/${docId}`, "?saved=1");
 }
@@ -205,7 +205,7 @@ export async function removeLines(docId: string, ids: string[]) {
   const parsed = z.object({ docId: z.string().cuid(), ids: z.array(z.string().cuid()).min(1).max(200) }).safeParse({ docId, ids });
   if (!parsed.success) return "Η επιλογή γραμμών δεν είναι έγκυρη";
   const { org } = await currentOrg("purchases.edit");
-  const doc = await db.purchaseDoc.findFirst({ where: { id: parsed.data.docId, orgId: org.id, status: "DRAFT" }, select: { id: true } });
+  const doc = await db.purchaseDoc.findFirst({ where: { id: parsed.data.docId, orgId: org.id, status: "DRAFT", receiptInvoice: { is: null } }, select: { id: true } });
   if (!doc) return "Το πρόχειρο τιμολόγιο δεν βρέθηκε ή έχει ήδη καταχωρηθεί";
   const unique = [...new Set(parsed.data.ids)];
   const result = await db.purchaseLine.deleteMany({ where: { id: { in: unique }, documentId: doc.id, orgId: org.id } });
@@ -227,7 +227,8 @@ export async function postDoc(docId: string) {
 
 export async function cancelDoc(docId: string) {
   const { org } = await currentOrg("purchases.edit");
-  await db.purchaseDoc.updateMany({ where: { id: docId, orgId: org.id, status: "DRAFT" }, data: { status: "CANCELLED" } });
+  const result = await db.purchaseDoc.updateMany({ where: { id: docId, orgId: org.id, status: "DRAFT", receiptInvoice: { is: null } }, data: { status: "CANCELLED" } });
+  if (!result.count) return fail("Το συνδεδεμένο τιμολόγιο παραλαβής δεν ακυρώνεται εκτός τριπλού ελέγχου", `/purchases/${docId}`);
   back("/purchases", "?saved=1");
 }
 

@@ -1,8 +1,11 @@
 // Αποθήκευση αρχείων για όλη την εφαρμογή: ένα σημείο για ανέβασμα, διαγραφή, λήψη και έλεγχο πρόσβασης.
 // Χρήση σε οθόνη: <Files orgId category refType refId /> (components/files.tsx). Από script: saveFile(...).
 import { randomBytes } from "node:crypto";
+import { memberPermissions } from "../auth";
 import { db } from "../db";
-import { orgPermissionsOf, platformCan } from "../permissions";
+import { ALL_MODULES } from "../modules";
+import { platformCan } from "../permissions";
+import { accessFor } from "../plan-data";
 import type { getUser } from "../auth";
 import { cdnUrl, put, remove } from "./bunny";
 import { CATEGORIES, type Category, check, pathFor, platformNeeds } from "./rules";
@@ -14,14 +17,25 @@ type User = NonNullable<Awaited<ReturnType<typeof getUser>>>;
  * Προσωπικό πλατφόρμας: με το δικαίωμα αρχικοποίησης (ή ρυθμίσεων, για αρχεία της πλατφόρμας).
  * Χρήστης πελάτη: μόνο στη ΔΙΚΗ του επιχείρηση και μόνο με το δικαίωμα του είδους.
  */
-export function canAccess(user: User, orgId: string | null, category: Category, write = true) {
+export function canAccess(user: User, orgId: string | null, category: Category, write = true, open: readonly string[] = ALL_MODULES) {
   if (CATEGORIES[category].platform !== (orgId === null)) return false; // αρχεία πλατφόρμας δεν ανήκουν σε πελάτη, και το αντίστροφο
   const c = CATEGORIES[category];
   if (platformCan(user, "staff" in c && c.staff ? c.staff : platformNeeds(orgId))) return true;
   const m = user.memberships.find((x) => x.orgId === orgId);
   if (!m) return false;
   const needed = !write && "read" in c ? c.read : c.needs;
-  return needed == null || orgPermissionsOf(m.role).includes(needed);
+  return needed == null || memberPermissions(m, open).includes(needed);
+}
+
+/** Στους server handlers τα ανοιχτά modules υπολογίζονται πάντα από την τρέχουσα συνδρομή και κατάσταση του tenant. */
+export async function canAccessFile(user: User, orgId: string | null, category: Category, write = true) {
+  if (CATEGORIES[category].platform !== (orgId === null)) return false;
+  const c = CATEGORIES[category];
+  if (platformCan(user, "staff" in c && c.staff ? c.staff : platformNeeds(orgId))) return true;
+  const m = user.memberships.find((x) => x.orgId === orgId);
+  if (!m) return false;
+  const access = await accessFor(m.orgId, m.stores.map((s) => s.storeId));
+  return canAccess(user, orgId, category, write, access.open);
 }
 
 export class FileError extends Error {}

@@ -1,6 +1,7 @@
 // IndexedDB προσαρμογέας: tenant/user/device partition, retry μόνο για queued και καθαρισμός σε logout.
 import {
   canSyncOfflineCount,
+  confirmOfflineCountResolution,
   mergeOfflineCountEntry,
   newOfflineCountEntry,
   offlineStatusForError,
@@ -8,6 +9,7 @@ import {
   type OfflineCountEntry,
   type OfflineCountIdentity,
   type OfflineCountPayload,
+  type OfflineCountRevision,
 } from "./offline-count-queue.ts";
 
 const DB_NAME = "gelato-stock-counts";
@@ -167,6 +169,35 @@ export async function clearOfflineCounts(identity: SessionIdentity): Promise<voi
   }
 }
 
+async function fetchOfflineCountRevision(entry: OfflineCountEntry): Promise<OfflineCountRevision> {
+  if (entry.payload.kind !== "measurements") throw new Error("OFFLINE_COUNT_NOT_MEASUREMENTS");
+  const response = await fetch(`/api/counts/${entry.payload.countId}/measurements`, { cache: "no-store" });
+  const result = await response.json().catch(() => null) as (OfflineCountRevision & { message?: string }) | null;
+  if (!response.ok) throw new Error(result?.message ?? `HTTP ${response.status}`);
+  if (!result || result.countId !== entry.payload.countId || typeof result.updatedAt !== "string" || !Array.isArray(result.lines)) {
+    throw new Error("Η τρέχουσα απογραφή δεν επέστρεψε έγκυρο snapshot");
+  }
+  return result;
+}
+
+/** Ανανεώνει μόνο τα εμφανιζόμενα server δεδομένα· το τοπικό payload και το conflict status μένουν ίδια. */
+export async function refreshOfflineCountConflict(entry: OfflineCountEntry): Promise<OfflineCountEntry> {
+  const conflict = await fetchOfflineCountRevision(entry);
+  return putOfflineCount({ ...entry, conflict, updatedAt: new Date().toISOString() });
+}
+
+/** Η νέα επιβεβαίωση δημιουργεί νέο queued entry και μόνο μετά αφαιρεί το παλιό conflict. */
+export async function resolveOfflineCountConflict(entry: OfflineCountEntry): Promise<OfflineCountEntry> {
+  const resolved = confirmOfflineCountResolution(entry, crypto.randomUUID());
+  const queued = await enqueueOfflineCount(
+    { orgId: entry.orgId, userId: entry.userId },
+    resolved.clientKey,
+    resolved.payload,
+  );
+  if (queued.status === "queued") await deleteOfflineCount(entry.key);
+  return queued;
+}
+
 export async function syncOfflineCountEntry(entry: OfflineCountEntry): Promise<OfflineSyncResult> {
   if (!canSyncOfflineCount(entry)) return { ok: false, entry };
   const syncing = await putOfflineCount({ ...entry, status: "syncing", error: null, updatedAt: new Date().toISOString() });
@@ -186,10 +217,17 @@ export async function syncOfflineCountEntry(entry: OfflineCountEntry): Promise<O
     const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const result = await response.json().catch(() => ({})) as { id?: string; code?: string; message?: string };
     if (!response.ok) {
+      const status = offlineStatusForError(result.code ?? "HTTP_ERROR", response.status);
+      let conflict = syncing.conflict ?? null;
+      if (status === "conflict" && entry.payload.kind === "measurements") {
+        // Αν η ανάγνωση αποτύχει, το conflict παραμένει αποθηκευμένο και ο χρήστης ζητά ανανέωση ρητά.
+        conflict = await fetchOfflineCountRevision(syncing).catch(() => conflict);
+      }
       const failed = await putOfflineCount({
         ...syncing,
-        status: offlineStatusForError(result.code ?? "HTTP_ERROR", response.status),
-        error: result.message ?? result.code ?? `HTTP ${response.status}`,
+        status,
+        error: result.code ?? result.message ?? `HTTP ${response.status}`,
+        conflict,
         updatedAt: new Date().toISOString(),
       });
       return { ok: false, entry: failed };

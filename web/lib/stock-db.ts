@@ -13,6 +13,7 @@ export const STOCK_ERROR = [
   "GENERIC_ITEM_BASE_UNIT_INVALID",
   "LOT_NOT_FOUND",
   "LOT_STOCK_KEY_MISMATCH",
+  "LOT_HELD",
   "NEGATIVE_STOCK_NOT_ALLOWED",
   "STOCK_CHANGED_SINCE_SNAPSHOT",
 ] as const;
@@ -37,6 +38,7 @@ export const STOCK_ERROR_MESSAGE: Record<StockErrorCode, string> = {
   GENERIC_ITEM_BASE_UNIT_INVALID: "Το είδος δεν έχει έγκυρη βασική μονάδα αποθέματος",
   LOT_NOT_FOUND: "Η παρτίδα δεν βρέθηκε",
   LOT_STOCK_KEY_MISMATCH: "Η παρτίδα δεν αντιστοιχεί στο είδος και την αποθήκη",
+  LOT_HELD: "Η παρτίδα είναι δεσμευμένη από ποιοτικό έλεγχο και δεν μπορεί να καταναλωθεί",
   NEGATIVE_STOCK_NOT_ALLOWED: "Η κίνηση θα έκανε το απόθεμα του είδους ή της παρτίδας αρνητικό",
   STOCK_CHANGED_SINCE_SNAPSHOT: "Το απόθεμα άλλαξε μετά το snapshot της απογραφής",
 };
@@ -150,6 +152,8 @@ export async function lockStockKey(tx: Pick<StockDb, "$queryRaw">, key: StockKey
 export type StockActor = { id: string | null; name: string };
 export type PostStockMovementInput = StockKey & {
   quantity: number;
+  /** ιστορικό κόστος· όταν λείπει αποθηκεύεται ο τρέχων σταθμισμένος μέσος */
+  unitCostHundredths?: number | null;
   source: string;
   storeId?: string | null;
   documentId?: string | null;
@@ -173,10 +177,11 @@ async function assertActiveWarehouse(tx: StockDb, orgId: string, warehouseId: st
 export async function postStockMovement(tx: StockDb, input: PostStockMovementInput): Promise<StockMovement> {
   assertQuantity(input.quantity);
   if (!input.source.trim() || !input.actor.name.trim()) throw new StockError("INVALID_STOCK_INPUT");
+  if (input.unitCostHundredths !== undefined && input.unitCostHundredths !== null && (!Number.isSafeInteger(input.unitCostHundredths) || input.unitCostHundredths < 0)) throw new StockError("INVALID_STOCK_INPUT");
   await assertActiveWarehouse(tx, input.orgId, input.warehouseId);
   const generic = await tx.genericItem.findFirst({
     where: { id: input.genericItemId, orgId: input.orgId },
-    select: { id: true, trackStock: true, baseUnit: { select: { toBase: true } } },
+    select: { id: true, trackStock: true, avgCostHundredths: true, baseUnit: { select: { toBase: true } } },
   });
   if (!generic) throw new StockError("GENERIC_ITEM_NOT_FOUND");
   if (!generic.trackStock) throw new StockError("GENERIC_ITEM_NOT_TRACKED");
@@ -184,10 +189,11 @@ export async function postStockMovement(tx: StockDb, input: PostStockMovementInp
   if (input.lotId) {
     const lot = await tx.stockLot.findFirst({
       where: { id: input.lotId, orgId: input.orgId },
-      select: { id: true, warehouseId: true, genericItemId: true },
+      select: { id: true, warehouseId: true, genericItemId: true, holdStatus: true },
     });
     if (!lot) throw new StockError("LOT_NOT_FOUND");
     if (lot.warehouseId !== input.warehouseId || lot.genericItemId !== input.genericItemId) throw new StockError("LOT_STOCK_KEY_MISMATCH");
+    if (input.quantity < 0 && lot.holdStatus !== "AVAILABLE" && lot.holdStatus !== "RELEASED") throw new StockError("LOT_HELD");
   }
 
   const key: StockKey = { orgId: input.orgId, warehouseId: input.warehouseId, genericItemId: input.genericItemId, lotId: input.lotId };
@@ -203,6 +209,7 @@ export async function postStockMovement(tx: StockDb, input: PostStockMovementInp
       genericItemId: input.genericItemId,
       lotId: input.lotId,
       quantity: input.quantity,
+      unitCostHundredths: input.unitCostHundredths ?? generic.avgCostHundredths,
       source: input.source,
       storeId: input.storeId ?? null,
       documentId: input.documentId ?? null,

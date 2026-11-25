@@ -1,16 +1,31 @@
 // Λήψη (ιδιωτικά αρχεία περνούν από εδώ, με έλεγχο πρόσβασης) και διαγραφή ενός αρχείου.
 import { getUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canAccess, deleteFile } from "@/lib/storage";
+import { canAccessFile, deleteFile } from "@/lib/storage";
 import { cdnUrl, download } from "@/lib/storage/bunny";
 import { isCategory } from "@/lib/storage/rules";
+import { DOCUMENT_CONFIG, isDocumentEntity } from "@/lib/documents/model";
+import { loadDocument } from "@/lib/documents/load";
+import { stockApiContext } from "@/lib/stock-context";
 
 async function find(id: string, write = true) {
   const user = await getUser();
   if (!user) return { error: new Response("Χρειάζεται σύνδεση", { status: 401 }) };
   const file = await db.storedFile.findUnique({ where: { id } });
   // ίδιο μήνυμα είτε δεν υπάρχει είτε δεν επιτρέπεται: δεν αποκαλύπτουμε ποια αρχεία υπάρχουν
-  if (!file || !isCategory(file.category) || !canAccess(user, file.orgId, file.category, write)) return { error: new Response("Δεν βρέθηκε", { status: 404 }) };
+  if (!file || !isCategory(file.category) || !(await canAccessFile(user, file.orgId, file.category, write))) return { error: new Response("Δεν βρέθηκε", { status: 404 }) };
+  if (file.category.startsWith("generated_")) {
+    const config = Object.entries(DOCUMENT_CONFIG).find(([, value]) => value.category === file.category);
+    const refType = file.refType ?? "";
+    if (!config || file.orgId !== user.memberships[0]?.orgId || !isDocumentEntity(refType) || refType !== config[0] || !file.refId) return { error: new Response("Δεν βρέθηκε", { status: 404 }) };
+    const entityType = refType;
+    const auth = await stockApiContext(config[1].permission);
+    if ("error" in auth) return { error: auth.error };
+    const loaded = await loadDocument(auth.ctx, entityType, file.refId);
+    if (!loaded) return { error: new Response("Δεν βρέθηκε", { status: 404 }) };
+    const scoped = await stockApiContext(config[1].permission, loaded.scope);
+    if ("error" in scoped) return { error: scoped.error };
+  }
   if (write && file.category === "purchase_document" && file.refType === "purchase") {
     const doc = await db.purchaseDoc.findFirst({ where: { id: file.refId ?? "", orgId: file.orgId ?? "", status: "DRAFT" }, select: { id: true } });
     if (!doc) return { error: new Response("Το καταχωρημένο παραστατικό δεν αλλάζει", { status: 409 }) };

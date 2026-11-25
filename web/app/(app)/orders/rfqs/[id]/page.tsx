@@ -1,0 +1,20 @@
+import Link from "next/link";
+import { ArrowLeft, Link2, Trophy } from "lucide-react";
+import { Submit } from "@/components/submit";
+import { btn, Card, Page } from "@/components/ui";
+import { db } from "@/lib/db";
+import { euro } from "@/lib/money";
+import { requireStockContext } from "@/lib/stock-context";
+import { awardRfqLine, reinviteRfq } from "../../actions";
+
+export default async function RfqPage({ params, searchParams }: PageProps<"/orders/rfqs/[id]">) {
+  const { id } = await params;
+  const query = await searchParams;
+  const ctx = await requireStockContext("orders.read");
+  const rfq = await db.rfq.findFirst({ where: { id, orgId: ctx.orgId }, include: { lines: true, suppliers: { include: { quotes: true } } } });
+  if (!rfq) return <Page section="Προμήθειες" title="RFQ"><p>Το αίτημα δεν βρέθηκε.</p></Page>;
+  const [parties, generics] = await Promise.all([db.party.findMany({ where: { orgId: ctx.orgId, id: { in: rfq.suppliers.map((s) => s.supplierId) } } }), db.genericItem.findMany({ where: { orgId: ctx.orgId, id: { in: rfq.lines.map((l) => l.genericItemId) } } })]);
+  const partyNames = new Map(parties.map((p) => [p.id, p.name]));
+  const itemNames = new Map(generics.map((g) => [g.id, g.name]));
+  return <Page section="Αποθήκη & αγορές" title={rfq.number} description={`Προθεσμία ${new Intl.DateTimeFormat("el-GR").format(rfq.replyBy)}`} actions={<Link href="/orders/rfqs" className={btn("outline", "sm")}><ArrowLeft /> Όλα τα RFQ</Link>}><div className="grid gap-4">{typeof query.error === "string" ? <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{query.error}</p> : null}{typeof query.invitation === "string" && query.invitation ? <Card className="border-success/30 bg-success/5 p-4"><h2 className="font-semibold text-success-ink">Προσωπικός σύνδεσμος προσφοράς</h2><p className="mt-1 text-sm text-muted-foreground">Εμφανίζεται τώρα· κοινοποιείται μόνο στον συγκεκριμένο προμηθευτή.</p><code className="mt-3 block break-all rounded-lg bg-card p-3 text-xs">/rfq/{query.invitation}</code></Card> : null}<div className="grid gap-3 lg:grid-cols-2">{rfq.suppliers.map((supplier) => <Card key={supplier.id} className="p-4"><div className="flex items-center justify-between gap-3"><div><h2 className="font-semibold">{partyNames.get(supplier.supplierId)}</h2><p className="text-xs text-muted-foreground">{supplier.respondedAt ? `Απάντησε ${new Intl.DateTimeFormat("el-GR").format(supplier.respondedAt)}` : "Αναμένεται προσφορά"}</p></div>{ctx.can("orders.edit") ? <form action={reinviteRfq}><input type="hidden" name="rfqId" value={rfq.id} /><input type="hidden" name="rfqSupplierId" value={supplier.id} /><Submit className={btn("outline", "sm")} pendingText="Δημιουργία…"><Link2 /> Νέος σύνδεσμος</Submit></form> : null}</div>{supplier.quotes.length ? <table className="mt-3 w-full text-sm"><tbody>{supplier.quotes.map((quote) => { const line = rfq.lines.find((l) => l.id === quote.rfqLineId)!; return <tr key={quote.id} className="border-b border-border/60 last:border-0"><td className="py-2">{itemNames.get(line.genericItemId)}</td><td className="py-2 text-right">{euro(Math.round(quote.unitPriceHundredths! / 100))}<span className="text-xs text-muted-foreground"> / {line.unitCode}</span></td><td className="py-2 text-right">{line.awardedSupplierId === supplier.supplierId ? <span className="text-success-ink">Ανατέθηκε</span> : ctx.can("orders.edit") ? <form action={awardRfqLine}><input type="hidden" name="rfqId" value={rfq.id} /><input type="hidden" name="rfqLineId" value={line.id} /><input type="hidden" name="supplierId" value={supplier.supplierId} /><Submit className={btn("ghost", "sm")} title="Ανάθεση"><Trophy /></Submit></form> : null}</td></tr>; })}</tbody></table> : null}</Card>)}</div><Card className="p-4"><h2 className="mb-2 font-semibold">Ζητούμενες ποσότητες</h2><ul className="grid gap-2 text-sm">{rfq.lines.map((line) => <li key={line.id} className="flex justify-between border-b border-border/60 pb-2 last:border-0"><span>{itemNames.get(line.genericItemId)}</span><strong>{line.quantityBase} {line.unitCode}</strong></li>)}</ul></Card></div></Page>;
+}

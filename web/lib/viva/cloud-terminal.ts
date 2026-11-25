@@ -1,11 +1,12 @@
 // Viva Cloud Terminal API (σχήμα ISV). Πηγή: developer.viva.com/downloads/eft-pos-api.yml
 // Το ταμείο στέλνει αίτημα πώλησης στο τερματικό και μετά ρωτά για το αποτέλεσμα με το sessionId.
 // ΔΕΝ έχει δοκιμαστεί ακόμα απέναντι στο demo της Viva (χρειάζονται ISV κλειδιά).
-import { settings } from "../config";
-import { toVivaJson } from "./fiscal";
+import { toVivaJson } from "./fiscal.ts";
 
 /** Κλειδιά και διευθύνσεις για το περιβάλλον που έχει οριστεί στις Ρυθμίσεις. */
 async function isv() {
+  // Οι ρυθμίσεις/η βάση φορτώνονται μόνο σε πραγματική κλήση· η επαλήθευση δέχεται mocked session loader.
+  const { settings } = await import("../config.ts");
   const c = await settings("VIVA_ENV", "VIVA_ISV_CLIENT_ID", "VIVA_ISV_CLIENT_SECRET");
   const demo = c.VIVA_ENV !== "production";
   return { demo, id: c.VIVA_ISV_CLIENT_ID, secret: c.VIVA_ISV_CLIENT_SECRET, accounts: demo ? "https://demo-accounts.vivapayments.com" : "https://accounts.vivapayments.com", api: demo ? "https://demo-api.vivapayments.com" : "https://api.vivapayments.com" };
@@ -63,13 +64,73 @@ export async function startSale(input: {
 
 /** null = το τερματικό δεν έχει τελειώσει ακόμα (HTTP 202). */
 export async function getSession(sessionId: string): Promise<Record<string, unknown> | null> {
-  const res = await fetch(`${(await isv()).api}/ecr/isv/v1/sessions/${sessionId}`, {
+  const res = await fetch(`${(await isv()).api}/ecr/isv/v1/sessions/${encodeURIComponent(sessionId)}`, {
     headers: { Authorization: `Bearer ${await bearer()}` },
     cache: "no-store",
   });
   if (res.status === 202) return null;
   if (!res.ok) throw new Error(`Viva session: HTTP ${res.status}`);
   return (await res.json()) as Record<string, unknown>;
+}
+
+export type VivaSaleForVerification = {
+  id: string;
+  orgId: string;
+  storeId: string;
+  deviceId: string;
+  totalCents: number;
+  payment: { amountCents: number; vivaSessionId: string | null } | null;
+};
+
+export type VivaTerminalForVerification = {
+  orgId: string;
+  storeId: string;
+  deviceId: string;
+  terminalId: string | null;
+};
+
+export type VivaSaleVerification =
+  | { status: "verified"; transactionId: string; raw: Record<string, unknown> }
+  | { status: "pending" }
+  | { status: "rejected"; reason: "unsuccessful"; raw: Record<string, unknown> }
+  | { status: "rejected"; reason: "binding" | "session" | "transaction" | "amount" };
+
+type SessionLoader = (sessionId: string) => Promise<Record<string, unknown> | null>;
+
+/**
+ * Η επιτυχία αποδεικνύεται μόνο από την απάντηση της Viva, δεμένη με την αποθηκευμένη πώληση και συσκευή.
+ * Το transactionId του client χρησιμοποιείται μόνο για έλεγχο διασταύρωσης, ποτέ ως αποθηκευόμενη απόδειξη.
+ */
+export async function verifySaleSession(
+  sale: VivaSaleForVerification,
+  terminal: VivaTerminalForVerification,
+  clientTransactionId?: string,
+  loadSession: SessionLoader = getSession,
+): Promise<VivaSaleVerification> {
+  const payment = sale.payment;
+  const sessionId = payment?.vivaSessionId;
+  if (
+    !payment || !sessionId || !terminal.terminalId ||
+    sale.orgId !== terminal.orgId || sale.storeId !== terminal.storeId || sale.deviceId !== terminal.deviceId
+  ) return { status: "rejected", reason: "binding" };
+  if (payment.amountCents !== sale.totalCents) return { status: "rejected", reason: "amount" };
+
+  const session = await loadSession(sessionId);
+  if (!session) return { status: "pending" };
+  // Και η τελική αποτυχία πρέπει να ανήκει στη συγκεκριμένη πώληση/συσκευή· mismatch δεν είναι αποτυχία πληρωμής.
+  if (
+    session.sessionId !== sessionId || session.merchantReference !== sale.id ||
+    session.cashRegisterId !== terminal.deviceId || session.terminalId !== terminal.terminalId
+  ) return { status: "rejected", reason: "session" };
+  if (session.amount !== undefined && session.amount !== payment.amountCents)
+    return { status: "rejected", reason: "amount" };
+  if (session.success !== true) return { status: "rejected", reason: "unsuccessful", raw: session };
+
+  const transactionId = session.transactionId;
+  if (typeof transactionId !== "string" || !transactionId || (clientTransactionId !== undefined && clientTransactionId !== transactionId))
+    return { status: "rejected", reason: "transaction" };
+  if (session.amount !== payment.amountCents) return { status: "rejected", reason: "amount" };
+  return { status: "verified", transactionId, raw: session };
 }
 
 /**

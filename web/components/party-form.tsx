@@ -3,7 +3,7 @@
 // το orgId και όλοι οι έλεγχοι εκτελούνται στην υπάρχουσα Server Action.
 import { CircleAlert, CircleCheck, LoaderCircle, Search } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { PARTY_ROLES, type PartyRole } from "@/lib/parties";
+import { DB_INT_MAX, PARTY_ROLES, WEEKDAYS, type PartyRole } from "@/lib/parties";
 import { AddressField } from "./address-field";
 import { FormPending } from "./form-pending";
 import { FormSection } from "./form-section";
@@ -17,8 +17,16 @@ import { Progress } from "./shadcn/progress";
 import { Submit } from "./submit";
 import { btn, cn, Field, Select, TextareaField } from "./ui";
 
-export type PartyValues = { id: string; roles: string[]; name: string; tradeName: string | null; countryCode: string; vatNumber: string | null; taxOffice: string | null; profession: string | null; contactName: string | null; email: string | null; phone: string | null; website: string | null; address: string | null; city: string | null; postalCode: string | null; region: string | null; latitude: number | null; longitude: number | null; paymentTermsDays: number | null; paymentMethodId: string | null; notes: string | null };
+export type PartyValues = {
+  id: string; roles: string[]; name: string; tradeName: string | null; countryCode: string; vatNumber: string | null;
+  taxOffice: string | null; profession: string | null; contactName: string | null; email: string | null; phone: string | null;
+  website: string | null; address: string | null; city: string | null; postalCode: string | null; region: string | null;
+  latitude: number | null; longitude: number | null; paymentTermsDays: number | null; creditLimitCents: number | null;
+  leadTimeDays: number | null; orderDays: number[]; deliveryDays: number[]; minOrderValueCents: number | null;
+  paymentMethodId: string | null; notes: string | null;
+};
 export type PartyRefs = { countries: [string, string][]; methods: [string, string][]; terms: [string, string][] };
+const euroInput = (cents: number | null | undefined) => cents == null ? "" : (cents / 100).toFixed(2).replace(".", ",");
 type Lookup = { ok: boolean; message: string | null; source: string | null; fields: Record<string, string>; consultationNumber: string | null; cached?: boolean };
 
 const STEPS = [
@@ -155,6 +163,20 @@ export function PartyForm({ action, party, refs, geo, defaultRole }: { action: (
       <FormSection id={sectionId("finish")} step={4} title={STEPS[3].title} description={STEPS[3].description}>
         <Select label="Όροι πληρωμής" name="paymentTermsDays" defaultValue={v("paymentTermsDays")} options={[["", "Δεν έχουν οριστεί"], ...refs.terms]} />
         <Select label="Τρόπος πληρωμής" name="paymentMethodId" defaultValue={v("paymentMethodId")} options={[["", "Δεν έχει οριστεί"], ...refs.methods]} />
+        <Field label="Πιστωτικό όριο (€)" name="creditLimitCents" inputMode="decimal" maxLength={16} autoComplete="off" defaultValue={euroInput(party?.creditLimitCents)} placeholder="0,00" hint="Προαιρετικό εμπορικό στοιχείο, με το πολύ δύο δεκαδικά" />
+        <Field label="Ελάχιστη αξία παραγγελίας (€)" name="minOrderValueCents" inputMode="decimal" maxLength={16} autoComplete="off" defaultValue={euroInput(party?.minOrderValueCents)} placeholder="0,00" hint="Προαιρετικό εμπορικό στοιχείο, με το πολύ δύο δεκαδικά" />
+        <Field label="Ημέρες προετοιμασίας παραγγελίας" name="leadTimeDays" type="number" min={0} max={DB_INT_MAX} step={1} defaultValue={v("leadTimeDays")} />
+        {(["orderDays", "deliveryDays"] as const).map((name) => (
+          <fieldset key={name} className="sm:col-span-2">
+            <legend className="text-sm font-semibold">{name === "orderDays" ? "Ημέρες παραγγελίας" : "Ημέρες παράδοσης"}</legend>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {WEEKDAYS.map((day) => {
+                const id = `${formId}-${name}-${day.value}`;
+                return <div key={day.value} className="flex min-h-11 items-center gap-2 rounded-lg border border-border/70 px-3 py-2"><Checkbox id={id} name={name} value={day.value} defaultChecked={party?.[name].includes(day.value)} /><Label htmlFor={id} className="cursor-pointer text-sm font-normal">{day.label}</Label></div>;
+              })}
+            </div>
+          </fieldset>
+        ))}
         <div className="sm:col-span-2"><TextareaField label="Σημειώσεις" name="notes" rows={3} maxLength={1000} defaultValue={v("notes")} hint="Εσωτερικές πληροφορίες για τη συνεργασία — δεν εκτυπώνονται" /></div>
       </FormSection>
 

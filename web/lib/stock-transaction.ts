@@ -12,10 +12,10 @@ function retryableTransactionError(error: unknown): boolean {
   return false;
 }
 
-export async function stockTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+export async function stockTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>, options: { timeout?: number; maxWait?: number } = {}): Promise<T> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      return await db.$transaction(work, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      return await db.$transaction(work, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, ...options });
     } catch (error) {
       if (attempt === 2 || !retryableTransactionError(error)) throw error;
     }

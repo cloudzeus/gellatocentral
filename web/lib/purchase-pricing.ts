@@ -57,3 +57,70 @@ export function priceCheck(invoicePerPackCents: number, lines: readonly PriceLin
  */
 export const shouldWritePrice = (check: PriceCheck): boolean =>
   check.expectedCents === undefined || (check.diffCents !== 0 && !check.agreement);
+
+// ---- Έλεγχος παραλαβής πριν από τη σύνδεση χρηματοοικονομικού τιμολογίου ----
+
+export type ActualReceiptPrice = {
+  unitPriceCents: number; // ανά kg/l/1000 τεμ., πριν από την έκπτωση
+  discountBps?: number;
+};
+
+export type AgreementReceiptPrice = {
+  priceCents: number; // ανά συσκευασία TradeItem
+  contentQty: number; // περιεχόμενο συσκευασίας στη βασική μονάδα
+};
+
+export type PreviousReceiptPrice = {
+  unitPriceCents: number; // ανά μονάδα παραστατικού της προηγούμενης αγοράς
+  packQty: number;
+  contentQty: number;
+  discountBps?: number;
+};
+
+export type ReceiptPriceReview = {
+  basis: "AGREEMENT" | "PREVIOUS_PURCHASE" | "NO_BASELINE";
+  kind: "AGREEMENT_MISMATCH" | "PRICE_INCREASE" | null;
+  expectedPriceCents: number | null;
+  actualPriceCents: number | null;
+};
+
+const roundedRatio = (numerator: bigint, denominator: bigint): number =>
+  Number((numerator + denominator / 2n) / denominator);
+
+/**
+ * Κανονικοποιεί συσκευασία και έκπτωση χωρίς στρογγυλοποίηση πριν από τη σύγκριση.
+ * Η αύξηση είναι discrepancy ΜΟΝΟ όταν newPrice * 100 > oldPrice * 105.
+ */
+export function reviewReceiptPrice(
+  actual: ActualReceiptPrice,
+  costScale: number,
+  agreement?: AgreementReceiptPrice,
+  previous?: PreviousReceiptPrice,
+): ReceiptPriceReview {
+  const actualFactor = 10_000 - (actual.discountBps ?? 0);
+  if (agreement) {
+    const actualNormalized = BigInt(actual.unitPriceCents) * BigInt(actualFactor) * BigInt(agreement.contentQty);
+    const expectedNormalized = BigInt(agreement.priceCents) * 10_000n * BigInt(costScale);
+    return {
+      basis: "AGREEMENT",
+      kind: actualNormalized === expectedNormalized ? null : "AGREEMENT_MISMATCH",
+      expectedPriceCents: agreement.priceCents,
+      actualPriceCents: roundedRatio(actualNormalized, 10_000n * BigInt(costScale)),
+    };
+  }
+  if (!previous) return { basis: "NO_BASELINE", kind: null, expectedPriceCents: null, actualPriceCents: null };
+
+  const previousFactor = 10_000 - (previous.discountBps ?? 0);
+  // Κοινή ακέραια κλίμακα: η τιμή παραλαβής και η προηγούμενη γίνονται συγκρίσιμες ανά kg/l/1000 τεμ.
+  const newPrice = BigInt(actual.unitPriceCents) * BigInt(actualFactor) * BigInt(previous.packQty) * BigInt(previous.contentQty);
+  const oldPrice = BigInt(previous.unitPriceCents) * BigInt(previousFactor) * BigInt(costScale);
+  return {
+    basis: "PREVIOUS_PURCHASE",
+    kind: newPrice * 100n > oldPrice * 105n ? "PRICE_INCREASE" : null,
+    expectedPriceCents: roundedRatio(
+      BigInt(previous.unitPriceCents) * BigInt(previousFactor) * BigInt(costScale),
+      10_000n * BigInt(previous.packQty) * BigInt(previous.contentQty),
+    ),
+    actualPriceCents: roundedRatio(BigInt(actual.unitPriceCents) * BigInt(actualFactor), 10_000n),
+  };
+}
