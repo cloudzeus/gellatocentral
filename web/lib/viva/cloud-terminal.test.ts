@@ -116,3 +116,13 @@ test("ασυνέπεια αποθηκευμένου ποσού πώλησης κ
   assert.deepEqual(result, { status: "rejected", reason: "amount" });
   assert.equal(providerCalls, 0);
 });
+
+test("κίνηση χρημάτων: timeout ή δίκτυο = άγνωστο αποτέλεσμα, άρνηση της Viva = βέβαιη αποτυχία", async () => {
+  const { sendTransaction, VivaUnknownOutcomeError } = await import("./cloud-terminal.ts");
+  const dropped = (async () => { throw new DOMException("timeout", "TimeoutError"); }) as unknown as typeof fetch;
+  await assert.rejects(sendTransaction("refund", "https://viva.test/refund", "token", "{}", dropped), VivaUnknownOutcomeError);
+  const refused = (async () => new Response("bad terminal", { status: 400 })) as unknown as typeof fetch;
+  await assert.rejects(sendTransaction("refund", "https://viva.test/refund", "token", "{}", refused), (e: Error) => !(e instanceof VivaUnknownOutcomeError) && /HTTP 400/.test(e.message));
+  const accepted = (async () => new Response("{}", { status: 200 })) as unknown as typeof fetch;
+  await sendTransaction("sale", "https://viva.test/sale", "token", "{}", accepted);
+});
