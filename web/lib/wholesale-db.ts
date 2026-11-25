@@ -2,7 +2,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { Prisma } from "./generated/prisma/client";
 import { docTypeInfo } from "./documents/types";
-import { advanceSeries, lockSeries } from "./documents/series";
+import { advanceSeries, lockSeries, SeriesError } from "./documents/series";
 import { sumDocumentTotals } from "./procurement";
 import { allocateFefo } from "./production";
 import { postStockMovement, STOCK_ERROR_MESSAGE, StockError } from "./stock-db";
@@ -271,12 +271,13 @@ function snapshot(customer: { id: string; name: string; vatNumber: string | null
   return { id: customer.id, name: customer.name, vatNumber: customer.vatNumber, countryCode: customer.countryCode, address: customer.address, city: customer.city, postalCode: customer.postalCode };
 }
 
-async function issueDocument(tx: Tx, ctx: StockContext, order: { id: string; orgId: string; customerId: string; storeId: string; warehouseId: string; netCents: number; vatCents: number; totalCents: number }, input: { docType: "1.1" | "5.1" | "9.3"; series: string; issuedAt: Date; dueAt?: Date | null; allocations: Allocation[]; relatedFiscalId?: string | null }) {
+async function issueDocument(tx: Tx, ctx: StockContext, order: { id: string; orgId: string; customerId: string; storeId: string; warehouseId: string; netCents: number; vatCents: number; totalCents: number }, input: { docType: "1.1" | "5.1" | "9.3"; seriesId: string; issuedAt: Date; dueAt?: Date | null; allocations: Allocation[]; relatedFiscalId?: string | null }) {
   docTypeInfo(input.docType);
   const customer = await tx.party.findFirst({ where: { id: order.customerId, orgId: ctx.orgId } });
   if (!customer?.vatNumber) throw new WorkflowError("Το παραστατικό απαιτεί πελάτη με ΑΦΜ");
-  const code = cleanText(input.series, "Σειρά", 30, true)!;
-  const locked = await lockSeries(tx, ctx.orgId, input.docType, code, order.storeId);
+  const locked = await lockSeries(tx, ctx.orgId, input.seriesId, input.docType).catch((error) => { throw error instanceof SeriesError ? new WorkflowError(error.message) : error; });
+  if (locked.storeId && locked.storeId !== order.storeId) throw new WorkflowError("Η σειρά ανήκει σε άλλο κατάστημα");
+  const code = locked.code;
   const receiptReference = randomUUID();
   const fiscal = await tx.fiscalDocument.create({ data: {
     orgId: ctx.orgId, partyId: customer.id, seriesId: locked.id, docType: input.docType, relatedId: input.relatedFiscalId ?? null,
@@ -294,7 +295,7 @@ async function issueDocument(tx: Tx, ctx: StockContext, order: { id: string; org
   return document;
 }
 
-export async function deliverWholesaleOrder(ctx: StockContext, input: { orderId: string; series: string; deliveredAt?: Date; recipientName?: string | null; proofNote?: string | null; stopId?: string | null }) {
+export async function deliverWholesaleOrder(ctx: StockContext, input: { orderId: string; seriesId: string; deliveredAt?: Date; recipientName?: string | null; proofNote?: string | null; stopId?: string | null }) {
   try {
     return await stockTransaction(async (tx) => {
       await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtextextended(${`wholesale-order:${ctx.orgId}:${input.orderId}`}, 0))) AS lock`;
@@ -308,7 +309,7 @@ export async function deliverWholesaleOrder(ctx: StockContext, input: { orderId:
       const deliveredAt = input.deliveredAt ?? new Date();
       validDate(deliveredAt, "ημερομηνία παράδοσης");
       const allocations = await allocateOrder(tx, order);
-      const document = await issueDocument(tx, ctx, order, { docType: "9.3", series: input.series, issuedAt: deliveredAt, allocations });
+      const document = await issueDocument(tx, ctx, order, { docType: "9.3", seriesId: input.seriesId, issuedAt: deliveredAt, allocations });
       for (const line of document.lines) await postStockMovement(tx, {
         orgId: ctx.orgId, storeId: order.storeId, warehouseId: order.warehouseId, documentId: document.id, lineId: line.id,
         genericItemId: line.genericItemId, lotId: line.lotId, quantity: -line.quantityBase,
@@ -326,7 +327,7 @@ export async function deliverWholesaleOrder(ctx: StockContext, input: { orderId:
   } catch (error) { translate(error); }
 }
 
-export async function invoiceWholesaleOrder(ctx: StockContext, input: { orderId: string; series: string; issuedAt?: Date; dueAt?: Date | null }) {
+export async function invoiceWholesaleOrder(ctx: StockContext, input: { orderId: string; seriesId: string; issuedAt?: Date; dueAt?: Date | null }) {
   return stockTransaction(async (tx) => {
     await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtextextended(${`wholesale-order:${ctx.orgId}:${input.orderId}`}, 0))) AS lock`;
     const order = await orderInScope(tx, ctx, input.orderId);
@@ -343,7 +344,7 @@ export async function invoiceWholesaleOrder(ctx: StockContext, input: { orderId:
       if (!line.lotId) throw new WorkflowError("Η παράδοση περιέχει γραμμή χωρίς παρτίδα");
       return { ...line, lotId: line.lotId };
     });
-    const document = await issueDocument(tx, ctx, order, { docType: "1.1", series: input.series, issuedAt, dueAt: input.dueAt, allocations });
+    const document = await issueDocument(tx, ctx, order, { docType: "1.1", seriesId: input.seriesId, issuedAt, dueAt: input.dueAt, allocations });
     await tx.wholesaleOrder.update({ where: { id: order.id }, data: { status: "INVOICED" } });
     await auditWorkflow(tx, { orgId: ctx.orgId, actor: actor(ctx), action: "invoice.issue", entityType: "sales_document", entityId: document.id, storeId: order.storeId, warehouseId: order.warehouseId, metadata: { orderId: order.id, deliveryId: delivery.id } });
     return document;
@@ -359,7 +360,7 @@ async function reverseDocumentStock(tx: Tx, ctx: StockContext, document: { id: s
   }
 }
 
-export async function creditSalesDocument(ctx: StockContext, input: { documentId: string; series: string; reason: string }) {
+export async function creditSalesDocument(ctx: StockContext, input: { documentId: string; seriesId: string; reason: string }) {
   try {
     return await stockTransaction(async (tx) => {
       const reason = cleanText(input.reason, "Αιτιολογία πίστωσης", 300, true)!;
@@ -368,7 +369,7 @@ export async function creditSalesDocument(ctx: StockContext, input: { documentId
       await assertStockScope(tx, ctx, { storeId: original.storeId, warehouseId: original.warehouseId, forWrite: true });
       if (original.allocations.length) throw new WorkflowError("Υπάρχουν αντιστοιχίσεις εισπράξεων· απαιτείται πρώτα λογιστική αναίρεσή τους");
       const order = await tx.wholesaleOrder.findFirstOrThrow({ where: { id: original.orderId, orgId: ctx.orgId } });
-      const credit = await issueDocument(tx, ctx, order, { docType: "5.1", series: input.series, issuedAt: new Date(), allocations: original.lines.map((line) => ({ ...line, lotId: line.lotId! })), relatedFiscalId: original.fiscalDocumentId });
+      const credit = await issueDocument(tx, ctx, order, { docType: "5.1", seriesId: input.seriesId, issuedAt: new Date(), allocations: original.lines.map((line) => ({ ...line, lotId: line.lotId! })), relatedFiscalId: original.fiscalDocumentId });
       await reverseDocumentStock(tx, ctx, credit, "wholesale_credit", reason, credit.issuedAt);
       await tx.salesDocument.update({ where: { id: original.id }, data: { status: "CANCELLED", cancelledAt: new Date(), cancellationReason: reason } });
       await tx.wholesaleOrder.update({ where: { id: order.id }, data: { status: "DELIVERED" } });

@@ -25,12 +25,16 @@ export const DOC_TYPES: Record<string, DocTypeInfo> = {
   "11.3": { code: "11.3", title: "Απλοποιημένο Τιμολόγιο", sign: 1, retail: true, needsParty: true, needsRelated: false, receiptCase: null },
   // Δείγμα «11.4 / INVOICE_RETURN_RELATED»: 5139205309239132161 = GR + 0x5000001, αρνητικά ποσά + cbPreviousReceiptReference.
   "11.4": { code: "11.4", title: "Πιστωτικό Στοιχείο Λιανικής", sign: -1, retail: true, needsParty: false, needsRelated: true, receiptCase: GR + 0x5000001n },
-  "1.1": { code: "1.1", title: "Τιμολόγιο Πώλησης", sign: 1, retail: false, needsParty: true, needsRelated: false, receiptCase: null },
+  // Τιμολόγια: 0x0008_1002 (Invoice + δική μας αρίθμηση)· ο τύπος myDATA δηλώνεται στο mydataoverride.
+  // Το 2.1 επαληθεύτηκε στο demo της Viva στις 2026-11-25.
+  "1.1": { code: "1.1", title: "Τιμολόγιο Πώλησης", sign: 1, retail: false, needsParty: true, needsRelated: false, receiptCase: GR + 0x0008_1002n },
   "1.2": { code: "1.2", title: "Τιμολόγιο Πώλησης / Ενδοκοινοτικές Παραδόσεις", sign: 1, retail: false, needsParty: true, needsRelated: false, receiptCase: null },
-  "2.1": { code: "2.1", title: "Τιμολόγιο Παροχής Υπηρεσιών", sign: 1, retail: false, needsParty: true, needsRelated: false, receiptCase: null },
-  "5.1": { code: "5.1", title: "Πιστωτικό Τιμολόγιο / Συσχετιζόμενο", sign: -1, retail: false, needsParty: true, needsRelated: true, receiptCase: null },
+  "2.1": { code: "2.1", title: "Τιμολόγιο Παροχής Υπηρεσιών", sign: 1, retail: false, needsParty: true, needsRelated: false, receiptCase: GR + 0x0008_1002n },
+  // 5.1 «with MARK»: + επιστροφή (0x0100)· η συσχέτιση γίνεται με το MARK του αρχικού (correlatedInvoices)
+  "5.1": { code: "5.1", title: "Πιστωτικό Τιμολόγιο / Συσχετιζόμενο", sign: -1, retail: false, needsParty: true, needsRelated: true, receiptCase: GR + 0x0108_1002n },
   "5.2": { code: "5.2", title: "Πιστωτικό Τιμολόγιο / Μη Συσχετιζόμενο", sign: -1, retail: false, needsParty: true, needsRelated: false, receiptCase: null },
-  "9.3": { code: "9.3", title: "Δελτίο Αποστολής", sign: 1, retail: false, needsParty: true, needsRelated: false, receiptCase: null },
+  // 9.3 αυτόνομο: τύπος 0x0005 + στοιχεία μεταφοράς (0x0400) + δική μας αρίθμηση· γραμμές μηδενικής αξίας
+  "9.3": { code: "9.3", title: "Δελτίο Αποστολής", sign: 1, retail: false, needsParty: true, needsRelated: false, receiptCase: GR + 0x0408_0005n },
 };
 
 /** Τα μεταξύ τύπου και κανόνων· άγνωστος τύπος = σφάλμα, ποτέ σιωπηρή αποδοχή. */

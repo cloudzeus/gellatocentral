@@ -22,7 +22,7 @@ const nonNegative = (value: number, label: string) => {
 export function calculateForecast(input: ForecastInput, historyDays = 28, forecastDays = 7): ForecastResult {
   if (!Number.isSafeInteger(historyDays) || historyDays < 1 || !Number.isSafeInteger(forecastDays) || forecastDays < 1) throw new Error("Άκυρη περίοδος πρόβλεψης");
   const historicalBase = nonNegative(input.historicalBase, "Ιστορική ζήτηση");
-  const confirmedWholesaleBase = nonNegative(input.confirmedWholesaleBase, "Confirmed χονδρική");
+  const confirmedWholesaleBase = nonNegative(input.confirmedWholesaleBase, "Επιβεβαιωμένη χονδρική");
   const availableBase = nonNegative(input.availableBase, "Διαθέσιμο απόθεμα");
   const plannedProductionBase = nonNegative(input.plannedProductionBase, "Προγραμματισμένη παραγωγή");
   const historicalForecastBase = Math.round(historicalBase * forecastDays / historyDays);
@@ -31,6 +31,6 @@ export function calculateForecast(input: ForecastInput, historyDays = 28, foreca
   const suggestedBase = Math.max(0, grossDemandBase - availableBase - plannedProductionBase);
   return {
     ...input, historicalForecastBase, grossDemandBase, suggestedBase,
-    explanation: `Ιστορικό ${historyDays} ημερών: ${historicalBase} → ${forecastDays} ημέρες: ${historicalForecastBase}. Confirmed χονδρική: ${confirmedWholesaleBase}. Διαθέσιμο: ${availableBase}. Προγραμματισμένη παραγωγή: ${plannedProductionBase}. Πρόταση = max(0, ${grossDemandBase} − ${availableBase} − ${plannedProductionBase}) = ${suggestedBase}.`,
+    explanation: `Ιστορικό ${historyDays} ημερών: ${historicalBase} → ${forecastDays} ημέρες: ${historicalForecastBase}. Επιβεβαιωμένη χονδρική: ${confirmedWholesaleBase}. Διαθέσιμο: ${availableBase}. Προγραμματισμένη παραγωγή: ${plannedProductionBase}. Πρόταση = max(0, ${grossDemandBase} − ${availableBase} − ${plannedProductionBase}) = ${suggestedBase}.`,
   };
 }

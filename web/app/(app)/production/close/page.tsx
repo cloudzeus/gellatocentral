@@ -35,7 +35,7 @@ export default async function ProductionDayClosePage({ searchParams }: PageProps
   const warehouseNames = new Map(warehouses.map((warehouse) => [warehouse.id, warehouse.name]));
   const clientKey = randomUUID();
 
-  return <Page section="Παραγωγή" title="Κλείσιμο ημέρας" description="Μία ατομική ενέργεια για όλα τα ανοιχτά plans, με αυτόματα ημιέτοιμα και FEFO χωρίς διπλή κατανάλωση" actions={<Link href="/production" className={btn("outline", "sm")}><ArrowLeft /> Παρτίδες</Link>}>
+  return <Page section="Παραγωγή" title="Κλείσιμο ημέρας" description="Γράψε τι βγήκε πραγματικά από κάθε παραγωγή της ημέρας· τα υλικά αφαιρούνται από τις παρτίδες που λήγουν πρώτες" actions={<Link href="/production" className={btn("outline", "sm")}><ArrowLeft /> Παρτίδες</Link>}>
     <div className="grid max-w-6xl gap-4">
       {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{q.error}</p> : null}
       <Card className="p-4"><form className="grid items-end gap-3 md:grid-cols-4">
@@ -46,7 +46,7 @@ export default async function ProductionDayClosePage({ searchParams }: PageProps
       </form></Card>
 
       {ctx.can("production.add") && plans.length ? <Card className="p-4">
-        <div className="mb-4"><h2 className="font-semibold">Πραγματική απόδοση · {dateFmt.format(range.date)}</h2><p className="text-sm text-muted-foreground">Τα ημιέτοιμα που λείπουν θα παραχθούν αυτόματα στην αποθήκη υλικών. Αν αποτύχει οποιαδήποτε παρτίδα, δεν αποθηκεύεται καμία αλλαγή.</p></div>
+        <div className="mb-4"><h2 className="font-semibold">Πραγματική απόδοση · {dateFmt.format(range.date)}</h2><p className="text-muted-foreground">Τα ημιέτοιμα που λείπουν θα παραχθούν αυτόματα στην αποθήκη υλικών. Αν αποτύχει έστω μία παρτίδα, δεν αποθηκεύεται τίποτα και μπορείς να ξαναδοκιμάσεις.</p></div>
         <form action={closeDay} className="grid gap-4">
           <input type="hidden" name="businessDate" value={businessDate} /><input type="hidden" name="sourceWarehouseId" value={sourceWarehouseId} /><input type="hidden" name="destinationWarehouseId" value={destinationWarehouseId} /><input type="hidden" name="clientKey" value={clientKey} />
           {plans.map((plan) => <fieldset key={plan.id} className="grid items-end gap-3 rounded-lg border border-border p-3 md:grid-cols-5">
@@ -57,9 +57,9 @@ export default async function ProductionDayClosePage({ searchParams }: PageProps
             <Field label="Λεπτά εργασίας" name={`minutes:${plan.id}`} type="number" min={0} step={1} defaultValue={0} />
             <Field label="Εργατικά €" name={`labour:${plan.id}`} inputMode="decimal" defaultValue="0" />
           </fieldset>)}
-          <div><Submit className={btn("success")}><CheckCheck /> Κλείσιμο {plans.length} {plans.length === 1 ? "παραγωγής" : "παραγωγών"}</Submit></div>
+          <div><Submit className={btn("default")}><CheckCheck /> Κλείσιμο {plans.length} {plans.length === 1 ? "παραγωγής" : "παραγωγών"}</Submit></div>
         </form>
-      </Card> : <Card className="p-5 text-sm text-muted-foreground">Δεν υπάρχουν ανοιχτές παραγωγές για την επιλεγμένη ημέρα και το ζεύγος αποθηκών.</Card>}
+      </Card> : <Card className="flex items-center gap-3 p-5"><CheckCheck className="size-5 text-success-ink" aria-hidden /><p>Καμία ανοιχτή παραγωγή για αυτή την ημέρα. <Link href="/production/plans" className="font-medium text-primary underline-offset-2 hover:underline">Δες τον προγραμματισμό</Link></p></Card>}
 
       <Card className="p-4"><h2 className="mb-3 font-semibold">Πρόσφατα κλεισίματα</h2>{closes.length ? <ul className="divide-y divide-border">{closes.map((close) => {
         const snapshot = close.snapshot as { results?: { batchId: string; batchNumber: string; automatic: boolean }[] };

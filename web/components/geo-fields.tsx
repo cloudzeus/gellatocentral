@@ -114,7 +114,7 @@ function Combo<T extends { id: string; name: string }>({ label, name, text, onTe
             return (
               <Fragment key={item.id}>
                 {newGroup ? (
-                  <li aria-hidden className="px-2.5 pt-1.5 pb-0.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <li aria-hidden className="px-2.5 pt-1.5 pb-0.5 text-2xs font-semibold text-muted-foreground">
                     {groupHeader ? groupHeader(item) : g}
                   </li>
                 ) : null}

@@ -66,7 +66,7 @@ export async function deliverWholesale(form: FormData) {
   const id = String(form.get("orderId") ?? "");
   try {
     const document = await deliverWholesaleOrder(ctx, {
-      orderId: id, series: String(form.get("series") ?? ""), deliveredAt: date(form.get("deliveredAt")) ?? undefined,
+      orderId: id, seriesId: String(form.get("seriesId") ?? ""), deliveredAt: date(form.get("deliveredAt")) ?? undefined,
       stopId: String(form.get("stopId") ?? "") || null, recipientName: String(form.get("recipientName") ?? ""),
       proofNote: String(form.get("proofNote") ?? ""),
     });
@@ -84,7 +84,7 @@ export async function invoiceWholesale(form: FormData) {
   const ctx = await requireStockContext("invoices.add");
   const id = String(form.get("orderId") ?? "");
   try {
-    const document = await invoiceWholesaleOrder(ctx, { orderId: id, series: String(form.get("series") ?? ""), issuedAt: date(form.get("issuedAt")) ?? undefined, dueAt: date(form.get("dueAt")) });
+    const document = await invoiceWholesaleOrder(ctx, { orderId: id, seriesId: String(form.get("seriesId") ?? ""), issuedAt: date(form.get("issuedAt")) ?? undefined, dueAt: date(form.get("dueAt")) });
     back(`/invoices/${document.id}`, "?saved=Το τιμολόγιο εκδόθηκε χωρίς δεύτερη κίνηση αποθέματος");
   } catch (error) { fail(`/wholesale-orders/${id}`, error); }
 }
@@ -93,7 +93,7 @@ export async function creditInvoice(form: FormData) {
   const ctx = await requireStockContext("invoices.cancel");
   const id = String(form.get("documentId") ?? "");
   try {
-    const credit = await creditSalesDocument(ctx, { documentId: id, series: String(form.get("series") ?? ""), reason: String(form.get("reason") ?? "") });
+    const credit = await creditSalesDocument(ctx, { documentId: id, seriesId: String(form.get("seriesId") ?? ""), reason: String(form.get("reason") ?? "") });
     back(`/invoices/${credit.id}`, "?saved=Το πιστωτικό εκδόθηκε με επιστροφή στις αρχικές παρτίδες");
   } catch (error) { fail(`/invoices/${id}`, error); }
 }

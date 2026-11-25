@@ -21,7 +21,7 @@ test("τα πιστωτικά (5.x, 11.4) έχουν αρνητικό πρόση
 test("η ΑΛΠ (11.1) εκδίδεται· η ανάπτυξη νέων τύπων δηλώνεται με receiptCase null μέχρι το δείγμα της Viva", () => {
   assert.equal(typeof DOC_TYPES["11.1"].receiptCase, "bigint");
   assert.equal(DOC_TYPES["11.1"].retail, true);
-  assert.equal(DOC_TYPES["1.1"].receiptCase, null);
+  assert.equal(DOC_TYPES["5.2"].receiptCase, null);
 });
 
 test("docTypeInfo: άγνωστος τύπος απορρίπτεται", () => {

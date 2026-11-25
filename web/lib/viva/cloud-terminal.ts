@@ -37,7 +37,7 @@ export async function sendTransaction(what: "sale" | "refund", url: string, toke
 }
 
 /** Κλειδιά και διευθύνσεις για το περιβάλλον που έχει οριστεί στις Ρυθμίσεις. */
-async function isv() {
+export async function isv() {
   // Οι ρυθμίσεις/η βάση φορτώνονται μόνο σε πραγματική κλήση· η επαλήθευση δέχεται mocked session loader.
   const { settings } = await import("../config.ts");
   const c = await settings("VIVA_ENV", "VIVA_ISV_CLIENT_ID", "VIVA_ISV_CLIENT_SECRET");
@@ -60,7 +60,7 @@ export async function searchDevices(input: VivaDeviceSearch): Promise<VivaTermin
 // το token ισχύει για συγκεκριμένα κλειδιά: αν αλλάξουν από τις Ρυθμίσεις, ζητείται νέο
 let token: { value: string; expiresAt: number; for: string } | undefined;
 
-async function bearer(): Promise<string> {
+export async function isvBearer(): Promise<string> {
   const c = await isv();
   if (token && token.for === `${c.accounts}|${c.id}|${c.secret}` && token.expiresAt > Date.now() + 30_000) return token.value;
   const basic = Buffer.from(`${c.id}:${c.secret}`).toString("base64");
@@ -86,7 +86,7 @@ export async function startSale(input: {
   fiscalisationData: unknown;
 }) {
   const api = (await isv()).api;
-  await sendTransaction("sale", `${api}/ecr/isv/v1/transactions:sale`, await bearer(), toVivaJson({
+  await sendTransaction("sale", `${api}/ecr/isv/v1/transactions:sale`, await isvBearer(), toVivaJson({
       sessionId: input.sessionId,
       terminalId: input.terminalId,
       cashRegisterId: input.cashRegisterId,
@@ -104,7 +104,7 @@ export async function startSale(input: {
 /** null = το τερματικό δεν έχει τελειώσει ακόμα (HTTP 202). */
 export async function getSession(sessionId: string): Promise<Record<string, unknown> | null> {
   const res = await fetch(`${(await isv()).api}/ecr/isv/v1/sessions/${encodeURIComponent(sessionId)}`, {
-    headers: { Authorization: `Bearer ${await bearer()}` },
+    headers: { Authorization: `Bearer ${await isvBearer()}` },
     cache: "no-store", signal: AbortSignal.timeout(VIVA_TIMEOUT_MS),
   });
   if (res.status === 202) return null;
@@ -186,7 +186,7 @@ export async function startRefund(input: {
   fiscalisationData: unknown;
 }) {
   const api = (await isv()).api;
-  await sendTransaction("refund", `${api}/ecr/isv/v1/transactions:refund`, await bearer(), toVivaJson({
+  await sendTransaction("refund", `${api}/ecr/isv/v1/transactions:refund`, await isvBearer(), toVivaJson({
       sessionId: input.sessionId,
       terminalId: input.terminalId,
       cashRegisterId: input.cashRegisterId,
@@ -203,6 +203,6 @@ export async function startRefund(input: {
 export async function testIsvCredentials(): Promise<string | null> {
   if (!(await vivaConfigured())) return "Δεν έχουν οριστεί τα κλειδιά ISV στις Ρυθμίσεις";
   token = undefined;
-  return bearer().then(() => null, (e: Error) => e.message);
+  return isvBearer().then(() => null, (e: Error) => e.message);
 }
 export const vivaEnv = async () => ((await isv()).demo ? "demo" : "production");
