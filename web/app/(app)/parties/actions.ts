@@ -11,7 +11,7 @@ import { GdprError, recordConsent, requestErasure } from "@/lib/gdpr";
 import { geocode } from "@/lib/geocode";
 import { ensureGeoArea, validGeoIds } from "@/lib/geo";
 import { cleanChannel, formDate, isActivityKind, isChannelKind, type ChannelKind } from "@/lib/crm";
-import { cleanCoords, cleanEuroCents, cleanIban, cleanNonNegativeInt, cleanRoles, cleanWeekdays, isAddressKind } from "@/lib/parties";
+import { cleanCoords, cleanEuroCents, cleanIban, cleanNonNegativeInt, cleanRoles, cleanViberSubscriberId, cleanWeekdays, isAddressKind, VIBER_SUBSCRIBER_ID_MAX } from "@/lib/parties";
 import { activePaymentMethod } from "@/lib/payment-methods";
 import { partyScope, type PartyScope } from "@/lib/party-scope";
 
@@ -19,6 +19,8 @@ const text = (max: number) => z.string().trim().max(max).transform((v) => v || n
 const email = text(160).refine((v) => !v || z.string().email().safeParse(v).success, "Το email δεν είναι έγκυρο");
 const euroCents = z.string().trim().refine((v) => v === "" || cleanEuroCents(v) !== null, "Το ποσό πρέπει να είναι μη αρνητικό, με το πολύ δύο δεκαδικά και εντός των ορίων του συστήματος").transform((v) => cleanEuroCents(v));
 const leadTimeDays = z.string().trim().refine((v) => v === "" || cleanNonNegativeInt(v) !== null, "Οι ημέρες προετοιμασίας πρέπει να είναι μη αρνητικός ακέραιος εντός των ορίων του συστήματος").transform((v) => cleanNonNegativeInt(v));
+const viberError = "Το Viber subscriber ID θέλει 4 έως 256 ορατούς ASCII χαρακτήρες χωρίς κενά· δεν δέχεται τηλέφωνο";
+const viberSubscriberId = z.string().trim().max(VIBER_SUBSCRIBER_ID_MAX, viberError).transform((v) => v || null).refine((v) => v === null || cleanViberSubscriberId(v) !== null, viberError);
 const schema = z.object({
   name: z.string().trim().min(2, "Γράψε την επωνυμία ή το ονοματεπώνυμο").max(160),
   tradeName: text(160),
@@ -29,6 +31,8 @@ const schema = z.object({
   contactName: text(120),
   email,
   phone: text(40),
+  // Προαιρετικό στο UI· αν λείπει εντελώς από παλιό edit request, το υπάρχον κανάλι δεν διαγράφεται.
+  viberSubscriberId: viberSubscriberId.optional(),
   website: text(160),
   address: text(200),
   city: text(80),
@@ -69,6 +73,18 @@ function coords(form: FormData, back: string) {
   return cleanCoords(lat, lng) ?? fail(back, "Οι συντεταγμένες θέλουν και πλάτος και μήκος, π.χ. 37,9838 και 23,7275");
 }
 
+/** Το Viber είναι ξεχωριστό κανάλι: δεν μπαίνει στο primary phone/email και κάθε write ξαναελέγχει τον tenant μέσω Party. */
+async function syncViberSubscriber(partyId: string, orgId: string | null, value: string | null) {
+  const where = { partyId, kind: "viber", party: { orgId } };
+  if (value === null) {
+    await db.partyChannel.deleteMany({ where });
+    return;
+  }
+  // Αν υπάρχουν παλιές διπλές εγγραφές, συγκλίνουν όλες στο ίδιο validated receiver αντί να μείνει stale τιμή.
+  const updated = await db.partyChannel.updateMany({ where, data: { value } });
+  if (!updated.count) await db.partyChannel.create({ data: { partyId, kind: "viber", value } });
+}
+
 /** Νέος συναλλασσόμενος (id = null) ή αλλαγή στοιχείων. Έχει τουλάχιστον έναν ρόλο και μπορεί να έχει πολλούς. */
 export async function saveParty(id: string | null, form: FormData) {
   const s = await editor(id ? "edit" : "add");
@@ -79,7 +95,7 @@ export async function saveParty(id: string | null, form: FormData) {
   if (orderDays === null || deliveryDays === null) return fail(back, "Οι ημέρες παραγγελίας και παράδοσης πρέπει να είναι έγκυρες ημέρες εβδομάδας");
   // ο τρόπος πληρωμής πρέπει να υπάρχει και να είναι ενεργός στην κοινή λίστα· αλλιώς μένει κενό
   if (d.data.paymentMethodId && !(await activePaymentMethod(d.data.paymentMethodId))) d.data.paymentMethodId = null;
-  const { areaName, ...fields } = d.data; // το areaName δεν είναι στήλη: γίνεται περιοχή στην κοινή λίστα
+  const { areaName, viberSubscriberId, ...fields } = d.data; // τα areaName/viberSubscriberId αποθηκεύονται εκτός Party
   // Οι κωδικοί γεωγραφίας της φόρμας επιβεβαιώνονται στη βάση· χωρίς κωδικούς γίνεται ταίριασμα
   // από το κείμενο. Μόνο για Ελλάδα: αλλού ο Καλλικράτης δεν εφαρμόζεται.
   const geo = fields.countryCode === "GR" ? await validGeoIds({ regionCode: fields.regionCode, cityId: fields.cityId, areaId: fields.areaId, cityText: fields.city, regionText: fields.region }) : { regionCode: null, cityId: null, areaId: null };
@@ -96,11 +112,13 @@ export async function saveParty(id: string | null, form: FormData) {
     const before = await owned(s, id);
     await db.party.update({ where: { id: before.id }, data: before.vatNumber !== vat && !("vatCheckedAt" in checked) ? { ...data, vatCheckedAt: null } : data });
     await adoptPrimary(before.id, d.data);
+    if (form.has("viberSubscriberId")) await syncViberSubscriber(before.id, s.orgId, viberSubscriberId ?? null);
     revalidatePath(back);
     redirect(`${back}?tab=details&saved=1`);
   }
   const created = await db.party.create({ data: { ...data, orgId: s.orgId } });
   await adoptPrimary(created.id, d.data);
+  if (viberSubscriberId) await syncViberSubscriber(created.id, s.orgId, viberSubscriberId);
   redirect(`${s.base}/${created.id}?saved=1`);
 }
 

@@ -1,19 +1,30 @@
 // Staged legacy import: όλες οι business εγγραφές και το reconciliation μαζί, ατομικά και tenant-scoped.
-import type { Prisma } from "./generated/prisma/client";
+import { Prisma } from "./generated/prisma/client";
+import type { MigrationCutoverStatus } from "./generated/prisma/enums";
 import { db } from "./db";
 import {
-  expectedMigrationReconciliation, migrationPayloadHash, parseMigrationBundle, reconciliationDifferences, rollbackCreatedIds,
+  expectedMigrationReconciliation, migrationBundleHash, migrationPayloadHash, parseMigrationBundle, reconciliationDifferences, rollbackCreatedIds,
   type MigrationBundle, type MigrationEntity, type MigrationReconciliation, type MigrationUnit,
 } from "./legacy-migration";
+import { assertTenantWriteAllowed } from "./migration-cutover";
 import { stockCostCents } from "./reports";
 import { assertGlobalStockScope, assertStockScope, type StockContext } from "./stock-scope";
 import { stockTransaction } from "./stock-transaction";
 import { auditWorkflow, cleanText, WorkflowError } from "./workflow-db";
 
 export type MigrationMode = "dry-run" | "import";
+export type MigrationRunKind = "BASELINE" | "DELTA";
+export type LegacyMigrationOptions = {
+  cutoverId: string;
+  kind: MigrationRunKind;
+  exportId: string;
+  previousCursor?: string | null;
+  sourceCursor: string;
+  exportedAt: string | Date;
+};
 export type MigrationResult = { entityType: MigrationEntity; externalId: string; localId: string | null; status: "CREATED" | "UPDATED" | "SKIPPED" };
 type Tx = Prisma.TransactionClient;
-type Summary = {
+export type Summary = {
   mode: MigrationMode;
   results: MigrationResult[];
   expected: MigrationReconciliation;
@@ -24,6 +35,30 @@ type Summary = {
 const json = <T,>(value: T) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 const actor = (ctx: StockContext) => ({ id: ctx.userId, name: ctx.userName });
 const entityOrder: MigrationEntity[] = ["party", "item", "stock_lot", "sales_document"];
+
+type PreparedMigrationOptions = Omit<LegacyMigrationOptions, "exportedAt" | "previousCursor"> & { exportedAt: Date; previousCursor: string | null };
+function prepareMigrationOptions(options?: LegacyMigrationOptions): PreparedMigrationOptions | null {
+  if (!options) return null;
+  const exportedAt = new Date(options.exportedAt);
+  if (Number.isNaN(exportedAt.getTime())) throw new WorkflowError("Άκυρη ημερομηνία export");
+  if (!["BASELINE", "DELTA"].includes(options.kind)) throw new WorkflowError("Άκυρο είδος migration run");
+  return {
+    cutoverId: cleanText(options.cutoverId, "Cutover", 80, true)!,
+    kind: options.kind,
+    exportId: cleanText(options.exportId, "Export ID", 120, true)!,
+    previousCursor: cleanText(options.previousCursor, "Προηγούμενος cursor", 200),
+    sourceCursor: cleanText(options.sourceCursor, "Source cursor", 200, true)!,
+    exportedAt,
+  };
+}
+
+function assertMigrationRunState(cutover: { status: MigrationCutoverStatus; baselineRunId: string | null; cursor: string | null } | null, options: PreparedMigrationOptions) {
+  if (options.kind === "BASELINE") {
+    if (cutover?.status !== "PREPARING" || cutover.baselineRunId || options.previousCursor) throw new WorkflowError("Το baseline απαιτεί PREPARING cutover χωρίς προηγούμενο baseline/cursor");
+  } else if (!cutover || !["FROZEN", "DELTA_IMPORTED"].includes(cutover.status) || !cutover.baselineRunId || !options.previousCursor || options.previousCursor !== cutover.cursor) {
+    throw new WorkflowError("Stale cursor: το delta πρέπει να ξεκινά από τον τρέχοντα cursor του frozen cutover");
+  }
+}
 
 function recordsByEntity(bundle: MigrationBundle) {
   return [
@@ -45,10 +80,10 @@ async function validateReferences(tx: Tx, ctx: StockContext, bundle: MigrationBu
   assertGlobalStockScope(ctx);
   const storeIds = [...new Set(bundle.documents.map((row) => row.storeId))];
   const warehouseIds = [...new Set([...bundle.stockLots.map((row) => row.warehouseId), ...bundle.documents.map((row) => row.warehouseId)])];
-  await assertStockScope(tx, ctx, { warehouseIds, forWrite: true });
+  await assertStockScope(tx, ctx, { warehouseIds, forWrite: true, writePurpose: "MIGRATION" });
   for (const storeId of storeIds) {
     const document = bundle.documents.find((row) => row.storeId === storeId)!;
-    await assertStockScope(tx, ctx, { storeId, warehouseId: document.warehouseId, forWrite: true });
+    await assertStockScope(tx, ctx, { storeId, warehouseId: document.warehouseId, forWrite: true, writePurpose: "MIGRATION" });
   }
 }
 
@@ -208,9 +243,30 @@ async function importBusiness(tx: Tx, ctx: StockContext, runId: string, bundle: 
   return results;
 }
 
-export async function runLegacyMigration(ctx: StockContext, raw: unknown, mode: MigrationMode) {
+export async function runLegacyMigration(ctx: StockContext, raw: unknown, mode: MigrationMode, rawOptions?: LegacyMigrationOptions) {
   const initial = parseMigrationBundle(raw);
+  const options = prepareMigrationOptions(rawOptions);
+  const bundleHash = migrationBundleHash(initial);
   return stockTransaction(async (tx) => {
+    assertGlobalStockScope(ctx);
+    // Ακόμη και η standalone συμβατή ροή δεν μπορεί να παρακάμψει υπάρχον cutover.
+    await assertTenantWriteAllowed(tx, ctx.orgId, "MIGRATION");
+    const existingCutover = await tx.migrationCutover.findUnique({ where: { orgId: ctx.orgId } });
+    if (!options && existingCutover) throw new WorkflowError("Υπάρχει cutover· η εισαγωγή απαιτεί export ID, είδος run και cursors");
+    if (options && (!existingCutover || existingCutover.id !== options.cutoverId || existingCutover.source !== initial.source)) throw new WorkflowError("Το cutover ή η πηγή του export δεν συμφωνούν με τον tenant");
+
+    const previous = options ? await tx.migrationRun.findUnique({ where: { orgId_exportId: { orgId: ctx.orgId, exportId: options.exportId } } }) : null;
+    if (previous) {
+      if (previous.bundleHash !== bundleHash) throw new WorkflowError("Conflict: το ίδιο export ID έχει διαφορετικό bundle hash");
+      const sameIdentity = options && previous.cutoverId === options.cutoverId && previous.kind === options.kind && previous.sourceCursor === options.sourceCursor && previous.previousCursor === options.previousCursor && previous.exportedAt?.getTime() === options.exportedAt.getTime();
+      if (!sameIdentity) throw new WorkflowError("Conflict: το export ID επαναχρησιμοποιείται με διαφορετικά metadata");
+      if (previous.status === "IMPORTED" && mode === "import") return { run: previous, summary: previous.summary as unknown as Summary, replayed: true };
+      if (previous.status === "DRY_RUN" && mode === "dry-run") return { run: previous, summary: previous.summary as unknown as Summary, replayed: true };
+      if (!(previous.status === "DRY_RUN" && mode === "import")) throw new WorkflowError("Το ιστορικό export δεν μπορεί να επαναχρησιμοποιηθεί για αυτή τη λειτουργία");
+    }
+    // Η αναβάθμιση dry-run σε import ξαναελέγχει τον cursor· τα ακριβή replay παραμένουν idempotent.
+    if (options && (!previous || (previous.status === "DRY_RUN" && mode === "import"))) assertMigrationRunState(existingCutover, options);
+
     await validateReferences(tx, ctx, initial);
     const units = await migrationUnits(tx, initial);
     const bundle = parseMigrationBundle(initial, units);
@@ -222,6 +278,10 @@ export async function runLegacyMigration(ctx: StockContext, raw: unknown, mode: 
     const existing = new Map(existingRecords.map((record) => [`${record.entityType}:${record.externalId}`, record]));
     await assertNaturalKeysAvailable(tx, ctx, bundle, existing);
     const expected = expectedMigrationReconciliation(bundle, units);
+    const identity = options ? {
+      cutoverId: options.cutoverId, kind: options.kind, exportId: options.exportId, previousCursor: options.previousCursor,
+      sourceCursor: options.sourceCursor, exportedAt: options.exportedAt, bundleHash,
+    } : {};
     if (mode === "dry-run") {
       const results: MigrationResult[] = rows.map((row) => {
         const record = existing.get(`${row.entityType}:${row.externalId}`);
@@ -230,27 +290,70 @@ export async function runLegacyMigration(ctx: StockContext, raw: unknown, mode: 
       });
       const actual = await actualReconciliation(tx, ctx, bundle, units);
       const summary: Summary = { mode, results, expected, actual, differences: reconciliationDifferences(expected, actual), note: "Dry-run: δεν γράφτηκε κανένα επιχειρησιακό δεδομένο. Οι αποκλίσεις δείχνουν την τρέχουσα εικόνα πριν από την εισαγωγή." };
-      const run = await tx.migrationRun.create({ data: { orgId: ctx.orgId, source: cleanText(bundle.source, "Πηγή", 80, true)!, status: "DRY_RUN", summary: json(summary), createdByName: ctx.userName } });
-      return { run, summary };
+      const run = await tx.migrationRun.create({ data: { orgId: ctx.orgId, source: cleanText(bundle.source, "Πηγή", 80, true)!, status: "DRY_RUN", summary: json(summary), createdByName: ctx.userName, ...identity } });
+      return { run, summary, replayed: false };
     }
-    const run = await tx.migrationRun.create({ data: { orgId: ctx.orgId, source: cleanText(bundle.source, "Πηγή", 80, true)!, status: "DRY_RUN", summary: json({ mode, results: [], expected, actual: expected, differences: [], note: "Εισαγωγή σε εξέλιξη" }), createdByName: ctx.userName } });
+    const run = previous ?? await tx.migrationRun.create({ data: { orgId: ctx.orgId, source: cleanText(bundle.source, "Πηγή", 80, true)!, status: "DRY_RUN", summary: json({ mode, results: [], expected, actual: expected, differences: [], note: "Εισαγωγή σε εξέλιξη" }), createdByName: ctx.userName, ...identity } });
     const results = await importBusiness(tx, ctx, run.id, bundle);
     const actual = await actualReconciliation(tx, ctx, bundle, units);
     const differences = reconciliationDifferences(expected, actual);
     if (differences.length) throw new WorkflowError(`Reconciliation απέτυχε και έγινε rollback: ${differences.slice(0, 8).join(" · ")}`);
     const summary: Summary = { mode, results, expected, actual, differences, note: "Τα ποσά, τα ανεξόφλητα, οι ποσότητες και το κόστος συμφωνούν με το canonical export. Δεν δημιουργήθηκε νέα φορολογική αρίθμηση ή διαβίβαση myDATA." };
     await tx.migrationRun.update({ where: { id: run.id }, data: { status: "IMPORTED", summary: json(summary) } });
-    await auditWorkflow(tx, { orgId: ctx.orgId, actor: actor(ctx), action: "migration.import", entityType: "migration_run", entityId: run.id, metadata: json({ source: bundle.source, counts: expected.counts, results: results.reduce<Record<string, number>>((acc, row) => ({ ...acc, [row.status]: (acc[row.status] ?? 0) + 1 }), {}) }) });
-    return { run: { ...run, status: "IMPORTED" as const }, summary };
+    if (options) {
+      await tx.migrationCutover.update({ where: { id: options.cutoverId }, data: options.kind === "BASELINE"
+        ? { baselineRunId: run.id, cursor: options.sourceCursor }
+        : { status: "DELTA_IMPORTED", finalRunId: run.id, cursor: options.sourceCursor, smoke: Prisma.DbNull, readyAt: null } });
+    }
+    await auditWorkflow(tx, { orgId: ctx.orgId, actor: actor(ctx), action: "migration.import", entityType: "migration_run", entityId: run.id, metadata: json({ source: bundle.source, kind: options?.kind ?? "BASELINE", exportId: options?.exportId ?? null, cursor: options?.sourceCursor ?? null, counts: expected.counts, results: results.reduce<Record<string, number>>((acc, row) => ({ ...acc, [row.status]: (acc[row.status] ?? 0) + 1 }), {}) }) });
+    return { run: { ...run, status: "IMPORTED" as const }, summary, replayed: false };
   }, { timeout: 120_000, maxWait: 10_000 });
+}
+
+/** Το smoke ξαναδιαβάζει payloads και business rows· δεν αρκείται το stored summary του τελευταίου delta. */
+export async function recomputeCutoverSmoke(tx: Tx, ctx: StockContext, cutoverId: string) {
+  const cutover = await tx.migrationCutover.findFirst({ where: { id: cutoverId, orgId: ctx.orgId } });
+  if (!cutover?.baselineRunId || !cutover.finalRunId || !cutover.cursor) throw new WorkflowError("Λείπει baseline, τελικό delta ή cursor από το smoke check");
+  const runs = await tx.migrationRun.findMany({ where: { orgId: ctx.orgId, cutoverId, status: "IMPORTED" }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+  if (!runs.some((run) => run.id === cutover.baselineRunId && run.kind === "BASELINE") || !runs.some((run) => run.id === cutover.finalRunId && run.kind === "DELTA")) throw new WorkflowError("Τα συνδεδεμένα runs δεν συμφωνούν με το cutover");
+  const references = runs.flatMap((run) => {
+    const summary = run.summary as unknown as Partial<Summary>;
+    return Array.isArray(summary.results) ? summary.results : [];
+  });
+  const records = references.length ? await tx.migrationRecord.findMany({ where: { orgId: ctx.orgId, OR: entityOrder.flatMap((entityType) => {
+    const ids = references.filter((row) => row.entityType === entityType).map((row) => row.externalId);
+    return ids.length ? [{ entityType, externalId: { in: [...new Set(ids)] } }] : [];
+  }) } }) : [];
+  const byKey = new Map(records.map((record) => [`${record.entityType}:${record.externalId}`, record]));
+  for (const reference of references) {
+    const record = byKey.get(`${reference.entityType}:${reference.externalId}`);
+    if (!record?.localId || record.status === "ROLLED_BACK") throw new WorkflowError(`Λείπει staged εγγραφή ${reference.entityType}:${reference.externalId}`);
+  }
+  const payloads = (entityType: MigrationEntity) => records.filter((record) => record.entityType === entityType).map((record) => record.payload);
+  const initial = parseMigrationBundle({ version: 1, source: cutover.source, parties: payloads("party"), items: payloads("item"), stockLots: payloads("stock_lot"), documents: payloads("sales_document") });
+  const units = await migrationUnits(tx, initial);
+  const bundle = parseMigrationBundle(initial, units);
+  const expected = expectedMigrationReconciliation(bundle, units);
+  const actual = await actualReconciliation(tx, ctx, bundle, units);
+  return {
+    baselineRunId: cutover.baselineRunId,
+    finalRunId: cutover.finalRunId,
+    cursor: cutover.cursor,
+    runIds: runs.map((run) => run.id),
+    expected,
+    actual,
+    differences: reconciliationDifferences(expected, actual),
+  };
 }
 
 export async function rollbackLegacyMigration(ctx: StockContext, runId: string, reason: string) {
   const cleanReason = cleanText(reason, "Αιτιολογία rollback", 300, true)!;
   return stockTransaction(async (tx) => {
     assertGlobalStockScope(ctx);
+    await assertTenantWriteAllowed(tx, ctx.orgId, "BUSINESS");
     const run = await tx.migrationRun.findFirst({ where: { id: runId, orgId: ctx.orgId } });
     if (!run || run.status !== "IMPORTED") throw new WorkflowError("Ο run δεν βρέθηκε ή δεν είναι ενεργός για rollback");
+    if (run.cutoverId) throw new WorkflowError("Run που ανήκει σε cutover αναιρείται μόνο με μη καταστροφικό cutover rollback");
     const records = await tx.migrationRecord.findMany({ where: { orgId: ctx.orgId, runId: run.id } });
     const createdIds = new Set(rollbackCreatedIds(records, run.id));
     const created = records.filter((record) => record.localId && createdIds.has(record.localId));
@@ -259,7 +362,10 @@ export async function rollbackLegacyMigration(ctx: StockContext, runId: string, 
     const itemIds = created.filter((row) => row.entityType === "item").map((row) => row.localId!);
     const partyIds = created.filter((row) => row.entityType === "party").map((row) => row.localId!);
     const payments = documentIds.length ? await tx.customerPayment.findMany({ where: { orgId: ctx.orgId, allocations: { some: { documentId: { in: documentIds } } } }, include: { allocations: true } }) : [];
-    if (payments.some((payment) => payment.allocations.some((allocation) => !documentIds.includes(allocation.documentId)))) throw new WorkflowError("Ιστορική είσπραξη έχει συνδεθεί και με άλλο παραστατικό· το rollback ακυρώθηκε");
+    const legacyReference = new Map(created.filter((row) => row.entityType === "sales_document").map((row) => [row.localId!, `LEGACY-${row.externalId}`]));
+    if (payments.some((payment) => payment.allocations.length !== 1 || payment.allocations.some((allocation) => !documentIds.includes(allocation.documentId)))) throw new WorkflowError("Ιστορική είσπραξη έχει συνδεθεί και με άλλο παραστατικό· το rollback ακυρώθηκε");
+    // Μεταγενέστερες εισπράξεις δεν διαγράφονται, ακόμη κι αν δείχνουν μόνο στο legacy παραστατικό.
+    if (payments.some((payment) => payment.reference !== legacyReference.get(payment.allocations[0]?.documentId ?? "") || payment.note !== "Ιστορική είσπραξη χωρίς νέα κίνηση τραπεζικού λογαριασμού")) throw new WorkflowError("Βρέθηκε μεταγενέστερη ή τροποποιημένη πληρωμή· το rollback ακυρώθηκε");
     const extraMovements = lotIds.length ? await tx.stockMovement.count({ where: { orgId: ctx.orgId, lotId: { in: lotIds }, source: { not: "legacy_import" } } }) : 0;
     if (extraMovements) throw new WorkflowError("Οι παρτίδες έχουν μεταγενέστερες επιχειρησιακές κινήσεις· το rollback ακυρώθηκε");
     if (payments.length && (await tx.customerPayment.deleteMany({ where: { orgId: ctx.orgId, id: { in: payments.map((row) => row.id) } } })).count !== payments.length) throw new WorkflowError("Οι ιστορικές εισπράξεις άλλαξαν· το rollback ακυρώθηκε");

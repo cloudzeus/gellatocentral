@@ -3,7 +3,7 @@
 // το orgId και όλοι οι έλεγχοι εκτελούνται στην υπάρχουσα Server Action.
 import { CircleAlert, CircleCheck, LoaderCircle, Search } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { DB_INT_MAX, PARTY_ROLES, WEEKDAYS, type PartyRole } from "@/lib/parties";
+import { DB_INT_MAX, PARTY_ROLES, VIBER_SUBSCRIBER_ID_MAX, WEEKDAYS, type PartyRole } from "@/lib/parties";
 import { AddressField } from "./address-field";
 import { FormPending } from "./form-pending";
 import { FormSection } from "./form-section";
@@ -23,7 +23,7 @@ export type PartyValues = {
   website: string | null; address: string | null; city: string | null; postalCode: string | null; region: string | null;
   latitude: number | null; longitude: number | null; paymentTermsDays: number | null; creditLimitCents: number | null;
   leadTimeDays: number | null; orderDays: number[]; deliveryDays: number[]; minOrderValueCents: number | null;
-  paymentMethodId: string | null; notes: string | null;
+  paymentMethodId: string | null; notes: string | null; viberSubscriberId: string | null;
 };
 export type PartyRefs = { countries: [string, string][]; methods: [string, string][]; terms: [string, string][] };
 const euroInput = (cents: number | null | undefined) => cents == null ? "" : (cents / 100).toFixed(2).replace(".", ",");
@@ -145,6 +145,7 @@ export function PartyForm({ action, party, refs, geo, defaultRole }: { action: (
         <Field label="Υπεύθυνος επικοινωνίας" name="contactName" maxLength={120} defaultValue={v("contactName")} />
         <Field label="Τηλέφωνο" name="phone" type="tel" maxLength={40} defaultValue={v("phone")} />
         <Field label="Email" name="email" type="email" maxLength={160} defaultValue={v("email")} hint="Εδώ θα στέλνονται τα παραστατικά" />
+        <Field label="Viber subscriber ID" name="viberSubscriberId" minLength={4} maxLength={VIBER_SUBSCRIBER_ID_MAX} autoComplete="off" spellCheck={false} defaultValue={v("viberSubscriberId")} hint="Προαιρετικό· το ID συνδρομητή από το Viber Bot, όχι τηλέφωνο. Άδειο για αφαίρεση" />
         <Field label="Ιστοσελίδα" name="website" maxLength={160} defaultValue={v("website")} />
       </FormSection>
 

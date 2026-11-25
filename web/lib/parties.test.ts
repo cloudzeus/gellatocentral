@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cleanCoords, cleanEuroCents, cleanIban, cleanNonNegativeInt, cleanRoles, cleanWeekdays, DB_INT_MAX, distanceKm, maskIban, roleText, showIban, weekdayText } from "./parties.ts";
+import { cleanCoords, cleanEuroCents, cleanIban, cleanNonNegativeInt, cleanRoles, cleanViberSubscriberId, cleanWeekdays, DB_INT_MAX, distanceKm, maskIban, roleText, showIban, VIBER_SUBSCRIBER_ID_MAX, weekdayText } from "./parties.ts";
 
 test("ρόλοι: πολλοί μαζί, μόνο έγκυροι, σταθερή σειρά", () => {
   assert.deepEqual(cleanRoles(["supplier", "customer", "άκυρο", "customer"]), ["customer", "supplier"]);
@@ -63,4 +63,16 @@ test("ημέρες εβδομάδας: σταθερή σειρά, dedupe, κεν
   for (const values of [["0"], ["8"], ["-1"], ["1.5"], ["Δευτέρα"], ["1", "x"], [DB_INT_MAX + 1]]) assert.equal(cleanWeekdays(values), null);
   assert.equal(weekdayText(["7", "1", "7"]), "Δευτέρα, Κυριακή");
   assert.equal(weekdayText([]), null);
+});
+
+test("Viber subscriber ID: trim και αποδοχή μόνο του receiver contract", () => {
+  assert.equal(cleanViberSubscriberId("  viber_user-ABC.123  "), "viber_user-ABC.123");
+  assert.equal(cleanViberSubscriberId("abcd"), "abcd");
+  assert.equal(cleanViberSubscriberId("a".repeat(VIBER_SUBSCRIBER_ID_MAX)), "a".repeat(VIBER_SUBSCRIBER_ID_MAX));
+});
+
+test("Viber subscriber ID: απορρίπτει τηλέφωνο, κενά, μη ASCII και ακραία μήκη", () => {
+  for (const value of ["", "   ", "abc", "+306941234567", "2101234567", "subscriber id", "χρήστης", "line\nbreak", "a".repeat(VIBER_SUBSCRIBER_ID_MAX + 1), null, 12345678]) {
+    assert.equal(cleanViberSubscriberId(value), null, String(value));
+  }
 });

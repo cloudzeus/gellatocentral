@@ -3,8 +3,8 @@
 // Αρίθμηση: ξεχωριστή σειρά «Π<σειρά ταμείου>» (DocumentSeries), ώστε οι ΑΑ των πιστωτικών
 // να μη μπλέκονται με τους ΑΑ των αποδείξεων του ταμείου.
 import { randomUUID } from "node:crypto";
-import { db } from "../db.ts";
 import type { Prisma } from "../generated/prisma/client.ts";
+import { tenantWriteTransaction } from "../migration-cutover.ts";
 import { toVivaJson } from "../viva/fiscal.ts";
 import { buildDocument } from "./build.ts";
 import { getDocType } from "./registry.ts";
@@ -16,13 +16,13 @@ import { advanceSeries, lockSeries } from "./series.ts";
  * αλλιώς (δοκιμαστική) το πιστωτικό μένει NOT_SENT και η σειρά προχωρά αμέσως.
  */
 export async function issueCredit(input: { orgId: string; saleId: string; live: boolean }) {
-  return db.$transaction(async (tx) => {
+  return tenantWriteTransaction(input.orgId, async (tx) => {
     const sale = await tx.sale.findFirst({
       where: { id: input.saleId, orgId: input.orgId, status: "COMPLETED" },
       include: { lines: true, fiscal: true, device: true, payment: { include: { method: true } } },
     });
     if (!sale?.fiscal || sale.fiscal.status !== "SIGNED" || sale.fiscal.docType !== "11.1") return null;
-    if (await tx.fiscalDocument.findFirst({ where: { relatedId: sale.fiscal.id } })) return null; // ήδη πιστωμένη
+    if (await tx.fiscalDocument.findFirst({ where: { orgId: input.orgId, relatedId: sale.fiscal.id } })) return null; // ήδη πιστωμένη
 
     const type = await getDocType("11.4");
     const org = await tx.organization.findUniqueOrThrow({ where: { id: input.orgId } });
@@ -53,16 +53,18 @@ export async function issueCredit(input: { orgId: string; saleId: string; live: 
 }
 
 /** Η Viva ολοκλήρωσε την επιστροφή και υπέγραψε το πιστωτικό. Μόνο η πρώτη κλήση μετράει. */
-export async function completeCredit(documentId: string, raw: Prisma.InputJsonValue) {
-  await db.$transaction(async (tx) => {
-    const { count } = await tx.fiscalDocument.updateMany({ where: { id: documentId, status: "PENDING" }, data: { status: "SIGNED", response: raw } });
+export async function completeCredit(documentId: string, raw: Prisma.InputJsonValue, orgId: string) {
+  await tenantWriteTransaction(orgId, async (tx) => {
+    const { count } = await tx.fiscalDocument.updateMany({ where: { id: documentId, orgId, status: "PENDING" }, data: { status: "SIGNED", response: raw } });
     if (count === 0) return;
     const d = await tx.fiscalDocument.findUniqueOrThrow({ where: { id: documentId }, select: { seriesId: true } });
     if (d.seriesId) await advanceSeries(tx, d.seriesId);
-  });
+  }, { purpose: "SETTLEMENT" });
 }
 
 /** Η επιστροφή απέτυχε: το πιστωτικό μένει FAILED και ο ΑΑ ελεύθερος για την επόμενη προσπάθεια. */
-export async function failCredit(documentId: string, error: string, raw?: Prisma.InputJsonValue) {
-  await db.fiscalDocument.updateMany({ where: { id: documentId, status: "PENDING" }, data: { status: "FAILED", error, ...(raw ? { response: raw } : {}) } });
+export async function failCredit(documentId: string, error: string, raw: Prisma.InputJsonValue | undefined, orgId: string) {
+  await tenantWriteTransaction(orgId, async (tx) => {
+    await tx.fiscalDocument.updateMany({ where: { id: documentId, orgId, status: "PENDING" }, data: { status: "FAILED", error, ...(raw ? { response: raw } : {}) } });
+  }, { purpose: "SETTLEMENT" });
 }

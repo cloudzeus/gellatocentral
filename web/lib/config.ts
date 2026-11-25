@@ -36,6 +36,14 @@ export const GROUPS = {
       MAILGUN_REGION: { label: "Περιοχή", options: [["eu", "Ευρώπη"], ["us", "ΗΠΑ"]] },
     },
   },
+  viber: {
+    title: "Viber Bot: ειδοποιήσεις",
+    hint: "Επίσημο Bot API μόνο προς εγγεγραμμένους subscribers. Ο παραλήπτης χρειάζεται Viber subscriber ID· το τηλέφωνο δεν αρκεί και δεν αποστέλλεται PDF από ιδιωτικό storage.",
+    fields: {
+      VIBER_AUTH_TOKEN: { label: "Authentication token", secret: true },
+      VIBER_SENDER_NAME: { label: "Όνομα αποστολέα", placeholder: "Gelato System", check: [/^[^\r\n]{1,28}$/, "έως 28 χαρακτήρες χωρίς αλλαγή γραμμής"] },
+    },
+  },
   bunny: {
     title: "Bunny: αποθήκευση αρχείων",
     hint: "Φωτογραφίες, έγγραφα και αντίγραφα ασφαλείας. Κάθε πελάτης έχει δικό του φάκελο: orgs/<πελάτης>/…",

@@ -30,7 +30,7 @@ export async function issueCreditNote(saleId: string) {
         fiscalisationData: credit.doc.data,
       });
     } catch (e) {
-      await failCredit(credit.documentId, e instanceof Error ? e.message : String(e));
+      await failCredit(credit.documentId, e instanceof Error ? e.message : String(e), undefined, org.id);
       throw e;
     }
   }
@@ -45,7 +45,7 @@ export async function syncCreditNote(documentId: string, saleId: string) {
   const session = await getSession(doc.receiptReference);
   if (!session) return; // ακόμα στο τερματικό
   const raw = session as Prisma.InputJsonObject;
-  if (session.success === true) await completeCredit(doc.id, raw);
-  else await failCredit(doc.id, `Η επιστροφή δεν ολοκληρώθηκε (eventId ${String(session.eventId)})`, raw);
+  if (session.success === true) await completeCredit(doc.id, raw, org.id);
+  else await failCredit(doc.id, `Η επιστροφή δεν ολοκληρώθηκε (eventId ${String(session.eventId)})`, raw, org.id);
   revalidatePath(`/receipts/${saleId}`);
 }

@@ -489,3 +489,24 @@ Tenant isolation, RBAC, store/warehouse scope, module gating, audit, idempotency
 **Περιστατικό configured βάσης:** Σε αποτυχημένη αρχική απόπειρα ελέγχου, επειδή το `prisma.config.ts` προτιμά το `DIRECT_URL`, εφαρμόστηκαν στην configured βάση οι 8 migrations από `20261123213000_business_workflows` έως `20261124223000_wholesale_quotes`. Το seed απέτυχε πριν γράψει δεδομένα· δεν ακολούθησε rollback ή άλλη κλήση στη configured βάση. Όλοι οι επόμενοι έλεγχοι όρισαν ρητά και `DATABASE_URL` και `DIRECT_URL` στην προσωρινή isolated βάση.
 
 Το πακέτο δεν συνιστά δήλωση production readiness. Παραμένουν οι πραγματικές εξωτερικές συνδέσεις, η ελεγχόμενη εφαρμογή migrations στα πραγματικά περιβάλλοντα, το production cutover και η πλήρης δοκιμή Viva sale με έγκυρο demo terminal.
+
+
+## 20. Πακέτο ολοκλήρωσης integrations, payroll και cutover — 25/11/2026
+
+| Περιοχή | Πραγματική κάλυψη | Ρητό όριο |
+|---|---|---|
+| Persisted reconciliation | Tenant/store-scoped statement imports, rows, reviews και matches με deterministic `reviewId`, idempotent replay και audit. | Το review δεν δημιουργεί αυτόματα ledger εγγραφές και δεν συνδέεται live bank feed. |
+| Payroll execution | Persisted snapshots, `finance.export` + `staff.pay`, typed confirmation, exact amount, overlap/idempotency προστασία και `PROCESSING/SUCCEEDED/FAILED/UNCERTAIN`. Ledger και success audit δεσμεύονται μόνο μετά από validated provider success. | Default provider `DISABLED`. Το generic HTTPS contract δεν αποδεικνύει συγκεκριμένη τραπεζική ολοκλήρωση· δεν εκτελέστηκε πραγματική πληρωμή. |
+| Mailgun/Viber | Πραγματικοί adapters, tenant opt-out default, RBAC/scope, same-origin POST, ρητή confirmation, atomic claim/replay και ασφαλή terminal states. Viber subscriber ID σε tenant-scoped `PartyChannel`. | Δεν εκτελέστηκε live αποστολή. Employee Viber παραμένει disabled χωρίς employee subscriber ID. |
+| ΑΑΔΕ myDATA | Production-capable ERP provider για 1.1 και συσχετιζόμενα 5.1, canonical XML 2.0.2, preflight, conditional claim, bounded requests/pages και uncertain reconciliation με `RequestTransmittedDocs`. | Χωρίς πλήρη tenant credentials παραμένει disabled. Δεν έγινε live submission και δεν εκδόθηκε πραγματικό MARK. Το 9.3, το 5.1 χωρίς related MARK και το 0% ΦΠΑ χωρίς exemption απορρίπτονται. |
+| Viva ISV discovery | Read-only `POST /ecr/isv/v1/devices:search` με strict validation, bounded timeouts και redaction. | Η πραγματική demo discovery επέστρεψε **HTTP 401**. Δεν βρέθηκε terminal· sale/session παραμένουν **NOT RUN**. |
+| Cutover | Baseline/freeze/delta/ready/typed activation, export/hash replay, cursor validation, server-recomputed smoke, tenant isolation και non-destructive rollback. Διορθώθηκε το stale-cursor ζήτημα στο `DRY_RUN → import`. | Ο default legacy adapter είναι fail-closed/unsupported. Δεν υπάρχει production source adapter και δεν εκτελέστηκε πραγματικό cutover. |
+| Freeze scope | Tenant gate με org row lock σε serializable transactions για stock `forWrite`, POS/Android sales και credits· ξεχωριστός σκοπός για settlement εκκρεμών πληρωμών. | **Όχι καθολικό database enforcement.** Γνωστά direct-write bypass παραμένουν σε catalog, parties, company, devices, users και άλλα actions εκτός των καλυμμένων boundaries. |
+| Απογραφές | Το snapshot χρησιμοποιεί `CLOCK_TIMESTAMP()` αντί για transaction-start `CURRENT_TIMESTAMP`, ώστε να μην θεωρείται νεότερη μία ήδη committed κίνηση λόγω χρονικής ασάφειας. | Η διόρθωση ελέγχθηκε με πέντε συνεχείς πλήρεις εκτελέσεις του stock-count integration file και στον συνολικό integration κύκλο. |
+| Dependencies | Στοχευμένα overrides για `effect` και `uuid`. | `npm audit --omit=dev`: **0 vulnerabilities**· δεν εφαρμόστηκε breaking force fix. |
+
+**Τελική τεχνική επαλήθευση:** 562/562 unit tests, 63/63 σειριακές PostgreSQL integration/E2E δοκιμές, TypeScript strict check, Prisma validate, ESLint, production build και `git diff --check` πέρασαν. Και οι 79 migrations εφαρμόστηκαν στην isolated βάση. Στη remote βάση `gelato` εφαρμόστηκαν μόνο οι δύο νέες migrations· το τελικό status είναι up to date με 79 migrations και το read-only Prisma smoke πέρασε. Δεν εκτελέστηκαν seed ή integration tests στη remote.
+
+**Backup πριν από remote εφαρμογή:** verified custom-format dump `.tmp/backups/gelato-pre-deploy-2026-11-25T04-43-50-179Z.dump`, 2.621.267 bytes, mode 600 και 1.035 restore-catalog εγγραφές με PostgreSQL 16 `pg_restore --list`. Το αρχείο και τα προσωρινά logs παραμένουν εκτός Git.
+
+Το πακέτο **δεν συνιστά δήλωση πλήρους production readiness**. Απαιτούνται πραγματικός legacy adapter και source export, κάλυψη ή ρητός αποκλεισμός των υπόλοιπων direct-write boundaries πριν από production freeze, καθώς και χωριστή live επαλήθευση των ενεργοποιημένων Viva/ΑΑΔΕ/Mailgun/Viber/payroll providers.

@@ -1,4 +1,4 @@
-// Stateless τραπεζικός έλεγχος: το statement δεν αποθηκεύεται και καμία αντιστοίχιση δεν γράφει ledger κίνηση.
+// Καθαρός τραπεζικός έλεγχος: η αποθήκευση γίνεται στο DB layer και καμία αντιστοίχιση δεν γράφει ledger κίνηση.
 import { createHash } from "node:crypto";
 
 export type StatementReviewStatus = "MATCHED" | "UNMATCHED" | "AMBIGUOUS" | "CONFLICT";
@@ -45,7 +45,7 @@ export type StatementReviewRow = BankStatementRow & {
 };
 export type StatementReview = {
   reviewId: string;
-  persistence: "STATELESS";
+  persistence: "STATELESS" | "PERSISTED";
   movementsCreated: 0;
   accountId: string;
   from: string;
@@ -53,6 +53,14 @@ export type StatementReview = {
   rows: StatementReviewRow[];
   summary: Record<StatementReviewStatus, number> & { total: number; amountCents: number };
 };
+export type PersistedStatementReview = StatementReview & {
+  persistence: "PERSISTED";
+  importId: string;
+  storeId: string | null;
+  sourceName: string | null;
+  createdAt: Date;
+};
+export type StatementReviewListItem = Omit<PersistedStatementReview, "rows">;
 
 const DAY = 86_400_000;
 const HEADER_NAMES = {
@@ -272,6 +280,6 @@ export function reviewBankStatementRows(input: {
   const summary = { MATCHED: 0, UNMATCHED: 0, AMBIGUOUS: 0, CONFLICT: 0, total: rows.length, amountCents: 0 };
   for (const row of rows) { summary[row.status] += 1; summary.amountCents += row.amountCents; }
   if (!Number.isSafeInteger(summary.amountCents)) throw new Error("Το άθροισμα statement υπερβαίνει το επιτρεπτό όριο");
-  const reviewId = createHash("sha256").update(JSON.stringify({ version: 1, orgId: input.orgId, accountId: input.accountId, from: input.from, to: input.to, statement: input.statement.map((row) => ({ ...row, bookedAt: row.bookedAt.toISOString() })) })).digest("hex");
+  const reviewId = createHash("sha256").update(JSON.stringify({ version: 1, orgId: input.orgId, accountId: input.accountId, storeId: input.storeId ?? null, from: input.from, to: input.to, statement: input.statement.map((row) => ({ ...row, bookedAt: row.bookedAt.toISOString() })) })).digest("hex");
   return { reviewId, persistence: "STATELESS", movementsCreated: 0, accountId: input.accountId, from: input.from, to: input.to, rows, summary };
 }

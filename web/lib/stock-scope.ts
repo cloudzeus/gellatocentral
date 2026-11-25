@@ -1,5 +1,6 @@
 // Καθαρό tenant/store/warehouse scope, χωρίς Next runtime. Δέχεται db ή transaction client.
 import type { Prisma } from "./generated/prisma/client";
+import { assertTenantWriteAllowed, type TenantGateDb, type TenantWritePurpose } from "./migration-cutover.ts";
 import type { Permission } from "./permissions";
 
 export const STOCK_SCOPE_ERROR = [
@@ -46,9 +47,10 @@ export type StockScopeInput = {
   warehouseId?: string;
   warehouseIds?: readonly string[];
   forWrite?: boolean;
+  writePurpose?: TenantWritePurpose;
 };
 
-export type StockScopeDb = Pick<Prisma.TransactionClient, "store" | "warehouse" | "storeWarehouse" | "membershipStore" | "membershipWarehouse">;
+export type StockScopeDb = Pick<Prisma.TransactionClient, "store" | "warehouse" | "storeWarehouse" | "membershipStore" | "membershipWarehouse"> & TenantGateDb;
 
 /** Φίλτρο λίστας αποθηκών. Ρητό warehouse scope επιτρέπει και standalone εργαστήριο εκτός store links. */
 export function warehouseScopeWhere(ctx: Pick<StockContext, "orgId" | "storeIds" | "warehouseIds">): Prisma.WarehouseWhereInput {
@@ -107,6 +109,8 @@ async function assertWarehouse(tx: StockScopeDb, ctx: StockContext, warehouseId:
 /** Επανέλεγχος με φρέσκα δεδομένα· καλείται και με transaction client πριν από εγγραφή. */
 export async function assertStockScope(tx: StockScopeDb, ctx: StockContext, input: StockScopeInput = {}) {
   const forWrite = input.forWrite ?? false;
+  // Στις business συναλλαγές το lock μένει μέχρι commit· migration/settlement είναι μόνο εσωτερικοί σκοποί.
+  if (forWrite) await assertTenantWriteAllowed(tx, ctx.orgId, input.writePurpose ?? "BUSINESS");
   if (input.storeId) await assertStore(tx, ctx, input.storeId, forWrite);
   const warehouseIds = [...new Set([...(input.warehouseIds ?? []), ...(input.warehouseId ? [input.warehouseId] : [])])];
   for (const warehouseId of warehouseIds) await assertWarehouse(tx, ctx, warehouseId, input.storeId, forWrite);

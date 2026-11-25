@@ -14,6 +14,16 @@ export const roleText = (roles: readonly string[]) => roles.filter(isPartyRole).
 
 // Το PostgreSQL Int είναι signed 32-bit· ο έλεγχος γίνεται πριν από το Prisma για καθαρό μήνυμα στη φόρμα.
 export const DB_INT_MAX = 2_147_483_647;
+export const VIBER_SUBSCRIBER_ID_MAX = 256;
+
+/** Το Bot API θέλει subscriber ID, όχι τηλέφωνο· το κείμενο παραμένει αυστηρά ορατός ASCII χωρίς κενά. */
+export function cleanViberSubscriberId(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  const value = input.trim();
+  if (value.length < 4 || value.length > VIBER_SUBSCRIBER_ID_MAX || !/^[\x21-\x7e]+$/.test(value) || /^\+?\d{6,15}$/.test(value)) return null;
+  return value;
+}
+
 export const WEEKDAYS = [
   { value: 1, label: "Δευτέρα" }, { value: 2, label: "Τρίτη" }, { value: 3, label: "Τετάρτη" },
   { value: 4, label: "Πέμπτη" }, { value: 5, label: "Παρασκευή" }, { value: 6, label: "Σάββατο" }, { value: 7, label: "Κυριακή" },

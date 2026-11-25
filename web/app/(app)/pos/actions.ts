@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import type { Prisma } from "@/lib/generated/prisma/client";
+import { tenantWriteTransaction } from "@/lib/migration-cutover";
 import { completeSale, failSale, issueSale } from "@/lib/pos";
 import { currentContext } from "@/lib/tenant";
 import { startSale, vivaConfigured } from "@/lib/viva/cloud-terminal";
@@ -11,21 +11,14 @@ import { syncBrowserPayment } from "@/lib/viva/browser-payment";
 
 const id = z.string().cuid();
 
-async function draftSale(tx: Prisma.TransactionClient, ctx: Awaited<ReturnType<typeof currentContext>>) {
-  const where = { deviceId: ctx.device.id, status: "DRAFT" as const };
-  return (
-    (await tx.sale.findFirst({ where })) ??
-    (await tx.sale.create({ data: { orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id } }))
-  );
-}
-
 export async function addLine(productId: string) {
   const ctx = await currentContext();
   // το προϊόν πρέπει να ανήκει στην επιχείρηση του χρήστη
   const product = await db.product.findFirst({ where: { id: id.parse(productId), orgId: ctx.org.id, active: true }, include: { vatRate: true } });
   if (!product) return;
-  await db.$transaction(async (tx) => {
-    const sale = await draftSale(tx, ctx);
+  await tenantWriteTransaction(ctx.org.id, async (tx) => {
+    const where = { deviceId: ctx.device.id, status: "DRAFT" as const };
+    const sale = (await tx.sale.findFirst({ where })) ?? (await tx.sale.create({ data: { orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id } }));
     await tx.saleLine.upsert({
       where: { saleId_productId: { saleId: sale.id, productId: product.id } },
       update: { quantity: { increment: 1 } },
@@ -37,16 +30,20 @@ export async function addLine(productId: string) {
 
 export async function changeQuantity(lineId: string, delta: 1 | -1) {
   const ctx = await currentContext();
-  const line = await db.saleLine.findFirst({ where: { id: id.parse(lineId), sale: { deviceId: ctx.device.id, status: "DRAFT" } } });
-  if (!line) return;
-  if (line.quantity + delta <= 0) await db.saleLine.delete({ where: { id: line.id } });
-  else await db.saleLine.update({ where: { id: line.id }, data: { quantity: { increment: delta } } });
+  await tenantWriteTransaction(ctx.org.id, async (tx) => {
+    const line = await tx.saleLine.findFirst({ where: { id: id.parse(lineId), sale: { orgId: ctx.org.id, deviceId: ctx.device.id, status: "DRAFT" } } });
+    if (!line) return;
+    if (line.quantity + delta <= 0) await tx.saleLine.delete({ where: { id: line.id } });
+    else await tx.saleLine.update({ where: { id: line.id }, data: { quantity: { increment: delta } } });
+  });
   revalidatePath("/pos");
 }
 
 export async function clearSale() {
   const ctx = await currentContext();
-  await db.saleLine.deleteMany({ where: { sale: { deviceId: ctx.device.id, status: "DRAFT" } } });
+  await tenantWriteTransaction(ctx.org.id, async (tx) => {
+    await tx.saleLine.deleteMany({ where: { sale: { orgId: ctx.org.id, deviceId: ctx.device.id, status: "DRAFT" } } });
+  });
   revalidatePath("/pos");
 }
 
@@ -73,7 +70,7 @@ export async function pay(methodId: string) {
         fiscalisationData: started.receipt.data,
       });
     } catch (e) {
-      await failSale(ctx.device.id, started.saleId, e instanceof Error ? e.message : String(e));
+      await failSale(ctx.device.id, started.saleId, e instanceof Error ? e.message : String(e), undefined, ctx.org.id);
     }
   }
   revalidatePath("/pos");
@@ -105,13 +102,13 @@ export async function syncPayment(saleId: string) {
     deviceId: ctx.device.id,
     terminalId: ctx.device.vivaTerminalId,
   }, {
-    complete: (raw, transactionId) => completeSale(ctx.device.id, sale.id, raw, transactionId),
-    fail: (reason, raw) => failSale(ctx.device.id, sale.id, reason, raw),
+    complete: (raw, transactionId) => completeSale(ctx.device.id, sale.id, raw, transactionId, ctx.org.id),
+    fail: (reason, raw) => failSale(ctx.device.id, sale.id, reason, raw, ctx.org.id),
   });
 }
 
 export async function cancelPending(saleId: string) {
   const ctx = await currentContext();
-  await failSale(ctx.device.id, id.parse(saleId), "Ακυρώθηκε από τον ταμία");
+  await failSale(ctx.device.id, id.parse(saleId), "Ακυρώθηκε από τον ταμία", undefined, ctx.org.id);
   revalidatePath("/pos");
 }

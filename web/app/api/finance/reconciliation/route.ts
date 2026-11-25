@@ -1,9 +1,25 @@
-// Review μόνο: το αρχείο μένει στο request, δεν αποθηκεύεται και δεν εκτελεί τραπεζική/ledger εγγραφή.
-import { reviewAccountStatement } from "@/lib/finance-reconciliation-db";
+// Persisted CSV reviews· δεν εκτελεί τραπεζική ή αυτόματη ledger εγγραφή.
+import { getAccountStatementReview, listAccountStatementReviews, reviewAccountStatement } from "@/lib/finance-reconciliation-db";
 import { stockApiContext } from "@/lib/stock-context";
 import { workflowMessage } from "@/lib/workflow-db";
 
 const fail = (status: number, message: string) => Response.json({ error: message }, { status, headers: { "Cache-Control": "private, no-store" } });
+const json = (body: unknown) => Response.json(body, { headers: { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
+
+export async function GET(request: Request) {
+  const access = await stockApiContext("finance.read");
+  if ("error" in access) return access.error;
+  const query = new URL(request.url).searchParams;
+  try {
+    const reviewId = query.get("reviewId");
+    const result = reviewId
+      ? await getAccountStatementReview(access.ctx, { accountId: query.get("accountId") ?? "", reviewId })
+      : await listAccountStatementReviews(access.ctx, query.get("accountId") || null);
+    return json(result);
+  } catch (error) {
+    return fail(400, workflowMessage(error));
+  }
+}
 
 export async function POST(request: Request) {
   const access = await stockApiContext("finance.read");
@@ -20,8 +36,9 @@ export async function POST(request: Request) {
       from: String(form.get("from") ?? ""),
       to: String(form.get("to") ?? ""),
       csv: await file.text(),
+      sourceName: file.name,
     });
-    return Response.json(review, { headers: { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
+    return json(review);
   } catch (error) {
     return fail(400, workflowMessage(error));
   }

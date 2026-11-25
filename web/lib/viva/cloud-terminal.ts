@@ -2,6 +2,13 @@
 // Το ταμείο στέλνει αίτημα πώλησης στο τερματικό και μετά ρωτά για το αποτέλεσμα με το sessionId.
 // ΔΕΝ έχει δοκιμαστεί ακόμα απέναντι στο demo της Viva (χρειάζονται ISV κλειδιά).
 import { toVivaJson } from "./fiscal.ts";
+import {
+  searchVivaDevices,
+  type VivaDeviceSearch,
+  type VivaTerminalMetadata,
+} from "./device-discovery.ts";
+
+export type { VivaDeviceSearch, VivaTerminalMetadata } from "./device-discovery.ts";
 
 /** Κλειδιά και διευθύνσεις για το περιβάλλον που έχει οριστεί στις Ρυθμίσεις. */
 async function isv() {
@@ -12,6 +19,17 @@ async function isv() {
   return { demo, id: c.VIVA_ISV_CLIENT_ID, secret: c.VIVA_ISV_CLIENT_SECRET, accounts: demo ? "https://demo-accounts.vivapayments.com" : "https://accounts.vivapayments.com", api: demo ? "https://demo-api.vivapayments.com" : "https://api.vivapayments.com" };
 }
 export const vivaConfigured = async () => { const c = await isv(); return Boolean(c.id && c.secret); };
+
+/** Read-only ανακάλυψη τερματικών στο demo/production που ορίζουν οι Ρυθμίσεις. */
+export async function searchDevices(input: VivaDeviceSearch): Promise<VivaTerminalMetadata[]> {
+  const c = await isv();
+  if (!c.id || !c.secret) throw new Error("Viva devices: δεν έχουν οριστεί τα κλειδιά ISV στις Ρυθμίσεις");
+  return searchVivaDevices({
+    environment: c.demo ? "demo" : "production",
+    clientId: c.id,
+    clientSecret: c.secret,
+  }, input);
+}
 
 // το token ισχύει για συγκεκριμένα κλειδιά: αν αλλάξουν από τις Ρυθμίσεις, ζητείται νέο
 let token: { value: string; expiresAt: number; for: string } | undefined;

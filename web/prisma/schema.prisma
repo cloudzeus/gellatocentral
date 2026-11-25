@@ -127,6 +127,20 @@ enum MigrationRunStatus {
   ROLLED_BACK
 }
 
+enum MigrationRunKind {
+  BASELINE
+  DELTA
+}
+
+enum MigrationCutoverStatus {
+  PREPARING
+  FROZEN
+  DELTA_IMPORTED
+  READY
+  ACTIVE
+  ROLLED_BACK
+}
+
 model Organization {
   id              String     @id @default(cuid())
   name            String
@@ -226,6 +240,9 @@ model Organization {
   scheduleLinks          ScheduleLink[]
   financeAccounts        FinanceAccount[]
   financeTransactions    FinanceTransaction[]
+  statementImports       FinanceStatementImport[]
+  payrollPaymentBatches  PayrollPaymentBatch[]
+  payrollExecutions      PayrollPaymentExecution[]
   expenses               Expense[]
   supplierPayments       SupplierPayment[]
   cashClosings           CashClosing[]
@@ -233,6 +250,7 @@ model Organization {
   vitrineSettings        VitrineSetting[]
   vitrineViews           VitrineDailyView[]
   migrationRuns          MigrationRun[]
+  migrationCutover       MigrationCutover?
 }
 
 model User {
@@ -3007,23 +3025,25 @@ model ScheduleLink {
 }
 
 model FinanceAccount {
-  id                  String               @id @default(cuid())
+  id                  String                   @id @default(cuid())
   orgId               String
   storeId             String?
   name                String
-  kind                String               @default("bank")
-  openingBalanceCents Int                  @default(0)
+  kind                String                   @default("bank")
+  openingBalanceCents Int                      @default(0)
   openingAt           DateTime
-  active              Boolean              @default(true)
-  createdAt           DateTime             @default(now())
-  org                 Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  active              Boolean                  @default(true)
+  createdAt           DateTime                 @default(now())
+  org                 Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
   transactions        FinanceTransaction[]
+  statementImports    FinanceStatementImport[]
+  payrollExecutions   PayrollPaymentExecution[]
 
   @@unique([orgId, name])
 }
 
 model FinanceTransaction {
-  id            String         @id @default(cuid())
+  id            String                @id @default(cuid())
   orgId         String
   accountId     String
   storeId       String?
@@ -3035,13 +3055,137 @@ model FinanceTransaction {
   occurredAt    DateTime
   note          String?
   createdByName String
-  createdAt     DateTime       @default(now())
-  org           Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  account       FinanceAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  createdAt     DateTime              @default(now())
+  org           Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  account       FinanceAccount        @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  statementRows FinanceStatementRow[]
 
   @@unique([orgId, accountId, referenceType, referenceId])
   @@index([orgId, occurredAt])
   @@index([orgId, transferId])
+}
+
+// Αποθηκευμένο snapshot statement· η αντιστοίχιση δεν συνεπάγεται νέα ledger κίνηση.
+model FinanceStatementImport {
+  id                String                @id @default(cuid())
+  orgId             String
+  accountId         String
+  storeId           String?
+  reviewId          String
+  sourceName        String?
+  fromDate          DateTime              @db.Date
+  toDate            DateTime              @db.Date
+  totalAmountCents  Int
+  matchedCount      Int
+  unmatchedCount    Int
+  ambiguousCount    Int
+  conflictCount     Int
+  createdById       String?
+  createdByName     String
+  createdAt         DateTime              @default(now())
+  org               Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  account           FinanceAccount        @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  rows              FinanceStatementRow[]
+
+  @@unique([orgId, reviewId])
+  @@index([orgId, accountId, createdAt])
+  @@index([orgId, storeId, createdAt])
+}
+
+model FinanceStatementRow {
+  id                     String                @id @default(cuid())
+  orgId                  String
+  importId               String
+  line                   Int
+  externalId             String?
+  reference              String?
+  description            String?
+  bookedAt               DateTime              @db.Date
+  amountCents            Int
+  status                 String
+  reasons                String[]
+  matchedTransactionId   String?
+  candidateTransactionIds String[]
+  vivaCandidates         Json?
+  suggestedKind          String?
+  import                 FinanceStatementImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  matchedTransaction     FinanceTransaction?    @relation(fields: [matchedTransactionId], references: [id], onDelete: SetNull)
+
+  @@unique([importId, line])
+  @@index([orgId, matchedTransactionId])
+  @@index([orgId, importId, status])
+}
+
+// Η προετοιμασία παγώνει pay/IBAN μόνο για χρήστες με finance.export + staff.pay.
+model PayrollPaymentBatch {
+  id                String                   @id @default(cuid())
+  orgId             String
+  storeId           String?
+  batchId           String
+  fromDate          DateTime                 @db.Date
+  toDate            DateTime                 @db.Date
+  status            String                   @default("PREPARED")
+  totalAmountCents  Int
+  readyAmountCents  Int
+  employeeCount     Int
+  readyCount        Int
+  reviewCount       Int
+  createdById       String?
+  createdByName     String
+  createdAt         DateTime                 @default(now())
+  org               Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  items             PayrollPaymentItem[]
+  executions        PayrollPaymentExecution[]
+
+  @@unique([orgId, batchId])
+  @@index([orgId, storeId, fromDate, toDate])
+  @@index([orgId, status, createdAt])
+}
+
+model PayrollPaymentItem {
+  id              String             @id @default(cuid())
+  orgId           String
+  batchId         String
+  employeeId      String
+  employeeName    String
+  storeId         String?
+  iban            String
+  amountCents     Int
+  workedMinutes   Int
+  reviewStatus    String
+  issues          String[]
+  executionStatus String             @default("NOT_EXECUTED")
+  batch           PayrollPaymentBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, employeeId])
+  @@index([orgId, employeeId, executionStatus])
+}
+
+// Σε PROCESSING/UNCERTAIN απαγορεύεται νέα provider υποβολή· απαιτείται εξωτερικός συμψηφισμός.
+model PayrollPaymentExecution {
+  id                String              @id @default(cuid())
+  orgId             String
+  batchId           String
+  accountId         String
+  storeId           String?
+  clientKey         String
+  requestHash       String
+  status            String              @default("PROCESSING")
+  provider          String
+  providerReference String?
+  failureCode       String?
+  confirmedAt       DateTime?
+  createdById       String?
+  createdByName     String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  org               Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  batch             PayrollPaymentBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  account           FinanceAccount      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@unique([orgId, clientKey])
+  @@index([orgId, batchId, createdAt])
+  @@index([orgId, status, createdAt])
 }
 
 model Expense {
@@ -3196,19 +3340,65 @@ model UserPreference {
   @@unique([userId])
 }
 
-model MigrationRun {
-  id            String             @id @default(cuid())
-  orgId         String
-  source        String
-  status        MigrationRunStatus @default(DRY_RUN)
-  summary       Json
-  createdByName String
-  createdAt     DateTime           @default(now())
-  rolledBackAt  DateTime?
-  org           Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  records       MigrationRecord[]
+// Μία ελεγχόμενη μετάβαση ανά tenant· το ιστορικό runs παραμένει ανεξάρτητα από την τρέχουσα φάση.
+model MigrationCutover {
+  id              String                @id @default(cuid())
+  orgId           String                @unique
+  source          String
+  status          MigrationCutoverStatus @default(PREPARING)
+  cursor          String?
+  baselineRunId   String?               @unique
+  finalRunId      String?               @unique
+  adapterEvidence Json?
+  smoke           Json?
+  createdById     String?
+  createdByName   String
+  frozenById      String?
+  frozenByName    String?
+  frozenAt        DateTime?
+  readyAt         DateTime?
+  activatedById   String?
+  activatedByName String?
+  activatedAt     DateTime?
+  rolledBackById  String?
+  rolledBackByName String?
+  rolledBackAt    DateTime?
+  rollbackReason  String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  org             Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  baselineRun     MigrationRun?         @relation("MigrationBaseline", fields: [baselineRunId], references: [id], onDelete: SetNull)
+  finalRun        MigrationRun?         @relation("MigrationFinal", fields: [finalRunId], references: [id], onDelete: SetNull)
+  runs            MigrationRun[]        @relation("MigrationCutoverRuns")
 
+  @@index([status, updatedAt])
+}
+
+model MigrationRun {
+  id             String             @id @default(cuid())
+  orgId          String
+  cutoverId      String?
+  source         String
+  kind           MigrationRunKind   @default(BASELINE)
+  status         MigrationRunStatus @default(DRY_RUN)
+  exportId       String?
+  previousCursor String?
+  sourceCursor   String?
+  exportedAt     DateTime?
+  bundleHash     String?
+  summary        Json
+  createdByName  String
+  createdAt      DateTime           @default(now())
+  rolledBackAt   DateTime?
+  org            Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  cutover        MigrationCutover?  @relation("MigrationCutoverRuns", fields: [cutoverId], references: [id], onDelete: SetNull)
+  baselineFor    MigrationCutover?  @relation("MigrationBaseline")
+  finalFor       MigrationCutover?  @relation("MigrationFinal")
+  records        MigrationRecord[]
+
+  @@unique([orgId, exportId])
   @@index([orgId, createdAt])
+  @@index([orgId, cutoverId, createdAt])
 }
 
 model MigrationRecord {

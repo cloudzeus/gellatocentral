@@ -1,6 +1,6 @@
 // Κοινές server-only εγγραφές: tenant-scoped parties, αρίθμηση και ασφαλές μήνυμα σφάλματος.
 import type { Prisma } from "./generated/prisma/client";
-import { writeAudit, type AuditInput } from "./audit";
+import { writeAudit, type AuditInput } from "./audit.ts";
 
 export class WorkflowError extends Error {}
 

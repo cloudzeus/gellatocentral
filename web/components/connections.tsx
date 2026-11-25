@@ -14,6 +14,7 @@ const NEEDS: Record<Group, { keys: SettingKey[]; missing: string; test?: string 
   viva_isv: { keys: ["VIVA_ISV_CLIENT_ID", "VIVA_ISV_CLIENT_SECRET"], missing: "Χωρίς αυτά όλα τα ταμεία δουλεύουν δοκιμαστικά και δεν διαβιβάζουν αποδείξεις", test: "Δοκιμή σύνδεσης" },
   viva_platform: { keys: ["VIVA_PLATFORM_CLIENT_ID", "VIVA_PLATFORM_CLIENT_SECRET"], missing: "Χωρίς αυτά οι χρεώσεις εξοφλούνται μόνο χειροκίνητα, από την καρτέλα του συνδρομητή" },
   mailgun: { keys: ["MAILGUN_API_KEY", "MAILGUN_DOMAIN"], missing: "Χωρίς αυτά τα email μόνο καταγράφονται, δεν φεύγουν", test: "Δοκιμαστικό email σε μένα" },
+  viber: { keys: ["VIBER_AUTH_TOKEN"], missing: "Χωρίς token δεν αποστέλλονται Viber text ειδοποιήσεις" },
   bunny: { keys: ["BUNNY_STORAGE_ZONE", "BUNNY_STORAGE_KEY"], missing: "Χωρίς αυτά δεν ανεβαίνουν αρχεία ούτε αντίγραφα ασφαλείας", test: "Δοκιμή σύνδεσης" },
   rustdesk: { keys: ["RUSTDESK_SERVER"], missing: "Χωρίς server οι συνδέσεις περνούν από τον δημόσιο server του RustDesk" },
   openrouter: { keys: ["OPENROUTER_API_KEY", "OPENROUTER_CHAT_MODEL", "OPENROUTER_EMBED_MODEL"], missing: "Χωρίς αυτά δεν υπάρχουν προσχέδια απαντήσεων και η αναζήτηση γίνεται μόνο με λέξεις", test: "Δοκιμή σύνδεσης" },

@@ -26,6 +26,8 @@ const baseState = (): State => ({
 
 function fakeDb(state: State): StockScopeDb {
   return {
+    $queryRaw: async () => [{ id: "org-a" }],
+    migrationCutover: { findUnique: async () => null },
     store: {
       findFirst: async (args: { where: { id: string; orgId: string } }) => state.stores.find((s) => s.id === args.where.id && s.orgId === args.where.orgId) ?? null,
     },

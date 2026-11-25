@@ -118,9 +118,9 @@ async function databaseNow(tx: Pick<Prisma.TransactionClient, "$queryRaw">): Pro
   return rows[0].now;
 }
 
-/** Το JS Date αποκόπτει τα microseconds, ενώ το TIMESTAMP(3) στρογγυλοποιεί· το snapshot στρογγυλοποιείται προς τα πάνω. */
+/** Πραγματική στιγμή λήψης, όχι αρχή transaction· το TIMESTAMP(3) στρογγυλοποιεί, άρα το snapshot στρογγυλοποιείται προς τα πάνω. */
 async function databaseSnapshotAt(tx: Pick<Prisma.TransactionClient, "$queryRaw">): Promise<Date> {
-  const rows = await tx.$queryRaw<{ now: Date }[]>`SELECT DATE_TRUNC('milliseconds', CURRENT_TIMESTAMP) + INTERVAL '1 millisecond' AS now`;
+  const rows = await tx.$queryRaw<{ now: Date }[]>`SELECT DATE_TRUNC('milliseconds', CLOCK_TIMESTAMP()) + INTERVAL '1 millisecond' AS now`;
   if (!rows[0]) throw new StockCountError("INVALID_COUNT_REQUEST");
   return rows[0].now;
 }

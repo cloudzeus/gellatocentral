@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { setExternalSendingEnabled } from "@/lib/document-delivery";
 import { updateCompanyProfile } from "@/lib/finance-db";
 import { requireStockContext } from "@/lib/stock-context";
 import { workflowMessage } from "@/lib/workflow-db";
@@ -17,6 +18,7 @@ export async function saveCompany(form: FormData) {
       phone: String(form.get("phone") ?? ""), contactEmail: String(form.get("contactEmail") ?? ""), emailFromName: String(form.get("emailFromName") ?? ""),
       logoUrl: String(form.get("logoUrl") ?? ""), labelExtraText: String(form.get("labelExtraText") ?? ""),
     });
+    await setExternalSendingEnabled(ctx, form.get("externalSendingEnabled") === "true");
     back("?saved=Τα στοιχεία επιχείρησης αποθηκεύτηκαν");
   } catch (error) { back(`?error=${encodeURIComponent(workflowMessage(error))}`); }
 }

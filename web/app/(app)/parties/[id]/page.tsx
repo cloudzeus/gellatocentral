@@ -58,13 +58,18 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
       // geoArea: το όνομα της περιοχής από την κοινή λίστα, για να εμφανίζεται προσυμπληρωμένο στις φόρμες
       geoArea: { select: { name: true } },
       addresses: { orderBy: [{ branchNo: "asc" }, { label: "asc" }], include: { geoArea: { select: { name: true } } } },
-      contacts: { orderBy: [{ active: "desc" }, { isPrimary: "desc" }, { person: { name: "asc" } }], include: { address: true, person: { include: { channels: { orderBy: [{ isPrimary: "desc" }, { kind: "desc" }] }, links: { include: { party: { select: { id: true, name: true } } } } } } } },
-      channels: { orderBy: [{ kind: "desc" }, { isPrimary: "desc" }, { id: "asc" }], include: { address: true } },
+      contacts: { orderBy: [{ active: "desc" }, { isPrimary: "desc" }, { person: { name: "asc" } }], include: { address: true, person: { include: { channels: { where: { kind: { in: ["phone", "email"] } }, orderBy: [{ isPrimary: "desc" }, { kind: "desc" }] }, links: { include: { party: { select: { id: true, name: true } } } } } } } },
+      channels: { where: { kind: { in: ["phone", "email"] } }, orderBy: [{ kind: "desc" }, { isPrimary: "desc" }, { id: "asc" }], include: { address: true } },
       bankAccounts: { orderBy: [{ isPrimary: "desc" }, { bank: "asc" }] },
       linkedOrg: { select: { id: true, subscription: { include: { plan: { select: { name: true } }, charges: { where: { paidAt: null } } } } } },
     },
   });
   if (!party) notFound();
+  // Το πλήρες subscriber ID χρειάζεται μόνο στη φόρμα επεξεργασίας· οι λίστες καναλιών φορτώνουν μόνο phone/email.
+  const viber = scope.canEdit ? await db.partyChannel.findFirst({
+    where: { partyId: party.id, kind: "viber", party: { orgId: scope.orgId } },
+    select: { value: true }, orderBy: { id: "asc" },
+  }) : null;
   const q = await searchParams;
   const requestedTab: Tab = typeof q.tab === "string" && q.tab in TABS ? (q.tab as Tab) : "overview";
   const show: TimelineFilter = typeof q.show === "string" && q.show in TIMELINE_FILTERS ? (q.show as TimelineFilter) : "all";
@@ -269,7 +274,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
           phone={phone} email={email} website={party.website}
           payment={[method, party.paymentTermsDays != null ? (party.paymentTermsDays ? `${party.paymentTermsDays} ημέρες πίστωση` : "Μετρητοίς") : null].filter(Boolean).join(" · ") || null}
           notes={party.notes} verifiedAt={party.vatCheckedAt ? day.format(party.vatCheckedAt) : null} complete={!missing.length}
-          actions={scope.canEdit ? <Modal wide label={<><Pencil /> Επεξεργασία στοιχείων</>} title="Στοιχεία συναλλασσόμενου"><PartyForm action={saveParty.bind(null, party.id)} party={party} refs={refs} geo={{ breadcrumb: crumbs.get("hq"), cityId: party.cityId, city: party.city, areaId: party.areaId, areaName: party.geoArea?.name ?? null, regionText: party.region }} /></Modal> : undefined}
+          actions={scope.canEdit ? <Modal wide label={<><Pencil /> Επεξεργασία στοιχείων</>} title="Στοιχεία συναλλασσόμενου"><PartyForm action={saveParty.bind(null, party.id)} party={{ ...party, viberSubscriberId: viber?.value ?? null }} refs={refs} geo={{ breadcrumb: crumbs.get("hq"), cityId: party.cityId, city: party.city, areaId: party.areaId, areaName: party.geoArea?.name ?? null, regionText: party.region }} /></Modal> : undefined}
         />
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -583,7 +588,7 @@ export default async function PartyPage({ params, searchParams }: { params: Prom
                 <h2 className="text-lg">Στοιχεία {party.vatCheckedAt ? <Badge tone="success">Επιβεβαιώθηκαν από το μητρώο {day.format(party.vatCheckedAt)}</Badge> : null}</h2>
                 <p className="text-sm text-muted-foreground">{missing.length ? `Για τιμολόγιο λείπουν: ${missing.join(", ")}` : "Τα στοιχεία τιμολόγησης είναι πλήρη"}</p>
               </div>
-              {scope.canEdit ? <Modal wide label={<><Pencil /> Αλλαγή</>} title="Στοιχεία συναλλασσόμενου"><PartyForm action={saveParty.bind(null, party.id)} party={party} refs={refs} geo={{ breadcrumb: crumbs.get("hq"), cityId: party.cityId, city: party.city, areaId: party.areaId, areaName: party.geoArea?.name ?? null, regionText: party.region }} /></Modal> : null}
+              {scope.canEdit ? <Modal wide label={<><Pencil /> Αλλαγή</>} title="Στοιχεία συναλλασσόμενου"><PartyForm action={saveParty.bind(null, party.id)} party={{ ...party, viberSubscriberId: viber?.value ?? null }} refs={refs} geo={{ breadcrumb: crumbs.get("hq"), cityId: party.cityId, city: party.city, areaId: party.areaId, areaName: party.geoArea?.name ?? null, regionText: party.region }} /></Modal> : null}
             </div>
             <dl className="grid gap-x-6 gap-y-3 p-5 sm:grid-cols-2 xl:grid-cols-3">
               {facts.map(([l, v]) => <div key={l} className="min-w-0"><dt className="text-xs font-medium text-muted-foreground">{l}</dt><dd className="font-semibold break-words">{v ?? <span className="font-normal text-muted-foreground">Δεν έχει συμπληρωθεί</span>}</dd></div>)}

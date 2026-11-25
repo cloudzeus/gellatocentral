@@ -1,4 +1,4 @@
-// Προετοιμασία μισθοδοσίας, όχι τραπεζική εντολή: απαιτεί finance.export + staff.pay και δεν γράφει ledger.
+// Προετοιμασία μισθοδοσίας· η εκτέλεση απαιτεί finance.export + staff.pay και ρητή επιβεβαίωση.
 import { createHash } from "node:crypto";
 import { csvCell } from "./accountant-export.ts";
 import { reportPeriod, type ReportPeriod } from "./reports.ts";
@@ -14,6 +14,7 @@ export type PayrollEmployeeSource = {
   pay: { payType: string; monthlySalaryCents: number; iban: string | null } | null;
 };
 export type PayrollSummarySource = { orgId: string; employeeId: string; minutes: number; costCents: number };
+export type PayrollExecutionStatus = "NOT_EXECUTED" | "PROCESSING" | "SUCCEEDED" | "FAILED" | "UNCERTAIN";
 export type PayrollPaymentRow = {
   employeeId: string;
   employeeName: string;
@@ -23,20 +24,31 @@ export type PayrollPaymentRow = {
   workedMinutes: number;
   reviewStatus: "READY" | "REVIEW";
   issues: string[];
-  executionStatus: "NOT_EXECUTED";
+  executionStatus: "NOT_EXECUTED" | "SUCCEEDED";
 };
 export type PayrollPaymentBatch = {
   version: 1;
   batchId: string;
   kind: "PAYROLL_PAYMENT_PREPARATION";
   filters: { orgId: string; from: string; to: string; storeId: string | null };
-  execution: { status: "NOT_EXECUTED"; provider: null; financeTransactionsCreated: 0 };
+  execution: { status: PayrollExecutionStatus; provider: string | null; financeTransactionsCreated: 0 | 1 };
   rows: PayrollPaymentRow[];
   totals: { employees: number; ready: number; review: number; amountCents: number; readyAmountCents: number };
 };
+export type PayrollPaymentBatchListItem = Omit<PayrollPaymentBatch, "rows"> & { createdAt: Date };
+export type PayrollExecutionReceipt = {
+  executionId: string;
+  batchId: string;
+  status: Exclude<PayrollExecutionStatus, "NOT_EXECUTED">;
+  provider: string;
+  providerReference: string | null;
+  failureCode: string | null;
+  amountCents: number;
+  financeTransactionsCreated: 0 | 1;
+};
 
 export function assertPayrollPaymentAccess(ctx: { can: (permission: "staff.pay" | "finance.export") => boolean }) {
-  if (!ctx.can("finance.export") || !ctx.can("staff.pay")) throw new Error("Η payroll εξαγωγή απαιτεί δικαιώματα finance.export και staff.pay");
+  if (!ctx.can("finance.export") || !ctx.can("staff.pay")) throw new Error("Η payroll ενέργεια απαιτεί δικαιώματα finance.export και staff.pay");
 }
 
 export function payrollMonthPeriod(from: string, to: string): ReportPeriod {
@@ -111,6 +123,15 @@ export function preparePayrollPaymentBatch(input: {
     version: 1, batchId, kind: "PAYROLL_PAYMENT_PREPARATION", filters: { orgId: input.orgId, from: input.from, to: input.to, storeId: input.storeId ?? null },
     execution: { status: "NOT_EXECUTED", provider: null, financeTransactionsCreated: 0 }, rows, totals,
   };
+}
+
+export function payrollConfirmationPhrase(batchId: string) {
+  return `PAYROLL:${batchId}`;
+}
+
+export function assertPayrollExecutionConfirmation(input: { batchId: string; confirmation: string; amountCents: number; confirmedAmountCents: number }) {
+  if (input.confirmation !== payrollConfirmationPhrase(input.batchId)) throw new Error("Η εκτέλεση απαιτεί το ακριβές κείμενο επιβεβαίωσης του batch");
+  if (!Number.isSafeInteger(input.confirmedAmountCents) || input.confirmedAmountCents !== input.amountCents || input.amountCents <= 0) throw new Error("Το επιβεβαιωμένο ποσό payroll δεν συμφωνεί με το batch");
 }
 
 export function payrollPaymentsCsv(batch: PayrollPaymentBatch) {

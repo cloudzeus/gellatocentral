@@ -4,7 +4,10 @@ import { Submit } from "@/components/submit";
 import { Badge, btn, Card, Field, Page, Select, TextareaField } from "@/components/ui";
 import { db } from "@/lib/db";
 import { purchaseTotals } from "@/lib/finance";
+import { listAccountStatementReviews } from "@/lib/finance-reconciliation-db";
 import { euro } from "@/lib/money";
+import { listPayrollPaymentBatches } from "@/lib/payroll-payments-db";
+import { payrollProviderAvailability } from "@/lib/payroll-payment-providers";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
 import { closeCash, newAccount, newExpense, newSupplierPayment, newTransfer, reopenCash, saveBudget } from "./actions";
 import { FinanceTools } from "./finance-tools";
@@ -25,6 +28,11 @@ export default async function FinancePage({ searchParams }: PageProps<"/finance"
     db.store.findMany({ where: { orgId: ctx.orgId, active: true, ...(ctx.storeIds.length ? { id: { in: [...ctx.storeIds] } } : ctx.warehouseIds.length ? { id: { in: [] } } : {}) }, orderBy: { name: "asc" } }),
     db.warehouse.findMany({ where: warehouseScopeWhere(ctx), select: { id: true } }),
     db.party.findMany({ where: { orgId: ctx.orgId, active: true, roles: { has: "supplier" } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
+  const canPayroll = ctx.can("finance.export") && ctx.can("staff.pay");
+  const [statementHistory, payrollHistory] = await Promise.all([
+    listAccountStatementReviews(ctx),
+    canPayroll ? listPayrollPaymentBatches(ctx) : Promise.resolve([]),
   ]);
   const accountIds = accounts.map((account) => account.id);
   const warehouseIds = warehouses.map((warehouse) => warehouse.id);
@@ -64,7 +72,7 @@ export default async function FinancePage({ searchParams }: PageProps<"/finance"
   </span> : null}>
     <div className="grid gap-5">
       {typeof query.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{query.error}</p> : null}{typeof query.saved === "string" ? <p role="status" className="rounded-lg bg-success/10 p-3 text-sm text-success-ink">{query.saved}</p> : null}
-      <FinanceTools accounts={accounts.map((account) => ({ id: account.id, name: account.name, kind: account.kind }))} stores={stores} from={monthFrom} to={monthTo} canExport={ctx.can("finance.export")} canPay={ctx.can("staff.pay")} />
+      <FinanceTools accounts={accounts.map((account) => ({ id: account.id, name: account.name, kind: account.kind }))} stores={stores} from={monthFrom} to={monthTo} canExport={ctx.can("finance.export")} canPay={ctx.can("staff.pay")} initialStatementHistory={statementHistory.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() }))} initialPayrollHistory={payrollHistory.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() }))} initialProvider={payrollProviderAvailability()} />
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{accounts.map((account) => <Card key={account.id} className="p-4"><div className="flex items-start justify-between gap-2"><div><p className="text-sm text-muted-foreground">{KIND[account.kind] ?? account.kind} · {account.storeId ? storeNames.get(account.storeId) : "Κεντρικός"}</p><h2 className="font-semibold">{account.name}</h2></div><Banknote className="size-5 text-muted-foreground" /></div><p className="mt-3 text-2xl font-bold">{money(account.openingBalanceCents + (balances.get(account.id) ?? 0))}</p><p className="text-xs text-muted-foreground">Αρχικό {money(account.openingBalanceCents)} · κινήσεις {money(balances.get(account.id))}</p></Card>)}{!accounts.length ? <Card className="p-6 text-sm text-muted-foreground sm:col-span-2 xl:col-span-4">Δεν υπάρχουν διαθέσιμοι λογαριασμοί στο δικαίωμά σου.</Card> : null}</section>
       <div className="grid gap-4 xl:grid-cols-2"><Card className="overflow-x-auto"><h2 className="border-b border-border p-4 font-semibold">Ανεξόφλητα τιμολόγια αγοράς</h2><table className="w-full text-sm"><tbody>{purchases.map((purchase) => { const total = purchaseTotals(purchase, purchase.lines).totalCents; const outstanding = total - (allocated.get(purchase.id) ?? 0); return <tr key={purchase.id} className="border-b border-border/60 last:border-0"><td className="p-3"><strong>{purchase.number ?? "Χωρίς αριθμό"}</strong><span className="block text-xs text-muted-foreground">{supplierNames.get(purchase.supplierId)}</span></td><td className="p-3 text-right">{money(total)}</td><td className="p-3 text-right"><Badge tone={outstanding > 0 ? "warning" : "success"}>{money(outstanding)}</Badge></td></tr>; })}</tbody></table>{!purchases.length ? <p className="p-6 text-center text-sm text-muted-foreground">Δεν υπάρχουν οριστικοποιημένα τιμολόγια.</p> : null}</Card>
       <Card className="overflow-x-auto"><h2 className="border-b border-border p-4 font-semibold">Πληρωμές προμηθευτών</h2><table className="w-full text-sm"><tbody>{payments.map((payment) => <tr key={payment.id} className="border-b border-border/60 last:border-0"><td className="p-3"><strong>{supplierNames.get(payment.supplierId) ?? "Προμηθευτής"}</strong><span className="block text-xs text-muted-foreground">{day(payment.paidAt)} · {payment.reference ?? "Χωρίς αναφορά"}</span></td><td className="p-3 text-right">{money(payment.amountCents)}<span className="block text-xs text-muted-foreground">{payment.allocations.length} αντιστοιχίσεις</span></td></tr>)}</tbody></table>{!payments.length ? <p className="p-6 text-center text-sm text-muted-foreground">Δεν υπάρχουν πληρωμές.</p> : null}</Card></div>

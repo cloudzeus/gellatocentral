@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { tillFromRequest } from "@/lib/device-auth";
 import { accessFor } from "@/lib/plan-data";
+import { tenantWriteTransaction } from "@/lib/migration-cutover";
 import { issueSale } from "@/lib/pos";
 import { toVivaJson } from "@/lib/viva/fiscal";
 
@@ -25,15 +26,17 @@ export async function POST(req: Request) {
   const products = await db.product.findMany({ where: { id: { in: [...qty.keys()] }, orgId: ctx.org.id, active: true }, include: { vatRate: true } });
   if (products.length !== qty.size) return Response.json({ error: "unknown_product" }, { status: 400 });
 
-  // ένα πρόχειρο ανά συσκευή: το προηγούμενο (π.χ. από αποτυχημένη πληρωμή) αντικαθίσταται
-  await db.sale.deleteMany({ where: { deviceId: ctx.device.id, status: "DRAFT" } });
-  const sale = await db.sale.create({
-    data: {
-      orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id,
-      lines: { create: products.map((p) => ({ productId: p.id, name: p.name, quantity: qty.get(p.id)!, unitPriceCents: p.priceCents, vatRate: p.vatRate.rate })) },
-    },
-  });
   try {
+    // Η διαγραφή παλιού draft και η δημιουργία μπαίνουν στο ίδιο tenant gate με την έκδοση.
+    const sale = await tenantWriteTransaction(ctx.org.id, async (tx) => {
+      await tx.sale.deleteMany({ where: { orgId: ctx.org.id, deviceId: ctx.device.id, status: "DRAFT" } });
+      return tx.sale.create({
+        data: {
+          orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id,
+          lines: { create: products.map((p) => ({ productId: p.id, name: p.name, quantity: qty.get(p.id)!, unitPriceCents: p.priceCents, vatRate: p.vatRate.rate })) },
+        },
+      });
+    });
     const started = await issueSale(ctx, sale.id, parsed.data.methodId, true);
     if (!started) return Response.json({ error: "empty" }, { status: 400 });
     return Response.json({

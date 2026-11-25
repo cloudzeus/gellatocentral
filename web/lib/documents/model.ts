@@ -39,14 +39,14 @@ export type LoadedDocument = {
   schedule?: { snapshot: unknown; version: number; fromAt: Date; toAt: Date };
 };
 
-export const DOCUMENT_CONFIG: Record<DocumentEntity, { permission: Permission; category: Category }> = {
-  purchase_order: { permission: "orders.read", category: "generated_purchase_order" },
-  production_batch: { permission: "production.read", category: "generated_production" },
-  recipe: { permission: "recipes.read", category: "generated_recipe" },
-  haccp_monthly: { permission: "haccp.read", category: "generated_haccp" },
-  sales_document: { permission: "invoices.read", category: "generated_sales_document" },
-  schedule_publication: { permission: "staff.read", category: "generated_schedule" },
-  wholesale_quote: { permission: "wholesale.read", category: "generated_wholesale_quote" },
+export const DOCUMENT_CONFIG: Record<DocumentEntity, { permission: Permission; sendPermission: Permission; category: Category }> = {
+  purchase_order: { permission: "orders.read", sendPermission: "orders.edit", category: "generated_purchase_order" },
+  production_batch: { permission: "production.read", sendPermission: "production.add", category: "generated_production" },
+  recipe: { permission: "recipes.read", sendPermission: "recipes.edit", category: "generated_recipe" },
+  haccp_monthly: { permission: "haccp.read", sendPermission: "haccp.edit", category: "generated_haccp" },
+  sales_document: { permission: "invoices.read", sendPermission: "invoices.edit", category: "generated_sales_document" },
+  schedule_publication: { permission: "staff.read", sendPermission: "staff.edit", category: "generated_schedule" },
+  wholesale_quote: { permission: "wholesale.read", sendPermission: "wholesale.edit", category: "generated_wholesale_quote" },
 };
 
 export function isDocumentEntity(value: string): value is DocumentEntity {

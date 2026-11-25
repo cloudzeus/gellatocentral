@@ -29,7 +29,7 @@ export async function POST(req: Request, { params }: RouteContext<"/api/pos/sale
 
   // Η δήλωση αποτυχίας ακολουθεί το υπάρχον ασφαλές flow και δεν χρησιμοποιείται ως απόδειξη επιτυχίας.
   if (!parsed.data.success) {
-    await failSale(ctx.device.id, sale.id, "Η πληρωμή δεν ολοκληρώθηκε στο τερματικό", { callback: parsed.data.callback });
+    await failSale(ctx.device.id, sale.id, "Η πληρωμή δεν ολοκληρώθηκε στο τερματικό", { callback: parsed.data.callback }, ctx.org.id);
     return Response.json({ ok: true });
   }
   if (sale.status !== "AWAITING_PAYMENT" && sale.status !== "COMPLETED")
@@ -52,6 +52,6 @@ export async function POST(req: Request, { params }: RouteContext<"/api/pos/sale
     return Response.json({ error: "verification_failed", reason: verification.reason }, { status: 409 });
 
   // Το completeSale είναι idempotent· αποθηκεύουμε αποκλειστικά την επαληθευμένη απάντηση του provider.
-  await completeSale(ctx.device.id, sale.id, verification.raw as Prisma.InputJsonObject, verification.transactionId);
+  await completeSale(ctx.device.id, sale.id, verification.raw as Prisma.InputJsonObject, verification.transactionId, ctx.org.id);
   return Response.json({ ok: true });
 }

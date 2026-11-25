@@ -136,3 +136,11 @@ VIVA_DEMO_POLL_INTERVAL_MS=2000
 - Δεν εκτελέστηκε sale και δεν δημιουργήθηκε session, επειδή δεν δόθηκε demo `terminalId`.
 - Το αποτέλεσμα αποδεικνύει μόνο έγκυρο demo authentication· το συνολικό payment/session contract παραμένει **NOT RUN**, όχι PASS.
 - Τα credentials χρησιμοποιήθηκαν μέσω προσωρινού τοπικού environment file με περιορισμένα δικαιώματα, το οποίο διαγράφηκε αμέσως· δεν αποθηκεύτηκαν στο έργο.
+
+## Read-only ISV device discovery — 25/11/2026
+
+- Προστέθηκε αυτόνομο, read-only discovery με `POST /ecr/isv/v1/devices:search` στους hardcoded demo/production hosts του επίσημου Cloud Terminal API. Το demo script είναι `scripts/viva-demo-devices.ts` και δεν απαιτεί ούτε εκτελεί sale confirmation.
+- Το request υποστηρίζει μόνο τα τεκμηριωμένα φίλτρα merchant/source/status, έχει ανεξάρτητα bounded timeouts για OAuth/search και δεν δέχεται production override από τυχαίο URL.
+- Η απόκριση επαληθεύεται αυστηρά: κάθε terminal πρέπει να συνδέεται με τον ζητούμενο merchant, να έχει έγκυρο `terminalId` και επιτρεπόμενο `statusId`. Το summary περιορίζεται σε whitelist metadata και τα σφάλματα περνούν από redaction χωρίς raw provider body.
+- Η πραγματική read-only demo αναζήτηση επέστρεψε **HTTP 401**. Δεν βρέθηκε αποδεκτό terminal και δεν δημιουργήθηκε sale ή session. Το payment/session contract παραμένει **NOT RUN**.
+- Οι 62/62 στοχευμένοι έλεγχοι Viva πέρασαν, συμπεριλαμβανομένων validation, redaction, timeout και demo `NOT RUN` χωρίς credentials. Δεν αποθηκεύτηκαν διαπιστευτήρια ή provider secrets στο έργο.

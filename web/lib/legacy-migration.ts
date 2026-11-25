@@ -98,6 +98,10 @@ export function migrationPayloadHash(entityType: MigrationEntity, externalIdValu
   return createHash("sha256").update(canonicalJson({ entityType, externalId: externalIdValue, payload })).digest("hex");
 }
 
+export function migrationBundleHash(bundle: MigrationBundle) {
+  return createHash("sha256").update(canonicalJson(bundle)).digest("hex");
+}
+
 function duplicates(values: readonly string[], label: string) {
   const seen = new Set<string>();
   const repeated = new Set<string>();
