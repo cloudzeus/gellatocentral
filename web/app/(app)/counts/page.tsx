@@ -67,7 +67,7 @@ export default async function CountsPage({ searchParams }: { searchParams: Promi
           {!ctx.can("counts.add") ? <p className="px-5 py-5 text-sm text-muted-foreground">Έχεις δικαίωμα προβολής, αλλά όχι δημιουργίας απογραφής.</p> : null}
           {ctx.can("counts.add") && !activeWarehouses.length ? <p className="px-5 py-5 text-sm text-muted-foreground">Δεν υπάρχει ενεργή αποθήκη στην οποία έχεις πρόσβαση.</p> : null}
           {ctx.can("counts.add") && activeWarehouses.length ? (
-            <form id="count-create" action={createCount} className="grid gap-4 px-5 py-5 md:grid-cols-2 lg:grid-cols-[minmax(11rem,1fr)_minmax(11rem,1fr)_minmax(10rem,0.7fr)_minmax(15rem,1.3fr)_auto] lg:items-end">
+            <form id="count-create" action={createCount} className="grid gap-4 px-5 py-5 md:grid-cols-2 2xl:grid-cols-[minmax(11rem,1fr)_minmax(11rem,1fr)_minmax(10rem,0.7fr)_minmax(15rem,1.3fr)_auto] 2xl:items-end">
               <input type="hidden" name="clientKey" value={randomUUID()} />
               <label className="space-y-1 text-sm font-medium">Χώρος απογραφής
                 <select name="storeId" className={field} defaultValue="">
@@ -96,7 +96,7 @@ export default async function CountsPage({ searchParams }: { searchParams: Promi
         <OfflineCountQueue identity={{ orgId: ctx.orgId, userId: ctx.userId }} />
 
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[68rem] border-collapse text-sm">
               <caption className="px-4 py-4 text-left"><span className="block text-lg font-semibold">Πρόσφατες απογραφές</span><span className="text-muted-foreground">Οι 50 τελευταίες εγγραφές στις αποθήκες στις οποίες έχεις πρόσβαση</span></caption>
               <thead className="bg-secondary/35"><tr><th className={th} scope="col">Κατάσταση</th><th className={th} scope="col">Ημερομηνία</th><th className={th} scope="col">Χώρος / αποθήκη</th><th className={th} scope="col">Γραμμές</th><th className={th} scope="col">Διορθώσεις</th><th className={th} scope="col">Δημιουργία</th><th className={th} scope="col"><span className="sr-only">Άνοιγμα</span></th></tr></thead>

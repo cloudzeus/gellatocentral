@@ -11,7 +11,7 @@ export function OrderLinesEditor({ items, initialLines, priceLabel = "Τιμή �
   const blank = (): OrderLineValue => ({ genericItemId: items[0]?.id ?? "", quantity: "", unitPrice: "", vatRate: items[0]?.defaultVat ?? 24 });
   const [lines, setLines] = useState<OrderLineValue[]>(initialLines?.length ? initialLines : [blank()]);
   const update = (index: number, patch: Partial<OrderLineValue>) => setLines((current) => current.map((line, i) => i === index ? { ...line, ...patch } : line));
-  if (!items.length) return <p className="rounded-lg bg-gold/15 p-3 text-sm text-gold-ink">Δημιούργησε πρώτα ενεργά γενικά είδη.</p>;
+  if (!items.length) return <p className="rounded-lg bg-warning/15 p-3 text-sm text-warning-ink">Δημιούργησε πρώτα ενεργά γενικά είδη.</p>;
   return (
     <div className="grid gap-3">
       {lines.map((line, index) => {

@@ -42,7 +42,7 @@ export default async function ProductionPage({ searchParams }: PageProps<"/produ
       actions={<div className="flex flex-wrap gap-2"><Link href="/production/plans" className={btn("outline", "sm")}>Προγραμματισμός</Link><Link href="/production/forecast" className={btn("outline", "sm")}>Πρόβλεψη 7 ημερών</Link>{can("production.add") ? <Link href="/production/close" className={btn("outline", "sm")}>Κλείσιμο ημέρας</Link> : null}<Link href="/production/machines" className={btn("outline", "sm")}>Μηχανήματα</Link>{can("production.add") && recipes.length && warehouses.length ? <Link href="/production/new" className={btn("default", "sm")}><Plus /> Νέα παραγωγή</Link> : null}</div>}>
       <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Η παραγωγή δεν ολοκληρώθηκε: {q.error.slice(0, 300)}</p> : null}
-        {!recipes.length ? <p className="rounded-lg bg-gold/15 px-4 py-3 text-sm text-gold-ink">Δεν υπάρχει ενεργή συνταγή με γραμμές — ξεκίνα από τις <Link href="/recipes" className="underline">Συνταγές</Link>.</p> : null}
+        {!recipes.length ? <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm text-warning-ink">Δεν υπάρχει ενεργή συνταγή με γραμμές — ξεκίνα από τις <Link href="/recipes" className="underline">Συνταγές</Link>.</p> : null}
         <Card>
           <DataTable
             id="production"

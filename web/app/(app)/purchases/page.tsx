@@ -103,7 +103,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
       <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{q.error.slice(0, 300)}</p> : null}
         {q.saved === "ocr" ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Το OCR ολοκληρώθηκε. Έλεγξε το πρωτότυπο και τα αναγνωρισμένα πεδία πριν από την αποδοχή.</p> : typeof q.saved === "string" && q.saved !== "1" ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{q.saved.slice(0, 200)}</p> : null}
-        {!suppliers.length || !warehouses.length ? <p className="rounded-lg bg-gold/15 px-4 py-3 text-sm text-gold-ink">Χρειάζεσαι πρώτα <Link href="/parties" className="underline">προμηθευτή</Link> και <Link href="/inventory" className="underline">αποθήκη</Link>.</p> : null}
+        {!suppliers.length || !warehouses.length ? <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm text-warning-ink">Χρειάζεσαι πρώτα <Link href="/parties" className="underline">προμηθευτή</Link> και <Link href="/inventory" className="underline">αποθήκη</Link>.</p> : null}
         <Card>
           <DataTable
             id="purchases"

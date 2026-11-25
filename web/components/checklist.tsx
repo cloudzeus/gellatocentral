@@ -11,7 +11,7 @@ export function Checklist({ items }: { items: readonly { label: string; detail?:
             <p className="font-semibold">{i.label}</p>
             {i.detail ? <p className="text-sm text-muted-foreground">{i.detail}</p> : null}
           </div>
-          <span className={`shrink-0 text-xs font-semibold ${i.done ? "text-success-ink" : "text-gold-ink"}`}>{i.done ? "Υπάρχει" : "Στο σχέδιο"}</span>
+          <span className={`shrink-0 text-xs font-semibold ${i.done ? "text-success-ink" : "text-warning-ink"}`}>{i.done ? "Υπάρχει" : "Στο σχέδιο"}</span>
         </li>
       ))}
     </ul>

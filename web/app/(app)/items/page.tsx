@@ -73,7 +73,7 @@ export default async function ItemsPage({ searchParams }: PageProps<"/items">) {
             rows={items.map((g) => ({
               id: g.id,
               cells: {
-                name: <Link href={`/items/${g.id}`} className="font-semibold underline-offset-2 hover:underline">{g.name}</Link>,
+                name: <Link href={`/items/${g.id}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">{g.name}</Link>,
                 unit: `${g.baseUnit.nameEL} (${g.baseUnit.code})`,
                 vat: g.vatRate ? `${g.vatRate.name} ${g.vatRate.rate}%` : "—",
                 mappings: g._count.mappings ? `${g._count.mappings} συνδεδεμένες` : "καμία",

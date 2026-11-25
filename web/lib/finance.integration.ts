@@ -93,7 +93,7 @@ test("PostgreSQL FIN: accounts, transfers, expenses, supplier payments, cash clo
     const paymentLedger = await db.financeTransaction.findFirstOrThrow({ where: { orgId: f.orgId, referenceType: "supplier_payment", referenceId: payment.id } });
     assert.equal(paymentLedger.storeId, f.storeId);
     assert.equal(await db.stockMovement.count({ where: { orgId: f.orgId } }), 0);
-    await assert.rejects(recordSupplierPayment(ctx, { clientKey: randomUUID(), supplierId: f.supplierId, amountCents: 2000, paidAt: new Date(), allocations: [{ purchaseDocId: f.purchaseId, amountCents: 2000 }] }), /ανεξόφλητο/);
+    await assert.rejects(recordSupplierPayment(ctx, { clientKey: randomUUID(), supplierId: f.supplierId, amountCents: 2000, paidAt: new Date(), allocations: [{ purchaseDocId: f.purchaseId, amountCents: 2000 }] }), /απλήρωτο/);
     await assert.rejects(recordSupplierPayment(ctx, { clientKey: randomUUID(), supplierId: f.supplierId, amountCents: 100, paidAt: new Date(), allocations: [{ purchaseDocId: f.purchaseId, amountCents: 50 }, { purchaseDocId: f.purchaseId, amountCents: 50 }] }), /μία φορά/);
 
     await sale(f, "cash", 5000);

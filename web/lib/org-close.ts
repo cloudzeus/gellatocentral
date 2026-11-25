@@ -50,7 +50,7 @@ export async function closingChecks(orgId: string) {
 }
 
 const csv = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-const FISCAL_TEXT: Record<string, string> = { SIGNED: "Διαβιβάστηκε", PENDING: "Εκκρεμεί", FAILED: "Απέτυχε", NOT_SENT: "Δοκιμαστική (δεν διαβιβάστηκε)" };
+const FISCAL_TEXT: Record<string, string> = { SIGNED: "Στάλθηκε", PENDING: "Εκκρεμεί", FAILED: "Απέτυχε", NOT_SENT: "Δοκιμαστική (δεν στάλθηκε)" };
 /** Αρχείο αποδείξεων για τον λογιστή: μία γραμμή ανά απόδειξη, σε CSV που ανοίγει στο Excel (UTF-8 με BOM, διαχωριστικό «;»). */
 export async function receiptsCsv(orgId: string) {
   const sales = await db.sale.findMany({ where: { orgId, status: "COMPLETED" }, orderBy: [{ issuedAt: "asc" }, { aa: "asc" }], include: { store: { select: { name: true } }, payment: { select: { vivaTransactionId: true, method: { select: { name: true } } } }, fiscal: { select: { docType: true, status: true, receiptReference: true } }, lines: { select: { quantity: true, unitPriceCents: true, vatRate: true } } } });
