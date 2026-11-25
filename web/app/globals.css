@@ -337,17 +337,19 @@
 /*
  * 2β) Τα checkbox μένουν μικρά στο μάτι, αλλά πιάνονται εύκολα: αόρατη περιοχή 24px με ποντίκι, 44px με αφή.
  */
-[data-slot="checkbox"] {
-  position: relative;
-}
-[data-slot="checkbox"]::after {
-  content: "";
-  position: absolute;
-  inset: -0.25rem;
-}
-@media (pointer: coarse) {
+@layer base {
+  [data-slot="checkbox"] {
+    position: relative;
+  }
   [data-slot="checkbox"]::after {
-    inset: -0.875rem;
+    content: "";
+    position: absolute;
+    inset: -0.25rem;
+  }
+  @media (pointer: coarse) {
+    [data-slot="checkbox"]::after {
+      inset: -0.875rem;
+    }
   }
 }
 

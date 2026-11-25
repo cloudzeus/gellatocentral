@@ -140,7 +140,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
                 <li key={x.id} className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
                   <span className="min-w-0 flex-1 tabular-nums">{day(x.periodStart)} – {day(x.periodEnd)} <span className="text-muted-foreground">· {x.stores} καταστ., {x.devices} συσκευές{x.planName ? ` · ${x.planName}` : ""}</span></span>
                   <b className="tabular-nums">{euro(withVat(x.amountCents))}</b>
-                  {x.paidAt ? <Badge tone="success">Πληρώθηκε {day(x.paidAt)}</Badge> : <Badge tone="warning">Ανεξόφλητη</Badge>}
+                  {x.paidAt ? <Badge tone="success">Πληρώθηκε {day(x.paidAt)}</Badge> : <Badge tone="warning">Απλήρωτη</Badge>}
                 </li>
               ))}
             </ul>

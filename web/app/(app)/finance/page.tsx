@@ -56,7 +56,7 @@ export default async function FinancePage({ searchParams }: PageProps<"/finance"
   const supplierOptions = suppliers.map((supplier): [string, string] => [supplier.id, supplier.name]);
   const purchaseOptions = purchases.map((purchase): [string, string] => {
     const outstanding = purchaseTotals(purchase, purchase.lines).totalCents - (allocated.get(purchase.id) ?? 0);
-    return [purchase.id, `${purchase.number ?? purchase.id.slice(-8)} · ${supplierNames.get(purchase.supplierId) ?? "Προμηθευτής"} · ανεξόφλητο ${money(outstanding)}`];
+    return [purchase.id, `${purchase.number ?? purchase.id.slice(-8)} · ${supplierNames.get(purchase.supplierId) ?? "Προμηθευτής"} · απλήρωτο ${money(outstanding)}`];
   });
   const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Athens" });
   const monthFrom = `${today.slice(0, 8)}01`;

@@ -465,7 +465,7 @@ export async function recordCustomerPayment(ctx: StockContext, input: CustomerPa
       const replay = await existingCustomerPayment(tx, ctx.orgId, request, requestHash);
       if (replay) return replay;
       for (const { allocation, document } of documents) {
-        if (allocation.amountCents > outstandingCents(document, document.allocations)) throw new WorkflowError("Η αντιστοίχιση υπερβαίνει το ανεξόφλητο");
+        if (allocation.amountCents > outstandingCents(document, document.allocations)) throw new WorkflowError("Η αντιστοίχιση υπερβαίνει το απλήρωτο");
       }
       const payment = await tx.customerPayment.create({ data: {
         orgId: ctx.orgId, customerId: request.customerId, accountId: account?.id ?? null, amountCents: request.amountCents,

@@ -16,7 +16,7 @@ export async function issueCreditNote(saleId: string) {
   const { org } = await currentOrg("receipts.reissue");
   const live = await vivaConfigured();
   const credit = await issueCredit({ orgId: org.id, saleId: z.string().cuid().parse(saleId), live });
-  if (!credit) throw new Error("Η απόδειξη δεν μπορεί να πιστωθεί: δεν έχει διαβιβαστεί ή έχει ήδη πιστωθεί.");
+  if (!credit) throw new Error("Η απόδειξη δεν μπορεί να πιστωθεί: δεν έχει σταλεί ή έχει ήδη πιστωθεί.");
   if (live) {
     try {
       if (!credit.device.vivaTerminalId || !org.vivaMerchantId) throw new Error("Λείπει το τερματικό Viva του ταμείου ή ο κωδικός εμπόρου της επιχείρησης.");

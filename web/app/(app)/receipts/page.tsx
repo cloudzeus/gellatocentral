@@ -49,7 +49,7 @@ export default async function ReceiptsPage({ searchParams }: PageProps<"/receipt
             ...list, total, placeholder: "Απόδειξη (π.χ. A1-12) ή ταμείο",
             filters: [
               { key: "method", label: "Πληρωμή", value: method, options: methods.map((m): [string, string] => [m.id, m.name]) },
-              { key: "fiscal", label: "ΑΑΔΕ", value: fiscal, options: [["SIGNED", "Διαβιβάστηκε"], ["NOT_SENT", "Δοκιμαστική"], ["PENDING", "Σε εξέλιξη"], ["FAILED", "Απέτυχε"]] },
+              { key: "fiscal", label: "ΑΑΔΕ", value: fiscal, options: [["SIGNED", "Στάλθηκε"], ["NOT_SENT", "Δοκιμαστική"], ["PENDING", "Σε εξέλιξη"], ["FAILED", "Απέτυχε"]] },
               { key: "device", label: "Ταμείο", value: device, options: devices.map((d): [string, string] => [d.id, d.name]) },
             ],
           }}

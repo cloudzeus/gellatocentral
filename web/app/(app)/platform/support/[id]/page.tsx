@@ -44,7 +44,7 @@ export default async function SupportTicketPage({ params, searchParams }: PagePr
   // Η κατάσταση της επιχείρησης αυτή τη στιγμή, ώστε ο υπάλληλος να μη χρειάζεται να ρωτήσει τα βασικά
   const facts: { tone: keyof typeof DOT; text: string; detail?: string }[] = [
     { tone: sub && sub.currentPeriodEnd > new Date() ? "success" : "danger", text: sub ? (sub.currentPeriodEnd > new Date() ? "Συνδρομή σε ισχύ" : "Η συνδρομή έχει λήξει") : "Χωρίς συνδρομή", detail: sub ? `έως ${day.format(sub.currentPeriodEnd)}` : undefined },
-    { tone: unsent ? "danger" : "success", text: unsent ? `${unsent} ${unsent === 1 ? "απόδειξη δεν στάλθηκε" : "αποδείξεις δεν στάλθηκαν"} στην ΑΑΔΕ` : "Όλες οι αποδείξεις έχουν διαβιβαστεί" },
+    { tone: unsent ? "danger" : "success", text: unsent ? `${unsent} ${unsent === 1 ? "απόδειξη δεν στάλθηκε" : "αποδείξεις δεν στάλθηκαν"} στην ΑΑΔΕ` : "Όλες οι αποδείξεις έχουν σταλεί" },
     ...devices.flatMap((d) => {
       const st = DEVICE_KIND[d.kind].measures ? readingStatus(d, d.readings[0]) : null;
       if (st && d.readings[0] && st.tone !== "success" && st.tone !== "neutral") return [{ tone: st.tone, text: `${d.name}: ${st.text}`, detail: d.store.name }];
