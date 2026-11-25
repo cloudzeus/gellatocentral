@@ -45,6 +45,9 @@ export async function POST(req: Request, { params }: RouteContext<"/api/pos/sale
   if (await closedFor(ctx, sale.status)) return Response.json({ error: "paused" }, { status: 403 });
 
   if (!parsed.data.success) {
+    // Επανάληψη της ίδιας δήλωσης αφού η πώληση έκλεισε ως πληρωμένη (χάθηκε η πρώτη απάντηση): η απάντηση πρέπει να
+    // λέει ξανά «πληρώθηκε». Αλλιώς η συσκευή θα έδειχνε «ο πελάτης δεν χρεώθηκε» και ο ταμίας θα χρέωνε δεύτερη φορά.
+    if (sale.status === "COMPLETED") return done(sale);
     // Η συσκευή λέει «δεν έγινε». Αν όμως η Viva βεβαιώνει ότι η πληρωμή πέρασε, μετράει η Viva: αλλιώς ο πελάτης
     // θα είχε χρεωθεί και η πώληση θα γύριζε σε πρόχειρο. Αν η Viva δεν απαντά, ισχύει η δήλωση της συσκευής, όπως πριν.
     const verification = sale.status === "AWAITING_PAYMENT" ? await verifySaleSession(sale, terminalOf(ctx)).catch(() => null) : null;

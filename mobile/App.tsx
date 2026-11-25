@@ -75,7 +75,7 @@ function Pair({ t, onPaired }: { t: Theme; onPaired: (s: Session) => void }) {
 type Status =
   | { kind: "waiting" }
   | { kind: "paid"; series: string | null; aa: number | null }
-  | { kind: "unknown"; attempt: number; checkedAt: Date }
+  | { kind: "unknown"; attempt: number; checkedAt: Date; noPaymentYet: boolean }
   | { kind: "failed" }
   | { kind: "unverified" }
   | { kind: "resume" }
@@ -199,16 +199,18 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
       setOnline(true);
       if (o.state === "paid") { await setPending(null); setStatus({ kind: "paid", series: o.series, aa: o.aa }); }
       else if (o.state === "failed") { await setPending(null); setStatus({ kind: "failed" }); }
-      else setStatus({ kind: "unknown", attempt, checkedAt: new Date() });
+      else setStatus({ kind: "unknown", attempt, checkedAt: new Date(), noPaymentYet: o.noPaymentYet });
     } catch (e) {
       const err = e instanceof ApiError ? e : new ApiError(0, "network", "");
       if (err.status === 401) setStatus({ kind: "unpaired" });
       else if (err.status === 403) setStatus({ kind: "blocked", message: err.message || "Το ταμείο είναι κλειστό αυτή τη στιγμή." });
       else if (err.status === 409 && err.code === "verification_failed") setStatus({ kind: "unverified" });
       // η πώληση δεν περιμένει πια πληρωμή στον server (γύρισε σε πρόχειρο ή δεν υπάρχει)
-      else if (err.status === 404 || (err.status === 409 && err.code === "invalid_state")) { await setPending(null); setStatus({ kind: "failed" }); }
+      else if (err.status === 404) { await setPending(null); setStatus({ kind: "failed" }); }
+      // το τερματικό είπε «πληρώθηκε» αλλά η πώληση δεν περιμένει πια πληρωμή: δεν ξέρουμε αν χρεώθηκε, το λύνει ο υπεύθυνος
+      else if (err.status === 409 && err.code === "invalid_state") { await setPending(null); setStatus({ kind: "unverified" }); }
       // δίκτυο, 502 ή οτιδήποτε άλλο: η πληρωμή μπορεί να έγινε, άρα ΔΕΝ είναι αποτυχία
-      else { if (err.status === 0) setOnline(false); setStatus({ kind: "unknown", attempt, checkedAt: new Date() }); }
+      else { if (err.status === 0) setOnline(false); setStatus({ kind: "unknown", attempt, checkedAt: new Date(), noPaymentYet: false }); }
     } finally {
       setBusy(false);
     }
@@ -224,9 +226,13 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
   // Επιστροφή από το Viva Terminal: το callback γράφεται πρώτα στη συσκευή, μετά πηγαίνει στον server.
   const onUrl = useCallback(async (url: string) => {
     const p = pendingRef.current;
-    if (!isVivaResult(url) || !p) return;
+    if (!isVivaResult(url) || !p) return false;
+    // callback άλλης, παλιότερης πώλησης δεν αγγίζει αυτήν που πληρώνεται τώρα
+    const about = parseResult(url).clientTransactionId;
+    if (about && about !== p.saleId) return false;
     await setPending({ ...p, callback: url });
     check();
+    return true;
   }, [check, setPending]);
 
   // Στο άνοιγμα: πρώτα η αποθηκευμένη εκκρεμότητα, πριν φανεί το ταμείο. Καλύπτει και εκκίνηση από το callback της Viva.
@@ -237,8 +243,9 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
       pendingRef.current = p;
       setPendingState(p);
       const url = await Linking.getInitialURL();
-      if (url && isVivaResult(url)) await onUrl(url);
-      else if (p.callback) check();
+      // Αν το αρχικό callback ήταν άλλης πώλησης και αγνοήθηκε, η εκκρεμότητα δεν μένει κρυμμένη πίσω από το ταμείο.
+      if (url && (await onUrl(url))) return;
+      if (p.callback) check();
       else setStatus({ kind: "resume" });
     })();
     const sub = Linking.addEventListener("url", ({ url }) => void onUrl(url));
@@ -262,7 +269,7 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
     return () => sub.remove();
   }, [locked]);
 
-  const openViva = (p: Pending) => Linking.openURL(saleUrl(p)).catch(() => setStatus({ kind: "unknown", attempt: 0, checkedAt: new Date() }));
+  const openViva = (p: Pending) => Linking.openURL(saleUrl(p)).catch(() => setStatus({ kind: "unknown", attempt: 0, checkedAt: new Date(), noPaymentYet: false }));
 
   const startPayment = async (withMethod = method) => {
     if (!withMethod || !lines.length) return;
@@ -297,10 +304,15 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
     const how = pending?.methodName || method?.name || "";
     const summary = pending ? `${amount} · ${how}${pending.items ? ` · ${pending.items} είδη` : ""} · ${time(pending.startedAt)}` : undefined;
     const card = (tone: Tone, label: string, title: string, text: string, actions: Action[], note?: string) => <StatusCard t={t} tone={tone} label={label} title={title} text={text} actions={actions} note={note} busy={busy} summary={summary} />;
+    // Χαμένη απάντηση του server: το Viva Terminal μπορεί να μην άνοιξε ποτέ για αυτή την πώληση, και τότε η Viva δεν θα
+    // απαντήσει ποτέ. Το ξανάνοιγμα όμως μπορεί να χρεώσει δεύτερη φορά πελάτη που ήδη πλήρωσε, άρα προσφέρεται ΜΟΝΟ όταν
+    // ο server ρώτησε τη Viva και εκείνη είπε ότι δεν έχει πληρωμή, και δεν έχει γυρίσει callback. Ποτέ μετά από σφάλμα δικτύου.
+    const reopen: Action[] = status.kind === "unknown" && status.noPaymentYet && pending && !pending.callback
+      ? [{ label: "Ο πελάτης δεν πλήρωσε: άνοιξε το Viva Terminal", onPress: () => { setStatus({ kind: "waiting" }); void openViva(pending); } }] : [];
     switch (status.kind) {
       case "waiting": return card("neutral", "Σε εξέλιξη", "Περιμένουμε το Viva Terminal", `${how} · ${amount}. Η οθόνη αλλάζει μόνη της μόλις τελειώσει.`, [{ label: "Viva Terminal", onPress: () => pending && void openViva(pending) }, { label: "Έλεγχος πληρωμής", onPress: () => check(), primary: true }]);
       case "paid": return card("ok", "Ολοκληρώθηκε", `Πληρώθηκε ${amount}`, `${how}${status.aa != null ? ` · απόδειξη ${status.series ?? ""} ${status.aa}` : ""}.`, [{ label: "Νέα πώληση", primary: true, onPress: () => { setCart({}); setSelected(undefined); backToSale(); } }]);
-      case "unknown": return card("wait", "Περιμένει", "Δεν ξέρουμε ακόμα αν πληρώθηκε", "Η Viva δεν απάντησε. Ρωτάμε ξανά μόνοι μας. Μην χρεώσεις ξανά τον πελάτη.", [{ label: "Έλεγξε ξανά τώρα", primary: true, onPress: () => check(status.attempt) }], `Τελευταίος έλεγχος ${time(status.checkedAt)}`);
+      case "unknown": return card("wait", "Περιμένει", "Δεν ξέρουμε ακόμα αν πληρώθηκε", "Η Viva δεν απάντησε. Ρωτάμε ξανά μόνοι μας. Μην χρεώσεις ξανά τον πελάτη.", [...reopen, { label: "Έλεγξε ξανά τώρα", primary: true, onPress: () => check(status.attempt) }], `Τελευταίος έλεγχος ${time(status.checkedAt)}`);
       case "failed": return card("bad", "Θέλει ενέργεια", "Η πληρωμή δεν έγινε", "Ο πελάτης δεν χρεώθηκε. Η πώληση είναι όπως την άφησες.", [
         ...(lines.length ? methods.map((m) => ({ label: m.code === "cash" ? "Με μετρητά" : "Ξανά με κάρτα", onPress: () => { setMethodId(m.id); setStatus(undefined); if (m.code === "cash") setCash(true); else void startPayment(m); } })) : []),
         { label: "Πίσω στην πώληση", onPress: backToSale, primary: true },

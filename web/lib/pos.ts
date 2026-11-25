@@ -71,7 +71,7 @@ export async function pendingSale(db: Pick<Prisma.TransactionClient, "sale">, ct
   const method = sale?.payment?.method;
   if (!sale || !sale.aa || !sale.issuedAt || !sale.payment?.vivaSessionId || !method?.payItemCase) return null;
   const receipt = buildReceipt({
-    merchantVat: ctx.org.vatNumber, series: ctx.device.series, aa: sale.aa, reference: sale.payment.vivaSessionId, moment: sale.issuedAt,
+    merchantVat: ctx.org.vatNumber, series: sale.series ?? ctx.device.series, aa: sale.aa, reference: sale.payment.vivaSessionId, moment: sale.issuedAt,
     payItem: { description: method.name, payItemCase: method.payItemCase }, lines: sale.lines,
   });
   return { saleId: sale.id, reference: sale.payment.vivaSessionId, receipt, methodId: method.id, methodName: method.name, issuedAt: sale.issuedAt };
