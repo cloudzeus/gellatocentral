@@ -40,9 +40,13 @@ export async function sendTransaction(what: "sale" | "refund", url: string, toke
 async function isv() {
   // Οι ρυθμίσεις/η βάση φορτώνονται μόνο σε πραγματική κλήση· η επαλήθευση δέχεται mocked session loader.
   const { settings } = await import("../config.ts");
-  const c = await settings("VIVA_ENV", "VIVA_ISV_CLIENT_ID", "VIVA_ISV_CLIENT_SECRET");
+  const c = await settings("VIVA_ENV", "VIVA_API_MODE", "VIVA_ISV_CLIENT_ID", "VIVA_ISV_CLIENT_SECRET");
   const demo = c.VIVA_ENV !== "production";
-  return { demo, id: c.VIVA_ISV_CLIENT_ID, secret: c.VIVA_ISV_CLIENT_SECRET, accounts: demo ? "https://demo-accounts.vivapayments.com" : "https://accounts.vivapayments.com", api: demo ? "https://demo-api.vivapayments.com" : "https://api.vivapayments.com" };
+  const api = demo ? "https://demo-api.vivapayments.com" : "https://api.vivapayments.com";
+  // Με στοιχεία εμπόρου («POS APIs Credentials») η Viva απορρίπτει τις διευθύνσεις ISV με 401: ίδιες κλήσεις, χωρίς το /isv
+  // και χωρίς isvDetails. Επιβεβαιωμένο στο demo για token και sessions· η πώληση και η επιστροφή ΔΕΝ έχουν δοκιμαστεί.
+  const merchant = c.VIVA_API_MODE === "merchant";
+  return { demo, merchant, id: c.VIVA_ISV_CLIENT_ID, secret: c.VIVA_ISV_CLIENT_SECRET, accounts: demo ? "https://demo-accounts.vivapayments.com" : "https://accounts.vivapayments.com", api, ecr: `${api}/ecr/${merchant ? "" : "isv/"}v1` };
 }
 export const vivaConfigured = async () => { const c = await isv(); return Boolean(c.id && c.secret); };
 
@@ -85,8 +89,8 @@ export async function startSale(input: {
   terminalMerchantId: string;
   fiscalisationData: unknown;
 }) {
-  const api = (await isv()).api;
-  await sendTransaction("sale", `${api}/ecr/isv/v1/transactions:sale`, await bearer(), toVivaJson({
+  const c = await isv();
+  await sendTransaction("sale", `${c.ecr}/transactions:sale`, await bearer(), toVivaJson({
       sessionId: input.sessionId,
       terminalId: input.terminalId,
       cashRegisterId: input.cashRegisterId,
@@ -96,14 +100,14 @@ export async function startSale(input: {
       tipAmount: 0,
       showTransactionResult: true,
       showReceipt: false, // την απόδειξη την τυπώνουμε εμείς, με τα στοιχεία σήμανσης
-      isvDetails: { terminalMerchantId: input.terminalMerchantId },
+      ...(c.merchant ? {} : { isvDetails: { terminalMerchantId: input.terminalMerchantId } }),
       fiscalisationData: input.fiscalisationData,
     }));
 }
 
 /** null = το τερματικό δεν έχει τελειώσει ακόμα (HTTP 202). */
 export async function getSession(sessionId: string): Promise<Record<string, unknown> | null> {
-  const res = await fetch(`${(await isv()).api}/ecr/isv/v1/sessions/${encodeURIComponent(sessionId)}`, {
+  const res = await fetch(`${(await isv()).ecr}/sessions/${encodeURIComponent(sessionId)}`, {
     headers: { Authorization: `Bearer ${await bearer()}` },
     cache: "no-store", signal: AbortSignal.timeout(VIVA_TIMEOUT_MS),
   });
@@ -185,8 +189,8 @@ export async function startRefund(input: {
   terminalMerchantId: string;
   fiscalisationData: unknown;
 }) {
-  const api = (await isv()).api;
-  await sendTransaction("refund", `${api}/ecr/isv/v1/transactions:refund`, await bearer(), toVivaJson({
+  const c = await isv();
+  await sendTransaction("refund", `${c.ecr}/transactions:refund`, await bearer(), toVivaJson({
       sessionId: input.sessionId,
       terminalId: input.terminalId,
       cashRegisterId: input.cashRegisterId,
@@ -194,7 +198,7 @@ export async function startRefund(input: {
       currencyCode: "978",
       merchantReference: input.merchantReference,
       showTransactionResult: true,
-      isvDetails: { terminalMerchantId: input.terminalMerchantId },
+      ...(c.merchant ? {} : { isvDetails: { terminalMerchantId: input.terminalMerchantId } }),
       fiscalisationData: input.fiscalisationData,
     }));
 }

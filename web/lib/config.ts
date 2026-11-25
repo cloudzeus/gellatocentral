@@ -14,6 +14,7 @@ export const GROUPS = {
     hint: "Τα κλειδιά του λογαριασμού ISV. Με αυτά τα ταμεία όλων των πελατών στέλνουν πληρωμές στα τερματικά και στέλνουν αποδείξεις",
     fields: {
       VIVA_ENV: { label: "Περιβάλλον Viva", hint: "Ισχύει και για την είσπραξη συνδρομών", options: [["demo", "Demo (δοκιμές)"], ["production", "Παραγωγή (πραγματικές συναλλαγές)"]] },
+      VIVA_API_MODE: { label: "Είδος λογαριασμού", hint: "ISV: ένας λογαριασμός συνεργάτη εξυπηρετεί όλους τους πελάτες. Έμπορος: τα «POS APIs Credentials» ενός μόνο λογαριασμού Viva, για δοκιμές ή για εγκατάσταση με έναν πελάτη", options: [["isv", "Συνεργάτης λογισμικού (ISV)"], ["merchant", "Έμπορος (ένας λογαριασμός Viva)"]] },
       VIVA_ISV_CLIENT_ID: { label: "Client ID" },
       VIVA_ISV_CLIENT_SECRET: { label: "Client Secret", secret: true },
     },
