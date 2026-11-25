@@ -2,7 +2,6 @@
 // Το μενού. Client component: το ενεργό στοιχείο εξαρτάται από το URL, και το άνοιγμα/κλείσιμο των ομάδων
 // και του ίδιου του μενού θυμάται την επιλογή του χρήστη (localStorage).
 import { ChevronDown, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV } from "@/lib/nav";
@@ -111,6 +110,12 @@ function ThemeToggle() {
   return <button type="button" onClick={toggle} aria-label="Αλλαγή θέματος" title={label} className={footBtn}><Sun className="hidden size-4 dark:block" /><Moon className="size-4 dark:hidden" /></button>;
 }
 
+// Το /logo.png είναι κάθετη σύνθεση (σήμα, λεκτικό, υπότιτλος) που σε ύψος μενού δεν διαβάζεται. Εδώ κόβουμε από την ίδια
+// εικόνα το σήμα και το λεκτικό και τα βάζουμε δίπλα δίπλα, στην ίδια γραμμή με το κουμπί σύμπτυξης.
+// shortcut: οι θέσεις είναι μετρημένες πάνω στο σημερινό logo.png (640x352)· αν αλλάξει το αρχείο, ζήτα οριζόντιο λογότυπο σε SVG.
+const LOGO_ICON = { width: "1.725rem", height: "2rem", background: "url(/logo.png) -2.648rem 0 / 7.033rem auto no-repeat" };
+const LOGO_WORD = { width: "9.123rem", height: "0.8125rem", background: "url(/logo.png) 0 -3.278rem / 9.123rem auto no-repeat" };
+
 type User = { name: string; subtitle: string; logout: () => Promise<void> };
 
 export function UserFooter({ user, collapsed = false }: { user: User; collapsed?: boolean }) {
@@ -141,7 +146,10 @@ export function Sidebar({ allowed, badges, user }: { allowed: string[]; badges?:
     <aside className={cn("sidebar-surface scrollbar-hide sticky top-0 hidden h-dvh shrink-0 flex-col overflow-y-auto border-r border-sidebar-border lg:flex print:!hidden", collapsed ? "w-[4.5rem]" : "w-[17rem]")}>
       <div className={cn("flex items-center gap-2 pt-5 pb-4", collapsed ? "flex-col px-2" : "pr-3 pl-[1.375rem]")}>
         <div className={cn("flex items-center", collapsed ? "size-11 justify-center" : "min-w-0 flex-1")}>
-          {collapsed ? <Image src="/icon.png" alt="Gelato System" width={28} height={28} className="size-7 object-contain" /> : <Image src="/logo.png" alt="Gelato System" width={640} height={352} priority className="h-14 w-auto object-contain" />}
+          <span role="img" aria-label="Gelato System" className={cn("flex items-center", collapsed ? "justify-center" : "gap-2.5")}>
+            <span aria-hidden className="shrink-0" style={LOGO_ICON} />
+            {collapsed ? null : <span aria-hidden className="shrink-0" style={LOGO_WORD} />}
+          </span>
         </div>
         <button type="button" onClick={() => setCollapsed(!collapsed)} aria-label={label} title={label} aria-expanded={!collapsed} className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-lg text-sidebar-foreground/70 transition-colors duration-150 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground">
           <Toggle className="size-4" />

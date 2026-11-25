@@ -31,7 +31,7 @@ export function PartyAccountSummary({ summary, base }: { summary: PartyAccountSu
           </Link>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">Το υπόλοιπο υπολογίζεται από παραστατικά που έχουν διαβιβαστεί στην ΑΑΔΕ και επιτυχείς πληρωμές συνδεδεμένων πωλήσεων.</p>
+      <p className="text-xs text-muted-foreground">Το υπόλοιπο υπολογίζεται από παραστατικά που έχουν σταλεί στην ΑΑΔΕ και επιτυχείς πληρωμές συνδεδεμένων πωλήσεων.</p>
     </section>
   );
 }

@@ -20,7 +20,7 @@ import { startRemote } from "../../actions";
 const day = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeZone: "Europe/Athens" });
 const CONF: Record<string, { tone: "success" | "warning" | "danger"; text: string }> = { high: { tone: "success", text: "Βεβαιότητα υψηλή" }, medium: { tone: "warning", text: "Βεβαιότητα μέτρια" }, low: { tone: "danger", text: "Βεβαιότητα χαμηλή: έλεγξέ το" } };
 const SAVED: Record<string, string> = { draft: "Το προσχέδιο είναι έτοιμο. Διάβασέ το πριν το στείλεις", rejected: "Το προσχέδιο απορρίφθηκε", reply: "Το μήνυμα καταχωρίστηκε", resolved: "Το αίτημα σημειώθηκε ως λυμένο", assigned: "Το αίτημα ανατέθηκε σε σένα", priority: "Η προτεραιότητα άλλαξε" };
-const DOT = { success: "bg-success", warning: "bg-gold", danger: "bg-destructive", neutral: "bg-muted-foreground/40" };
+const DOT = { success: "bg-success", warning: "bg-warning", danger: "bg-destructive", neutral: "bg-muted-foreground/40" };
 
 export default async function SupportTicketPage({ params, searchParams }: PageProps<"/platform/support/[id]">) {
   const me = await requirePlatform("support.tickets");
@@ -44,7 +44,7 @@ export default async function SupportTicketPage({ params, searchParams }: PagePr
   // Η κατάσταση της επιχείρησης αυτή τη στιγμή, ώστε ο υπάλληλος να μη χρειάζεται να ρωτήσει τα βασικά
   const facts: { tone: keyof typeof DOT; text: string; detail?: string }[] = [
     { tone: sub && sub.currentPeriodEnd > new Date() ? "success" : "danger", text: sub ? (sub.currentPeriodEnd > new Date() ? "Συνδρομή σε ισχύ" : "Η συνδρομή έχει λήξει") : "Χωρίς συνδρομή", detail: sub ? `έως ${day.format(sub.currentPeriodEnd)}` : undefined },
-    { tone: unsent ? "danger" : "success", text: unsent ? `${unsent} ${unsent === 1 ? "απόδειξη δεν διαβιβάστηκε" : "αποδείξεις δεν διαβιβάστηκαν"} στην ΑΑΔΕ` : "Όλες οι αποδείξεις έχουν διαβιβαστεί" },
+    { tone: unsent ? "danger" : "success", text: unsent ? `${unsent} ${unsent === 1 ? "απόδειξη δεν στάλθηκε" : "αποδείξεις δεν στάλθηκαν"} στην ΑΑΔΕ` : "Όλες οι αποδείξεις έχουν διαβιβαστεί" },
     ...devices.flatMap((d) => {
       const st = DEVICE_KIND[d.kind].measures ? readingStatus(d, d.readings[0]) : null;
       if (st && d.readings[0] && st.tone !== "success" && st.tone !== "neutral") return [{ tone: st.tone, text: `${d.name}: ${st.text}`, detail: d.store.name }];

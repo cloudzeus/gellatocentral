@@ -49,7 +49,7 @@ export default async function StockAlertsPage({ searchParams }: PageProps<"/inve
         {q.deleted ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Το ελάχιστο απόθεμα διαγράφηκε.</p> : null}
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <Card className="px-5 py-4"><p className="text-xs font-medium text-muted-foreground">Χαμηλό απόθεμα</p><p className="mt-1 text-2xl font-semibold tabular-nums">{alerts.lowStock.length}</p></Card>
+          <Card className="px-5 py-4"><p className="text-xs font-medium text-muted-foreground">Τελειώνουν</p><p className="mt-1 text-2xl font-semibold tabular-nums">{alerts.lowStock.length}</p></Card>
           <Card className="px-5 py-4"><p className="text-xs font-medium text-muted-foreground">Ληγμένες ανοιχτές παρτίδες</p><p className="mt-1 text-2xl font-semibold tabular-nums">{expired}</p></Card>
           <Card className="px-5 py-4"><p className="text-xs font-medium text-muted-foreground">Λήξεις έως 30 ημέρες</p><p className="mt-1 text-2xl font-semibold tabular-nums">{upcoming}</p></Card>
         </div>
@@ -57,7 +57,7 @@ export default async function StockAlertsPage({ searchParams }: PageProps<"/inve
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[60rem] border-collapse text-sm">
-              <caption className="px-4 py-4 text-left"><span className="flex items-center gap-2 text-lg font-semibold"><BellRing className="size-5" /> Χαμηλό απόθεμα</span><span className="text-muted-foreground">Ειδοποίηση μόνο όταν το τρέχον υπόλοιπο είναι μικρότερο από το καταχωρισμένο ελάχιστο</span></caption>
+              <caption className="px-4 py-4 text-left"><span className="flex items-center gap-2 text-lg font-semibold"><BellRing className="size-5" /> Τελειώνουν</span><span className="text-muted-foreground">Ειδοποίηση μόνο όταν το τρέχον υπόλοιπο είναι μικρότερο από το καταχωρισμένο ελάχιστο</span></caption>
               <thead className="bg-secondary/35"><tr><th className={th} scope="col">Είδος</th><th className={th} scope="col">Αποθήκη</th><th className={`${th} text-right`} scope="col">Τρέχον</th><th className={`${th} text-right`} scope="col">Ελάχιστο</th><th className={`${th} text-right`} scope="col">Έλλειμμα</th></tr></thead>
               <tbody>
                 {alerts.lowStock.map((row) => (

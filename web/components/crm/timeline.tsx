@@ -36,7 +36,7 @@ export function Timeline({ items, now, touch, compact = false, empty }: { items:
             <span className={cn("mt-0.5 grid size-8 shrink-0 place-items-center rounded-full", look.cls)}><look.icon className="size-4" aria-hidden /></span>
             <div className="min-w-0 flex-1">
               <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                {i.href ? <Link href={i.href} className={cn("font-semibold underline-offset-2 hover:underline", state === "done" && "line-through opacity-70")}>{i.title}</Link> : <span className={cn("font-semibold", state === "done" && "line-through opacity-70")}>{i.title}</span>}
+                {i.href ? <Link href={i.href} className={cn("font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center", state === "done" && "line-through opacity-70")}>{i.title}</Link> : <span className={cn("font-semibold", state === "done" && "line-through opacity-70")}>{i.title}</span>}
                 {i.pinned ? <Badge tone="warning"><Pin className="size-3" aria-hidden /> Καρφιτσωμένο</Badge> : null}
                 {state ? <Badge tone={TASK_TONE[state]}>{state === "done" ? "Έγινε" : dueText(i.task!.dueAt, now)}</Badge> : null}
               </p>

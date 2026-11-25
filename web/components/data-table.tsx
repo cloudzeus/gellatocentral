@@ -295,7 +295,7 @@ export function DataTable({ id, columns, rows, empty, listing, bulkActions = [] 
                     <Link
                       href={hrefFor(listing, { sort: c.key, dir: listing.sort === c.key && listing.dir === "desc" ? "asc" : "desc", page: undefined })}
                       draggable={false} title={`Ταξινόμηση κατά ${c.label}`}
-                      className={cn("inline-flex max-w-full items-center gap-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50", c.numeric && "flex-row-reverse", listing.sort === c.key && "text-foreground")}
+                      className={cn("inline-flex min-h-6 max-w-full items-center gap-1 hover:text-foreground pointer-coarse:min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50", c.numeric && "flex-row-reverse", listing.sort === c.key && "text-foreground")}
                     >
                       <span className="truncate">{c.label}</span>
                       {listing.sort === c.key ? (listing.dir === "asc" ? <ArrowUp className="size-3.5 shrink-0" /> : <ArrowDown className="size-3.5 shrink-0" />) : <ChevronsUpDown className="size-3.5 shrink-0 opacity-50" />}

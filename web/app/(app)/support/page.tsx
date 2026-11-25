@@ -53,7 +53,7 @@ export default async function SupportPage({ searchParams }: PageProps<"/support"
       }>
       <div className="max-w-7xl space-y-4">
         {typeof sp.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{sp.error.slice(0, 200)}</p> : null}
-        {waiting > 0 ? <p className="rounded-lg border border-gold/40 bg-gold/10 px-4 py-3 font-medium">{waiting === 1 ? "Ένα αίτημα περιμένει" : `${waiting} αιτήματα περιμένουν`} τη δική σου απάντηση</p> : null}
+        {waiting > 0 ? <p className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 font-medium">{waiting === 1 ? "Ένα αίτημα περιμένει" : `${waiting} αιτήματα περιμένουν`} τη δική σου απάντηση</p> : null}
         <Card>
           <DataTable
             id="my-tickets"
@@ -70,7 +70,7 @@ export default async function SupportPage({ searchParams }: PageProps<"/support"
               return {
                 id: t.id,
                 cells: {
-                  ticket: <Link href={`/support/${t.id}`} className="font-semibold underline-offset-2 hover:underline"><span className="mr-2 rounded-sm border border-dashed border-primary/30 bg-background px-1.5 py-0.5 font-mono text-xs font-medium">#{t.number}</span>{t.subject}</Link>,
+                  ticket: <Link href={`/support/${t.id}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"><span className="mr-2 rounded-sm border border-dashed border-primary/30 bg-background px-1.5 py-0.5 font-mono text-xs font-medium">#{t.number}</span>{t.subject}</Link>,
                   status: <Badge tone={STATUS[t.status as Status].tone}>{STATUS[t.status as Status].customer}</Badge>,
                   last: last ? `${last.authorKind === "support" ? `${last.authorName} από την υποστήριξη` : last.authorKind === "system" ? "Ενημέρωση" : last.authorName} · ${when.format(last.createdAt)}` : "—",
                   by: t.openedByName,

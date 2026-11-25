@@ -82,7 +82,7 @@ export default async function QueuePage({ searchParams }: PageProps<"/platform/s
               return {
                 id: t.id,
                 cells: {
-                  ticket: <Link href={`/platform/support/${t.id}`} className="font-semibold underline-offset-2 hover:underline"><span className="mr-2 rounded-sm border border-dashed border-primary/30 bg-background px-1.5 py-0.5 font-mono text-xs font-medium">#{t.number}</span>{t.subject}</Link>,
+                  ticket: <Link href={`/platform/support/${t.id}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"><span className="mr-2 rounded-sm border border-dashed border-primary/30 bg-background px-1.5 py-0.5 font-mono text-xs font-medium">#{t.number}</span>{t.subject}</Link>,
                   org: t.org.name,
                   priority: <Badge tone={PRIORITY[t.priority as Priority].tone}>{PRIORITY[t.priority as Priority].label}</Badge>,
                   status: <Badge tone={STATUS[t.status as Status].tone}>{STATUS[t.status as Status].label}</Badge>,

@@ -72,7 +72,7 @@
   --font-display: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
   /* Ρευστή τυπογραφία: τα text-* του Tailwind δείχνουν στα --fs-* (scripts/fluid-type.mjs) */
   /* Βάση 12,5px· στο κινητό τα μικρά μεγέθη μεγαλώνουν κατά 1px μόνα τους */
-  --text-2xs: var(--fs-10-5);
+  --text-2xs: var(--fs-11);
   --text-xs: var(--fs-11-5);
   --text-sm: var(--fs-12-5);
   --text-base: var(--fs-13-5);
@@ -85,6 +85,7 @@
 
 :root {
   --fs-10-5: clamp(0.6563rem, 0.7432rem - 0.1087vw, 0.7188rem);
+  --fs-11: clamp(0.6875rem, 0.7745rem - 0.1087vw, 0.75rem);
   --fs-11-5: clamp(0.7188rem, 0.8057rem - 0.1087vw, 0.7813rem);
   --fs-12-5: clamp(0.7813rem, 0.8682rem - 0.1087vw, 0.8438rem);
   --fs-13-5: clamp(0.8438rem, 0.9307rem - 0.1087vw, 0.9063rem);
@@ -326,6 +327,28 @@
   textarea {
     font-size: max(1rem, 1em);
   }
+  /* στόχος αφής 44px σε κάθε πεδίο, όποιο ύψος κι αν του δίνει η οθόνη του */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]),
+  select:not([aria-hidden="true"]) {
+    min-height: 2.75rem;
+  }
+}
+
+/*
+ * 2β) Τα checkbox μένουν μικρά στο μάτι, αλλά πιάνονται εύκολα: αόρατη περιοχή 24px με ποντίκι, 44px με αφή.
+ */
+[data-slot="checkbox"] {
+  position: relative;
+}
+[data-slot="checkbox"]::after {
+  content: "";
+  position: absolute;
+  inset: -0.25rem;
+}
+@media (pointer: coarse) {
+  [data-slot="checkbox"]::after {
+    inset: -0.875rem;
+  }
 }
 
 /*
@@ -395,7 +418,7 @@
     content: attr(data-label);
     flex-shrink: 0;
     text-align: left;
-    font-size: var(--fs-10-5);
+    font-size: var(--fs-11);
     font-weight: 600;
     color: var(--color-muted-foreground);
   }

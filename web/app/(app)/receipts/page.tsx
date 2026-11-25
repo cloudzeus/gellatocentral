@@ -65,7 +65,7 @@ export default async function ReceiptsPage({ searchParams }: PageProps<"/receipt
           rows={sales.map((s) => ({
             id: s.id,
             cells: {
-              no: <Link href={`/receipts/${s.id}`} className="font-semibold underline-offset-2 hover:underline">{s.series}-{s.aa}</Link>,
+              no: <Link href={`/receipts/${s.id}`} className="font-semibold underline-offset-2 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">{s.series}-{s.aa}</Link>,
               date: s.issuedAt ? dateTime.format(s.issuedAt) : "—",
               device: s.device.name,
               method: s.payment ? s.payment.method.name : "—",

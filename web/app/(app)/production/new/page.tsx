@@ -72,7 +72,7 @@ export default async function NewProductionPage({ searchParams }: { searchParams
       actions={<Link href="/production" className={btn("outline", "sm")}><ArrowLeft /> Παραγωγή</Link>}>
       <div className="grid max-w-7xl gap-4">
         {!recipes.length ? (
-          <p className="rounded-lg bg-gold/15 px-4 py-3 text-sm text-gold-ink">Δεν υπάρχει ενεργή συνταγή με γραμμές — ξεκίνα από τις <Link href="/recipes" className="underline">Συνταγές</Link>.</p>
+          <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm text-warning-ink">Δεν υπάρχει ενεργή συνταγή με γραμμές — ξεκίνα από τις <Link href="/recipes" className="underline">Συνταγές</Link>.</p>
         ) : (
           <Card>
             <form method="get" action="/production/new" className="grid gap-4 px-5 py-4 sm:grid-cols-4">
