@@ -249,3 +249,10 @@ export function staffPermissions(who: Who): PlatformPermission[] {
 }
 export const staffRoleLabel = (who: Who) => { const u = asStaff(who); return u?.platformRole ? (u.staffRole && u.platformRole !== "SUPER_ADMIN" ? u.staffRole.name : PLATFORM_ROLES[u.platformRole].label) : ""; };
 export const platformCan = (who: Who, p: PlatformPermission) => staffPermissions(who).includes(p);
+
+/**
+ * Τα καταστήματα που δίνει κάποιος πρέπει να χωράνε στα δικά του. Κενή λίστα = «όλα τα καταστήματα»:
+ * όποιος είναι ο ίδιος περιορισμένος δεν μπορεί να τη δώσει, αλλιώς θα έδινε πρόσβαση που δεν έχει.
+ */
+export const canGrantStores = (actorStoreIds: readonly string[], wanted: readonly string[]) =>
+  actorStoreIds.length === 0 || (wanted.length > 0 && wanted.every((id) => actorStoreIds.includes(id)));

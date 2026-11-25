@@ -13,7 +13,7 @@ import { platformSettings, sendMail } from "@/lib/mail/send";
 import { templates } from "@/lib/mail/templates";
 import { permissionDiff } from "@/lib/access";
 import { logAccess } from "@/lib/access-log";
-import { canGrant, isPermission, normalize, orgPermissionsOf, permissionLabel } from "@/lib/permissions";
+import { canGrant, canGrantStores, isPermission, normalize, orgPermissionsOf, permissionLabel } from "@/lib/permissions";
 import { createResetLink } from "@/lib/reset";
 
 const id = z.string().min(1).max(60);
@@ -42,7 +42,10 @@ async function grantableGroups(orgId: string, groupIds: string[], actor: string[
   return groups;
 }
 /** Τα καταστήματα που ζήτησε η φόρμα, μόνο όσα είναι της επιχείρησης. Κανένα = όλα. */
-const grantableStores = async (orgId: string, storeIds: string[]) => db.store.findMany({ where: { id: { in: storeIds }, orgId }, select: { id: true } });
+async function grantableStores(orgId: string, storeIds: string[], actorStoreIds: string[]) {
+  if (!canGrantStores(actorStoreIds, storeIds)) return fail("Μπορείς να δώσεις μόνο καταστήματα στα οποία έχεις πρόσβαση εσύ, και τουλάχιστον ένα");
+  return db.store.findMany({ where: { id: { in: storeIds }, orgId }, select: { id: true } });
+}
 /** Πρέπει πάντα να μένει κάποιος που διαχειρίζεται χρήστες, αλλιώς η επιχείρηση κλειδώνεται έξω. */
 async function keepAnAdmin(tx: Prisma.TransactionClient, orgId: string) {
   // hasSome με το παλιό κλειδί: για δεδομένα που δεν έχει προλάβει να ξαναγράψει το scripts/migrate-permissions.ts
@@ -61,11 +64,11 @@ const guarded = (work: (tx: Prisma.TransactionClient) => Promise<void>) =>
   db.$transaction(work).catch((e) => (e instanceof Error && e.message === "LOCKOUT" ? fail("Πρέπει να μείνει τουλάχιστον ένας χρήστης που διαχειρίζεται χρήστες και ρόλους") : Promise.reject(e)));
 
 export async function inviteUser(form: FormData) {
-  const { org, permissions, user: actor } = await currentOrg("users.add");
+  const { org, permissions, user: actor, storeIds: actorStoreIds } = await currentOrg("users.add");
   const d = read(z.object({ name, email: z.string().trim().toLowerCase().email("Το email δεν είναι έγκυρο"), roleId: id }), form);
   const role = await grantableRole(org.id, d.roleId, permissions);
   const groups = await grantableGroups(org.id, form.getAll("groupIds").map(String), permissions);
-  const stores = await grantableStores(org.id, form.getAll("storeIds").map(String));
+  const stores = await grantableStores(org.id, form.getAll("storeIds").map(String), actorStoreIds);
   // shortcut: ένας χρήστης ανήκει σε μία επιχείρηση· email που υπάρχει ήδη (εδώ ή αλλού) δεν προσκαλείται ξανά
   if (await db.user.findUnique({ where: { email: d.email } })) return fail("Υπάρχει ήδη χρήστης με αυτό το email");
   const user = await db.user.create({
@@ -81,12 +84,12 @@ export async function inviteUser(form: FormData) {
 }
 
 export async function updateMember(form: FormData) {
-  const { org, permissions, user: actor } = await currentOrg("users.edit");
+  const { org, permissions, user: actor, storeIds: actorStoreIds } = await currentOrg("users.edit");
   const d = read(z.object({ membershipId: id, roleId: id }), form);
   const target = await manageable(org.id, d.membershipId, permissions);
   const role = await grantableRole(org.id, d.roleId, permissions);
   const groups = await grantableGroups(org.id, form.getAll("groupIds").map(String), permissions);
-  const stores = await grantableStores(org.id, form.getAll("storeIds").map(String));
+  const stores = await grantableStores(org.id, form.getAll("storeIds").map(String), actorStoreIds);
   await guarded(async (tx) => {
     await tx.membership.updateMany({ where: { id: d.membershipId, orgId: org.id }, data: { roleId: role.id } });
     await tx.membershipStore.deleteMany({ where: { membershipId: d.membershipId } });

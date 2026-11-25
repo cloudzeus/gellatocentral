@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   ALL_PERMISSIONS,
+  canGrantStores,
   ALL_PLATFORM_PERMISSIONS,
   applyPlatformOverrides,
   canGrant,
@@ -138,4 +139,12 @@ test("παλιά κλειδιά πλατφόρμας ανοίγουν στα ν�
   assert.deepEqual(expandPlatform(["billing.manage"]), ["billing.read", "billing.edit"]);
   assert.deepEqual(expandPlatform(["users.manage"]), ["users.read", "users.add", "users.edit", "users.delete"]);
   assert.deepEqual(expandPlatform(["parties.view"]), ["parties.read"]);
+});
+
+test("καταστήματα: ο περιορισμένος δίνει μόνο δικά του, ποτέ «όλα»", () => {
+  assert.equal(canGrantStores([], []), true);
+  assert.equal(canGrantStores([], ["a"]), true);
+  assert.equal(canGrantStores(["a", "b"], ["a"]), true);
+  assert.equal(canGrantStores(["a"], []), false);
+  assert.equal(canGrantStores(["a"], ["a", "c"]), false);
 });
