@@ -22,8 +22,8 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: { "/api/documents/[entityType]/[entityId]": ["./lib/documents/assets/*.ttf"] },
   poweredByHeader: false,
   headers: async () => [{ source: "/:path*", headers: securityHeaders }],
-  // ανάπτυξη: η εφαρμογή ανοίγει και από 127.0.0.1, όχι μόνο από localhost
-  allowedDevOrigins: ["127.0.0.1"],
+  // ανάπτυξη: η εφαρμογή ανοίγει και από 127.0.0.1 και από tunnel ngrok (επιστροφή από τη Viva), όχι μόνο από localhost
+  allowedDevOrigins: ["127.0.0.1", "*.ngrok-free.app", "*.ngrok-free.dev", "*.ngrok.app"],
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
