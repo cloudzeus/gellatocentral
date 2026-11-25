@@ -60,6 +60,9 @@ export const getUser = cache(async () => {
   if (session.user.platformRole) await loadPlatformRoles();
   return { ...session.user, impersonator: session.impersonator };
 });
+/** Το όνομα που γράφεται στα ιστορικά: σε είσοδο υποστήριξης φαίνεται και ο υπάλληλος που ενεργούσε ως ο χρήστης. */
+export const actorNameOf = (user: { name: string; impersonator?: { name: string } | null }) =>
+  user.impersonator ? `${user.name} (υποστήριξη: ${user.impersonator.name})` : user.name;
 /** Το sha256 της τρέχουσας συνεδρίας, για να ξεχωρίζει «αυτή η συσκευή» από τις άλλες. */
 export async function currentTokenHash() {
   const token = (await cookies()).get(COOKIE)?.value;
