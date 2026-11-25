@@ -18,9 +18,9 @@ type Kind = (typeof KINDS)[number][0];
 /** Επιλογή είδους γραφήματος. Κοινή για όλα τα γραφήματα τάσης. */
 function KindPicker({ value, onChange }: { value: Kind; onChange: (k: Kind) => void }) {
   return (
-    <div role="group" aria-label="Είδος γραφήματος" className="flex rounded-lg border border-border bg-card p-0.5">
+    <div role="group" aria-label="Είδος γραφήματος" className="flex rounded-lg border border-border bg-card p-0.5 max-sm:w-full">
       {KINDS.map(([k, label]) => (
-        <button key={k} type="button" aria-pressed={value === k} onClick={() => onChange(k)} className={cn("cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium pointer-coarse:py-2", value === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{label}</button>
+        <button key={k} type="button" aria-pressed={value === k} onClick={() => onChange(k)} className={cn("inline-flex min-h-8 cursor-pointer items-center justify-center rounded-md px-2.5 py-1 text-xs font-medium max-sm:flex-1 pointer-coarse:min-h-11", value === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{label}</button>
       ))}
     </div>
   );
@@ -122,7 +122,7 @@ export function RankChart({ data, summary }: { data: Slice[]; summary: string })
         <XAxis type="number" hide />
         <YAxis type="category" dataKey="label" tickLine={false} axisLine={false} width={96} />
         <ChartTooltip cursor={{ fill: "var(--secondary)" }} content={<ChartTooltipContent hideLabel formatter={(v, n) => money(v, n, config)} />} />
-        <Bar dataKey="value" radius={3} maxBarSize={18} isAnimationActive={false} label={{ position: "right", formatter: (v: unknown) => euro(Number(v)), className: "fill-foreground tabular-nums", fontSize: 11 }}>
+        <Bar dataKey="value" radius={3} maxBarSize={18} isAnimationActive={false} label={{ position: "right", formatter: (v: unknown) => euro(Number(v)), className: "fill-foreground text-xs tabular-nums" }}>
           {data.map((d, i) => <Cell key={d.key} fill={i === 0 ? "var(--gold)" : "var(--color-value)"} fillOpacity={i === 0 ? 1 : 0.75} />)}
         </Bar>
       </BarChart>

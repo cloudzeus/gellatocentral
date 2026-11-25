@@ -1,11 +1,13 @@
-import { ArrowDown, ArrowRight, ArrowUp, Banknote, BarChart3, CircleCheck, CreditCard, Plus, ReceiptText, Store, TabletSmartphone, ThermometerSnowflake, Users, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUp, Banknote, BarChart3, ChevronDown, CircleCheck, Clock, CreditCard, Plus, ReceiptText, Store, TabletSmartphone, ThermometerSnowflake, TriangleAlert, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import { RankChart, ShareChart, type TrendPoint, TrendChart } from "@/components/charts";
+import { Progress } from "@/components/shadcn/progress";
 import { Badge, btn, Card, cn, Page } from "@/components/ui";
 import { WidgetBoard } from "@/components/widget-board";
 import { currentOrg } from "@/lib/auth";
-import { compare } from "@/lib/dashboard";
+import { compare, targetPace } from "@/lib/dashboard";
 import { db } from "@/lib/db";
 import { DEVICE_KIND, readingStatus } from "@/lib/devices";
 import { euro } from "@/lib/money";
@@ -24,20 +26,55 @@ type Top = { name: string; qty: number; total: number };
 const daysUntil = (d: Date) => Math.ceil((d.getTime() - Date.now()) / 864e5);
 const time = new Intl.DateTimeFormat("el-GR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Europe/Athens" });
 const day = new Intl.DateTimeFormat("el-GR", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Athens" });
+// με την ημέρα μπροστά ο μήνας βγαίνει στη γενική («Νοεμβρίου»)
+const dayMonth = new Intl.DateTimeFormat("el-GR", { day: "numeric", month: "long", timeZone: "Europe/Athens" });
 // «Σήμερα» = ημέρα Αθήνας (το issuedAt αποθηκεύεται σε UTC)
 const LOCAL = `("issuedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Athens')`;
 const NOW = `(now() AT TIME ZONE 'Europe/Athens')`;
 const SCOPE = `"orgId" = $1 AND ($2::text[] IS NULL OR "storeId" = ANY($2)) AND status = 'COMPLETED'`;
 
-const Head = ({ title, note, href, all }: { title: string; note?: string | number; href?: string; all?: string }) => (
+const Head = ({ title, note, href, all }: { title: string; note?: ReactNode; href?: string; all?: string }) => (
   <div className="flex items-baseline gap-3 px-5 pt-4 pb-3">
     <h2 className="text-base">{title}</h2>
-    {note !== undefined ? <span className="text-xs text-muted-foreground tabular-nums">{note}</span> : null}
-    {href ? <Link href={href} className="ml-auto flex items-center gap-1 text-sm font-semibold text-primary hover:underline">{all} <ArrowRight className="size-4" /></Link> : null}
+    {note ? <span className="text-xs text-muted-foreground tabular-nums">{note}</span> : null}
+    {/* αρνητικό κάθετο margin: ο στόχος αφής μεγαλώνει χωρίς να ψηλώσει η κεφαλίδα */}
+    {href ? <Link href={href} className="-my-2 ml-auto inline-flex min-h-9 items-center gap-1 text-sm font-semibold text-primary hover:underline pointer-coarse:-my-3 pointer-coarse:min-h-11">{all} <ArrowRight className="size-4" /></Link> : null}
   </div>
 );
 const ROW = "flex min-h-11 items-center gap-3 border-t border-border px-5 py-1.5 pointer-coarse:min-h-12";
-const DOT = { danger: "bg-destructive", warning: "bg-gold" };
+const ROW_LINK = cn(ROW, "-outline-offset-2 hover:bg-secondary");
+
+/** Αλλαγή απέναντι σε χθες: πράσινο πάνω, κόκκινο κάτω, πάντα με βέλος. */
+const Delta = ({ up, children }: { up: boolean; children: ReactNode }) => (
+  <span className={cn("inline-flex items-center gap-0.5 rounded-md px-1.5 py-px text-xs font-semibold tabular-nums", up ? "bg-success/12 text-success-ink" : "bg-destructive/10 text-destructive")}>
+    {up ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}{children}
+  </span>
+);
+
+type Issue = { tone: "danger" | "warning"; text: string; detail?: string; href: string; action: string };
+const ISSUE = {
+  danger: { icon: TriangleAlert, tile: "bg-destructive/10 text-destructive", label: "Επείγον: ", group: "Κάνε το τώρα", head: "text-destructive" },
+  warning: { icon: Clock, tile: "bg-warning/20 text-warning-ink", label: "Προσοχή: ", group: "Μέσα στη μέρα", head: "text-warning-ink" },
+};
+const GROUP_HEAD = "px-5 pt-2 pb-1 text-xs font-semibold";
+function IssueRows({ items }: { items: Issue[] }) {
+  return (
+    <ul>
+      {items.map((i) => {
+        const { icon: Icon, tile, label } = ISSUE[i.tone];
+        return (
+          <li key={i.text}>
+            <Link href={i.href} className={cn(ROW_LINK, "pointer-coarse:min-h-14")}>
+              <span aria-hidden className={cn("grid size-7 shrink-0 place-items-center rounded-md", tile)}><Icon className="size-4" /></span>
+              <span className="min-w-0 flex-1"><span className="block font-medium"><span className="sr-only">{label}</span>{i.text}</span>{i.detail ? <span className="block text-xs text-muted-foreground">{i.detail}</span> : null}</span>
+              <span className="flex shrink-0 items-center gap-1 font-semibold text-primary"><span className="max-sm:sr-only">{i.action}</span> <ArrowRight className="size-4" /></span>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const { org, permissions, storeIds, warehouseIds } = await currentOrg("dashboard.read");
@@ -130,19 +167,27 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
 
   // Ό,τι χρειάζεται ενέργεια σήμερα, με το πού πατάς για να το λύσεις
   const status = devices.map((d) => ({ d, st: DEVICE_KIND[d.kind].measures ? readingStatus(d, d.readings[0]) : null }));
-  const issues: { tone: "danger" | "warning"; text: string; detail?: string; href: string; action: string }[] = [];
+  const issues: Issue[] = [];
   for (const { d, st } of status) if (st && d.readings[0] && st.tone !== "success" && st.tone !== "neutral") issues.push({ tone: st.tone, text: `${d.name}: ${st.text}`, detail: d.store.name, href: "/devices", action: "Δες το" });
-  if (unsent > 0) issues.push({ tone: "danger", text: `${unsent} ${unsent === 1 ? "απόδειξη δεν διαβιβάστηκε" : "αποδείξεις δεν διαβιβάστηκαν"} στην ΑΑΔΕ`, href: "/receipts", action: "Δες ποιες" });
-  for (const { d } of status) if (d.kind !== "POS_WEB" && !d.pairedAt) issues.push({ tone: "warning", text: `${d.name}: δεν έχει συνδεθεί ακόμα`, detail: d.store.name, href: "/devices", action: "Σύζευξη" });
+  if (unsent > 0) issues.push({ tone: "danger", text: `${unsent} ${unsent === 1 ? "απόδειξη δεν στάλθηκε" : "αποδείξεις δεν στάλθηκαν"} στην ΑΑΔΕ`, href: "/receipts", action: "Δες ποιες" });
+  for (const { d } of status) if (d.kind !== "POS_WEB" && !d.pairedAt) issues.push({ tone: "warning", text: `${d.name}: δεν έχει συνδεθεί ακόμα`, detail: d.store.name, href: "/devices", action: "Σύνδεσέ το" });
   const daysLeft = subscription ? daysUntil(subscription.currentPeriodEnd) : null;
   if (daysLeft !== null && daysLeft <= 7) issues.push({ tone: daysLeft < 0 ? "danger" : "warning", text: daysLeft < 0 ? "Η συνδρομή έληξε" : `Η συνδρομή λήγει σε ${daysLeft} ${daysLeft === 1 ? "ημέρα" : "ημέρες"}`, href: "/billing", action: "Συνδρομή" });
-  if (stock.lowStock.length) issues.push({ tone: "warning", text: `${stock.lowStock.length} ${stock.lowStock.length === 1 ? "είδος έχει" : "είδη έχουν"} χαμηλό απόθεμα`, href: "/inventory/alerts", action: "Απόθεμα" });
+  if (stock.lowStock.length) issues.push({ tone: "warning", text: `${stock.lowStock.length} ${stock.lowStock.length === 1 ? "είδος τελειώνει" : "είδη τελειώνουν"}`, href: "/inventory/alerts", action: "Απόθεμα" });
   if (stock.expiringLots.length) issues.push({ tone: "warning", text: `${stock.expiringLots.length} ${stock.expiringLots.length === 1 ? "παρτίδα λήγει" : "παρτίδες λήγουν"} σύντομα`, href: "/inventory/alerts", action: "Παρτίδες" });
-  if (haccpDeviations) issues.push({ tone: "danger", text: `${haccpDeviations} ανοιχτές αποκλίσεις HACCP`, href: "/haccp", action: "Έλεγχος" });
+  if (haccpDeviations) issues.push({ tone: "danger", text: `${haccpDeviations} ${haccpDeviations === 1 ? "έλεγχος υγιεινής (HACCP) θέλει διόρθωση" : "έλεγχοι υγιεινής (HACCP) θέλουν διόρθωση"}`, href: "/haccp", action: "Δες τους" });
   if (dueRoutes) issues.push({ tone: "warning", text: `${dueRoutes} ${dueRoutes === 1 ? "δρομολόγιο πρέπει" : "δρομολόγια πρέπει"} να παραδοθεί`, href: "/wholesale-orders", action: "Παραδόσεις" });
   const outstanding = outstandingDocuments.filter((d) => d.totalCents > d.allocations.reduce((sum, a) => sum + a.amountCents, 0)).length;
-  if (outstanding) issues.push({ tone: "warning", text: `${outstanding} ${outstanding === 1 ? "τιμολόγιο έχει" : "τιμολόγια έχουν"} ανεξόφλητο υπόλοιπο`, href: "/invoices", action: "Ανεξόφλητα" });
-  if (target && target.salesCents > (monthSales?._sum.totalCents ?? 0)) issues.push({ tone: "warning", text: "Ο μηνιαίος στόχος πωλήσεων δεν έχει επιτευχθεί", detail: `${euro(monthSales?._sum.totalCents ?? 0)} από ${euro(target.salesCents)}`, href: "/finance", action: "Στόχος" });
+  if (outstanding) issues.push({ tone: "warning", text: `${outstanding} ${outstanding === 1 ? "τιμολόγιο είναι απλήρωτο" : "τιμολόγια είναι απλήρωτα"}`, href: "/invoices", action: "Δες ποια" });
+  // πρώτα ό,τι καίει, μετά ό,τι περιμένει ως το βράδυ (η σειρά μέσα σε κάθε ομάδα μένει)
+  const urgent = issues.filter((i) => i.tone === "danger"), later = issues.filter((i) => i.tone === "warning");
+  const fold = urgent.length > 0 && issues.length > 3 && later.length > 0; // στο κινητό τα μη επείγοντα μαζεύονται
+
+  // Στόχος μήνα: πρόοδος απέναντι στον ρυθμό που χρειάζεται, όχι μόνιμη προειδοποίηση
+  const sold = monthSales?._sum.totalCents ?? 0;
+  const today = Object.fromEntries(dayMonth.formatToParts(now).map((p) => [p.type, p.value]));
+  const pace = target && target.salesCents > 0 ? targetPace(sold, target.salesCents, Number(today.day), new Date(Date.UTC(year, month, 0)).getUTCDate()) : null;
+  const paceText = pace ? `${pace.pct}% του στόχου${pace.tone === "done" ? "" : ` · η γραμμή δείχνει πού έπρεπε να είσαι σήμερα (${pace.expectedPct}%)`}` : "";
 
   const shortcuts = ([
     { href: "/pos", label: "Ταμείο", needs: "pos.use", icon: Store },
@@ -150,12 +195,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     { href: "/devices", label: "Νέα συσκευή", needs: "devices.add", icon: Plus },
     { href: "/users", label: "Νέος χρήστης", needs: "users.add", icon: Users },
   ] satisfies { href: string; label: string; needs: Permission; icon: LucideIcon }[]).filter((x) => permissions.includes(x.needs));
+  const receipts = `${count} ${count === 1 ? "απόδειξη" : "αποδείξεις"}`;
   const tiles = [
     { label: "Μετρητά", value: euro(ledgerSum("CASH")), hint: "Τόσα πρέπει να έχει το συρτάρι", icon: Banknote },
-    { label: "Κάρτες", value: euro(ledgerSum("CARD_CLEARING")), hint: "Πιστώνονται από τη Viva", icon: CreditCard },
-    { label: "Μέση απόδειξη", value: euro(avg), hint: `${count} ${count === 1 ? "απόδειξη" : "αποδείξεις"}${yAvg ? ` · χθες ${euro(yAvg)}` : ""}`, icon: BarChart3 },
-  ];
-  const seg = (on: boolean) => cn("rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap pointer-coarse:py-2.5", on ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground");
+    { label: "Κάρτες", value: euro(ledgerSum("CARD_CLEARING")), hint: "Μπαίνουν στην τράπεζα από τη Viva", icon: CreditCard },
+    { label: "Μέση απόδειξη", value: euro(avg), hint: !yAvg || !count ? receipts : Math.abs(avg - yAvg) >= yAvg * 0.03
+      ? <><Delta up={avg > yAvg}><span className="sr-only">{avg > yAvg ? "πάνω" : "κάτω"} </span>{euro(Math.abs(avg - yAvg))}</Delta> από χθες · {receipts}</>
+      : `Περίπου όσο χθες · ${receipts}`, icon: BarChart3 },
+  ] satisfies { label: string; value: string; hint: ReactNode; icon: LucideIcon }[];
+  const seg = (on: boolean) => cn("inline-flex min-h-9 items-center rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap pointer-coarse:min-h-11", on ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground");
 
   return (
     <Page section="Επισκόπηση" title="Πίνακας ελέγχου" description={`${day.format(new Date())} · ${store?.name ?? org.name}`}
@@ -177,9 +225,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
             <p className="mt-1.5 text-4xl leading-tight font-semibold tabular-nums">{euro(total)}</p>
             <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-muted-foreground">
               {vs.tone === "up" || vs.tone === "down" ? (
-                <span className={cn("inline-flex items-center gap-0.5 rounded-md px-1.5 py-px text-xs font-semibold tabular-nums", vs.tone === "up" ? "bg-success/12 text-success-ink" : "bg-destructive/10 text-destructive")}>
-                  {vs.tone === "up" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}{vs.pct}%
-                </span>
+                <Delta up={vs.tone === "up"}>{vs.pct}%</Delta>
               ) : null}
               {vs.text}
             </p>
@@ -188,10 +234,29 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
             <Card key={label} className={cn("px-5 py-4", i === 2 && "max-xl:col-span-2")}>
               <p className="flex items-center gap-2 font-medium text-muted-foreground"><Icon className="size-4 text-gold-ink" /> {label}</p>
               <p className="mt-1.5 text-3xl leading-tight font-semibold tabular-nums">{value}</p>
-              <p className="mt-1.5 text-muted-foreground">{hint}</p>
+              <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-muted-foreground">{hint}</p>
             </Card>
           ))}
         </section>
+
+        {pace && target ? (
+          <Card>
+            <Link href="/finance" className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 rounded-xl px-5 py-4 -outline-offset-2 md:grid-cols-[auto_minmax(0,1fr)_auto]">
+              <h2 className="font-sans text-sm font-semibold">Στόχος {today.month}</h2>
+              <span className="justify-self-end md:col-start-3"><Badge tone={pace.tone === "behind" ? "warning" : "success"}>{pace.tone === "behind" ? `Πίσω ${euro(pace.gapCents)}` : pace.tone === "ok" ? "Μέσα στον στόχο" : "Ο στόχος πιάστηκε"}</Badge></span>
+              <p className="text-muted-foreground tabular-nums max-md:col-span-2 md:col-start-1 md:row-start-2">{euro(sold)} από {euro(target.salesCents)}</p>
+              <div className="max-md:col-span-2 md:col-start-2 md:row-span-2 md:row-start-1">
+                <div className="relative">
+                  <Progress value={Math.min(100, pace.pct)} aria-label="Πρόοδος στόχου μήνα" aria-valuetext={paceText}
+                    className={cn("h-2 bg-secondary", pace.tone === "behind" ? "[&>[data-slot=progress-indicator]]:bg-warning-ink" : "[&>[data-slot=progress-indicator]]:bg-success")} />
+                  {pace.tone === "done" ? null : <span aria-hidden className="absolute -inset-y-1 w-0.5 bg-primary" style={{ left: `${pace.expectedPct}%` }} />}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">{paceText}</p>
+              </div>
+              <p className="text-muted-foreground tabular-nums max-md:col-span-2 md:col-start-3 md:row-start-2 md:text-right">{pace.tone === "done" ? `${euro(sold - target.salesCents)} πάνω από τον στόχο` : `Θέλεις ${euro(pace.perDayCents)} την ημέρα`}</p>
+            </Link>
+          </Card>
+        ) : null}
 
         <WidgetBoard
           id="dashboard"
@@ -209,29 +274,36 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
                   <Head title={span ? `Πωλήσεις ανά ημέρα` : "Πωλήσεις ανά ώρα"} note={span ? `${euro(periodTotal)} · προηγούμενες ${span} ημέρες ${euro(prevTotal)}` : best ? `Καλύτερη ώρα ${best.h}:00` : undefined} />
                   <TrendChart id="sales" data={trend} currentLabel={span ? `Τελευταίες ${span} ημέρες` : "Σήμερα"} previousLabel={span ? `Προηγούμενες ${span}` : "Χθες"}
                     summary={span ? `Πωλήσεις ανά ημέρα: ${euro(periodTotal)} τις τελευταίες ${span} ημέρες, ${euro(prevTotal)} τις προηγούμενες` : `Πωλήσεις ανά ώρα, σήμερα και χθες.${best ? ` Καλύτερη ώρα ${best.h}:00 με ${euro(best.total)}.` : ""}`}>
-                    <nav aria-label="Περίοδος" className="flex rounded-lg border border-border bg-card p-0.5">
-                      {PERIOD_ORDER.map((k) => <Link key={k} href={link({ period: k === "today" ? undefined : k })} scroll={false} aria-current={k === period ? "true" : undefined} className={cn("rounded-md px-2.5 py-1 text-xs font-medium pointer-coarse:py-2", k === period ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{PERIODS[k]}</Link>)}
+                    <nav aria-label="Περίοδος" className="flex rounded-lg border border-border bg-card p-0.5 max-sm:w-full">
+                      {PERIOD_ORDER.map((k) => <Link key={k} href={link({ period: k === "today" ? undefined : k })} scroll={false} aria-current={k === period ? "true" : undefined} className={cn("inline-flex min-h-8 items-center justify-center rounded-md px-2.5 py-1 text-xs font-medium max-sm:flex-1 pointer-coarse:min-h-11", k === period ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{PERIODS[k]}</Link>)}
                     </nav>
                   </TrendChart>
                 </Card>
               ),
             },
-            { id: "attention", title: "Θέλουν προσοχή", node: <Card>
-            <Head title="Θέλουν προσοχή" note={issues.length || undefined} />
+            { id: "attention", title: "Θέλουν προσοχή", className: "max-lg:order-first", node: <Card>
+            <Head title="Θέλουν προσοχή" note={issues.length ? urgent.length ? <Badge tone="danger">{urgent.length === 1 ? "1 επείγον" : `${urgent.length} επείγοντα`}</Badge> : <Badge tone="warning">{issues.length === 1 ? "1 ανοιχτό" : `${issues.length} ανοιχτά`}</Badge> : undefined} />
             {issues.length === 0 ? (
               <p className={cn(ROW, "text-muted-foreground")}><CircleCheck className="size-4 text-success" /> Όλα εντάξει: αποδείξεις, συσκευές και συνδρομή</p>
             ) : (
-              <ul>
-                {issues.map((i) => (
-                  <li key={i.text}>
-                    <Link href={i.href} className={cn(ROW, "hover:bg-secondary")}>
-                      <span aria-hidden className={cn("size-2 shrink-0 rounded-full", DOT[i.tone])} />
-                      <span className="min-w-0 flex-1"><span className="block font-medium">{i.text}</span>{i.detail ? <span className="block text-xs text-muted-foreground">{i.detail}</span> : null}</span>
-                      <span className="flex shrink-0 items-center gap-1 font-semibold text-primary">{i.action} <ArrowRight className="size-4" /></span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <>
+                {urgent.length ? <><h3 className={cn(GROUP_HEAD, "font-sans", ISSUE.danger.head)}>{ISSUE.danger.group}</h3><IssueRows items={urgent} /></> : null}
+                {later.length ? (
+                  // από md και πάνω φαίνονται όλα· στο κινητό, όταν κάτι καίει, τα υπόλοιπα ανοίγουν με ένα πάτημα
+                  <div className={cn(fold && "max-md:hidden")}>
+                    <h3 className={cn(GROUP_HEAD, "font-sans", ISSUE.warning.head, urgent.length > 0 && "border-t border-border")}>{ISSUE.warning.group}</h3>
+                    <IssueRows items={later} />
+                  </div>
+                ) : null}
+                {fold ? (
+                  <details className="group md:hidden">
+                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-1 border-t border-border font-semibold text-primary -outline-offset-2 outline-ring focus-visible:outline-2 [&::-webkit-details-marker]:hidden">
+                      Ακόμα {later.length} για μέσα στη μέρα <ChevronDown aria-hidden className="size-4 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <IssueRows items={later} />
+                  </details>
+                ) : null}
+              </>
             )}
           </Card> },
             {
@@ -286,7 +358,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
             <ul>
               {last.map((s) => (
                 <li key={s.id}>
-                  <Link href={`/receipts/${s.id}`} className={cn(ROW, "hover:bg-secondary")}>
+                  <Link href={`/receipts/${s.id}`} className={ROW_LINK}>
                     {/* ο αριθμός απόδειξης σαν απόκομμα: το σήμα της εφαρμογής */}
                     <span className="shrink-0 rounded-sm border border-dashed border-primary/30 bg-background px-1.5 py-1 font-mono text-xs leading-none font-medium">{s.series}-{s.aa}</span>
                     <span className="min-w-0 flex-1 text-muted-foreground tabular-nums">{s.issuedAt ? time.format(s.issuedAt) : ""}{s.payment ? ` · ${s.payment.method.name}` : ""}</span>
@@ -307,7 +379,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
                   <li key={d.id} className={ROW}>
                     <Icon className="size-4 shrink-0 text-muted-foreground" />
                     <span className="min-w-0 flex-1"><span className="block truncate font-medium">{d.name}</span><span className="block truncate text-xs text-muted-foreground">{d.store.name} · {DEVICE_KIND[d.kind].label}</span></span>
-                    {st ? <Badge tone={st.tone}>{st.text}</Badge> : d.kind !== "POS_WEB" && !d.pairedAt ? <Badge tone="warning">Χωρίς σύζευξη</Badge> : <Badge tone="success">Ενεργή</Badge>}
+                    {st ? <Badge tone={st.tone}>{st.text}</Badge> : d.kind !== "POS_WEB" && !d.pairedAt ? <Badge tone="warning">Δεν έχει συνδεθεί</Badge> : <Badge tone="success">Ενεργή</Badge>}
                   </li>
                 );
               })}

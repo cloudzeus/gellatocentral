@@ -11,11 +11,11 @@ import { useStored } from "@/lib/use-stored";
 import { btn, cn } from "./ui";
 
 export type Area = { id: string; label: string; className: string };
-export type Widget = { id: string; title: string; node: ReactNode };
+export type Widget = { id: string; title: string; node: ReactNode; className?: string };
 function Item({ widget, editing, onHide }: { widget: Widget; editing: boolean; onHide: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id, disabled: !editing });
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} className={cn("relative min-w-0", isDragging && "opacity-40", editing && "rounded-xl ring-2 ring-gold/50 ring-offset-2 ring-offset-background")}>
+    <div ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} className={cn("relative min-w-0", widget.className, isDragging && "opacity-40", editing && "rounded-xl ring-2 ring-gold/50 ring-offset-2 ring-offset-background")}>
       {editing ? (
         <div className="absolute inset-x-px top-px z-10 flex items-center gap-1 rounded-t-xl border-b border-border bg-card px-2 py-1.5">
           <button type="button" {...attributes} {...listeners} aria-label={`Μετακίνηση: ${widget.title}`} className="flex min-h-9 flex-1 cursor-grab touch-none items-center gap-2 rounded-lg px-2 text-left text-sm font-semibold hover:bg-secondary active:cursor-grabbing pointer-coarse:min-h-11">
