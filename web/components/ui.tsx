@@ -31,7 +31,7 @@ export function DetailGrid({ className, ...p }: ComponentProps<"dl">) {
 const TONE = {
   neutral: "bg-secondary text-secondary-foreground",
   success: "bg-success/12 text-success-ink",
-  warning: "bg-gold/18 text-gold-ink",
+  warning: "bg-warning/20 text-warning-ink",
   danger: "bg-destructive/15 text-destructive",
 };
 export function Badge({ tone = "neutral", children }: { tone?: keyof typeof TONE; children: ReactNode }) {

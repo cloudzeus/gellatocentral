@@ -62,6 +62,7 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-warning-ink: var(--warning-ink);
   --color-gold: var(--gold);
   --color-gold-strong: var(--gold-strong);
   --color-gold-ink: var(--gold-ink);
@@ -111,7 +112,9 @@
   --destructive-foreground: oklch(0.99 0 0);
   --success: oklch(0.575 0.108 155);
   --success-foreground: oklch(0.99 0 0);
-  --warning: oklch(0.635 0.072 84);
+  /* πορτοκαλί, όχι το χρυσό της μάρκας: η προειδοποίηση δεν πρέπει να μοιάζει με διακόσμηση */
+  --warning: oklch(0.8 0.14 75);
+  --warning-ink: oklch(0.5 0.12 65);
   --warning-foreground: oklch(0.18 0.04 264);
   --gold: oklch(0.635 0.072 84);
   --gold-strong: oklch(0.72 0.08 85);
@@ -169,6 +172,7 @@
   --success: oklch(0.68 0.12 155);
   --success-foreground: oklch(0.19 0.04 262);
   --warning: oklch(0.8 0.14 75);
+  --warning-ink: oklch(0.85 0.12 80);
   --warning-foreground: oklch(0.19 0.04 262);
   --gold: oklch(0.647 0.08 82.9);
   --gold-strong: oklch(0.72 0.08 83);
@@ -233,6 +237,12 @@
 
   ::selection {
     background: color-mix(in oklab, var(--gold) 30%, transparent);
+  }
+
+  /* τα links παίρνουν το ίδιο χρυσό ring με τα κουμπιά (πληκτρολόγιο) */
+  a:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 
   ::-webkit-scrollbar {
