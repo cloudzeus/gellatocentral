@@ -33,6 +33,8 @@ const quiet = async (write: () => Promise<unknown>) => { try { await write(); } 
 export async function runTask<R>(owner: TaskOwner, spec: TaskSpec, work: (task: TaskHandle) => Promise<R>): Promise<R> {
   let id: string | null = null;
   await quiet(async () => {
+    // το ιστορικό κρατά τρεις μήνες: όποιος ξεκινά εργασία καθαρίζει τις παλαιότερες της επιχείρησής του
+    await db.taskRun.deleteMany({ where: { orgId: owner.orgId, startedAt: { lt: new Date(Date.now() - 90 * 24 * HOUR) } } });
     id = (await db.taskRun.create({ data: { orgId: owner.orgId, userId: owner.userId, userName: owner.userName, kind: spec.kind, title: spec.title, permission: spec.permission, total: spec.total ?? null }, select: { id: true } })).id;
   });
   const state = { done: 0, failed: 0, total: spec.total ?? null, current: null as string | null, failures: [] as TaskFailure[], resultHref: null as string | null, flushedAt: 0 };

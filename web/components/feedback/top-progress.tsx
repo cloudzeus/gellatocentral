@@ -2,7 +2,7 @@
 // Λεπτή γραμμή στην κορυφή του παραθύρου όσο μια πλοήγηση ή μια ενέργεια στον server κρατά πάνω από ~150ms.
 // Αόριστη (δεν ξέρουμε πόσο θα πάρει)· με reduced motion γίνεται σταθερή μπάρα (βλ. .process-indicator).
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BUSY_EVENT, NAV_EVENT } from "@/lib/feedback-events";
 
 export function TopProgress() {
@@ -10,6 +10,9 @@ export function TopProgress() {
   // από ποια διεύθυνση ξεκίνησε η πλοήγηση: μόλις αλλάξει η διεύθυνση, η πλοήγηση τελείωσε (χωρίς effect)
   const [navFrom, setNavFrom] = useState<string | null>(null);
   const [busy, setBusy] = useState(0);
+  // η τρέχουσα διεύθυνση όπως τη γράφει το Next (όχι το window): έτσι η σύγκριση «άλλαξε;» δεν εξαρτάται από κωδικοποίηση
+  const hereRef = useRef(here);
+  useEffect(() => { hereRef.current = here; }, [here]);
   useEffect(() => {
     let failsafe: ReturnType<typeof setTimeout> | undefined;
     const nav = (e: Event) => {
@@ -19,7 +22,7 @@ export function TopProgress() {
       if (`${target.pathname}?${target.searchParams}` === current) return;
       // το Next στέλνει το σήμα μέσα στο δικό του transition: ένα setState εδώ θα περίμενε να ΤΕΛΕΙΩΣΕΙ η πλοήγηση.
       // Με setTimeout βγαίνουμε από το transition και η γραμμή φαίνεται όσο η πλοήγηση τρέχει.
-      setTimeout(() => setNavFrom(current), 0);
+      setTimeout(() => setNavFrom(hereRef.current), 0);
       clearTimeout(failsafe);
       failsafe = setTimeout(() => setNavFrom(null), 20_000);
     };
