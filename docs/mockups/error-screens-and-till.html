@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="el">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gelato Central · Οθόνες σφάλματος (web) και καταστάσεις πληρωμής (ταμείο Android) · mockup</title>
+<!--
+  Mockup, όχι κώδικας προϊόντος. Τα χρώματα είναι αντιγραφή από web/app/globals.css (:root, .dark)
+  και mobile/theme.ts. Άνοιγμα με #a-light, #a-dark, #b-now, #b-new για να φανεί ένας πίνακας μόνο.
+-->
+<style>
+  .board { margin-bottom: 48px; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .board > h2 { font-size: 18px; margin: 0 0 4px; }
+  .board > p { margin: 0 0 16px; color: var(--muted-foreground, #555); max-width: 900px; }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; margin-bottom: 24px; }
+  figure { margin: 0; max-width: 100%; }
+  figcaption { font-size: 13px; color: var(--muted-foreground, #444); margin-top: 8px; max-width: 360px; }
+  figcaption b { color: var(--foreground, #111); }
+  /* στενή προβολή (μέσα σε συνομιλία): καρτέλες ανά πίνακα και οθόνες σε κλίμακα */
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .tabs button { min-height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border, #ccc); background: var(--card, #fff); color: var(--foreground, #111); font: 600 14px system-ui, sans-serif; cursor: pointer; }
+  .tabs button[aria-pressed=true] { background: var(--primary, #131F3B); color: var(--primary-foreground, #fff); }
+  .narrow .row { gap: 12px; } .narrow .board { margin: 0; }
+  .narrow .w1280 { zoom: var(--zd); } .narrow .w360, .narrow .till { zoom: var(--zp); }
+
+  /* ---- Web: tokens του προϊόντος ---- */
+  .gs {
+    --background: oklch(0.962 0.008 85); --foreground: oklch(0.32 0 0); --card: oklch(1 0 0);
+    --primary: oklch(0.245 0.055 264); --primary-foreground: oklch(0.98 0.005 85);
+    --muted-foreground: oklch(0.52 0.01 264); --destructive: oklch(0.565 0.232 27.5);
+    --warning: oklch(0.8 0.14 75); --warning-ink: oklch(0.5 0.12 65); --gold: oklch(0.635 0.072 84); --gold-ink: oklch(0.46 0.07 84);
+    --border: oklch(0.245 0.055 264 / 12%); --input: oklch(0.245 0.055 264 / 18%); --ring: oklch(0.635 0.072 84);
+    --sidebar: oklch(0.245 0.055 264); --sidebar-foreground: oklch(0.93 0.008 85); --sidebar-primary: oklch(0.635 0.072 84);
+    --sidebar-accent: oklch(0.31 0.055 264); --sidebar-border: oklch(1 0 0 / 12%); --secondary: oklch(0.955 0 0);
+    --shadow-card: 0 1px 2px oklch(0 0 0 / 5%);
+    /* ρευστή τυπογραφία: τιμές των --fs-* στα 1280px */
+    --t2xs: 11px; --txs: 11.5px; --tsm: 12.5px; --tbase: 13.5px; --tlg: 15px; --txl: 17px;
+    position: relative; overflow: hidden; display: flex; background: var(--background); color: var(--foreground);
+    font-size: var(--tsm); line-height: 1.5; border: 1px solid #c9c9cc;
+  }
+  .gs.dark {
+    --background: oklch(0.19 0.04 262); --foreground: oklch(0.95 0.006 80); --card: oklch(0.235 0.056 262.3);
+    --primary: oklch(0.93 0.008 85); --primary-foreground: oklch(0.19 0.04 262);
+    --muted-foreground: oklch(0.75 0.02 264); --destructive: oklch(0.62 0.2 28); --secondary: oklch(0.305 0.07 262.1);
+    --warning-ink: oklch(0.85 0.12 80); --gold: oklch(0.647 0.08 82.9); --gold-ink: oklch(0.8 0.09 84);
+    --border: oklch(1 0 0 / 12%); --input: oklch(1 0 0 / 16%);
+    --sidebar: oklch(0.19 0.04 262); --sidebar-accent: oklch(0.305 0.07 262.1);
+    --shadow-card: 0 1px 2px oklch(0 0 0 / 30%), 0 12px 32px -12px oklch(0 0 0 / 45%);
+  }
+  /* τιμές των --fs-* στα 360px: τα μικρά +1px */
+  .gs.w360 { --t2xs: 12px; --txs: 12.5px; --tsm: 13.5px; --tbase: 14.5px; --tlg: 16px; }
+  .gs.w1280 { width: 1280px; height: 720px; } .gs.w360 { width: 360px; height: 640px; }
+  .gs svg, .till svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .side { width: 272px; background: var(--sidebar); color: var(--sidebar-foreground); display: flex; flex-direction: column; border-right: 1px solid var(--sidebar-border); }
+  .logo { padding: 20px 22px 16px; font-weight: 700; font-size: 15px; letter-spacing: .02em; }
+  .logo span { color: var(--sidebar-primary); }
+  .nav { flex: 1; padding: 0 12px; display: grid; gap: 2px; align-content: start; }
+  .nav div { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 8px; opacity: .85; }
+  .nav i { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: var(--sidebar-accent); }
+  .user { border-top: 1px solid var(--sidebar-border); padding: 12px 20px; font-size: var(--txs); opacity: .8; }
+  .user b { display: block; opacity: 1; }
+  .col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .head { border-bottom: 1px solid var(--border); padding: 8px 32px; }
+  .w360 .head { padding: 8px 16px 8px 64px; }
+  .head small { display: block; font-size: var(--t2xs); color: var(--muted-foreground); font-weight: 500; }
+  .head b { font-size: var(--tlg); font-weight: 600; line-height: 1.25; }
+  .main { flex: 1; padding: 20px 32px; display: grid; place-items: center; }
+  .w360 .main { padding: 20px 16px 84px; }
+  .bare { flex: 1; display: grid; place-items: center; padding: 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-card); width: 100%; max-width: 512px; padding: 32px; text-align: center; }
+  .w360 .card { padding: 24px 20px; }
+  .card.auth { max-width: 384px; padding: 0; overflow: hidden; }
+  .band { background: var(--sidebar); color: var(--sidebar-foreground); padding: 28px 24px; font-weight: 700; font-size: 20px; letter-spacing: .02em; }
+  .band span { color: var(--sidebar-primary); } .band small { display: block; font-size: 11px; font-weight: 400; opacity: .7; letter-spacing: .08em; }
+  .auth .in { padding: 24px; }
+  .ico { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; margin: 0 auto 12px; }
+  .ico svg { width: 24px; height: 24px; }
+  .ico.red { background: color-mix(in oklab, var(--destructive) 12%, transparent); color: var(--destructive); }
+  .ico.orange { background: color-mix(in oklab, var(--warning) 22%, transparent); color: var(--warning-ink); }
+  .ico.neutral { background: var(--secondary); color: var(--muted-foreground); }
+  .card h3 { margin: 0; font-size: var(--txl); font-weight: 600; line-height: 1.3; }
+  .card p { margin: 8px 0 0; color: var(--muted-foreground); font-size: var(--tbase); }
+  .acts { display: flex; gap: 8px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+  .w360 .acts { flex-direction: column; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; font-weight: 600; font-size: var(--tsm); border: 1px solid transparent; }
+  .w360 .btn { height: 44px; }
+  .btn.pri { background: var(--primary); color: var(--primary-foreground); }
+  .btn.out { border-color: var(--input); background: var(--card); color: var(--foreground); }
+  .btn.focus { outline: 2px solid var(--ring); outline-offset: 2px; }
+  .lnk { display: inline-block; margin-top: 16px; font-weight: 600; text-decoration: underline; font-size: var(--tsm); }
+  .code { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); font-size: var(--txs); color: var(--muted-foreground); }
+  .code b { font-family: ui-monospace, monospace; color: var(--foreground); font-weight: 500; }
+  .next { margin-top: 16px; padding: 12px 16px; border-radius: 8px; background: color-mix(in oklab, var(--warning) 14%, transparent); text-align: left; font-size: var(--tsm); color: var(--foreground); }
+  .next b { display: block; color: var(--warning-ink); }
+  .burger { position: absolute; left: 12px; top: 8px; width: 44px; height: 44px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); display: grid; place-items: center; }
+  .bnav { position: absolute; inset: auto 0 0 0; height: 60px; display: flex; background: var(--card); border-top: 1px solid var(--border); }
+  .bnav div { flex: 1; display: grid; place-items: center; align-content: center; gap: 4px; font-size: var(--txs); font-weight: 600; color: var(--muted-foreground); }
+  .bnav svg { width: 20px; height: 20px; }
+
+  /* ---- Ταμείο Android: mobile/theme.ts ---- */
+  .till { --bg: #F5F2EC; --card: #fff; --fg: #333; --muted: #66696F; --pri: #131F3B; --ok: #3B8B5C; --bad: #DE0013; --line: rgba(19,31,59,.12);
+    /* νέα για το ταμείο: το πορτοκαλί «περιμένει» του web (--warning / --warning-ink) σε hex */
+    --warn: #F3AE3D; --warn-ink: #8A5300;
+    width: 360px; height: 700px; background: var(--bg); color: var(--fg); border: 1px solid #c9c9cc; border-radius: 28px; overflow: hidden; display: flex; flex-direction: column; position: relative; font-size: 14px; line-height: 1.4; }
+  .till .sb { height: 28px; flex: none; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; font-size: 12px; font-weight: 600; }
+  .till h4 { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.25; }
+  .till .mu { color: var(--muted); font-size: 14px; margin: 0; }
+  .pair { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 24px; }
+  .lbox { background: var(--pri); color: #F1EEE7; border-radius: 14px; padding: 16px; margin-bottom: 12px; height: 72px; display: grid; place-items: center; font-weight: 700; font-size: 20px; }
+  .lbox span { color: #9F8757; }
+  .inp { height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); padding: 0 14px; display: flex; align-items: center; font-size: 16px; }
+  .tb { flex: 1; min-height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; color: #fff; font-size: 16px; font-weight: 800; background: var(--pri); padding: 0 12px; text-align: center; }
+  .tb.ok { background: var(--ok); } .tb.off { opacity: .5; } .tb.fixed { flex: none; }
+  .tb.out { background: var(--card); color: var(--pri); border: 1px solid var(--line); }
+  .tb.txt { background: none; color: var(--pri); min-height: 44px; }
+  .chips { display: flex; gap: 8px; padding: 12px; flex: none; overflow: hidden; }
+  .chip { min-height: 44px; display: flex; align-items: center; padding: 0 16px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); font-weight: 700; white-space: nowrap; }
+  .chip.on { background: var(--pri); color: #fff; }
+  .grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 12px 12px; align-content: start; overflow: hidden; }
+  .prod { min-height: 96px; display: flex; flex-direction: column; justify-content: space-between; padding: 14px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); box-sizing: border-box; }
+  .prod b { font-size: 15px; } .prod i { font-style: normal; font-size: 18px; font-weight: 800; color: var(--pri); }
+  .cart { flex: none; display: grid; gap: 8px; padding: 16px; background: var(--card); border-top: 1px solid var(--line); }
+  .ln { display: flex; align-items: center; gap: 8px; justify-content: space-between; font-weight: 700; }
+  .q { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; border: 1px solid var(--line); font-size: 20px; font-weight: 800; color: var(--pri); }
+  .tot { font-size: 28px; font-weight: 800; }
+  .two { display: flex; gap: 12px; }
+  .dim > .chips, .dim > .grid, .dim > .hd { opacity: .35; }
+  .full { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 24px; text-align: center; }
+  .full .ic { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; margin: 0 auto 4px; }
+  .full .ic svg, .panel .ic svg { width: 32px; height: 32px; }
+  .ic.nv { background: rgba(19,31,59,.08); color: var(--pri); } .ic.or { background: rgba(243,174,61,.24); color: var(--warn-ink); } .ic.rd { background: rgba(222,0,19,.1); color: var(--bad); }
+  .sum { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; text-align: left; display: grid; gap: 4px; }
+  .sum .amt { font-size: 28px; font-weight: 800; display: flex; justify-content: space-between; align-items: center; }
+  .tag { font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 8px; background: #F0F0F0; color: var(--fg); display: inline-flex; gap: 6px; align-items: center; }
+  .warnbox { border-radius: 12px; padding: 12px 14px; text-align: left; font-weight: 700; display: flex; gap: 10px; align-items: flex-start; }
+  .warnbox.or { background: rgba(243,174,61,.2); color: var(--warn-ink); } .warnbox svg { width: 20px; height: 20px; margin-top: 1px; }
+  .stack { display: grid; gap: 8px; margin-top: 4px; }
+  .panel { flex: none; display: grid; gap: 10px; padding: 16px; background: var(--card); border-top: 4px solid var(--pri); }
+  .panel .top { display: flex; gap: 12px; align-items: center; }
+  .panel .ic { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; flex: none; }
+  .alert { position: absolute; inset: 0; background: rgba(0,0,0,.45); display: grid; place-items: center; padding: 32px; }
+  .alert div { background: #fff; border-radius: 6px; padding: 20px 24px 12px; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+  .alert b { font-size: 18px; display: block; margin-bottom: 8px; } .alert p { margin: 0; color: #555; } .alert u { display: block; text-align: right; text-decoration: none; color: #00796B; font-weight: 700; margin-top: 16px; font-size: 14px; }
+</style>
+<body style="margin:0">
+<div id="mock" style="padding:24px;background:#e9e9ea"></div>
+<script>
+const I = {
+  warn: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  retry: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  x: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+  nf: '<path d="m13.5 8.5-5 5"/><path d="m8.5 8.5 5 5"/><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  dash: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+  store: '<path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>',
+  rec: '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/>',
+  dev: '<rect width="10" height="14" x="3" y="8" rx="2"/><path d="M5 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2h-2.4"/><path d="M8 18h.01"/>',
+  link: '<path d="M9 17H7A5 5 0 0 1 7 7"/><path d="M15 7h2a5 5 0 0 1 4 8"/><path d="M8 12h4"/><path d="m2 2 20 20"/>',
+  card: '<rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>',
+  spin: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+  back: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+};
+const s = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${I[n]}</svg>`;
+
+/* ---------- Web ---------- */
+const NAV = [['dash', 'Επισκόπηση'], ['store', 'Ταμείο & τιμολόγηση'], ['rec', 'Συνταγολόγιο'], ['dev', 'Παραγωγή'], ['dash', 'Αποθήκη & αγορές'], ['store', 'Πελάτες & πωλήσεις'], ['rec', 'Ομάδα & δεδομένα'], ['dev', 'Υποστήριξη']];
+const WEB = {
+  error: { shell: 1, sec: 'Σφάλμα', title: 'Κάτι πήγε στραβά', tone: 'red', icon: 'warn', h: 'Η σελίδα δεν φόρτωσε',
+    p: 'Το λάθος είναι από τη δική μας πλευρά, όχι από κάτι που έκανες. Ό,τι είχες ήδη αποθηκεύσει δεν χάθηκε.',
+    acts: [['pri', 'retry', 'Δοκίμασε ξανά'], ['out', 'dash', 'Πίνακας ελέγχου']], link: 'Συνεχίζει; Γράψε στην υποστήριξη', code: 1 },
+  global: { tone: 'red', icon: 'warn', h: 'Η εφαρμογή δεν άνοιξε',
+    p: 'Το λάθος είναι από τη δική μας πλευρά. Ό,τι είχες ήδη αποθηκεύσει δεν χάθηκε. Δοκίμασε ξανά σε λίγο.',
+    acts: [['pri', 'retry', 'Δοκίμασε ξανά'], ['out', 'dash', 'Αρχική σελίδα']], code: 1 },
+  notfound: { shell: 1, sec: 'Πλοήγηση', title: 'Η σελίδα δεν βρέθηκε', tone: 'neutral', icon: 'nf', h: 'Δεν υπάρχει τέτοια σελίδα',
+    p: 'Η διεύθυνση μπορεί να άλλαξε ή να γράφτηκε λάθος. Δεν χάλασε τίποτα: διάλεξε από το μενού ή γύρνα πίσω.',
+    acts: [['pri', 'dash', 'Πίνακας ελέγχου'], ['out', 'back', 'Πίσω εκεί που ήμουν']] },
+  link: { tone: 'orange', icon: 'link', h: 'Ο σύνδεσμος δεν ισχύει πια',
+    p: 'Μπορεί να έληξε, να αντικαταστάθηκε από νεότερο ή να μην αντιγράφηκε ολόκληρος.',
+    next: ['Τι κάνεις τώρα', 'Ζήτα νέο σύνδεσμο από την επιχείρηση που σου τον έστειλε.'] },
+};
+function web(kind, w, dark, focus) {
+  const k = WEB[kind], phone = w === 360;
+  const acts = k.acts ? `<div class="acts">${k.acts.map(([c, ic, t], i) => `<span class="btn ${c}${focus && !i ? ' focus' : ''}">${s(ic)}${t}</span>`).join('')}</div>` : '';
+  const inner = `<div class="ico ${k.tone}">${s(k.icon)}</div><h3>${k.h}</h3><p>${k.p}</p>${k.next ? `<div class="next"><b>${k.next[0]}</b>${k.next[1]}</div>` : ''}${acts}${k.link ? `<span class="lnk">${k.link}</span>` : ''}${k.code ? '<div class="code">Κωδικός για την υποστήριξη: <b>3F9A-21C7</b></div>' : ''}`;
+  let body;
+  if (k.shell) {
+    body = `${phone ? `<span class="burger">${s('menu')}</span>` : `<aside class="side"><div class="logo">GELATO <span>SYSTEM</span></div><div class="nav">${NAV.map(([ic, t]) => `<div><i>${s(ic)}</i>${t}</div>`).join('')}</div><div class="user"><b>Μαρία Παππά</b>Υπεύθυνη καταστήματος · Gelateria Πλάκα</div></aside>`}
+      <div class="col"><div class="head"><small>${k.sec}</small><b>${k.title}</b></div><div class="main"><div class="card">${inner}</div></div></div>
+      ${phone ? `<div class="bnav">${[['dash', 'Πίνακας'], ['store', 'Ταμείο'], ['rec', 'Αποδείξεις'], ['dev', 'Συσκευές']].map(([ic, t]) => `<div>${s(ic)}${t}</div>`).join('')}</div>` : ''}`;
+  } else body = `<div class="bare"><div class="card auth"><div class="band">GELATO <span>SYSTEM</span><small>ΛΟΓΟΤΥΠΟ</small></div><div class="in">${inner}</div></div></div>`;
+  return `<div class="gs w${w}${dark ? ' dark' : ''}">${body}</div>`;
+}
+
+/* ---------- Ταμείο Android ---------- */
+const PRODUCTS = [['Χωνάκι 1 μπάλα', '2,50 €', '   × 1'], ['Χωνάκι 2 μπάλες', '4,00 €', '   × 1'], ['Κυπελλάκι μικρό', '2,80 €', ''], ['Κυπελλάκι μεγάλο', '4,50 €', ''], ['Βάφλα με παγωτό', '6,50 €', ''], ['Οικογενειακό 500 g', '9,00 €', '']];
+const sb = '<div class="sb"><span>12:41</span><span>Wi-Fi · 84%</span></div>';
+const hd = '<div class="hd" style="padding:16px 16px 0"><h4>Ταμείο</h4><p class="mu">Gelateria Πλάκα · Ταμείο 1 · σειρά ΑΛΠ</p></div>';
+const shop = (n) => `${hd}<div class="chips">${['Παγωτό', 'Γρανίτες', 'Καφές', 'Γλυκά'].map((c, i) => `<span class="chip${i ? '' : ' on'}">${c}</span>`).join('')}</div><div class="grid">${PRODUCTS.slice(0, n).map(([a, b, q]) => `<div class="prod"><b>${a}</b><i>${b}${q}</i></div>`).join('')}</div>`;
+const lines = [['Χωνάκι 1 μπάλα', 1], ['Χωνάκι 2 μπάλες', 1]].map(([n, q]) => `<div class="ln"><span style="flex:1">${n}</span><span class="q">−</span><span style="width:28px;text-align:center;font-weight:800">${q}</span><span class="q">+</span></div>`).join('');
+const sum = (extra = '') => `<div class="sum"><div class="amt">6,50 €<span class="tag">${s('card')}Κάρτα</span></div><p class="mu">2 είδη · ξεκίνησε 12:38${extra}</p></div>`;
+const full = (tone, icon, h, p, rest) => `<div class="full"><div class="ic ${tone}">${s(icon)}</div><h4>${h}</h4><p class="mu">${p}</p>${rest}</div>`;
+const TILL = {
+  pair: `<div class="pair"><div class="lbox"><div>GELATO <span>SYSTEM</span></div></div><h4>Σύζευξη ταμείου</h4><p class="mu">Γράψε τη διεύθυνση της εφαρμογής και τον 8ψήφιο κωδικό σύζευξης που σου έδωσε ο διαχειριστής. Ισχύει 15 λεπτά.</p><div class="inp">https://app.gelatosystem.app</div><div class="inp" style="letter-spacing:4px;font-weight:800">K7M2QX9A</div><div class="tb fixed">Σύζευξη</div></div>`,
+  pos: `${shop(4)}<div class="cart">${lines}<div class="ln"><span class="mu">Σύνολο</span><span class="tot">6,50 €</span></div><div class="two"><div class="tb ok">Μετρητά</div><div class="tb">Κάρτα</div></div></div>`,
+  nowAlert: `${shop(4)}<div class="cart">${lines}<div class="ln"><span class="mu">Σύνολο</span><span class="tot">6,50 €</span></div><div class="two"><div class="tb ok off">Μετρητά</div><div class="tb off">Κάρτα</div></div></div><div class="alert"><div><b>Δεν ενημερώθηκε ο server</b><p>Η πληρωμή έγινε αλλά η απόδειξη δεν καταχωρήθηκε. Μην ξαναχρεώσεις: ενημέρωσε τον υπεύθυνο.</p><u>OK</u></div></div>`,
+  waitA: full('nv', 'spin', 'Περιμένουμε την πληρωμή', 'Ολοκλήρωσέ την στο Viva Terminal. Η οθόνη αλλάζει μόνη της μόλις τελειώσει.', `${sum()}<div class="stack"><div class="tb fixed">Άνοιξε το Viva Terminal</div><div class="tb fixed out">Έλεγξε αν πληρώθηκε</div></div>`),
+  waitB: `<div class="dim" style="display:contents">${shop(4)}</div><div class="panel"><div class="top"><div class="ic nv">${s('spin')}</div><div style="flex:1"><b style="font-size:17px">Περιμένουμε την πληρωμή</b><p class="mu">Κάρτα · 2 είδη · ξεκίνησε 12:38</p></div><span class="tot">6,50 €</span></div><p class="mu">Ολοκλήρωσέ την στο Viva Terminal. Το καλάθι είναι κλειδωμένο μέχρι να τελειώσει.</p><div class="two"><div class="tb out">Έλεγξε αν πληρώθηκε</div><div class="tb">Viva Terminal</div></div></div>`,
+  resume: full('or', 'clock', 'Έμεινε μια πληρωμή στη μέση', 'Η εφαρμογή έκλεισε πριν μάθουμε αν πληρώθηκε. Το καλάθι της είναι ακόμα εδώ.', `${sum()}<div class="warnbox or">${s('warn')}<span>Μην χρεώσεις ξανά τον πελάτη πριν δεις το αποτέλεσμα.</span></div><div class="stack"><div class="tb fixed">Έλεγξε αν πληρώθηκε</div></div>`),
+  unknown: full('or', 'clock', 'Δεν ξέρουμε ακόμα αν πληρώθηκε', 'Η Viva δεν απάντησε. Ρωτάμε ξανά μόνοι μας κάθε λίγα δευτερόλεπτα.', `${sum(' · τελευταίος έλεγχος 12:41')}<div class="warnbox or">${s('warn')}<span>Μην χρεώσεις ξανά τον πελάτη. Αν βιάζεται, σημείωσε ώρα και ποσό και πες το στον υπεύθυνο.</span></div><div class="stack"><div class="tb fixed">${s('retry')}Έλεγξε ξανά τώρα</div></div>`),
+  failed: full('rd', 'x', 'Η πληρωμή δεν έγινε', 'Ο πελάτης δεν χρεώθηκε. Το καλάθι είναι όπως το άφησες.', `${sum()}<div class="stack"><div class="tb fixed">Δοκίμασε ξανά με κάρτα</div><div class="tb fixed ok">Πληρωμή με μετρητά</div><div class="tb fixed txt">Πίσω στο καλάθι</div></div>`),
+  key: full('rd', 'link', 'Το ταμείο αποσυνδέθηκε', 'Το κλειδί αυτής της συσκευής δεν ισχύει πια, γι\' αυτό δεν εκδίδει αποδείξεις.', `<div class="sum"><b>Τι κάνεις τώρα</b><p class="mu">Ζήτα από τον διαχειριστή νέο κωδικό σύζευξης. Τον βγάζει από «Συσκευές» στην κονσόλα.</p></div><div class="stack"><div class="tb fixed">Νέα σύζευξη</div></div><p class="mu">Gelateria Πλάκα · Ταμείο 1</p>`),
+};
+const till = (k) => `<div class="till">${sb}${TILL[k]}</div>`;
+const fig = (html, cap) => `<figure>${html}<figcaption>${cap}</figcaption></figure>`;
+
+const webBoard = (dark) => `
+  <div class="row">${fig(web('error', 1280, dark, 1), '<b>A1 · Σφάλμα μέσα στην εφαρμογή, 1280px.</b> Το μενού μένει. Κόκκινο = κάτι χάλασε. Το πρώτο κουμπί φαίνεται με εστίαση πληκτρολογίου.')}${fig(web('error', 360, dark), '<b>A1 · 360px.</b> Κουμπιά 44px, ένα κάτω από το άλλο.')}</div>
+  <div class="row">${fig(web('global', 1280, dark), '<b>A2 · Σφάλμα σε όλη τη σελίδα, 1280px.</b> Χωρίς μενού: ίδια κάρτα με τη σύνδεση.')}${fig(web('global', 360, dark), '<b>A2 · 360px.</b>')}</div>
+  <div class="row">${fig(web('notfound', 1280, dark), '<b>A3 · Η σελίδα δεν βρέθηκε, μέσα στην εφαρμογή, 1280px.</b> Ουδέτερο γκρι: δεν χάλασε τίποτα.')}${fig(web('notfound', 360, dark), '<b>A3 · 360px.</b>')}</div>
+  <div class="row">${fig(web('link', 1280, dark), '<b>A4 · Δημόσιος σύνδεσμος που δεν ισχύει, 1280px.</b> Πορτοκαλί = έληξε. Ο επισκέπτης δεν έχει λογαριασμό, άρα κανένα κουμπί προς την εφαρμογή.')}${fig(web('link', 360, dark), '<b>A4 · 360px.</b>')}</div>`;
+
+const BOARDS = {
+  'a-light': ['A · Οθόνες σφάλματος web, φωτεινό θέμα', 'Στη θέση του λογοτύπου μπαίνει το πραγματικό logo.png. Ο κωδικός υποστήριξης είναι ανοιχτή ερώτηση.', webBoard(0)],
+  'a-dark': ['A · Οθόνες σφάλματος web, σκοτεινό θέμα', '', webBoard(1)],
+  'b-now': ['B1 · Το ταμείο Android όπως είναι σήμερα', 'Δύο οθόνες. Τα λάθη εμφανίζονται ως παράθυρο του Android με ένα OK.', `<div class="row">${fig(till('pair'), '<b>Σήμερα 1 · Σύζευξη.</b> Διεύθυνση εφαρμογής και κωδικός 8 χαρακτήρων.')}${fig(till('pos'), '<b>Σήμερα 2 · Ταμείο.</b> Κατηγορίες, προϊόντα, καλάθι με − / +, σύνολο. «Μετρητά» και «Κάρτα» ανοίγουν και τα δύο το Viva Terminal.')}${fig(till('nowAlert'), '<b>Σήμερα 3 · Όταν κάτι πάει στραβά.</b> Ένα παράθυρο με OK. Μετά το OK η εφαρμογή ξεχνά την πληρωμή.')}</div>`],
+  'b-new': ['B2 · Οι καταστάσεις πληρωμής που λείπουν', 'Καμία νέα λειτουργία: μόνο το τι βλέπει ο ταμίας από τη στιγμή που πατά «Κάρτα» ή «Μετρητά» μέχρι να μάθει το αποτέλεσμα.', `
+    <div class="row">${fig(till('waitA'), '<b>Παραλλαγή 1 · Ολόκληρη οθόνη.</b> Πληρωμή σε εξέλιξη. Δεν πατιέται τίποτα άλλο, άρα δεν γίνεται δεύτερη χρέωση κατά λάθος.')}${fig(till('waitB'), '<b>Παραλλαγή 2 · Πλαίσιο στη θέση του καλαθιού.</b> Ο ταμίας βλέπει ακόμα τα προϊόντα, θαμπά και κλειδωμένα.')}</div>
+    <div class="row">${fig(till('resume'), '<b>B2.2 · Συνέχεια μετά από κλείσιμο.</b> Εμφανίζεται στο άνοιγμα της εφαρμογής, πριν από το ταμείο.')}${fig(till('unknown'), '<b>B2.3 · Άγνωστο αποτέλεσμα.</b> Πορτοκαλί = περιμένει. Χωρίς ποσοστό ή χρόνο που δεν ξέρουμε.')}${fig(till('failed'), '<b>B2.4 · Η πληρωμή απέτυχε.</b> Κόκκινο. Λέει καθαρά ότι ο πελάτης δεν χρεώθηκε.')}${fig(till('key'), '<b>B2.5 · Το κλειδί της συσκευής δεν ισχύει.</b> Λέει τι να ζητήσει και από ποιον.')}</div>`],
+};
+const W = innerWidth, narrow = W < 760, root = document.getElementById('mock');
+const board = (id) => { const [h, p, html] = BOARDS[id]; return `<section class="board" id="${id}"><h2>${h}</h2><p>${p}</p>${html}</section>`; };
+if (narrow) {
+  root.className = 'narrow'; root.style.padding = 0; root.style.background = 'none';
+  root.style.setProperty('--zd', Math.min(1, (W - 2) / 1282));
+  root.style.setProperty('--zp', W >= 600 ? Math.min(1, (W - 14) / 2 / 362) : Math.min(1, (W - 2) / 362));
+  const T = { 'a-light': 'Web · φωτεινό', 'a-dark': 'Web · σκοτεινό', 'b-now': 'Ταμείο · σήμερα', 'b-new': 'Ταμείο · νέες καταστάσεις' };
+  const show = (id) => { root.innerHTML = `<div class="tabs">${Object.keys(T).map((k) => `<button aria-pressed="${k === id}" data-k="${k}">${T[k]}</button>`).join('')}</div>${board(id)}`; };
+  root.addEventListener('click', (e) => { const k = e.target.dataset && e.target.dataset.k; if (k) show(k); });
+  show('a-light');
+} else {
+  const only = location.hash.slice(1);
+  root.innerHTML = Object.keys(BOARDS).filter((id) => !only || id === only).map(board).join('');
+}
+</script>
+</body>
+</html>
