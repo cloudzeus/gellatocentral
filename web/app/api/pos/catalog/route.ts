@@ -11,5 +11,7 @@ export async function GET(req: Request) {
   });
   // Η εφαρμογή ταμείου περιμένει το ποσοστό ΦΠΑ ως αριθμό, όχι ως σχέση
   const flat = categories.map((c) => ({ ...c, products: c.products.map((p) => ({ id: p.id, name: p.name, priceCents: p.priceCents, vatRate: p.vatRate.rate })) }));
-  return Response.json({ device: { name: ctx.device.name, series: ctx.device.series }, store: ctx.store.name, categories: flat });
+  // Οι τρόποι πληρωμής του ταμείου, με τη σειρά της κονσόλας: η εφαρμογή στέλνει το id στην πώληση.
+  const paymentMethods = await db.paymentMethod.findMany({ where: { active: true, posEnabled: true, payItemCase: { not: null } }, orderBy: { sort: "asc" }, select: { id: true, code: true, name: true } });
+  return Response.json({ device: { name: ctx.device.name, series: ctx.device.series }, store: ctx.store.name, categories: flat, paymentMethods });
 }
