@@ -2,6 +2,7 @@
 // Κεντρικός κατάλογος εμπορικών ειδών (docs/analysis/PROCUREMENT-DESIGN.md §5): κατηγορίες, κατασκευαστές,
 // brands και είδη. Όλα επίπεδο πλατφόρμας (orgId κενό) — τα γράφει μόνο ο διαχειριστής.
 
+import { flashOk } from "@/lib/flash-server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -16,6 +17,7 @@ import { normalizeManufacturerName } from "@/lib/manufacturer";
 import { submittedOption } from "@/lib/select-options";
 import { deleteFile } from "@/lib/storage";
 import { descendantCategoryIds, tradeCategoryLayoutError, type TradeCategoryLayout } from "@/lib/trade-category-tree";
+import { runTask } from "@/lib/tasks";
 
 const back = (q: string): never => {
   revalidatePath("/platform/catalog");
@@ -88,7 +90,12 @@ export async function enrichManufacturer(manufacturerId: string) {
   const parsed = id.safeParse(manufacturerId);
   if (!parsed.success) return fail("Άγνωστος κατασκευαστής");
   try {
-    await enrichCatalogManufacturer(parsed.data, user.id);
+    const label = (await db.manufacturer.findUnique({ where: { id: parsed.data }, select: { name: true } }))?.name ?? "Κατασκευαστής";
+    await runTask({ orgId: null, userId: user.id, userName: user.name }, { kind: "catalog.enrich", title: `Εμπλουτισμός κατασκευαστή · ${label}`, permission: "settings.edit", total: 1 }, async (task) => {
+      await task.step(label);
+      try { await enrichCatalogManufacturer(parsed.data, user.id); await task.ok(); }
+      catch (error) { await task.fail({ id: parsed.data, label, reason: error instanceof CatalogEnrichmentError ? error.message : "Ο εμπλουτισμός απέτυχε" }); throw error; }
+    });
   } catch (error) {
     return fail(error instanceof CatalogEnrichmentError ? error.message : "Ο εμπλουτισμός απέτυχε");
   }
@@ -102,17 +109,28 @@ export async function enrichManufacturers(ids: string[]) {
   if (!unique || unique.length > 3) return "Διάλεξε έως 3 κατασκευαστές κάθε φορά";
   const errors: string[] = [];
   let completed = 0;
-  for (const manufacturerId of unique) {
-    try {
-      await enrichCatalogManufacturer(manufacturerId, user.id);
-      completed++;
-    } catch (error) {
-      errors.push(error instanceof CatalogEnrichmentError ? error.message : "Ο εμπλουτισμός απέτυχε");
+  const names = new Map((await db.manufacturer.findMany({ where: { id: { in: unique } }, select: { id: true, name: true } })).map((m) => [m.id, m.name]));
+  // ο βρόχος μένει ίδιος· προστέθηκε μόνο η αναφορά προόδου («2 από 3», «Τώρα: …») για το παράθυρο «Εργασίες»
+  await runTask({ orgId: null, userId: user.id, userName: user.name }, { kind: "catalog.enrich", title: "Εμπλουτισμός κατασκευαστών", permission: "settings.edit", total: unique.length }, async (task) => {
+    for (const manufacturerId of unique) {
+      const label = names.get(manufacturerId) ?? "Κατασκευαστής";
+      await task.step(label);
+      try {
+        await enrichCatalogManufacturer(manufacturerId, user.id);
+        completed++;
+        await task.ok();
+      } catch (error) {
+        const reason = error instanceof CatalogEnrichmentError ? error.message : "Ο εμπλουτισμός απέτυχε";
+        errors.push(reason);
+        await task.fail({ id: manufacturerId, label, reason });
+      }
     }
-  }
+    task.result("/platform/catalog?tab=manufacturers");
+  });
   revalidatePath("/platform/catalog");
   revalidatePath("/platform/catalog/duplicates");
   if (!completed) return [...new Set(errors)].join(" · ").slice(0, 400) || "Ο εμπλουτισμός απέτυχε";
+  await flashOk(completed < unique.length ? `Εμπλουτίστηκαν ${completed} από τους ${unique.length} κατασκευαστές` : completed === 1 ? "Ο κατασκευαστής εμπλουτίστηκε" : `${completed} κατασκευαστές εμπλουτίστηκαν`);
 }
 
 export async function saveBrand(form: FormData) {
@@ -199,6 +217,8 @@ async function setTradeItemsActive(ids: string[], active: boolean) {
   const result = await db.tradeItem.updateMany({ where: { id: { in: unique }, orgId: null }, data: { active } });
   revalidatePath("/platform/catalog");
   if (result.count !== unique.length) return "Ορισμένα είδη δεν βρέθηκαν στον κεντρικό κατάλογο· ανανέωσε τη λίστα";
+  const n = unique.length;
+  await flashOk(active ? (n === 1 ? "Το είδος καταλόγου ενεργοποιήθηκε" : `${n} είδη καταλόγου ενεργοποιήθηκαν`) : n === 1 ? "Το είδος καταλόγου έγινε κρυφό" : `${n} είδη καταλόγου έγιναν κρυφά`);
 }
 
 export async function activateTradeItems(ids: string[]) {
@@ -268,6 +288,7 @@ export async function applyCategoryMatches(ids: string[]) {
   revalidatePath("/platform/catalog/category-matches");
   const updated = writes.reduce((sum, result) => sum + result.count, 0);
   if (updated !== unique.length) return `Εφαρμόστηκαν ${updated} συσχετίσεις· ${unique.length - updated} είδη είχαν ήδη ενημερωθεί ή δεν έχουν πλέον σαφή πρόταση`;
+  await flashOk(updated === 1 ? "Το είδος μπήκε στην κατηγορία του" : `${updated} είδη μπήκαν στις κατηγορίες τους`);
 }
 
 async function setTradeCategoriesActive(ids: string[], active: boolean) {
@@ -277,6 +298,8 @@ async function setTradeCategoriesActive(ids: string[], active: boolean) {
   const result = await db.tradeCategory.updateMany({ where: { id: { in: unique } }, data: { active } });
   revalidatePath("/platform/catalog");
   if (result.count !== unique.length) return "Ορισμένες κατηγορίες δεν βρέθηκαν· ανανέωσε τη λίστα";
+  const n = unique.length;
+  await flashOk(active ? (n === 1 ? "Η κατηγορία ενεργοποιήθηκε" : `${n} κατηγορίες ενεργοποιήθηκαν`) : n === 1 ? "Η κατηγορία έγινε κρυφή" : `${n} κατηγορίες έγιναν κρυφές`);
 }
 
 export async function activateTradeCategories(ids: string[]) {
@@ -349,6 +372,7 @@ export async function deleteManufacturers(ids: string[]) {
   try { await deleteManufacturerLogos(unique); } catch { return "Δεν ολοκληρώθηκε η διαγραφή των λογότυπων· δεν διαγράφηκε κανένας"; }
   await db.manufacturer.deleteMany({ where: { id: { in: unique } } });
   revalidatePath("/platform/catalog");
+  await flashOk(unique.length === 1 ? "Ο κατασκευαστής διαγράφηκε" : `${unique.length} κατασκευαστές διαγράφηκαν`);
 }
 
 export async function deleteBrands(ids: string[]) {
@@ -360,6 +384,7 @@ export async function deleteBrands(ids: string[]) {
   if (rows.some((b) => b._count.items)) return "Κάποια brands συνδέονται με είδη· δεν διαγράφηκε κανένα";
   await db.brand.deleteMany({ where: { id: { in: unique } } });
   revalidatePath("/platform/catalog");
+  await flashOk(unique.length === 1 ? "Το brand διαγράφηκε" : `${unique.length} brands διαγράφηκαν`);
 }
 
 /** Τεχνική σύσταση είδους του κεντρικού καταλόγου (orgId κενό) — μία ανά είδος. */

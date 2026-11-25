@@ -4,14 +4,14 @@ import { notFound } from "next/navigation";
 import { ProcessFlow } from "@/components/process-flow";
 import { Submit } from "@/components/submit";
 import { TicketThread } from "@/components/ticket-thread";
-import { Badge, btn, Card, Page } from "@/components/ui";
+import { btn, Card, Page } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canView } from "@/lib/support";
-import { CATEGORIES, type Category, STATUS, type Status } from "@/lib/support/rules";
+import { CATEGORIES, type Category, type Status } from "@/lib/support/rules";
 import { rate, resolve } from "../actions";
+import { StatusBadge } from "@/components/status-badge";
 
-const SAVED: Record<string, string> = { new: "Το αίτημα στάλθηκε. Θα σε ειδοποιήσουμε με email όταν απαντήσουμε", reply: "Το μήνυμά σου στάλθηκε", resolved: "Το αίτημα σημειώθηκε ως λυμένο", rated: "Ευχαριστούμε για τη βαθμολογία" };
 
 export default async function TicketPage({ params, searchParams }: PageProps<"/support/[id]">) {
   const { user } = await currentOrg();
@@ -25,9 +25,8 @@ export default async function TicketPage({ params, searchParams }: PageProps<"/s
 
   return (
     <Page section="Υποστήριξη" title={ticket.subject} description={`Αίτημα #${ticket.number} · ${CATEGORIES[ticket.category as Category] ?? ticket.category} · το άνοιξε ο χρήστης ${ticket.openedByName}`}
-      actions={<><Badge tone={STATUS[status].tone}>{STATUS[status].customer}</Badge>{done ? null : <form action={resolve.bind(null, ticket.id)}><Submit className={btn("outline")}><CircleCheck /> Λύθηκε</Submit></form>}<Link href="/support" className={btn("outline")}>Όλα τα αιτήματα</Link></>}>
+      actions={<><StatusBadge kind="ticketCustomer" value={status} />{done ? null : <form action={resolve.bind(null, ticket.id)}><Submit className={btn("outline")}><CircleCheck /> Λύθηκε</Submit></form>}<Link href="/support" className={btn("outline")}>Όλα τα αιτήματα</Link></>}>
       <div className="max-w-4xl space-y-4">
-        {typeof q.saved === "string" && SAVED[q.saved] ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{SAVED[q.saved]}</p> : null}
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{q.error.slice(0, 200)}</p> : null}
         <Card className="p-4">
           <ProcessFlow label="Πορεία αιτήματος" steps={[

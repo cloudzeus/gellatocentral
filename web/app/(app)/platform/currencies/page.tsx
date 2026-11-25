@@ -3,7 +3,9 @@ import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { DetailGrid, Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { DetailGrid, btn, Card, Field, menuItem, Page } from "@/components/ui";
+import { look } from "@/lib/status";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -56,7 +58,6 @@ export default async function CurrenciesPage({ searchParams }: PageProps<"/platf
       actions={<Modal label={<><Plus /> Νέο νόμισμα</>} size="sm" title="Νέο νόμισμα">{currencyForm()}</Modal>}>
       <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε{q.error ? `: ${q.error.slice(0, 200)}` : ""}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Τα νομίσματα ενημερώθηκαν</p> : null}
         <Card>
           <DataTable
             id="currencies"
@@ -80,7 +81,7 @@ export default async function CurrenciesPage({ searchParams }: PageProps<"/platf
                 name: <span className="font-semibold">{c.name}</span>,
                 symbol: <span className="text-lg font-semibold">{c.symbol}</span>,
                 sort: <span className="tabular-nums">{c.sort}</span>,
-                status: c.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>,
+                status: c.active ? <StatusBadge look={look("success", "Ενεργό")} /> : <StatusBadge look={look("neutral", "Κρυφό")} />,
               },
               details: {
                 label: `${c.name} (${c.code})`,
@@ -88,7 +89,7 @@ export default async function CurrenciesPage({ searchParams }: PageProps<"/platf
                   <div><dt className="text-xs text-muted-foreground">Κωδικός ISO</dt><dd className="font-mono text-xs font-semibold">{c.code}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Σύμβολο</dt><dd className="text-lg font-semibold">{c.symbol}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Σειρά</dt><dd className="font-medium tabular-nums">{c.sort}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Κατάσταση</dt><dd>{c.active ? <Badge tone="success">Ενεργό</Badge> : <Badge>Κρυφό</Badge>}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Κατάσταση</dt><dd>{c.active ? <StatusBadge look={look("success", "Ενεργό")} /> : <StatusBadge look={look("neutral", "Κρυφό")} />}</dd></div>
                 </DetailGrid>,
                 edit: currencyForm(c),
               },

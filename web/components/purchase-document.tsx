@@ -2,6 +2,7 @@ import { FileText } from "lucide-react";
 import { euro } from "@/lib/money";
 import { calculatePurchaseDocument, type DocumentParty, type PurchaseExpenses, type PurchaseLineAmounts } from "@/lib/purchase-document";
 import { cn } from "@/lib/utils";
+import { statusOf } from "@/lib/status";
 
 export type PurchaseDocumentLine = PurchaseLineAmounts & {
   id: string;
@@ -30,7 +31,6 @@ export type PurchaseDocumentData = PurchaseExpenses & {
 };
 
 const percent = new Intl.NumberFormat("el-GR", { maximumFractionDigits: 2 });
-const STATUS = { DRAFT: "ΠΡΟΧΕΙΡΟ", POSTED: "ΚΑΤΑΧΩΡΗΜΕΝΟ", CANCELLED: "ΑΚΥΡΩΜΕΝΟ" } as const;
 
 function PartyBlock({ title, party, align = "left" }: { title: string; party: DocumentParty; align?: "left" | "right" }) {
   const address = [party.address, [party.postalCode, party.city].filter(Boolean).join(" "), party.countryCode && party.countryCode !== "GR" ? party.countryCode : null].filter(Boolean).join(" · ");
@@ -71,7 +71,7 @@ export function PurchaseDocument({ doc, compact = false }: { doc: PurchaseDocume
             </div>
             <div className="mt-1.5">
               <dt className="sr-only">Κατάσταση</dt>
-              <dd className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{STATUS[doc.status]}{doc.source === "ocr" ? " · OCR" : doc.source === "mydata" ? " · myDATA" : ""}</dd>
+              <dd className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{statusOf("purchase", doc.status).text}{doc.source === "ocr" ? " · OCR" : doc.source === "mydata" ? " · myDATA" : ""}</dd>
             </div>
           </dl>
         </div>

@@ -8,7 +8,9 @@ import { useMemo, useState, useTransition } from "react";
 import { Modal } from "@/components/modal";
 import { RowMenu } from "@/components/row-menu";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, cn, Field, menuItem, Select } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { btn, Card, cn, Field, menuItem, Select } from "@/components/ui";
+import { look } from "@/lib/status";
 import { descendantCategoryIds, flattenTradeCategories, moveTradeCategory, type FlatTradeCategory, type TradeCategoryRecord } from "@/lib/trade-category-tree";
 import { deleteTradeCategory, saveTradeCategory, saveTradeCategoryLayout, toggleTradeCategory } from "./actions";
 import { useBusy } from "@/lib/use-busy";
@@ -81,7 +83,7 @@ function CategoryRow({ row, categories, childCount, collapsed, activeId, pending
         <div className="min-w-0 flex-1 py-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className={cn("min-w-0 break-words", depth === 0 ? "font-semibold" : "font-medium")}>{c.name}</span>
-            {!c.active ? <Badge>Κρυφή</Badge> : null}
+            {!c.active ? <StatusBadge look={look("neutral", "Κρυφή")} /> : null}
           </div>
           <p className="text-2xs text-muted-foreground">{childCount ? `${childCount} άμεσες υποκατηγορίες` : "Τελική κατηγορία"} · Επίπεδο {depth + 1}</p>
         </div>

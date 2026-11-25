@@ -1,5 +1,6 @@
 "use server";
 
+import { flashOk } from "@/lib/flash-server";
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -68,6 +69,8 @@ async function setProductsActive(ids: string[], active: boolean) {
   revalidatePath("/products");
   revalidatePath("/pos");
   if (result.count !== unique.length) return "Ορισμένα προϊόντα δεν βρέθηκαν στην επιχείρηση· ανανέωσε τη λίστα";
+  const n = unique.length;
+  await flashOk(active ? (n === 1 ? "Το προϊόν εμφανίζεται ξανά στο ταμείο" : `${n} προϊόντα εμφανίζονται ξανά στο ταμείο`) : n === 1 ? "Το προϊόν κρύφτηκε από το ταμείο" : `${n} προϊόντα κρύφτηκαν από το ταμείο`);
 }
 
 export async function activateProducts(ids: string[]) {
@@ -111,4 +114,6 @@ export async function deleteProducts(ids: string[]) {
   const { org } = await currentOrg("products.edit");
   const result = await removeProducts(org.id, [...new Set(parsed.data)]);
   if (result.missingIds.length) return "Ορισμένα προϊόντα δεν βρέθηκαν στην επιχείρηση· ανανέωσε τη λίστα";
+  const deleted = result.deleteIds.length;
+  await flashOk(result.hideIds.length ? `Προϊόντα: ${deleted} διαγράφηκαν, ${result.hideIds.length} με πωλήσεις κρύφτηκαν` : deleted === 1 ? "Το προϊόν διαγράφηκε" : `${deleted} προϊόντα διαγράφηκαν`);
 }

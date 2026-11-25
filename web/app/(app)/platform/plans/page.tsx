@@ -3,7 +3,9 @@ import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { Checkbox } from "@/components/shadcn/checkbox";
 import { Submit } from "@/components/submit";
+import { StatusBadge } from "@/components/status-badge";
 import { Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
+import { look } from "@/lib/status";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DEVICE_KIND } from "@/lib/devices";
@@ -99,7 +101,6 @@ export default async function PlansPage({ searchParams }: PageProps<"/platform/p
       actions={<Modal label={<><Plus /> Νέο πακέτο</>} variant="default" title="Νέο πακέτο"><PlanForm /></Modal>}>
       <div className="max-w-7xl space-y-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν έγινε: {q.error.slice(0, 200)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Τα πακέτα ενημερώθηκαν. Οι νέες τιμές ισχύουν από την επόμενη χρέωση κάθε πελάτη</p> : null}
 
         <Card>
           <DataTable
@@ -126,7 +127,7 @@ export default async function PlansPage({ searchParams }: PageProps<"/platform/p
                 customers: r.customers,
                 pause: `${r.plan.pausePercent}% · έως ${r.plan.pauseMaxDaysPerYear} ημέρες`,
                 example: euro(r.monthly.fullCents),
-                status: <span className="inline-flex flex-wrap gap-1">{r.isDefault ? <Badge tone="success">Προεπιλογή</Badge> : null}{r.active ? <Badge>Ενεργό</Badge> : <Badge tone="warning">Ανενεργό</Badge>}</span>,
+                status: <span className="inline-flex flex-wrap gap-1">{r.isDefault ? <Badge tone="success">Προεπιλογή</Badge> : null}{r.active ? <StatusBadge look={look("success", "Ενεργό")} /> : <StatusBadge look={look("neutral", "Ανενεργό")} />}</span>,
               },
               details: {
                 label: r.name,

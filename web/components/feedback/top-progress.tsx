@@ -17,7 +17,9 @@ export function TopProgress() {
       const current = `${window.location.pathname}?${new URLSearchParams(window.location.search)}`;
       // ίδια διεύθυνση: δεν θα δούμε ποτέ «άλλαξε», άρα δεν ανάβουμε γραμμή που δεν θα έσβηνε
       if (`${target.pathname}?${target.searchParams}` === current) return;
-      setNavFrom(current);
+      // το Next στέλνει το σήμα μέσα στο δικό του transition: ένα setState εδώ θα περίμενε να ΤΕΛΕΙΩΣΕΙ η πλοήγηση.
+      // Με setTimeout βγαίνουμε από το transition και η γραμμή φαίνεται όσο η πλοήγηση τρέχει.
+      setTimeout(() => setNavFrom(current), 0);
       clearTimeout(failsafe);
       failsafe = setTimeout(() => setNavFrom(null), 20_000);
     };

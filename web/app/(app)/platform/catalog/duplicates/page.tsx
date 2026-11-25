@@ -35,7 +35,6 @@ export default async function CatalogDuplicatesPage({ searchParams }: PageProps<
       actions={<Link href="/platform/catalog?tab=manufacturers" className={btn("outline")}>← Κατάλογος</Link>}>
       <div className="grid max-w-5xl gap-5">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν έγινε συγχώνευση: {q.error.slice(0, 200)}</p> : null}
-        {typeof q.saved === "string" ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Συγχωνεύτηκαν {q.saved} κατασκευαστές· μεταφέρθηκαν brands, προϊόντα, aliases και τεκμηριωμένα υλικά</p> : null}
 
         <section className="grid gap-3">
           <div><h2 className="flex items-center gap-2 text-base font-semibold"><Sparkles className="size-4" /> Προτάσεις AI</h2><p className="text-sm text-muted-foreground">Υψηλή βεβαιότητα και κοινή ταυτότητα ή επαληθευμένο domain. Η πρόταση δεν αλλάζει δεδομένα χωρίς το κουμπί συγχώνευσης.</p></div>

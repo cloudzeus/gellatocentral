@@ -7,7 +7,9 @@ import { AUTO_MODEL, modelChoices, type ModelOption } from "@/lib/ai/openrouter-
 import { fieldsOf, type Group, GROUPS, type SettingKey, settings } from "@/lib/config";
 import { Modal } from "./modal";
 import { Submit } from "./submit";
-import { Badge, btn, Card, Field, Select } from "./ui";
+import { btn, Card, Field, Select } from "./ui";
+import { StatusBadge } from "./status-badge";
+import { look } from "@/lib/status";
 
 /** Τι πρέπει να έχει οριστεί για να θεωρείται η ομάδα έτοιμη, και τι σημαίνει όταν δεν είναι. */
 const NEEDS: Record<Group, { keys: SettingKey[]; missing: string; test?: string }> = {
@@ -38,7 +40,7 @@ export async function Connections({ q }: { q: Record<string, string | string[] |
             <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
               {ready ? <CircleCheck className="size-6 shrink-0 text-success" /> : <CircleAlert className="size-6 shrink-0 text-gold" />}
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg">{group.title} {q.saved === g ? <span role="status" className="ml-2 text-sm font-semibold text-success">Αποθηκεύτηκε</span> : null}</h2>
+                <h2 className="text-lg">{group.title}</h2>
                 <p className="text-sm text-muted-foreground">{ready ? group.hint : `Δεν έχει ρυθμιστεί. ${need.missing}`}</p>
               </div>
               {need.test ? <form action={testConnection.bind(null, g)}><Submit className={btn("outline")}>{need.test}</Submit></form> : null}
@@ -63,7 +65,7 @@ export async function Connections({ q }: { q: Record<string, string | string[] |
                 <div key={k} className="min-w-0">
                   <dt className="text-xs font-medium text-muted-foreground">{d.label}</dt>
                   <dd className="truncate font-semibold">
-                    {d.secret ? <Badge tone={all[k] ? "success" : "warning"}>{all[k] ? "Ορισμένο" : "Δεν έχει οριστεί"}</Badge>
+                    {d.secret ? <StatusBadge look={look(all[k] ? "success" : "warning", all[k] ? "Ορισμένο" : "Δεν έχει οριστεί")} />
                       : k === "OPENROUTER_CHAT_MODEL" && all[k] === AUTO_MODEL ? "Αυτόματη · χαμηλότερο κόστος"
                       : d.options ? (d.options.find(([v]) => v === all[k]) ?? d.options[0])[1]
                       : all[k] || <span className="font-normal text-muted-foreground">Δεν έχει οριστεί</span>}

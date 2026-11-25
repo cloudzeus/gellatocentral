@@ -24,6 +24,8 @@ import {
   saveSupplierItem,
   toggleSupplierItem,
 } from "../actions";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 // Καρτέλα γενικού είδους: ποιες συσκευασίες του κεντρικού καταλόγου το τροφοδοτούν (υιοθεσία με
 // barcode) και ποιοι προμηθευτές τις πουλάνε, με τον δικό τους κωδικό και την πολλαπλότητα.
@@ -178,7 +180,6 @@ export default async function GenericItemPage({ params, searchParams }: { params
     <Page section="Συνταγολόγιο" title={generic.name} description={`Μονάδα κατανάλωσης: ${generic.baseUnit.nameEL} (${generic.baseUnit.code})${generic.vatRate ? ` · ΦΠΑ αγοράς ${generic.vatRate.rate}%` : ""}`}>
       <div className="grid max-w-7xl gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Οι συνδέσεις ενημερώθηκαν{q.copied ? " — η σύσταση αντιγράφηκε από τον κατάλογο" : ""}</p> : null}
 
         <Card>
           <div className="flex flex-wrap items-center gap-3 px-5 py-4">
@@ -186,7 +187,7 @@ export default async function GenericItemPage({ params, searchParams }: { params
               <h2 className="text-lg">Σύσταση</h2>
               <p className="text-sm text-muted-foreground">Τεχνικά χαρακτηριστικά ανά 100 g — τροφοδοτούν την ανάλυση συνταγών (PAC/POD, στερεά)</p>
             </div>
-            {generic.composition ? <Badge tone="success">Καταχωρημένη</Badge> : <Badge tone="warning">Εκκρεμεί</Badge>}
+            <StatusBadge look={generic.composition ? look("success", "Καταχωρημένη") : look("warning", "Εκκρεμεί")} />
             <Link href={`/items/${generic.id}/composition`} className={btn("ghost", "sm")}>
               <FlaskConical /> {generic.composition ? "Προβολή" : "Συμπλήρωση"}
             </Link>
@@ -334,7 +335,7 @@ export default async function GenericItemPage({ params, searchParams }: { params
                 code: <span className="tabular-nums">{s.supplierCode ?? "—"}</span>,
                 pack: `×${s.packQty}`,
                 price: s.current ? euro(s.current.priceCents) : "—",
-                status: s.active ? <Badge tone="success">Ενεργή</Badge> : <Badge>Ανενεργή</Badge>,
+                status: <StatusBadge look={s.active ? look("success", "Ενεργή") : look("neutral", "Ανενεργή")} />,
               },
               details: {
                 label: `${s.supplier.name} · ${s.tradeItem.name}`,

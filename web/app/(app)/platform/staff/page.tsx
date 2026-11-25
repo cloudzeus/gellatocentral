@@ -4,6 +4,7 @@ import { requirePlatform } from "@/lib/auth";
 import { Modal } from "@/components/modal";
 import { PermissionMatrix } from "@/components/permission-matrix";
 import { Submit } from "@/components/submit";
+import { StatusBadge } from "@/components/status-badge";
 import { Badge, btn, Card, Field, MultiSelectField, Page, Select } from "@/components/ui";
 import { db } from "@/lib/db";
 import { ALL_PERMISSIONS, AREAS, permissionLabel as orgPermLabel, PLATFORM_AREAS, PLATFORM_PERMISSIONS, PLATFORM_ROLES, type PlatformPermission, platformPermissionsOf, type PlatformRoleKey, staffPermissions, staffRoleLabel } from "@/lib/permissions";
@@ -45,7 +46,7 @@ export default async function PlatformStaffPage({ searchParams }: PageProps<"/pl
         <Card id="staff" className="scroll-mt-28">
           <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg">Προσωπικό πλατφόρμας {q.saved === "staff" ? <span role="status" className="ml-2 text-sm font-semibold text-success">Αποθηκεύτηκε</span> : null}</h2>
+              <h2 className="text-lg">Προσωπικό πλατφόρμας</h2>
               <p className="text-sm text-muted-foreground">Όσοι δουλεύουν στην κονσόλα. Δεν ανήκουν σε συνδρομητή.</p>
             </div>
             {admin.can("staff.add") ? (
@@ -67,7 +68,7 @@ export default async function PlatformStaffPage({ searchParams }: PageProps<"/pl
                     <p className="font-semibold">{u.name}{u.id === admin.id ? " (εσύ)" : ""}</p>
                     <p className="text-xs text-muted-foreground">{u.email} · {accountStatus(u) === "disabled" ? "Δεν μπορεί να συνδεθεί" : accountStatus(u) === "pending" ? "Εκκρεμεί η πρόσκληση" : u.lastLoginAt ? `Τελευταία σύνδεση ${seen.format(u.lastLoginAt)}` : "Δεν έχει συνδεθεί ακόμα"}</p>
                   </div>
-                  {u.disabledAt ? <Badge tone="warning">Απενεργοποιημένος</Badge> : null}
+                  {u.disabledAt ? <StatusBadge kind="account" value="disabled" /> : null}
                   <Badge tone={u.platformRole === "SUPER_ADMIN" ? "success" : "neutral"}>{staffRoleLabel(u)}</Badge>
                   {u.staffGroups.map((g) => <Badge key={g.groupId} tone="neutral">{g.group.name}</Badge>)}
                   {admin.can("staff.edit") ? (

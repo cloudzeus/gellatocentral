@@ -1,7 +1,9 @@
 import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Submit } from "@/components/submit";
+import { StatusBadge } from "@/components/status-badge";
 import { DetailGrid, Badge, btn, Card, Field, menuItem, Page } from "@/components/ui";
+import { look } from "@/lib/status";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -53,7 +55,6 @@ export default async function DocumentTypesPage({ searchParams }: PageProps<"/pl
     <Page section="Common Tables" title="Τύποι παραστατικών" description={`${issuable} εκδίδονται · ${active} ενεργοί. Κοινοί τύποι myDATA για ταμείο, τιμολόγηση και χονδρική`}>
       <div className="grid max-w-7xl gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε{q.error ? `: ${q.error.slice(0, 200)}` : ""}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Οι τύποι παραστατικών ενημερώθηκαν</p> : null}
         <Card>
           <DataTable
             id="document-types"
@@ -86,7 +87,7 @@ export default async function DocumentTypesPage({ searchParams }: PageProps<"/pl
                 requirements: <span className="text-xs">{[t.needsParty ? "ΑΦΜ λήπτη" : null, t.needsRelated ? "Συσχέτιση" : null].filter(Boolean).join(" · ") || "—"}</span>,
                 receiptCase: <span className="font-mono text-xs">{t.receiptCase ?? "δεν εκδίδεται"}</span>,
                 issues: issueCounts.get(t.code) || "—",
-                status: t.active ? <Badge tone="success">Ενεργός</Badge> : <Badge>Κρυφός</Badge>,
+                status: t.active ? <StatusBadge look={look("success", "Ενεργός")} /> : <StatusBadge look={look("neutral", "Κρυφός")} />,
               },
               details: {
                 label: `${t.code} · ${t.title}`,

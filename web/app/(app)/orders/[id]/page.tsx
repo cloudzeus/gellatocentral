@@ -5,14 +5,14 @@ import { DocumentPdfButton } from "@/components/document-output";
 import { PurchaseInvoiceMatch } from "@/components/purchase-invoice-match";
 import { PurchaseReceiptReview } from "@/components/purchase-receipt-review";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, DetailGrid, Field, Page, TextareaField } from "@/components/ui";
+import { btn, Card, DetailGrid, Field, Page, TextareaField } from "@/components/ui";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
 import { requireStockContext } from "@/lib/stock-context";
 import { stockCostScale } from "@/lib/units";
 import { cancelOrder, invoiceReceipt, receiveOrder, reverseReceipt, reviewInvoiceReceipt, reviewReceipt, sendOrder } from "../actions";
+import { StatusBadge } from "@/components/status-badge";
 
-const STATUS = { DRAFT: "Πρόχειρο", SENT: "Στάλθηκε", PARTIAL: "Μερική παραλαβή", RECEIVED: "Παραλήφθηκε", CANCELLED: "Ακυρωμένο" } as const;
 const displayQty = (quantity: number, dimension: string) => new Intl.NumberFormat("el-GR", { maximumFractionDigits: 6 }).format(quantity / stockCostScale(dimension));
 const unit = (dimension: string) => dimension === "mass" ? "kg" : dimension === "volume" ? "l" : "1000 τεμ.";
 const amount = (cents: number) => (cents / 100).toFixed(2);
@@ -39,8 +39,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
     <Page section="Αποθήκη & αγορές" title={order.number} description={`${supplier?.name ?? "Προμηθευτής"} · ${warehouse?.name ?? "Αποθήκη"}`} actions={<span className="flex flex-wrap gap-2"><DocumentPdfButton entityType="purchase_order" entityId={order.id} /><Link href="/orders" className={btn("outline", "sm")}><ArrowLeft /> Πίσω</Link></span>}>
       <div className="grid gap-4">
         {typeof query.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{query.error}</p> : null}
-        {typeof query.saved === "string" ? <p role="status" className="rounded-lg bg-success/10 p-3 text-sm text-success-ink">{query.saved}</p> : null}
-        <Card className="p-4"><DetailGrid className="sm:grid-cols-4"><div><dt>Κατάσταση</dt><dd><Badge tone={order.status === "RECEIVED" ? "success" : order.status === "CANCELLED" ? "danger" : "warning"}>{STATUS[order.status]}</Badge></dd></div><div><dt>Καθαρή αξία</dt><dd>{euro(order.netCents)}</dd></div><div><dt>ΦΠΑ</dt><dd>{euro(order.vatCents)}</dd></div><div><dt>Σύνολο</dt><dd>{euro(order.totalCents)}</dd></div></DetailGrid></Card>
+        <Card className="p-4"><DetailGrid className="sm:grid-cols-4"><div><dt>Κατάσταση</dt><dd><StatusBadge kind="purchaseOrder" value={order.status} /></dd></div><div><dt>Καθαρή αξία</dt><dd>{euro(order.netCents)}</dd></div><div><dt>ΦΠΑ</dt><dd>{euro(order.vatCents)}</dd></div><div><dt>Σύνολο</dt><dd>{euro(order.totalCents)}</dd></div></DetailGrid></Card>
         <Card className="overflow-x-auto"><table className="w-full text-sm"><thead className="border-b border-border text-left text-xs text-muted-foreground"><tr><th className="p-3">Είδος</th><th className="p-3 text-right">Παραγγελία</th><th className="p-3 text-right">Παραλήφθηκε</th><th className="p-3 text-right">Τιμή</th><th className="p-3 text-right">ΦΠΑ</th></tr></thead><tbody>{order.lines.map((line) => {
           const item = items.get(line.genericItemId)!;
           return <tr key={line.id} className="border-b border-border/60 last:border-0"><td className="p-3 font-medium">{item.name}</td><td className="p-3 text-right">{displayQty(line.orderedBaseQty, item.baseUnit.dimension)} {unit(item.baseUnit.dimension)}</td><td className="p-3 text-right">{displayQty(line.receivedBaseQty, item.baseUnit.dimension)} {unit(item.baseUnit.dimension)}</td><td className="p-3 text-right">{euro(line.unitPriceCents)}</td><td className="p-3 text-right">{line.vatRate}%</td></tr>;

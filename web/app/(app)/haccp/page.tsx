@@ -11,7 +11,7 @@ import { HACCP_CATEGORIES, HACCP_FORMS } from "@/lib/haccp/forms";
 import { HACCP_GLOSSARY, HACCP_LEGAL_NOTES, HACCP_PRINCIPLES, HACCP_START_STEPS } from "@/lib/haccp/guide";
 import { HACCP_SOURCES } from "@/lib/haccp/sources";
 import { filterParam, listParams } from "@/lib/paging";
-import { statusOptions, statusValues } from "@/lib/status";
+import { look, statusOptions, statusValues } from "@/lib/status";
 
 const views = [["overview", "Επισκόπηση"], ["records", "Καταχωρίσεις"], ["forms", "Έντυπα & αναφορές"], ["guide", "Απλός οδηγός"], ["sources", "Επίσημες πηγές"]] as const;
 const fmt = new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Athens" });
@@ -50,7 +50,7 @@ export default async function HaccpPage({ searchParams }: PageProps<"/haccp">) {
 
       {view === "overview" ? <>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Card className="px-5 py-5"><p className="text-sm text-muted-foreground">Δείκτης πληρότητας</p><div className="mt-2 flex items-end gap-2"><strong className="text-4xl tabular-nums">{assessment.score}</strong><span className="pb-1 text-muted-foreground">/ 100</span><Badge tone={scoreTone}>{assessment.score >= 80 ? "Καλή κάλυψη" : "Χρειάζεται ενέργεια"}</Badge></div><div className="mt-4 h-2 overflow-hidden rounded-full bg-secondary"><div className="h-full bg-primary" style={{ width: `${assessment.score}%` }} /></div></Card>
+          <Card className="px-5 py-5"><p className="text-sm text-muted-foreground">Δείκτης πληρότητας</p><div className="mt-2 flex items-end gap-2"><strong className="text-4xl tabular-nums">{assessment.score}</strong><span className="pb-1 text-muted-foreground">/ 100</span><StatusBadge look={look(scoreTone, assessment.score >= 80 ? "Καλή κάλυψη" : "Χρειάζεται ενέργεια")} /></div><div className="mt-4 h-2 overflow-hidden rounded-full bg-secondary"><div className="h-full bg-primary" style={{ width: `${assessment.score}%` }} /></div></Card>
           <Card className="px-5 py-5"><p className="text-sm text-muted-foreground">Κρίσιμα ευρήματα</p><p className="mt-2 text-4xl font-semibold text-destructive tabular-nums">{assessment.critical}</p><p className="mt-2 text-sm">Αποκλίσεις, βασικές ελλείψεις ή θερμοκρασίες εκτός ορίων.</p></Card>
           <Card className="px-5 py-5"><p className="text-sm text-muted-foreground">Προειδοποιήσεις</p><p className="mt-2 text-4xl font-semibold text-gold-ink tabular-nums">{assessment.warnings}</p><p className="mt-2 text-sm">Επανεξετάσεις, πρόσθετη τεκμηρίωση και όρια συσκευών.</p></Card>
         </div>

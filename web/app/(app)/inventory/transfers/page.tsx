@@ -93,7 +93,6 @@ export default async function TransfersPage({ searchParams }: { searchParams: Pr
   const activeWarehouses = warehouses.filter((warehouse) => warehouse.active);
   const canTransfer = ctx.can("stock.transfer");
   const error = param(q.error);
-  const posted = param(q.posted);
 
   return (
     <Page
@@ -104,7 +103,6 @@ export default async function TransfersPage({ searchParams }: { searchParams: Pr
     >
       <div className="grid max-w-[90rem] gap-5">
         {error ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν καταχωρίστηκε μεταφορά: {error}</p> : null}
-        {posted ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success">{q.replayed ? "Η μεταφορά είχε ήδη καταχωριστεί· δεν δημιουργήθηκε διπλή εγγραφή." : "Η μεταφορά ολοκληρώθηκε και καταγράφηκε στο ιστορικό."}</p> : null}
 
         <Card>
           <div className="border-b border-border/70 px-5 py-4">

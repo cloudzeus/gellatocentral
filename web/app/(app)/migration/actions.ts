@@ -6,6 +6,7 @@ import { rollbackLegacyMigration, runLegacyMigration, type LegacyMigrationOption
 import { activateMigrationCutover, createMigrationCutover, freezeMigrationCutover, markMigrationCutoverReady, rollbackMigrationCutover } from "@/lib/migration-cutover-db";
 import { requireStockContext } from "@/lib/stock-context";
 import { workflowMessage } from "@/lib/workflow-db";
+import { runTask } from "@/lib/tasks";
 
 const back = (query: string): never => { revalidatePath("/migration"); redirect(`/migration${query}`); };
 const value = (form: FormData, key: string) => String(form.get(key) ?? "");
@@ -24,7 +25,12 @@ export async function migrateLegacy(form: FormData) {
       sourceCursor: value(form, "sourceCursor"),
       exportedAt: value(form, "exportedAt"),
     } : undefined;
-    const result = await runLegacyMigration(ctx, raw, mode, options);
+    // Αόριστη πρόοδος: η μετάπτωση τρέχει σε ΜΙΑ συναλλαγή (ή περνά όλη ή καμία), άρα δεν υπάρχει αληθινό «N από M» να δείξουμε.
+    const result = await runTask({ orgId: ctx.orgId, userId: ctx.userId, userName: ctx.userName }, { kind: "migration.run", title: mode === "import" ? "Μετάπτωση από το παλιό σύστημα" : "Δοκιμή μετάπτωσης (χωρίς εγγραφές)", permission: "migration.read" }, async (task) => {
+      const done = await runLegacyMigration(ctx, raw, mode, options);
+      task.result(`/migration?run=${encodeURIComponent(done.run.id)}`);
+      return done;
+    });
     back(`?run=${encodeURIComponent(result.run.id)}&saved=${encodeURIComponent(result.replayed ? "Το ίδιο export επαναλήφθηκε χωρίς νέα εγγραφή" : mode === "dry-run" ? "Το dry-run ολοκληρώθηκε χωρίς επιχειρησιακές εγγραφές" : "Η εισαγωγή και το reconciliation ολοκληρώθηκαν")}`);
   } catch (error) { back(`?error=${encodeURIComponent(error instanceof SyntaxError ? "Το αρχείο δεν είναι έγκυρο JSON" : workflowMessage(error))}`); }
 }

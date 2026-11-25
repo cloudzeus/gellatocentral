@@ -1,10 +1,12 @@
 import { ArrowDownLeft, ArrowUpRight, FileClock, Info, ReceiptText, ShoppingCart, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "@/components/data-table";
-import { DetailGrid, Badge, Card, cn } from "@/components/ui";
+import { DetailGrid, Card, cn } from "@/components/ui";
 import { FiscalBadge, dateTime } from "@/lib/labels";
 import { euro } from "@/lib/money";
 import type { PartyAccountDocument, PartyAccountPayment, PartyAccountSummary } from "@/lib/party-account";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 export type AccountView = "ledger" | "documents" | "payments" | "orders";
 export const ACCOUNT_VIEWS: Record<AccountView, string> = { ledger: "Καρτέλα", documents: "Παραστατικά", payments: "Πληρωμές", orders: "Παραγγελίες" };
@@ -164,7 +166,7 @@ export function PartyAccount({ base, view, summary, documents, payments, partyId
                 method: payment.method,
                 origin: payment.origin,
                 amount: <span className="whitespace-nowrap font-semibold">{euro(payment.amountCents)}</span>,
-                status: <Badge tone={payment.success ? "success" : "danger"}>{payment.success ? "Επιτυχής" : "Απέτυχε"}</Badge>,
+                status: <StatusBadge look={look(payment.success ? "success" : "danger", payment.success ? "Επιτυχής" : "Απέτυχε")} />,
               },
             }))}
           />

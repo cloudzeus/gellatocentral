@@ -2,6 +2,7 @@
 // Ενέργειες της κονσόλας πλατφόρμας: ο διαχειριστής ενεργεί για ΟΠΟΙΑΔΗΠΟΤΕ επιχείρηση (orgId από τη φόρμα).
 // Κάθε action ξεκινά με requirePlatform(δικαίωμα): οι server actions καλούνται και απευθείας, όχι μόνο από τη σελίδα.
 
+import { flashFail, flashOk } from "@/lib/flash-server";
 import { pingAi } from "@/lib/ai/openrouter";
 import { cleanRemoteId } from "@/lib/remote";
 import { type Group, GROUPS, saveGroup } from "@/lib/config";
@@ -106,6 +107,7 @@ export async function createOrganization(form: FormData) {
     mail: templates.welcome(await platformSettings(), { orgName: org.name, trialEnds: new Date(Date.now() + d.trialDays * 864e5), url: await appUrl(org) }),
   });
   revalidatePath("/platform");
+  await flashOk(`Η επιχείρηση «${org.name}» δημιουργήθηκε`);
   redirect(`/platform/${org.id}`);
 }
 
@@ -162,7 +164,7 @@ export async function issueCharge(orgId: string) {
 export async function markChargePaid(chargeId: string) {
   await requirePlatform("billing.edit");
   const charge = await settleCharge(id.parse(chargeId));
-  if (!charge) return;
+  if (!charge) { await flashFail("Δεν έγινε: η χρέωση δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   done(charge.subscription.orgId, "subscription");
 }
 
@@ -260,7 +262,7 @@ export async function addDevice(form: FormData) {
     form,
     `/platform/${orgId}`,
   );
-  if (!(await ownStore(orgId, d.storeId))) return;
+  if (!(await ownStore(orgId, d.storeId))) { await flashFail("Δεν έγινε: το κατάστημα δεν ανήκει σε αυτή την επιχείρηση", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   if (d.printerId && !(await db.printer.findFirst({ where: { id: d.printerId, orgId } }))) d.printerId = null;
   const linkedDeviceId = await ownTill(orgId, d.linkedDeviceId);
   if (d.series && (await db.device.findFirst({ where: { orgId, series: d.series } })))
@@ -281,7 +283,7 @@ export async function updateDevice(form: FormData) {
   const orgId = id.parse(form.get("orgId"));
   const d = read(z.object({ deviceId: id, vivaTerminalId: optional(20), printerId: optional(40), linkedDeviceId: optional(40), defaultWarehouseId: optional(40), tempMin: temperature, tempMax: temperature, ...identity }).refine(limits, "Το κάτω όριο θερμοκρασίας πρέπει να είναι μικρότερο από το πάνω"), form, `/platform/${orgId}`);
   const device = await db.device.findFirst({ where: { id: d.deviceId, orgId } });
-  if (!device) return;
+  if (!device) { await flashFail("Δεν έγινε: η συσκευή δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   if (d.printerId && !(await db.printer.findFirst({ where: { id: d.printerId, orgId } }))) d.printerId = null;
   // η προεπιλεγμένη αποθήκη του ταμείου πρέπει να επιτρέπεται στο κατάστημά του
   let defaultWarehouseId: string | null = null;
@@ -590,7 +592,7 @@ export async function removeStaff(userId: string) {
 export async function setStaffActive(userId: string, active: boolean) {
   const admin = await requirePlatform("staff.edit");
   const target = await db.user.findFirst({ where: { id: id.parse(userId), platformRole: { not: null } }, include: { staffRole: true } });
-  if (!target?.platformRole) return;
+  if (!target?.platformRole) { await flashFail("Δεν έγινε: ο χρήστης δεν βρέθηκε στο προσωπικό της πλατφόρμας", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   if (target.id === admin.id) staffFail("Δεν μπορείς να απενεργοποιήσεις τον εαυτό σου");
   if (!canGrant(staffPermissions(admin), staffPermissions(target))) staffFail(`Ο ρόλος του χρήστη «${target.name}» έχει δικαιώματα που δεν έχεις εσύ`);
   try {
@@ -648,7 +650,7 @@ export async function saveStaffRole(form: FormData) {
 export async function deleteStaffRole(roleId: string) {
   const admin = await requirePlatform("staff.delete");
   const role = await db.staffRole.findUnique({ where: { id: id.parse(roleId) }, include: { _count: { select: { users: true } } } });
-  if (!role) return;
+  if (!role) { await flashFail("Δεν έγινε: ο ρόλος δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   if (role._count.users) staffFail(`Ο ρόλος «${role.name}» έχει ${role._count.users} άτομα. Άλλαξέ τους ρόλο πρώτα`);
   await db.staffRole.delete({ where: { id: role.id } });
   await logAccess({ orgId: null, actorName: admin.name, action: "role.deleted", target: role.name });
@@ -680,7 +682,7 @@ export async function saveStaffGroup(form: FormData) {
 export async function deleteStaffGroup(groupId: string) {
   const admin = await requirePlatform("staff.delete");
   const group = await db.staffGroup.findUnique({ where: { id: id.parse(groupId) } });
-  if (!group) return;
+  if (!group) { await flashFail("Δεν έγινε: η ομάδα δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   await db.staffGroup.delete({ where: { id: group.id } }); // οι συνδέσεις μελών φεύγουν μαζί (Cascade)
   await logAccess({ orgId: null, actorName: admin.name, action: "group.deleted", target: group.name });
   staffDone();
@@ -728,7 +730,7 @@ export async function addStaffAccess(form: FormData) {
 export async function removeStaffAccess(accessId: string) {
   const admin = await requirePlatform("staff.delete");
   const access = await db.staffStoreAccess.findUnique({ where: { id: id.parse(accessId) }, include: { user: true, org: true, store: true } });
-  if (!access) return;
+  if (!access) { await flashFail("Δεν έγινε: η πρόσβαση δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   await db.staffStoreAccess.delete({ where: { id: access.id } });
   await logAccess({ orgId: null, actorName: admin.name, action: "staff.access_removed", target: access.user.name, detail: `${access.org.name} · ${access.store?.name ?? "όλα τα καταστήματα"}` });
   staffDone();
@@ -775,7 +777,7 @@ export async function savePlan(form: FormData) {
 export async function togglePlan(planId: string) {
   await requirePlatform("billing.edit");
   const plan = await db.plan.findUnique({ where: { id: planKey.parse(planId) } });
-  if (!plan) return;
+  if (!plan) { await flashFail("Δεν έγινε: το πακέτο δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   if (plan.isDefault && plan.active) return plansBack(`error=${encodeURIComponent("Το προεπιλεγμένο πακέτο δεν απενεργοποιείται. Όρισε πρώτα άλλο ως προεπιλογή")}`);
   await db.plan.update({ where: { id: plan.id }, data: { active: !plan.active } });
   plansBack("saved=1");
@@ -784,7 +786,7 @@ export async function togglePlan(planId: string) {
 export async function setDefaultPlan(planId: string) {
   await requirePlatform("billing.edit");
   const plan = await db.plan.findFirst({ where: { id: planKey.parse(planId), active: true } });
-  if (!plan) return;
+  if (!plan) { await flashFail("Δεν έγινε: το πακέτο δεν βρέθηκε ή είναι ανενεργό", "Ενεργοποίησέ το πρώτα και δοκίμασε ξανά."); return; }
   await db.$transaction([db.plan.updateMany({ data: { isDefault: false } }), db.plan.update({ where: { id: plan.id }, data: { isDefault: true } })]);
   plansBack("saved=1");
 }
@@ -792,7 +794,7 @@ export async function setDefaultPlan(planId: string) {
 export async function deletePlan(planId: string) {
   await requirePlatform("billing.edit");
   const plan = await db.plan.findUnique({ where: { id: planKey.parse(planId) }, include: { _count: { select: { subscriptions: true } } } });
-  if (!plan) return;
+  if (!plan) { await flashFail("Δεν έγινε: το πακέτο δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   if (plan.isDefault || plan._count.subscriptions) return plansBack(`error=${encodeURIComponent(plan.isDefault ? "Το προεπιλεγμένο πακέτο δεν διαγράφεται" : `Το πακέτο «${plan.name}» το έχουν ${plan._count.subscriptions} πελάτες. Απενεργοποίησέ το`)}`);
   await db.plan.delete({ where: { id: plan.id } });
   plansBack("saved=1");
@@ -828,7 +830,7 @@ export async function startClosing(form: FormData) {
   const admin = await requirePlatform("orgs.edit");
   const orgId = id.parse(form.get("orgId"));
   const org = await db.organization.findUnique({ where: { id: orgId } });
-  if (!org) return;
+  if (!org) { await flashFail("Δεν έγινε: η επιχείρηση δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   if (String(form.get("confirm") ?? "").trim() !== org.vatNumber) return lifeBack(orgId, `error=${encodeURIComponent("Για επιβεβαίωση γράψε το ΑΦΜ της επιχείρησης")}`);
   const now = new Date();
   await db.organization.update({ where: { id: orgId }, data: { closingAt: now, deleteAfter: new Date(now.getTime() + CLOSING_DAYS * 864e5) } });
@@ -849,7 +851,7 @@ export async function deleteOrg(form: FormData) {
   const admin = await requirePlatform("orgs.delete");
   const orgId = id.parse(form.get("orgId"));
   const org = await db.organization.findUnique({ where: { id: orgId } });
-  if (!org) return;
+  if (!org) { await flashFail("Δεν έγινε: η επιχείρηση δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   if (!canDelete(org, new Date())) return lifeBack(orgId, `error=${encodeURIComponent("Η διαγραφή επιτρέπεται μόνο σε επιχείρηση που κλείνει και αφού περάσει η προθεσμία εξαγωγής")}`);
   if (String(form.get("confirm") ?? "").trim() !== org.vatNumber) return lifeBack(orgId, `error=${encodeURIComponent("Για επιβεβαίωση γράψε το ΑΦΜ της επιχείρησης")}`);
   // δεν σβήνουμε επιχείρηση με αποδείξεις που δεν έφτασαν στο myDATA, ούτε πριν πάρει ο έμπορος το αρχείο του
@@ -891,7 +893,7 @@ export async function saveRef(form: FormData) {
 export async function toggleRef(refId: string) {
   await requirePlatform("settings.edit");
   const r = await db.refItem.findUnique({ where: { id: refId } });
-  if (!r) return;
+  if (!r) { await flashFail("Δεν έγινε: η τιμή της λίστας δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   await db.refItem.update({ where: { id: r.id }, data: { active: !r.active } });
   refsBack(r.list, "saved=1");
 }
@@ -904,6 +906,8 @@ async function setRefItemsActive(ids: string[], active: boolean) {
   const result = await db.refItem.updateMany({ where: { id: { in: unique } }, data: { active } });
   revalidatePath("/", "layout");
   if (result.count !== unique.length) return "Ορισμένες τιμές δεν βρέθηκαν· ανανέωσε τη λίστα";
+  const n = unique.length;
+  await flashOk(active ? (n === 1 ? "Η τιμή της λίστας ενεργοποιήθηκε" : `${n} τιμές της λίστας ενεργοποιήθηκαν`) : n === 1 ? "Η τιμή της λίστας έγινε κρυφή" : `${n} τιμές της λίστας έγιναν κρυφές`);
 }
 export async function activateRefItems(ids: string[]) {
   return setRefItemsActive(ids, true);
@@ -943,7 +947,7 @@ export async function saveVatRate(form: FormData) {
 export async function toggleVatRate(rateId: string) {
   await requirePlatform("settings.edit");
   const r = await db.vatRate.findUnique({ where: { id: rateId } });
-  if (!r) return;
+  if (!r) { await flashFail("Δεν έγινε: ο συντελεστής ΦΠΑ δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   await db.vatRate.update({ where: { id: r.id }, data: { active: !r.active } });
   updateTag(VAT_RATES_TAG);
   vatBack("saved=1");
@@ -959,6 +963,8 @@ async function setVatRatesActive(ids: string[], active: boolean) {
   updateTag(VAT_RATES_TAG);
   revalidatePath("/", "layout");
   if (result.count !== unique.length) return "Ορισμένοι συντελεστές δεν βρέθηκαν· ανανέωσε τη λίστα";
+  const n = unique.length;
+  await flashOk(active ? (n === 1 ? "Ο συντελεστής ΦΠΑ ενεργοποιήθηκε" : `${n} συντελεστές ΦΠΑ ενεργοποιήθηκαν`) : n === 1 ? "Ο συντελεστής ΦΠΑ έγινε κρυφός" : `${n} συντελεστές ΦΠΑ έγιναν κρυφοί`);
 }
 export async function activateVatRates(ids: string[]) {
   return setVatRatesActive(ids, true);
@@ -1000,7 +1006,7 @@ export async function saveCurrency(form: FormData) {
 export async function toggleCurrency(currencyId: string) {
   await requirePlatform("settings.edit");
   const c = await db.currency.findUnique({ where: { id: z.string().min(1).max(40).parse(currencyId) } });
-  if (!c) return;
+  if (!c) { await flashFail("Δεν έγινε: το νόμισμα δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   await db.currency.update({ where: { id: c.id }, data: { active: !c.active } });
   currencyBack("saved=1");
 }
@@ -1013,6 +1019,8 @@ async function setCurrenciesActive(ids: string[], active: boolean) {
   const result = await db.currency.updateMany({ where: { id: { in: unique } }, data: { active } });
   revalidatePath("/", "layout");
   if (result.count !== unique.length) return "Ορισμένα νομίσματα δεν βρέθηκαν· ανανέωσε τη λίστα";
+  const n = unique.length;
+  await flashOk(active ? (n === 1 ? "Το νόμισμα ενεργοποιήθηκε" : `${n} νομίσματα ενεργοποιήθηκαν`) : n === 1 ? "Το νόμισμα έγινε κρυφό" : `${n} νομίσματα έγιναν κρυφά`);
 }
 export async function activateCurrencies(ids: string[]) {
   return setCurrenciesActive(ids, true);
@@ -1064,7 +1072,7 @@ export async function savePaymentMethod(form: FormData) {
 export async function togglePaymentMethod(methodId: string) {
   await requirePlatform("settings.edit");
   const m = await db.paymentMethod.findUnique({ where: { id: z.string().min(1).max(40).parse(methodId) } });
-  if (!m) return;
+  if (!m) { await flashFail("Δεν έγινε: ο τρόπος πληρωμής δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   await db.paymentMethod.update({ where: { id: m.id }, data: { active: !m.active } });
   pmBack("saved=1");
 }
@@ -1077,6 +1085,8 @@ async function setPaymentMethodsActive(ids: string[], active: boolean) {
   const result = await db.paymentMethod.updateMany({ where: { id: { in: unique } }, data: { active } });
   revalidatePath("/", "layout");
   if (result.count !== unique.length) return "Ορισμένοι τρόποι πληρωμής δεν βρέθηκαν· ανανέωσε τη λίστα";
+  const n = unique.length;
+  await flashOk(active ? (n === 1 ? "Ο τρόπος πληρωμής ενεργοποιήθηκε" : `${n} τρόποι πληρωμής ενεργοποιήθηκαν`) : n === 1 ? "Ο τρόπος πληρωμής έγινε κρυφός" : `${n} τρόποι πληρωμής έγιναν κρυφοί`);
 }
 export async function activatePaymentMethods(ids: string[]) {
   return setPaymentMethodsActive(ids, true);
@@ -1113,7 +1123,7 @@ export async function saveDocumentType(form: FormData) {
 export async function toggleDocumentType(typeId: string) {
   await requirePlatform("settings.edit");
   const t = await db.documentType.findUnique({ where: { id: z.string().min(1).max(40).parse(typeId) } });
-  if (!t) return;
+  if (!t) { await flashFail("Δεν έγινε: ο τύπος παραστατικού δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   await db.documentType.update({ where: { id: t.id }, data: { active: !t.active } });
   dtBack("saved=1");
 }
@@ -1126,6 +1136,8 @@ async function setDocumentTypesActive(ids: string[], active: boolean) {
   const result = await db.documentType.updateMany({ where: { id: { in: unique } }, data: { active } });
   revalidatePath("/", "layout");
   if (result.count !== unique.length) return "Ορισμένοι τύποι παραστατικών δεν βρέθηκαν· ανανέωσε τη λίστα";
+  const n = unique.length;
+  await flashOk(active ? (n === 1 ? "Ο τύπος παραστατικού ενεργοποιήθηκε" : `${n} τύποι παραστατικών ενεργοποιήθηκαν`) : n === 1 ? "Ο τύπος παραστατικού έγινε κρυφός" : `${n} τύποι παραστατικών έγιναν κρυφοί`);
 }
 export async function activateDocumentTypes(ids: string[]) {
   return setDocumentTypesActive(ids, true);

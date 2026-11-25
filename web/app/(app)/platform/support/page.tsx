@@ -2,11 +2,11 @@ import Link from "next/link";
 import { Eye } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { StatusBadge } from "@/components/status-badge";
-import { Badge, Card, cn, menuItem, Page } from "@/components/ui";
+import { Card, cn, menuItem, Page } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
-import { statusOptions } from "@/lib/status";
+import { look, statusOptions } from "@/lib/status";
 import { ACTIVE, type Priority, responseClock, span, type Status } from "@/lib/support/rules";
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 864e5);
@@ -96,7 +96,7 @@ export default async function QueuePage({ searchParams }: PageProps<"/platform/s
                   org: t.org.name,
                   priority: <StatusBadge kind="ticketPriority" value={t.priority} />,
                   status: <StatusBadge kind="ticket" value={t.status} />,
-                  clock: <Badge tone={c.tone}>{c.text}</Badge>,
+                  clock: <StatusBadge look={look(c.tone, c.text)} />,
                   who: t.assigneeName ?? <span className="text-muted-foreground">—</span>,
                   created: when.format(t.createdAt),
                   updated: when.format(t.updatedAt),

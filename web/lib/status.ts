@@ -23,6 +23,8 @@ const STATUS = {
   // Χονδρική
   wholesaleOrder: { DRAFT: ["neutral", "Πρόχειρη"], CONFIRMED: ["warning", "Επιβεβαιώθηκε — περιμένει παράδοση"], DELIVERED: ["success", "Παραδόθηκε"], INVOICED: ["success", "Τιμολογήθηκε"], CANCELLED: ["neutral", "Ακυρώθηκε"] },
   wholesaleQuote: { DRAFT: ["neutral", "Πρόχειρη"], SENT: ["warning", "Στάλθηκε — περιμένει τον πελάτη"], ACCEPTED: ["success", "Έγινε αποδεκτή"], REJECTED: ["danger", "Απορρίφθηκε"], EXPIRED: ["neutral", "Έληξε"] },
+  // ό,τι βλέπει ο ίδιος ο πελάτης στο B2B: χωρίς τη δική μας εσωτερική διατύπωση
+  wholesaleOrderCustomer: { DRAFT: ["neutral", "Σε καταχώριση"], CONFIRMED: ["warning", "Επιβεβαιώθηκε — ετοιμάζεται"], DELIVERED: ["success", "Παραδόθηκε"], INVOICED: ["success", "Τιμολογήθηκε"], CANCELLED: ["neutral", "Ακυρώθηκε"] },
   salesDocument: { ISSUED: ["success", "Εκδόθηκε"], CANCELLED: ["neutral", "Ακυρώθηκε"] },
   deliveryRoute: { PLANNED: ["warning", "Προγραμματισμένο"], COMPLETED: ["success", "Ολοκληρώθηκε"] },
   // Αποθήκη και παραγωγή
@@ -52,6 +54,8 @@ const STATUS = {
   migrationRun: { DRY_RUN: ["neutral", "Δοκιμή"], IMPORTED: ["success", "Πέρασε"], ROLLED_BACK: ["neutral", "Αναιρέθηκε"] },
   migrationCutover: { PREPARING: ["warning", "Σε προετοιμασία"], FROZEN: ["warning", "Παγωμένο το παλιό σύστημα"], DELTA_IMPORTED: ["warning", "Πέρασαν οι τελευταίες αλλαγές"], READY: ["warning", "Έτοιμο για ενεργοποίηση"], ACTIVE: ["success", "Ενεργό"], ROLLED_BACK: ["neutral", "Αναιρέθηκε"] },
   account: { active: ["success", "Ενεργός"], pending: ["warning", "Εκκρεμεί η πρόσκληση"], disabled: ["neutral", "Απενεργοποιημένος"] },
+  // Αποστολή εγγράφου με email/Viber (lib/document-delivery.ts)
+  documentDelivery: { PREPARED: ["neutral", "Ετοιμάστηκε"], SENDING: ["warning", "Στέλνεται"], SENT: ["success", "Στάλθηκε"], DISABLED: ["danger", "Δεν στάλθηκε — η αποστολή είναι κλειστή"], SKIPPED: ["danger", "Δεν στάλθηκε"], FAILED: ["danger", "Απέτυχε"], UNCONFIRMED: ["danger", "Δεν επιβεβαιώθηκε η παράδοση"], ABORTED: ["danger", "Διακόπηκε — δεν στάλθηκε"], DUPLICATE: ["neutral", "Είχε ήδη σταλεί"] },
   // Εργασίες του παραθύρου «Εργασίες» (lib/tasks.ts)
   task: { RUNNING: ["warning", "Τρέχει"], DONE: ["success", "Έγινε"], PARTIAL: ["warning", "Έγινε εν μέρει"], FAILED: ["danger", "Απέτυχε"] },
 } as const satisfies Record<string, Record<string, Entry>>;

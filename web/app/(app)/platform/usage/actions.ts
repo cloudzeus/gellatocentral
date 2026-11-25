@@ -2,6 +2,7 @@
 // Διαχείριση pay-as-you-go υπηρεσιών (OCR κ.ά.): τιμολογιακή πολιτική ανά υπηρεσία.
 // Μόνο η πλατφόρμα (billing.edit) — οι συνδρομητές βλέπουν την κατανάλωσή τους στο /billing.
 
+import { flashOk } from "@/lib/flash-server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -53,6 +54,8 @@ async function setUsagePricesActive(ids: string[], active: boolean) {
   const result = await db.usagePrice.updateMany({ where: { service: { in: unique } }, data: { active } });
   revalidatePath("/platform/usage");
   if (result.count !== unique.length) return "Ορισμένες υπηρεσίες δεν βρέθηκαν· ανανέωσε τη λίστα";
+  const n = unique.length;
+  await flashOk(active ? (n === 1 ? "Η υπηρεσία ενεργοποιήθηκε" : `${n} υπηρεσίες ενεργοποιήθηκαν`) : n === 1 ? "Η υπηρεσία απενεργοποιήθηκε" : `${n} υπηρεσίες απενεργοποιήθηκαν`);
 }
 export async function activateUsagePrices(ids: string[]) {
   return setUsagePricesActive(ids, true);

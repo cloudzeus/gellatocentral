@@ -11,6 +11,8 @@ import {
   targetFor,
   type RecipeAnalysis,
 } from "@/lib/recipe-analysis";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 const BAR_METRICS = ["totalSolids", "fat", "msnf", "sugars", "pac", "pod", "lactoseWaterRatio", "stabilizerGPerKg"] as const;
 const STATUS_TONE = { ok: "var(--success)", low: "var(--gold)", high: "var(--destructive)", none: "var(--muted-foreground)" } as const;
@@ -63,12 +65,9 @@ export function RecipeAnalysisPanel({ analysis: a, recipeType, className }: { an
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <Badge tone="neutral">{RECIPE_TYPE_LABEL[recipeType] ?? recipeType}</Badge>
         {dose ? (
-          <Badge tone={dose.status === "ok" ? "success" : "warning"}>
-            Σταθεροποιητής {fmt(a.stabilizerDosePct, 2)}% · συνιστώμενο {fmt(dose.recommendedPct, 2)}%
-            {dose.status !== "ok" ? ` (${dose.deltaGrams > 0 ? "+" : ""}${fmt(dose.deltaGrams, 0)} g)` : ""}
-          </Badge>
+          <StatusBadge look={look(dose.status === "ok" ? "success" : "warning", `Σταθεροποιητής ${fmt(a.stabilizerDosePct, 2)}% · συνιστώμενο ${fmt(dose.recommendedPct, 2)}%${dose.status !== "ok" ? ` (${dose.deltaGrams > 0 ? "+" : ""}${fmt(dose.deltaGrams, 0)} g)` : ""}`)} />
         ) : null}
-        {a.afpBorderline ? <Badge tone="warning">Οριακός AFP</Badge> : null}
+        {a.afpBorderline ? <StatusBadge look={look("warning", "Οριακός AFP")} /> : null}
       </div>
     </div>
   );

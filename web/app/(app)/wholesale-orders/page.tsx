@@ -74,7 +74,7 @@ export default async function WholesaleOrdersPage({ searchParams }: PageProps<"/
               cells: {
                 number: <Link href={`/wholesale-orders/${order.id}`} className="font-semibold underline-offset-2 hover:underline">{order.number}</Link>,
                 date: day.format(order.createdAt),
-                source: order.source === "b2b" ? "B2B" : "Back office",
+                source: order.source === "b2b" ? "B2B" : "Γραφείο",
                 customer: customerNames.get(order.customerId) ?? "—",
                 warehouse: warehouseNames.get(order.warehouseId) ?? "—",
                 needed: order.neededAt ? day.format(order.neededAt) : "—",

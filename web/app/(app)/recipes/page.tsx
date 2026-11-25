@@ -4,7 +4,7 @@ import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Submit } from "@/components/submit";
-import { DetailGrid, Badge, btn, Card, Field, Page, Select } from "@/components/ui";
+import { DetailGrid, btn, Card, Field, Page, Select } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
@@ -12,6 +12,8 @@ import { filterParam, listParams } from "@/lib/paging";
 import { RECIPE_TYPES, analyzeRecipe } from "@/lib/recipe-analysis";
 import { recipeEditorItems } from "@/lib/recipe-data";
 import { saveRecipe } from "./actions";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 // Συνταγές παγωτού: η τεχνική ανάλυση και η αναζήτηση μένουν στον server, ο πίνακας αλλάζει μόνο την παρουσίαση.
 export default async function RecipesPage({ searchParams }: PageProps<"/recipes">) {
@@ -73,7 +75,6 @@ export default async function RecipesPage({ searchParams }: PageProps<"/recipes"
       ) : null}>
       <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε: {q.error.slice(0, 200)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Η συνταγή αποθηκεύτηκε</p> : null}
         <Card>
           <DataTable
             id="recipes"
@@ -101,7 +102,7 @@ export default async function RecipesPage({ searchParams }: PageProps<"/recipes"
                   product: r.product?.name ?? "—",
                   items: r._count.items,
                   cost: analysis.costPerKgHundredths > 0 ? euro(analysis.costPerKgHundredths / 100) : "—",
-                  status: r.active ? <Badge tone="success">Ενεργή</Badge> : <Badge>Κρυφή</Badge>,
+                  status: <StatusBadge look={r.active ? look("success", "Ενεργή") : look("neutral", "Κρυφή")} />,
                 },
                 details: {
                   label: r.name,

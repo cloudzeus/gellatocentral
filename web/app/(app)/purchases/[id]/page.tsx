@@ -9,7 +9,7 @@ import { PurchaseDocument } from "@/components/purchase-document";
 import { PurchaseInvoiceMatch } from "@/components/purchase-invoice-match";
 import { PurchaseReceiptReview } from "@/components/purchase-receipt-review";
 import { Submit } from "@/components/submit";
-import { DetailGrid, Badge, btn, Card, Field, menuItem, Page, Select, TextareaField } from "@/components/ui";
+import { DetailGrid, btn, Card, Field, menuItem, Page, Select, TextareaField } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
@@ -19,6 +19,8 @@ import { priceCheck } from "@/lib/purchase-pricing";
 import { perPackCents } from "@/lib/purchases";
 import { addLine, cancelDoc, postDoc, rematchLine, removeLine, removeLines, updateDoc } from "../actions";
 import { reviewInvoiceReceipt } from "../../orders/actions";
+import { StatusBadge } from "@/components/status-badge";
+import { look } from "@/lib/status";
 
 const day = (d: Date | null) => (d ? new Intl.DateTimeFormat("el-GR", { timeZone: "UTC" }).format(d) : "—");
 const inputDay = (d: Date | null) => d?.toISOString().slice(0, 10) ?? "";
@@ -140,8 +142,6 @@ export default async function PurchaseDocPage({ params, searchParams }: { params
       actions={<span className="flex flex-wrap gap-2 print:hidden"><PrintButton />{draft && can("purchases.edit") ? <><form action={cancelDoc.bind(null, doc.id)}><Submit className={btn("ghost")}><X /> Ακύρωση</Submit></form>{doc.lines.length && !unmatched.length ? <form action={postDoc.bind(null, doc.id)}><Submit className={btn("default")}><Check /> Αποδοχή αποθέματος · {euro(totals.totalCents)}</Submit></form> : null}</> : null}</span>}>
       <div className="grid max-w-7xl gap-4 print:max-w-none print:gap-0">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive print:hidden">Δεν αποθηκεύτηκε: {q.error.slice(0, 300)}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink print:hidden">{q.saved === "ocr" ? "Το OCR ολοκληρώθηκε και το πρωτότυπο συνδέθηκε. Έλεγξε όλα τα πεδία πριν από την αποδοχή." : "Το τιμολόγιο ενημερώθηκε"}</p> : null}
-        {q.posted ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink print:hidden">Το τιμολόγιο καταχωρήθηκε: αποθέματα, παρτίδες και τιμές ενημερώθηκαν</p> : null}
         {isReceipt ? <p className="rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground print:hidden">Η παραλαβή έχει γράψει απόθεμα, παρτίδα και κόστος, αλλά δεν δημιουργεί οφειλή και δεν συμμετέχει σε ΦΠΑ ή οικονομικές αναφορές αγορών.</p> : null}
         {receiptReview ? <Card className="grid gap-3 p-4 print:hidden">
           <PurchaseReceiptReview reviewStatus={receiptReview.reviewStatus} reviewedAt={receiptReview.reviewedAt} reviewedByName={receiptReview.reviewedByName} reviewNote={receiptReview.reviewNote} discrepancies={receiptReview.discrepancies} />
@@ -186,8 +186,8 @@ export default async function PurchaseDocPage({ params, searchParams }: { params
                 cells: {
                   description: <span><span className="block break-words font-semibold md:line-clamp-2" title={l.description}>{l.description}</span>{l.supplierCode ? <span className="mr-2 text-xs text-muted-foreground">κωδ. {l.supplierCode}</span> : null}{l.ean ? <span className="text-xs text-muted-foreground tabular-nums">{l.ean}</span> : null}</span>,
                   quantity: l.quantity,
-                  price: <span><span className="tabular-nums">{euro(netUnit)}</span>{c?.expectedCents !== undefined && c.diffCents !== 0 ? <span className="mt-0.5 flex justify-end"><Badge tone="danger">εκτός {c.agreement ? "συμφωνίας" : "τιμοκαταλόγου"} · αναμ. {euro(c.expectedCents)}</Badge></span> : c?.agreement && c.diffCents === 0 ? <span className="mt-0.5 flex justify-end"><Badge tone="success">συμφωνία</Badge></span> : null}</span>,
-                  mapping: l.tradeItem ? <span className="break-words">{l.tradeItem.name} {l.genericItem ? <span className="text-muted-foreground">→ {l.genericItem.name}</span> : <Badge tone="warning">χωρίς γενικό</Badge>} <span className="text-xs text-muted-foreground">({MATCH_LABEL[l.matchNote ?? ""] ?? ""})</span></span> : suggestedName(l) ? <Badge tone="warning">πρόταση: {suggestedName(l)}</Badge> : <Badge tone="danger">ασύμβατη</Badge>,
+                  price: <span><span className="tabular-nums">{euro(netUnit)}</span>{c?.expectedCents !== undefined && c.diffCents !== 0 ? <span className="mt-0.5 flex justify-end"><StatusBadge look={look("danger", `εκτός ${c.agreement ? "συμφωνίας" : "τιμοκαταλόγου"} · αναμ. ${euro(c.expectedCents)}`)} /></span> : c?.agreement && c.diffCents === 0 ? <span className="mt-0.5 flex justify-end"><StatusBadge look={look("success", "συμφωνία")} /></span> : null}</span>,
+                  mapping: l.tradeItem ? <span className="break-words">{l.tradeItem.name} {l.genericItem ? <span className="text-muted-foreground">→ {l.genericItem.name}</span> : <StatusBadge look={look("warning", "χωρίς γενικό")} />} <span className="text-xs text-muted-foreground">({MATCH_LABEL[l.matchNote ?? ""] ?? ""})</span></span> : suggestedName(l) ? <StatusBadge look={look("warning", `πρόταση: ${suggestedName(l)}`)} /> : <StatusBadge look={look("danger", "ασύμβατη")} />,
                   batch: <span className="text-xs">{l.batchNumber ?? "—"}{l.expiresAt ? ` · λήξη ${day(l.expiresAt)}` : ""}</span>,
                   receipt: <span className="text-xs">{l.receiptTempC != null ? `${String(l.receiptTempC).replace(".", ",")} °C` : "—"}{l.receiptIssue ? <span className="text-destructive"> {l.receiptIssue}</span> : ""}</span>,
                 },

@@ -1,6 +1,7 @@
 // Persisted CSV reviews· δεν εκτελεί τραπεζική ή αυτόματη ledger εγγραφή.
 import { getAccountStatementReview, listAccountStatementReviews, reviewAccountStatement } from "@/lib/finance-reconciliation-db";
 import { stockApiContext } from "@/lib/stock-context";
+import { runTask } from "@/lib/tasks";
 import { workflowMessage } from "@/lib/workflow-db";
 
 const fail = (status: number, message: string) => Response.json({ error: message }, { status, headers: { "Cache-Control": "private, no-store" } });
@@ -31,12 +32,18 @@ export async function POST(request: Request) {
   if (!form || !(file instanceof File)) return fail(400, "Επίλεξε CSV statement");
   if (file.size > 1_000_000) return fail(413, "Το statement υπερβαίνει το 1 MB");
   try {
-    const review = await reviewAccountStatement(access.ctx, {
-      accountId: String(form.get("accountId") ?? ""),
-      from: String(form.get("from") ?? ""),
-      to: String(form.get("to") ?? ""),
-      csv: await file.text(),
-      sourceName: file.name,
+    const csv = await file.text();
+    // η εισαγωγή φαίνεται στο παράθυρο «Εργασίες»· η ίδια η αντιστοίχιση δεν αλλάζει
+    const review = await runTask({ orgId: access.ctx.orgId, userId: access.ctx.userId, userName: access.ctx.userName }, { kind: "finance.statement", title: `Εισαγωγή κίνησης τράπεζας${file.name ? ` · ${file.name.slice(0, 60)}` : ""}`, permission: "finance.read" }, async (task) => {
+      const result = await reviewAccountStatement(access.ctx, {
+        accountId: String(form.get("accountId") ?? ""),
+        from: String(form.get("from") ?? ""),
+        to: String(form.get("to") ?? ""),
+        csv,
+        sourceName: file.name,
+      });
+      task.result("/finance");
+      return result;
     });
     return json(review);
   } catch (error) {

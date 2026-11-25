@@ -7,6 +7,7 @@ import { btn, Card, Field, Select } from "@/components/ui";
 import type { PersistedStatementReview, StatementReviewRow } from "@/lib/finance-reconciliation";
 import { statusOf } from "@/lib/status";
 import { payrollConfirmationPhrase, type PayrollExecutionReceipt, type PayrollPaymentBatch, type PayrollPaymentBatchListItem } from "@/lib/payroll-payments";
+import { useBusy } from "@/lib/use-busy";
 
 type StatementReviewWire = Omit<PersistedStatementReview, "rows" | "createdAt"> & { createdAt: string; rows: (Omit<StatementReviewRow, "bookedAt"> & { bookedAt: string })[] };
 type StatementHistoryWire = Omit<StatementReviewWire, "rows">;
@@ -29,6 +30,8 @@ export function FinanceTools({ accounts, stores, from, to, canExport, canPay, in
   const [payrollMessage, setPayrollMessage] = useState("");
   const [pending, setPending] = useState(false);
   const [payrollPending, setPayrollPending] = useState(false);
+  // γραμμή φόρτωσης + «ρώτα για εργασίες»: η εισαγωγή και η πληρωμή φαίνονται στο παράθυρο «Εργασίες» όσο τρέχουν
+  useBusy(pending || payrollPending);
   const storeOptions: [string, string][] = [["", "Όλα τα προσβάσιμα"], ...stores.map((store): [string, string] => [store.id, store.name])];
   const statementAccounts = accounts.filter((account) => ["bank", "card_clearing"].includes(account.kind));
   const payrollAccounts = accounts.filter((account) => account.kind === "bank");

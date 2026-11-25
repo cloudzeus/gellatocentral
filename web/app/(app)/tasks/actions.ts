@@ -6,6 +6,7 @@ import { failuresOf } from "@/lib/task-progress";
 import { retryable } from "@/lib/task-kinds";
 import { findTask, markTasksSeen } from "@/lib/tasks";
 import { enrichManufacturers } from "../platform/catalog/actions";
+import { transmitInvoice } from "../wholesale-orders/actions";
 
 export async function seenTasks() {
   await markTasksSeen();
@@ -17,6 +18,8 @@ export async function seenTasks() {
  */
 const RETRY: Record<string, (ids: string[]) => Promise<void | string>> = {
   "catalog.enrich": (ids) => enrichManufacturers(ids),
+  // μία αποστολή ανά εργασία· η ενέργεια κάνει redirect στο τιμολόγιο με το αποτέλεσμα
+  "aade.invoice": async ([documentId]) => { const form = new FormData(); form.set("documentId", documentId); await transmitInvoice(form); },
 };
 
 export async function retryTask(id: string) {

@@ -8,6 +8,7 @@ import { migrationCutover } from "@/lib/migration-cutover-db";
 import { euro } from "@/lib/money";
 import { requireStockContext } from "@/lib/stock-context";
 import { activateCutover, freezeCutover, migrateLegacy, readyCutover, rollbackCutover, rollbackMigration, startCutover } from "./actions";
+import { StatusBadge } from "@/components/status-badge";
 
 type Summary = { mode: MigrationMode; results: MigrationResult[]; expected: MigrationReconciliation; actual: MigrationReconciliation; differences: string[]; note: string; rollback?: { reason: string; deleted: number } };
 const example = (source = "old-gelato") => JSON.stringify({ version: 1, source, parties: [], items: [], stockLots: [], documents: [] }, null, 2);
@@ -27,10 +28,9 @@ export default async function MigrationPage({ searchParams }: PageProps<"/migrat
   return <Page section="Ρυθμίσεις" title="Μεταφορά παλιών δεδομένων" description="Canonical JSON, dry-run, idempotent import και reconciliation πριν από οποιοδήποτε cutover">
     <div className="grid max-w-7xl gap-5">
       {typeof query.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{query.error}</p> : null}
-      {typeof query.saved === "string" ? <p role="status" className="rounded-lg bg-success/10 p-3 text-sm text-success-ink">{query.saved}</p> : null}
       {restricted ? <Card role="alert" className="p-5 text-sm text-gold-ink">Η μεταφορά απαιτεί καθολικό δικαίωμα σε όλα τα καταστήματα και τις αποθήκες του tenant.</Card> : <>
         <Card className="p-5">
-          <div className="flex flex-wrap items-center gap-3"><h2 className="mr-auto font-semibold">Ελεγχόμενο cutover</h2>{cutover ? <Badge tone={cutover.status === "ACTIVE" ? "success" : cutover.status === "ROLLED_BACK" ? "warning" : "neutral"}>{cutover.status}</Badge> : null}</div>
+          <div className="flex flex-wrap items-center gap-3"><h2 className="mr-auto font-semibold">Ελεγχόμενο cutover</h2>{cutover ? <StatusBadge kind="migrationCutover" value={cutover.status} /> : null}</div>
           {!cutover ? <form action={startCutover} className="mt-4 flex flex-wrap items-end gap-2"><Field label="Πηγή" name="source" defaultValue="old-gelato" required maxLength={80} /><Submit className={btn("default")}>Έναρξη PREPARING</Submit></form> : <div className="mt-3 grid gap-3 text-sm">
             <p><strong>{cutover.source}</strong> · cursor <code>{cutover.cursor ?? "—"}</code></p>
             <p className="text-xs text-muted-foreground">Το freeze απαιτεί πραγματικό adapter evidence. Χωρίς ρυθμισμένο adapter η ενέργεια αποτυγχάνει και δεν δηλώνεται επιτυχής. Μετά το ROLLED_BACK ο tenant παραμένει frozen.</p>
@@ -50,7 +50,7 @@ export default async function MigrationPage({ searchParams }: PageProps<"/migrat
           </form> : <p className="mt-4 text-sm text-muted-foreground">{ctx.can("migration.add") ? "Δεν επιτρέπεται νέο import στην τρέχουσα φάση." : "Έχεις μόνο δικαίωμα προβολής."}</p>}
         </Card>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-          <Card className="overflow-hidden"><h2 className="border-b border-border p-4 font-semibold">Πρόσφατα runs</h2><div className="divide-y divide-border">{runs.map((run) => <a key={run.id} href={`/migration?run=${run.id}`} className="flex items-center gap-3 p-3 hover:bg-secondary"><span className="min-w-0 flex-1"><strong className="block truncate">{run.source}</strong><span className="block text-xs text-muted-foreground">{date(run.createdAt)} · {run.createdByName} · {run.kind}{run.exportId ? ` · ${run.exportId}` : ""}</span></span><Badge tone={run.status === "IMPORTED" ? "success" : run.status === "ROLLED_BACK" ? "warning" : "neutral"}>{run.status}</Badge></a>)}{!runs.length ? <p className="p-6 text-center text-sm text-muted-foreground">Δεν υπάρχουν runs.</p> : null}</div></Card>
+          <Card className="overflow-hidden"><h2 className="border-b border-border p-4 font-semibold">Πρόσφατα runs</h2><div className="divide-y divide-border">{runs.map((run) => <a key={run.id} href={`/migration?run=${run.id}`} className="flex items-center gap-3 p-3 hover:bg-secondary"><span className="min-w-0 flex-1"><strong className="block truncate">{run.source}</strong><span className="block text-xs text-muted-foreground">{date(run.createdAt)} · {run.createdByName} · {run.kind}{run.exportId ? ` · ${run.exportId}` : ""}</span></span><StatusBadge kind="migrationRun" value={run.status} /></a>)}{!runs.length ? <p className="p-6 text-center text-sm text-muted-foreground">Δεν υπάρχουν runs.</p> : null}</div></Card>
           {selected && summary ? <Card className="p-5"><div className="flex flex-wrap items-center gap-2"><h2 className="mr-auto font-semibold">Αναφορά {selected.source}</h2><Badge>{summary.results.filter((row) => row.status === "CREATED").length} νέες</Badge><Badge>{summary.results.filter((row) => row.status === "UPDATED").length} ενημερώσεις</Badge><Badge>{summary.results.filter((row) => row.status === "SKIPPED").length} ίδιες</Badge></div>
             <p className="mt-3 text-sm text-muted-foreground">{summary.note}</p>
             <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">{(Object.keys(labels) as (keyof typeof labels)[]).map((key) => <div key={key} className="rounded-lg bg-secondary p-3"><dt className="text-xs text-muted-foreground">{labels[key]}</dt><dd className="mt-1 text-xl font-semibold">{summary.actual.counts[key]} / {summary.expected.counts[key]}</dd></div>)}</dl>

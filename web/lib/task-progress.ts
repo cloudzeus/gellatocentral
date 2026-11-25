@@ -3,6 +3,8 @@
 
 export type TaskStatus = "RUNNING" | "DONE" | "PARTIAL" | "FAILED";
 export type TaskFailure = { id?: string; label: string; reason: string };
+/** Ό,τι χρειάζεται ένας βρόχος για να πει πού βρίσκεται. Προαιρετικό όρισμα: χωρίς αυτό (π.χ. από cron) ο βρόχος τρέχει όπως πάντα. */
+export type TaskReporter = { step(current: string): Promise<void>; ok(n?: number): Promise<void>; fail(failure: TaskFailure): Promise<void> };
 export type TaskRow = {
   id: string; userId: string; kind: string; title: string; status: string; total: number | null; done: number; failed: number;
   current: string | null; error: string | null; resultHref: string | null; failures: unknown; seenAt: Date | null;

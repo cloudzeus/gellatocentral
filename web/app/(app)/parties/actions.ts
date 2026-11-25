@@ -1,6 +1,7 @@
 "use server";
 // Συναλλασσόμενοι: της επιχείρησης του χρήστη ή, για το προσωπικό, της πλατφόρμας. Το πεδίο το δίνει το partyScope():
 // κάθε ερώτημα φιλτράρει με το orgId του, ώστε κανείς να μην αγγίζει συναλλασσόμενο άλλου, ακόμα κι αν μαντέψει το id.
+import { flashFail, flashOk } from "@/lib/flash-server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -127,6 +128,7 @@ export async function toggleParty(id: string) {
   const p = await owned(s, id);
   await db.party.update({ where: { id: p.id }, data: { active: !p.active } });
   revalidatePath(s.base);
+  await flashOk(`Ο συναλλασσόμενος «${p.name}» ${p.active ? "απενεργοποιήθηκε" : "ενεργοποιήθηκε"}`);
 }
 
 /** Συντεταγμένες της έδρας από τη διεύθυνσή της (OpenStreetMap). Αν δεν βρεθούν, ο χρήστης τις βάζει από τον χάρτη. */
@@ -345,6 +347,7 @@ export async function logActivity(partyId: string, form: FormData) {
     },
   });
   revalidatePath(s.base, "layout");
+  await flashOk(`${{ note: "Η σημείωση", call: "Η κλήση", email: "Το email", meeting: "Η συνάντηση", task: "Η εργασία" }[kind]} καταγράφηκε`);
 }
 /** Αλλαγή σε ενέργεια: ολοκλήρωση εργασίας (ή αναίρεση), καρφίτσωμα, διαγραφή. Μόνο όσες έγραψε άνθρωπος σβήνονται. */
 export async function touchActivity(partyId: string, activityId: string, what: "done" | "pin" | "delete") {
@@ -355,6 +358,11 @@ export async function touchActivity(partyId: string, activityId: string, what: "
   if (a && what === "pin") await db.partyActivity.update({ where: { id: a.id }, data: { pinned: !a.pinned } });
   if (a && what === "delete" && a.source === "manual") await db.partyActivity.delete({ where: { id: a.id } });
   revalidatePath(s.base, "layout");
+  if (!a) await flashFail("Δεν έγινε: η ενέργεια δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά.");
+  else if (what === "done" && a.kind === "task") await flashOk(a.doneAt ? "Η εργασία άνοιξε ξανά" : "Η εργασία ολοκληρώθηκε");
+  else if (what === "pin") await flashOk(a.pinned ? "Η ενέργεια ξεκαρφιτσώθηκε" : "Η ενέργεια καρφιτσώθηκε");
+  else if (what === "delete" && a.source === "manual") await flashOk("Η ενέργεια διαγράφηκε");
+  else if (what === "delete") await flashFail("Δεν διαγράφηκε: σβήνονται μόνο οι ενέργειες που έγραψε άνθρωπος", "Οι αυτόματες εγγραφές μένουν στο ιστορικό.");
 }
 
 // ---- Τραπεζικοί λογαριασμοί ----

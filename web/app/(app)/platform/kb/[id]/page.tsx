@@ -2,15 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { KbBody } from "@/components/kb-body";
 import { Submit } from "@/components/submit";
-import { Badge, btn, Card, Field, Page, Select } from "@/components/ui";
+import { StatusBadge } from "@/components/status-badge";
+import { btn, Card, Field, Page, Select } from "@/components/ui";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { helpful, KB_STATUS } from "@/lib/support/kb";
+import { helpful } from "@/lib/support/kb";
 import { CATEGORIES } from "@/lib/support/rules";
 import { saveArticle, setArticleStatus } from "../actions";
 
 const when = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Athens" });
-const SAVED: Record<string, string> = { "1": "Αποθηκεύτηκε", review: "Αποθηκεύτηκε και περιμένει ξανά έγκριση: μέχρι τότε οι πελάτες δεν το βλέπουν", fromticket: "Πρόχειρο από το αίτημα. Σβήσε ό,τι αφορά τον συγκεκριμένο πελάτη πριν το στείλεις για έγκριση", draft: "Γύρισε σε πρόχειρο", published: "Δημοσιεύτηκε", retired: "Αποσύρθηκε" };
 
 export default async function ArticleEditPage({ params, searchParams }: PageProps<"/platform/kb/[id]">) {
   const me = await requirePlatform("support.tickets");
@@ -24,7 +24,7 @@ export default async function ArticleEditPage({ params, searchParams }: PageProp
   return (
     <Page section="Υποστήριξη πελατών › Βάση γνώσεων" title={article.title} description={`${article.internal ? "Εσωτερικό" : "Για τους πελάτες"} · το έγραψε ο χρήστης ${article.authorName}${article.sourceTicketId ? " · από αίτημα" : ""}`}
       actions={<>
-        <Badge tone={KB_STATUS[article.status].tone}>{KB_STATUS[article.status].text}</Badge>
+        <StatusBadge kind="kb" value={article.status} />
         {article.status === "DRAFT" ? act("REVIEW", "Αποστολή για έγκριση", canPublish ? "outline" : "default") : null}
         {canPublish && (article.status === "DRAFT" || article.status === "REVIEW") ? act("PUBLISHED", "Δημοσίευση", "default") : null}
         {article.status === "REVIEW" ? act("DRAFT", "Πίσω σε πρόχειρο") : null}
@@ -34,7 +34,8 @@ export default async function ArticleEditPage({ params, searchParams }: PageProp
       </>}>
       <div className="grid max-w-7xl gap-4 lg:grid-cols-2">
         <div className="min-w-0 space-y-4">
-          {typeof q.saved === "string" && SAVED[q.saved] ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">{SAVED[q.saved]}</p> : null}
+          {/* οδηγία ιδιωτικότητας, όχι «αποθηκεύτηκε»: μένει στη σελίδα και δεν φεύγει μαζί με το toast */}
+          {q.saved === "fromticket" ? <p role="note" className="rounded-lg bg-warning/20 px-4 py-3 text-sm font-medium text-warning-ink">Το πρόχειρο βγήκε από αίτημα πελάτη. Σβήσε ό,τι αφορά τον συγκεκριμένο πελάτη πριν το στείλεις για έγκριση</p> : null}
           {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{q.error.slice(0, 200)}</p> : null}
           <Card className="p-5">
             <form key={article.updatedAt.toISOString()} action={saveArticle.bind(null, article.id)} className="grid gap-4 [&>button]:justify-self-end">

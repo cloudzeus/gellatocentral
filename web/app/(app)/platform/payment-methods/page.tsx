@@ -4,7 +4,9 @@ import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
 import { Checkbox } from "@/components/shadcn/checkbox";
 import { Submit } from "@/components/submit";
+import { StatusBadge } from "@/components/status-badge";
 import { DetailGrid, Badge, btn, Card, Field, menuItem, Page, Select } from "@/components/ui";
+import { look } from "@/lib/status";
 import { requirePlatform } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { filterParam, listParams } from "@/lib/paging";
@@ -86,7 +88,6 @@ export default async function PaymentMethodsPage({ searchParams }: PageProps<"/p
       actions={<Modal wide label={<><Plus /> Νέος τρόπος</>} size="sm" title="Νέος τρόπος πληρωμής">{methodForm()}</Modal>}>
       <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">Δεν αποθηκεύτηκε{q.error ? `: ${q.error.slice(0, 200)}` : ""}</p> : null}
-        {q.saved ? <p role="status" className="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success-ink">Οι τρόποι πληρωμής ενημερώθηκαν</p> : null}
         <Card>
           <DataTable
             id="payment-methods"
@@ -120,7 +121,7 @@ export default async function PaymentMethodsPage({ searchParams }: PageProps<"/p
                 ledger: <span className="text-xs">{PAYMENT_LEDGER_LABEL[m.ledgerKind]}</span>,
                 pos: m.posEnabled ? <Badge tone="success">Ναι</Badge> : <Badge>Όχι</Badge>,
                 uses: m._count.payments + m._count.parties || "—",
-                status: m.active ? <Badge tone="success">Ενεργός</Badge> : <Badge>Κρυφός</Badge>,
+                status: m.active ? <StatusBadge look={look("success", "Ενεργός")} /> : <StatusBadge look={look("neutral", "Κρυφός")} />,
               },
               details: {
                 label: m.name,
