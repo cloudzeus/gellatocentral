@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Στήσιμο καταστήματος: mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: oklch(0.962 0.008 85); --fg: oklch(0.32 0 0); --card: #fff; --primary: oklch(0.245 0.055 264);
+    --muted: oklch(0.955 0 0); --mfg: oklch(0.5 0 0); --border: oklch(0.245 0.055 264 / 12%);
+    --success: oklch(0.575 0.108 155); --ok-ink: oklch(0.42 0.1 155); --warning: oklch(0.8 0.14 75); --warn-ink: oklch(0.48 0.1 70);
+    --danger: oklch(0.565 0.232 27.5); --gold: oklch(0.635 0.072 84);
+    --cold: oklch(0.6 0.12 240); --cold-bg: oklch(0.6 0.12 240 / 10%);
+    --fs-11: clamp(0.75rem, 0.734rem + 0.07vw, 0.6875rem);
+    --fs-12: 0.75rem; --fs-13: 0.8125rem; --fs-16: 1rem;
+    --fs-20: clamp(1.0625rem, 0.989rem + 0.33vw, 1.25rem);
+    --fs-24: clamp(1.25rem, 1.159rem + 0.4vw, 1.5rem);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 400 var(--fs-13)/1.5 Nunito, system-ui, sans-serif; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 24px 16px 64px; display: grid; gap: 40px; }
+  .screen-label { font-size: var(--fs-12); color: var(--mfg); margin: 0 0 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .screen-label b { color: var(--primary); font-weight: 700; }
+  .frame { border: 1px solid var(--border); border-radius: 16px; background: var(--bg); padding: 20px; display: grid; gap: 16px; }
+  h1 { font-size: var(--fs-20); font-weight: 700; margin: 0; color: var(--primary); }
+  h2 { font-size: var(--fs-16); font-weight: 700; margin: 0; }
+  h3 { font-size: var(--fs-13); font-weight: 700; margin: 0; }
+  .sub { color: var(--mfg); margin: 2px 0 0; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
+  .card-h { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .card-b { padding: 16px 18px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .grow { flex: 1; min-width: 0; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 9px; padding: 8px 14px; font: 600 var(--fs-12) Nunito, sans-serif; border: 1px solid var(--border); background: #fff; color: var(--primary); cursor: pointer; min-height: 36px; }
+  .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn.ghost { border-color: transparent; background: transparent; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 2px 9px; font-size: var(--fs-11); font-weight: 600; white-space: nowrap; }
+  .ok { background: oklch(0.575 0.108 155 / 12%); color: var(--ok-ink); }
+  .wait { background: oklch(0.8 0.14 75 / 18%); color: var(--warn-ink); }
+  .bad { background: oklch(0.565 0.232 27.5 / 10%); color: var(--danger); }
+  .neutral { background: var(--muted); color: var(--mfg); }
+  .cold { background: var(--cold-bg); color: var(--cold); }
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-12); color: var(--mfg); }
+  .note { font-size: var(--fs-12); color: var(--mfg); border-left: 3px solid var(--gold); padding: 6px 10px; background: #fff; border-radius: 0 8px 8px 0; }
+  i[data-lucide], svg.lucide { width: 16px; height: 16px; stroke-width: 1.6; flex: none; }
+
+  /* βήματα οδηγού */
+  .stepper { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .st { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; font-weight: 600; font-size: var(--fs-12); color: var(--mfg); background: #fff; border: 1px solid var(--border); }
+  .st .n { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--muted); font-size: var(--fs-11); }
+  .st.on { color: var(--primary); border-color: var(--primary); }
+  .st.on .n { background: var(--primary); color: #fff; }
+  .st.done .n { background: oklch(0.575 0.108 155 / 16%); color: var(--ok-ink); }
+  .st-line { width: 18px; height: 1px; background: var(--border); }
+
+  /* καρέ 1: πρότυπα */
+  .templates { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .tpl { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 16px; display: grid; gap: 10px; align-content: start; cursor: pointer; }
+  .tpl.on { border: 2px solid var(--primary); padding: 15px; box-shadow: 0 1px 0 oklch(0.245 0.055 264 / 6%); }
+  .tpl .ic { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; background: oklch(0.245 0.055 264 / 7%); color: var(--primary); }
+  .tpl .ic svg { width: 20px; height: 20px; }
+  .tpl ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; color: var(--fg); font-size: var(--fs-12); }
+  .tpl li { display: flex; gap: 7px; align-items: center; }
+  .tpl li svg { width: 14px; height: 14px; color: var(--mfg); }
+  .tpl .eg { color: var(--mfg); font-size: var(--fs-11); border-top: 1px dashed var(--border); padding-top: 8px; }
+  .form { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 14px; }
+  .field label { display: block; font-weight: 600; font-size: var(--fs-12); margin-bottom: 4px; }
+  .field .in { border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; background: #fff; min-height: 38px; display: flex; align-items: center; gap: 8px; }
+  .field .hint { color: var(--mfg); font-size: var(--fs-11); margin-top: 4px; }
+
+  /* καρέ 2: εξοπλισμός + κάτοψη */
+  .split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; align-items: start; }
+  .eq { display: grid; grid-template-columns: 34px 1fr auto auto; gap: 12px; align-items: center; padding: 11px 18px; border-bottom: 1px solid var(--border); }
+  .eq:last-child { border-bottom: 0; }
+  .eq .ic { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: var(--muted); color: var(--primary); }
+  .eq .ic.c { background: var(--cold-bg); color: var(--cold); }
+  .eq .t { font-weight: 600; }
+  .eq .d { color: var(--mfg); font-size: var(--fs-12); }
+  .stepn { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: #fff; }
+  .stepn button { width: 34px; height: 34px; border: 0; background: transparent; color: var(--primary); font: 700 var(--fs-16) Nunito; cursor: pointer; }
+  .stepn span { min-width: 28px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .sec-h { padding: 10px 18px; background: oklch(0.245 0.055 264 / 4%); font-weight: 700; color: var(--primary); font-size: var(--fs-12); display: flex; gap: 8px; align-items: center; }
+  .sec-h span { color: var(--mfg); font-weight: 500; }
+
+  .plan { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 16px; display: grid; gap: 12px; position: sticky; top: 16px; }
+  .floor { border-radius: 12px; background: oklch(0.975 0.006 85); border: 1px solid var(--border); padding: 14px; display: grid; gap: 12px; }
+  .zone-t { font-size: var(--fs-11); font-weight: 700; color: var(--mfg); display: flex; justify-content: space-between; }
+  .fridges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .fr { border-radius: 10px; padding: 8px 10px; background: #fff; border: 1px solid var(--border); display: grid; gap: 2px; position: relative; overflow: hidden; }
+  .fr::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--cold); }
+  .fr.show::before { background: oklch(0.7 0.12 200); }
+  .fr.fridge::before { background: oklch(0.72 0.1 160); }
+  .fr.dry::before { background: var(--gold); }
+  .gauge .badge { white-space: normal; text-align: left; }
+  .fr .tmp { overflow-wrap: anywhere; }
+  .fr.dev::before { background: var(--primary); }
+  .fr b { font-size: var(--fs-12); }
+  .fr .tmp { font-size: var(--fs-11); color: var(--mfg); font-variant-numeric: tabular-nums; }
+  .till { display: flex; align-items: center; gap: 10px; background: var(--primary); color: #fff; border-radius: 10px; padding: 10px 12px; }
+  .till .mono { color: oklch(1 0 0 / 70%); }
+  .tables { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+  .tb { aspect-ratio: 1; border-radius: 8px; border: 1.5px dashed oklch(0.245 0.055 264 / 30%); display: grid; place-items: center; font-weight: 700; font-size: var(--fs-11); color: var(--primary); background: #fff; }
+  .tb.out { border-color: oklch(0.72 0.1 160 / 60%); color: var(--ok-ink); }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: var(--fs-11); color: var(--mfg); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+  /* καρέ 3: ετοιμότητα */
+  .ready { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .gauge { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 18px; display: grid; gap: 14px; justify-items: center; text-align: center; }
+  .ring { width: 150px; height: 150px; }
+  .ring .v { font-size: var(--fs-24); font-weight: 700; fill: var(--primary); }
+  .ring .l { font-size: 11px; fill: var(--mfg); }
+  .bars { width: 100%; display: grid; gap: 8px; text-align: left; }
+  .bars .r { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; font-size: var(--fs-12); }
+  .bars .track { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--muted); overflow: hidden; display: flex; }
+  .bars .track i { display: block; height: 100%; }
+  .chk { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+  .chk:last-child { border-bottom: 0; }
+  .chk .s { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; }
+  .chk .s svg { width: 15px; height: 15px; }
+  .chk .t { font-weight: 600; }
+  .chk .d { color: var(--mfg); font-size: var(--fs-12); }
+  .pair { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
+  .qr { width: 112px; height: 112px; border-radius: 10px; background: #fff; border: 1px solid var(--border); padding: 8px; display: grid; grid-template-columns: repeat(13, 1fr); gap: 1px; }
+  .qr span { background: var(--primary); border-radius: 1px; }
+  .qr span.o { background: transparent; }
+  .code { font: 700 var(--fs-20) ui-monospace, Menlo, monospace; letter-spacing: 0.18em; color: var(--primary); }
+
+  @media (max-width: 980px) {
+    .templates { grid-template-columns: 1fr 1fr; }
+    .split, .ready { grid-template-columns: 1fr; }
+    .plan { position: static; }
+    .form { grid-template-columns: 1fr; }
+    .frame > .row > .grow { flex-basis: 100%; }
+  }
+  @media (max-width: 560px) {
+    .templates { grid-template-columns: 1fr; }
+    .frame { padding: 14px; }
+    .eq { grid-template-columns: 34px 1fr auto; }
+    .eq .badge { grid-column: 2 / -1; justify-self: start; }
+    .tables { grid-template-columns: repeat(6, 1fr); }
+    .st .lbl { display: none; }
+    .st.on .lbl { display: inline; }
+    .pair { grid-template-columns: 1fr; justify-items: start; }
+    .fridges { grid-template-columns: 1fr 1fr; }
+    .stepper { width: 100%; }
+    .eq { grid-template-columns: 34px 1fr auto; }
+    .eq .badge { grid-row: 2; }
+  }
+  .split > *, .ready > *, .frame > * { min-width: 0; }
+
+  /* καρέ 2β: αυτόματος πωλητής */
+  .vend { display: grid; grid-template-columns: 1fr 1.1fr; gap: 16px; align-items: start; }
+  .machine { background: linear-gradient(180deg, oklch(0.3 0.03 250), oklch(0.22 0.03 250)); border-radius: 18px; padding: 14px; display: grid; grid-template-columns: 1fr 64px; gap: 12px; color: #fff; box-shadow: 0 10px 24px oklch(0.2 0.03 250 / 25%); }
+  .glass { background: oklch(0.36 0.04 230 / 70%); border-radius: 10px; padding: 8px; display: grid; gap: 6px; border: 1px solid oklch(1 0 0 / 12%); }
+  .shelf { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+  .slot { background: oklch(1 0 0 / 92%); color: var(--fg); border-radius: 6px; padding: 5px 5px 4px; display: grid; gap: 3px; font-size: 10px; line-height: 1.2; min-width: 0; }
+  .slot b { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot .lv { height: 4px; border-radius: 2px; background: var(--muted); overflow: hidden; }
+  .slot .lv i { display: block; height: 100%; background: var(--success); }
+  .slot.low .lv i { background: var(--warning); }
+  .slot.out { background: oklch(1 0 0 / 55%); }
+  .slot.out .lv i { background: var(--danger); }
+  .slot .c { color: var(--mfg); font-variant-numeric: tabular-nums; }
+  .panel { display: grid; gap: 8px; align-content: start; }
+  .scr { background: oklch(0.85 0.05 200); color: var(--primary); border-radius: 6px; padding: 6px 4px; font: 700 11px ui-monospace, Menlo, monospace; text-align: center; }
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+  .pad i { display: block; aspect-ratio: 1; border-radius: 3px; background: oklch(1 0 0 / 22%); }
+  .card-slot { height: 26px; border-radius: 5px; background: oklch(0 0 0 / 35%); display: grid; place-items: center; font-size: 9px; color: oklch(1 0 0 / 70%); }
+  .tray { grid-column: 1 / -1; height: 22px; border-radius: 6px; background: oklch(0 0 0 / 35%); }
+  .opts { display: grid; gap: 6px; }
+  .opt { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+  .opt.on { border: 2px solid var(--primary); padding: 9px 11px; }
+  .opt .rd { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border); flex: none; margin-top: 2px; }
+  .opt.on .rd { border: 5px solid var(--primary); }
+  .opt .d { color: var(--mfg); font-size: var(--fs-12); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border); background: #fff; font-weight: 600; font-size: var(--fs-12); color: var(--mfg); min-height: 32px; }
+  .chip.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+  @media (max-width: 980px) { .vend { grid-template-columns: 1fr; } }
+  @media (max-width: 560px) { .shelf { grid-template-columns: repeat(3, 1fr); } .shelf .slot:nth-child(n+4) { display: none; } .machine { grid-template-columns: 1fr 52px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Στήσιμο καταστήματος: mockup</h1>
+  <p class="sub">Ο ιδιοκτήτης στήνει ένα σημείο σε τρία βήματα: πρότυπο, εξοπλισμός, ετοιμότητα. Παράδειγμα: Δορυλαίου 2 (beta πελάτης). Κονσόλα web, φωτεινό θέμα.</p>
+</header>
+
+<!-- ================= ΚΑΡΕ 1 ================= -->
+<section>
+  <p class="screen-label"><b>Καρέ 1</b> Τι σημείο είναι · διαλέγει πρότυπο και όλα τα υπόλοιπα προσυμπληρώνονται</p>
+  <div class="frame">
+    <div class="row">
+      <div class="grow"><h1>Νέο σημείο</h1><p class="sub">Διάλεξε τι μοιάζει περισσότερο. Όλα αλλάζουν στο επόμενο βήμα.</p></div>
+      <div class="stepper">
+        <span class="st on"><span class="n">1</span><span class="lbl">Τι σημείο είναι</span></span><span class="st-line"></span>
+        <span class="st"><span class="n">2</span><span class="lbl">Εξοπλισμός</span></span><span class="st-line"></span>
+        <span class="st"><span class="n">3</span><span class="lbl">Ετοιμότητα</span></span>
+      </div>
+    </div>
+
+    <div class="templates">
+      <div class="tpl on">
+        <div class="row"><div class="ic"><i data-lucide="store"></i></div><div class="grow"><h3>Κατάστημα με τραπέζια</h3><span class="badge ok"><i data-lucide="check"></i>Επιλεγμένο</span></div></div>
+        <ul>
+          <li><i data-lucide="monitor-smartphone"></i>1 κεντρικό ταμείο</li>
+          <li><i data-lucide="snowflake"></i>Βιτρίνα, 2 καταψύκτες, ψυγείο</li>
+          <li><i data-lucide="layout-grid"></i>Τραπέζια και κρατήσεις</li>
+          <li><i data-lucide="bike"></i>Delivery από το ταμείο</li>
+        </ul>
+        <div class="eg">Όπως η Δορυλαίου</div>
+      </div>
+      <div class="tpl">
+        <div class="row"><div class="ic"><i data-lucide="factory"></i></div><h3 class="grow">Εργαστήριο και χονδρική</h3></div>
+        <ul>
+          <li><i data-lucide="monitor-smartphone"></i>Ταμείο λιανικής</li>
+          <li><i data-lucide="snowflake"></i>Blast freezer, θάλαμος, καταψύκτες</li>
+          <li><i data-lucide="truck"></i>Τροφοδοτεί τα άλλα σημεία</li>
+          <li><i data-lucide="file-text"></i>Τιμολόγια και δελτία αποστολής</li>
+        </ul>
+        <div class="eg">Όπως ο Πειραιάς</div>
+      </div>
+      <div class="tpl">
+        <div class="row"><div class="ic"><i data-lucide="box"></i></div><h3 class="grow">Μόνο αυτόματος πωλητής</h3></div>
+        <ul>
+          <li><i data-lucide="box"></i>1 πωλητής, −20 / −16 °C</li>
+          <li><i data-lucide="package"></i>Γεμίζει από άλλο σημείο</li>
+          <li><i data-lucide="minus"></i>Χωρίς ταμείο, χωρίς τραπέζια</li>
+        </ul>
+        <div class="eg">Όπως το αεροδρόμιο</div>
+      </div>
+      <div class="tpl">
+        <div class="row"><div class="ic"><i data-lucide="warehouse"></i></div><h3 class="grow">Πωλητής με αποθήκη</h3></div>
+        <ul>
+          <li><i data-lucide="box"></i>1 πωλητής</li>
+          <li><i data-lucide="snowflake"></i>2 καταψύκτες αποθέματος</li>
+          <li><i data-lucide="minus"></i>Χωρίς ταμείο, χωρίς τραπέζια</li>
+        </ul>
+        <div class="eg">Όπως η Τήνος</div>
+      </div>
+    </div>
+
+    <div class="card"><div class="card-b form">
+      <div class="field"><label>Όνομα σημείου</label><div class="in">Δορυλαίου</div><div class="hint">Έτσι το βλέπουν οι υπάλληλοι στο ταμείο</div></div>
+      <div class="field"><label>Διεύθυνση</label><div class="in"><i data-lucide="map-pin"></i>Δορυλαίου 2, Αθήνα 115 21</div></div>
+      <div class="field"><label>Εκδότης αποδείξεων</label><div class="in"><i data-lucide="building-2"></i>Η επιχείρηση · ΑΦΜ 0•• ••• 001</div><div class="hint">Άλλαξέ το αν το σημείο έχει δικό του ΑΦΜ</div></div>
+    </div></div>
+
+    <div class="row"><span class="grow note">Το πρότυπο ορίζει τι θα φτιαχτεί. Τίποτα δεν αποθηκεύεται πριν από το βήμα 3.</span><button class="btn ghost">Ακύρωση</button><button class="btn primary">Συνέχεια στον εξοπλισμό<i data-lucide="arrow-right"></i></button></div>
+  </div>
+</section>
+
+<!-- ================= ΚΑΡΕ 2 ================= -->
+<section>
+  <p class="screen-label"><b>Καρέ 2</b> Εξοπλισμός · πόσα από το καθένα, και δεξιά η κάτοψη που θα φτιαχτεί</p>
+  <div class="frame">
+    <div class="row">
+      <div class="grow"><h1>Δορυλαίου · Εξοπλισμός</h1><p class="sub">Κάθε ψυγείο είναι και αποθήκη: έχει δικό του απόθεμα και δικά του όρια θερμοκρασίας για το HACCP.</p></div>
+      <div class="stepper">
+        <span class="st done"><span class="n"><i data-lucide="check"></i></span><span class="lbl">Τι σημείο είναι</span></span><span class="st-line"></span>
+        <span class="st on"><span class="n">2</span><span class="lbl">Εξοπλισμός</span></span><span class="st-line"></span>
+        <span class="st"><span class="n">3</span><span class="lbl">Ετοιμότητα</span></span>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="card">
+        <div class="sec-h"><i data-lucide="snowflake"></i>Ψυγεία και χώροι <span>· 6 αποθήκες</span></div>
+        <div class="eq"><div class="ic c"><i data-lucide="ice-cream-cone"></i></div><div><div class="t">Βιτρίνα παγωτού</div><div class="d">Από εδώ πουλά το ταμείο</div></div><span class="badge cold num">−14 / −11 °C</span><div class="stepn"><button>−</button><span>1</span><button>+</button></div></div>
+        <div class="eq"><div class="ic c"><i data-lucide="snowflake"></i></div><div><div class="t">Καταψύκτης</div><div class="d">Απόθεμα σε λεκάνες</div></div><span class="badge cold num">−22 / −18 °C</span><div class="stepn"><button>−</button><span>2</span><button>+</button></div></div>
+        <div class="eq"><div class="ic c"><i data-lucide="refrigerator"></i></div><div><div class="t">Ψυγείο</div><div class="d">Γλυκά, ποτά, γάλα</div></div><span class="badge cold num">+2 / +5 °C</span><div class="stepn"><button>−</button><span>2</span><button>+</button></div></div>
+        <div class="eq"><div class="ic"><i data-lucide="package"></i></div><div><div class="t">Ξηρή αποθήκη</div><div class="d">Κύπελλα, χωνάκια, συσκευασίες</div></div><span class="badge neutral">χωρίς αισθητήρα</span><div class="stepn"><button>−</button><span>1</span><button>+</button></div></div>
+        <div class="eq"><div class="ic"><i data-lucide="plus"></i></div><div><div class="t">Άλλο</div><div class="d">Blast freezer, θάλαμος, αυτόματος πωλητής</div></div><span></span><button class="btn">Προσθήκη</button></div>
+
+        <div class="sec-h"><i data-lucide="monitor-smartphone"></i>Ταμεία, κάρτες και εκτυπωτές <span>· 1 ταμείο, 2 Viva, 2 εκτυπωτές</span></div>
+        <div class="eq"><div class="ic"><i data-lucide="tablet"></i></div><div><div class="t">Κεντρικό ταμείο</div><div class="d">Tablet Android · πουλά από τη βιτρίνα · σειρά ΑΛΠ-Δ</div></div><span></span><div class="stepn"><button>−</button><span>1</span><button>+</button></div></div>
+        <div class="eq"><div class="ic"><i data-lucide="credit-card"></i></div><div><div class="t">Τερματικό Viva (POS κάρτας)</div><div class="d">Ένα στο ταμείο, ένα φορητό για τα τραπέζια · συνδέεται στο βήμα 3 με τον αριθμό του (TID)</div></div><span class="badge wait">σύνδεση στο βήμα 3</span><div class="stepn"><button>−</button><span>2</span><button>+</button></div></div>
+        <div class="eq"><div class="ic"><i data-lucide="printer"></i></div><div><div class="t">Εκτυπωτής αποδείξεων</div><div class="d">Θερμικός 80 mm, δίπλα στο ταμείο · USB, δίκτυο ή Bluetooth</div></div><span class="badge neutral">ΑΛΠ-Δ</span><div class="stepn"><button>−</button><span>1</span><button>+</button></div></div>
+        <div class="eq"><div class="ic"><i data-lucide="chef-hat"></i></div><div><div class="t">Εκτυπωτής παραγγελιών</div><div class="d">Στον πάγκο · τυπώνει ό,τι στέλνεται από τα τραπέζια</div></div><span class="badge neutral">Πάγκος</span><div class="stepn"><button>−</button><span>1</span><button>+</button></div></div>
+
+        <div class="sec-h"><i data-lucide="layout-grid"></i>Τραπέζια <span>· 14 τραπέζια, 44 θέσεις</span></div>
+        <div class="eq"><div class="ic"><i data-lucide="armchair"></i></div><div><div class="t">Σάλα</div><div class="d">Ονόματα 1, 2, 3… · 4 θέσεις το καθένα</div></div><span></span><div class="stepn"><button>−</button><span>8</span><button>+</button></div></div>
+        <div class="eq"><div class="ic"><i data-lucide="sun"></i></div><div><div class="t">Πεζοδρόμιο</div><div class="d">Ονόματα Ε1, Ε2… · 2 θέσεις το καθένα</div></div><span></span><div class="stepn"><button>−</button><span>6</span><button>+</button></div></div>
+        <div class="eq"><div class="ic"><i data-lucide="plus"></i></div><div><div class="t">Νέα ζώνη</div><div class="d">π.χ. Ταράτσα, Αυλή</div></div><span></span><button class="btn">Προσθήκη</button></div>
+      </div>
+
+      <div class="plan">
+        <div class="row"><h2 class="grow">Τι θα φτιαχτεί</h2><span class="badge neutral num">6 αποθήκες · 1 ταμείο · 4 συσκευές · 14 τραπέζια</span></div>
+        <div class="floor">
+          <div class="zone-t"><span>Ψυγεία και χώροι</span><span class="num">6</span></div>
+          <div class="fridges">
+            <div class="fr show"><b>Βιτρίνα</b><span class="tmp">−14 / −11 °C</span></div>
+            <div class="fr"><b>Καταψύκτης 1</b><span class="tmp">−22 / −18 °C</span></div>
+            <div class="fr"><b>Καταψύκτης 2</b><span class="tmp">−22 / −18 °C</span></div>
+            <div class="fr fridge"><b>Ψυγείο 1</b><span class="tmp">+2 / +5 °C</span></div>
+            <div class="fr fridge"><b>Ψυγείο 2</b><span class="tmp">+2 / +5 °C</span></div>
+            <div class="fr dry"><b>Ξηρή αποθήκη</b><span class="tmp">—</span></div>
+          </div>
+          <div class="till"><i data-lucide="tablet"></i><div class="grow"><b>Κεντρικό ταμείο</b><div class="mono">πουλά από: Βιτρίνα</div></div><i data-lucide="arrow-left"></i></div>
+          <div class="fridges">
+            <div class="fr dev"><b>Viva · ταμείο</b><span class="tmp">κάρτα στο ταμείο</span></div>
+            <div class="fr dev"><b>Viva · φορητό</b><span class="tmp">πληρωμή στο τραπέζι</span></div>
+            <div class="fr dev"><b>Εκτυπωτής 80 mm</b><span class="tmp">αποδείξεις</span></div>
+            <div class="fr dev"><b>Εκτυπωτής πάγκου</b><span class="tmp">παραγγελίες τραπεζιών</span></div>
+          </div>
+          <div class="zone-t"><span>Σάλα</span><span class="num">8 × 4 θέσεις</span></div>
+          <div class="tables"><span class="tb">1</span><span class="tb">2</span><span class="tb">3</span><span class="tb">4</span><span class="tb">5</span><span class="tb">6</span><span class="tb">7</span><span class="tb">8</span></div>
+          <div class="zone-t"><span>Πεζοδρόμιο</span><span class="num">6 × 2 θέσεις</span></div>
+          <div class="tables"><span class="tb out">Ε1</span><span class="tb out">Ε2</span><span class="tb out">Ε3</span><span class="tb out">Ε4</span><span class="tb out">Ε5</span><span class="tb out">Ε6</span></div>
+        </div>
+        <div class="legend"><span><i style="background:oklch(0.7 0.12 200)"></i>βιτρίνα</span><span><i style="background:var(--cold)"></i>κατάψυξη</span><span><i style="background:oklch(0.72 0.1 160)"></i>ψύξη</span><span><i style="background:var(--gold)"></i>ξηρό</span><span><i style="background:var(--primary)"></i>ταμείο και συσκευές</span></div>
+        <p class="note" style="margin:0">Τα όρια θερμοκρασίας μπαίνουν από το είδος του ψυγείου. Αλλάζουν μετά από τη σελίδα κάθε συσκευής.</p>
+      </div>
+    </div>
+
+    <div class="row"><button class="btn ghost"><i data-lucide="arrow-left"></i>Πίσω</button><span class="grow"></span><button class="btn primary">Δημιουργία και έλεγχος<i data-lucide="arrow-right"></i></button></div>
+  </div>
+</section>
+
+<!-- ================= ΚΑΡΕ 2β ================= -->
+<section>
+  <p class="screen-label"><b>Καρέ 2β</b> Αυτόματος πωλητής · ίδιο βήμα «Εξοπλισμός», στο πρότυπο «Εργαστήριο» (Πειραιάς). Το ίδιο στοιχείο φτιάχνεται στο αεροδρόμιο και στην Τήνο.</p>
+  <div class="frame">
+    <div class="row">
+      <div class="grow"><h1>Πειραιάς · Αυτόματος πωλητής</h1><p class="sub">Ο πωλητής είναι αποθήκη, ψυγείο και σημείο πώλησης μαζί. Ορίζεις τι πουλά, από πού γεμίζει και πώς κόβει απόδειξη.</p></div>
+      <div class="stepper">
+        <span class="st done"><span class="n"><i data-lucide="check"></i></span><span class="lbl">Τι σημείο είναι</span></span><span class="st-line"></span>
+        <span class="st on"><span class="n">2</span><span class="lbl">Εξοπλισμός</span></span><span class="st-line"></span>
+        <span class="st"><span class="n">3</span><span class="lbl">Ετοιμότητα</span></span>
+      </div>
+    </div>
+
+    <div class="vend">
+      <div class="plan">
+        <div class="row"><h2 class="grow">Πωλητής Κάστορος</h2><span class="badge cold num">−20 / −16 °C</span></div>
+        <div class="machine" role="img" aria-label="Πρόσοψη πωλητή: 3 ράφια, 15 θέσεις, 2 άδειες, 3 χαμηλές">
+          <div class="glass">
+            <div class="shelf">
+              <div class="slot"><b>Φιστίκι</b><span class="c">A1 · 8/10</span><span class="lv"><i style="width:80%"></i></span></div>
+              <div class="slot"><b>Σοκολάτα</b><span class="c">A2 · 9/10</span><span class="lv"><i style="width:90%"></i></span></div>
+              <div class="slot low"><b>Βανίλια</b><span class="c">A3 · 2/10</span><span class="lv"><i style="width:20%"></i></span></div>
+              <div class="slot"><b>Φράουλα</b><span class="c">A4 · 7/10</span><span class="lv"><i style="width:70%"></i></span></div>
+              <div class="slot"><b>Λεμόνι</b><span class="c">A5 · 6/10</span><span class="lv"><i style="width:60%"></i></span></div>
+            </div>
+            <div class="shelf">
+              <div class="slot"><b>500 g Φιστ.</b><span class="c">B1 · 5/6</span><span class="lv"><i style="width:83%"></i></span></div>
+              <div class="slot out"><b>500 g Σοκ.</b><span class="c">B2 · 0/6</span><span class="lv"><i style="width:4%"></i></span></div>
+              <div class="slot"><b>500 g Βαν.</b><span class="c">B3 · 4/6</span><span class="lv"><i style="width:67%"></i></span></div>
+              <div class="slot low"><b>1 kg Μιξ</b><span class="c">B4 · 1/4</span><span class="lv"><i style="width:25%"></i></span></div>
+              <div class="slot"><b>1 kg Φιστ.</b><span class="c">B5 · 3/4</span><span class="lv"><i style="width:75%"></i></span></div>
+            </div>
+            <div class="shelf">
+              <div class="slot"><b>Ξυλάκι</b><span class="c">C1 · 12/15</span><span class="lv"><i style="width:80%"></i></span></div>
+              <div class="slot"><b>Ξυλάκι λεμ.</b><span class="c">C2 · 10/15</span><span class="lv"><i style="width:67%"></i></span></div>
+              <div class="slot out"><b>Σάντουιτς</b><span class="c">C3 · 0/12</span><span class="lv"><i style="width:4%"></i></span></div>
+              <div class="slot low"><b>Τούρτα</b><span class="c">C4 · 1/4</span><span class="lv"><i style="width:25%"></i></span></div>
+              <div class="slot"><b>Κύπελλο</b><span class="c">C5 · 9/12</span><span class="lv"><i style="width:75%"></i></span></div>
+            </div>
+          </div>
+          <div class="panel"><div class="scr num">−18.2°</div><div class="pad"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="card-slot">ΚΑΡΤΑ</div></div>
+          <div class="tray"></div>
+        </div>
+        <div class="legend"><span><i style="background:var(--success)"></i>γεμάτο</span><span><i style="background:var(--warning)"></i>χαμηλό, θέλει γέμισμα</span><span><i style="background:var(--danger)"></i>άδειο</span></div>
+        <div class="row"><button class="btn"><i data-lucide="grid-3x3"></i>Αλλαγή θέσεων</button><button class="btn"><i data-lucide="copy"></i>Από άλλον πωλητή</button></div>
+        <p class="note" style="margin:0">Κάθε θέση έχει ένα προϊόν και χωρητικότητα. Από εδώ βγαίνει αυτόματα η λίστα γεμίσματος για τον οδηγό.</p>
+      </div>
+
+      <div style="display:grid;gap:16px">
+        <div class="card">
+          <div class="sec-h"><i data-lucide="truck"></i>Γέμισμα</div>
+          <div class="card-b form" style="grid-template-columns:1fr 1fr">
+            <div class="field"><label>Γεμίζει από</label><div class="in"><i data-lucide="snowflake"></i>Καταψύκτης χονδρικής · Πειραιάς</div><div class="hint">Η μεταφορά γράφεται ως διακίνηση μεταξύ αποθηκών</div></div>
+            <div class="field"><label>Ειδοποίηση γεμίσματος</label><div class="in">Όταν μια θέση πέσει κάτω από 30%</div><div class="hint">Τώρα: 3 χαμηλές, 2 άδειες</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="sec-h"><i data-lucide="shopping-bag"></i>Πού πουλά</div>
+          <div class="card-b" style="display:grid;gap:10px">
+            <div class="chips"><span class="chip on"><i data-lucide="check"></i>Στο σημείο</span><span class="chip on"><i data-lucide="check"></i>efood</span><span class="chip on"><i data-lucide="check"></i>Wolt</span><span class="chip"><i data-lucide="plus"></i>Box</span></div>
+            <p class="d" style="margin:0;color:var(--mfg);font-size:var(--fs-12)">Οι παραγγελίες efood/Wolt δεσμεύουν από αυτόν τον πωλητή. Ο courier παραλαμβάνει με κωδικό στην οθόνη του.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="sec-h"><i data-lucide="receipt"></i>Απόδειξη <span>· ορίζεται μία φορά για κάθε πωλητή</span></div>
+          <div class="card-b opts">
+            <div class="opt on"><span class="rd"></span><div><b>Την κόβουμε εμείς, μέσω Viva</b><div class="d">Ο πωλητής πληρώνεται με κάρτα στο ενσωματωμένο Viva τερματικό του (TID στο βήμα 3). Η απόδειξη βγαίνει από τη σειρά ΑΛΠ-ΠΩΛ και πάει στο myDATA. Ο πελάτης τη βλέπει με QR στην οθόνη.</div></div></div>
+            <div class="opt"><span class="rd"></span><div><b>Την κόβει ο ίδιος ο πωλητής</b><div class="d">Έχει δικό του φορολογικό μηχανισμό. Εμείς παίρνουμε μόνο τις πωλήσεις για απόθεμα και αναφορές.</div></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="sec-h"><i data-lucide="wifi"></i>Σύνδεση με το σύστημα</div>
+          <div class="chk"><span class="s ok"><i data-lucide="check"></i></span><div><div class="t">Θερμοκρασία</div><div class="d">Στέλνει κάθε 5′ · τελευταία −18,2 °C πριν από 2′</div></div><button class="btn ghost">Ιστορικό</button></div>
+          <div class="chk"><span class="s wait"><i data-lucide="clock"></i></span><div><div class="t">Πωλήσεις και απόθεμα θέσεων</div><div class="d">Ο πωλητής δεν έχει ακόμα κλειδί · γράψε τον κωδικό στο μενού συντήρησής του</div></div><button class="btn">Κωδικός σύνδεσης</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ΚΑΡΕ 3 ================= -->
+<section>
+  <p class="screen-label"><b>Καρέ 3</b> Ετοιμότητα · τι λείπει για να ανοίξει το σημείο, με ένα κουμπί για το καθένα. Μένει διαθέσιμο και αργότερα από τη σελίδα του σημείου.</p>
+  <div class="frame">
+    <div class="row">
+      <div class="grow"><h1>Δορυλαίου · Ετοιμότητα</h1><p class="sub">Το σημείο φτιάχτηκε. Μένουν 4 πράγματα. Μετρητά και κάρτα στο ταμείο δουλεύουν ήδη.</p></div>
+      <div class="stepper">
+        <span class="st done"><span class="n"><i data-lucide="check"></i></span><span class="lbl">Τι σημείο είναι</span></span><span class="st-line"></span>
+        <span class="st done"><span class="n"><i data-lucide="check"></i></span><span class="lbl">Εξοπλισμός</span></span><span class="st-line"></span>
+        <span class="st on"><span class="n">3</span><span class="lbl">Ετοιμότητα</span></span>
+      </div>
+    </div>
+
+    <div class="ready">
+      <div class="gauge">
+        <svg class="ring" viewBox="0 0 150 150" role="img" aria-label="7 από 11 έτοιμα">
+          <circle cx="75" cy="75" r="62" fill="none" stroke="oklch(0.955 0 0)" stroke-width="12"/>
+          <circle cx="75" cy="75" r="62" fill="none" stroke="oklch(0.575 0.108 155)" stroke-width="12" stroke-linecap="round" stroke-dasharray="247.9 389.6" transform="rotate(-90 75 75)"/>
+          <text x="75" y="76" text-anchor="middle" class="v">7 / 11</text>
+          <text x="75" y="96" text-anchor="middle" class="l">έτοιμα</text>
+        </svg>
+        <div class="bars">
+          <div class="r"><span>Πώληση και συσκευές</span><b class="num">4 / 7</b><div class="track"><i style="width:57%;background:var(--success)"></i><i style="width:29%;background:var(--warning)"></i><i style="width:14%;background:var(--danger)"></i></div></div>
+          <div class="r"><span>Ψυγεία (HACCP)</span><b class="num">2 / 3</b><div class="track"><i style="width:67%;background:var(--success)"></i><i style="width:33%;background:var(--warning)"></i></div></div>
+          <div class="r"><span>Τραπέζια</span><b class="num">1 / 1</b><div class="track"><i style="width:100%;background:var(--success)"></i></div></div>
+        </div>
+        <span class="badge wait"><i data-lucide="circle-alert"></i>Πουλά στο ταμείο · όχι ακόμα στα τραπέζια</span>
+      </div>
+
+      <div style="display:grid;gap:16px">
+        <div class="card">
+          <div class="sec-h"><i data-lucide="receipt"></i>Πώληση</div>
+          <div class="chk"><span class="s ok"><i data-lucide="check"></i></span><div><div class="t">Εκδότης και σειρά αποδείξεων</div><div class="d">ΑΛΠ-Δ, επόμενος αριθμός 1</div></div><button class="btn ghost">Προβολή</button></div>
+          <div class="chk"><span class="s ok"><i data-lucide="check"></i></span><div><div class="t">Κατάλογος και τιμές</div><div class="d">12 προϊόντα σε 4 κατηγορίες</div></div><button class="btn ghost">Προβολή</button></div>
+          <div class="chk"><span class="s ok"><i data-lucide="check"></i></span><div><div class="t">Viva · τερματικό ταμείου</div><div class="d">TID 1600•••42 · δοκιμαστική χρέωση 0,01 € επιστράφηκε</div></div><button class="btn ghost">Προβολή</button></div>
+          <div class="chk"><span class="s bad"><i data-lucide="x"></i></span><div><div class="t">Viva · φορητό τερματικό</div><div class="d">Χωρίς αυτό πληρώνουν μόνο στο ταμείο. Γράψε τον αριθμό (TID) από την οθόνη του</div></div><button class="btn primary">Σύνδεση Viva</button></div>
+          <div class="chk"><span class="s ok"><i data-lucide="check"></i></span><div><div class="t">Εκτυπωτής αποδείξεων</div><div class="d">Δίκτυο 192.168.1.40 · δοκιμαστική σελίδα τυπώθηκε</div></div><button class="btn ghost">Ξανά δοκιμή</button></div>
+          <div class="chk"><span class="s wait"><i data-lucide="clock"></i></span><div><div class="t">Εκτυπωτής παραγγελιών</div><div class="d">Δεν βρέθηκε στο δίκτυο · έλεγξε ότι είναι αναμμένος</div></div><button class="btn">Αναζήτηση</button></div>
+          <div class="chk"><span class="s wait"><i data-lucide="clock"></i></span><div><div class="t">Σύζευξη ταμείου</div><div class="d">Σκάναρε τον κωδικό από το tablet · λήγει σε 14′</div></div><button class="btn">Νέος κωδικός</button></div>
+          <div class="card-b" style="border-top:1px solid var(--border)">
+            <div class="pair">
+              <div class="qr" aria-label="Κωδικός QR σύζευξης"></div>
+              <div><div class="d" style="color:var(--mfg);font-size:var(--fs-12)">Άνοιξε την εφαρμογή ταμείου στο tablet και σκάναρε. Αν δεν έχει κάμερα, γράψε:</div><div class="code">DOR1·7K2Q</div><div class="mono">Κεντρικό ταμείο Δορυλαίου</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="sec-h"><i data-lucide="thermometer-snowflake"></i>Ψυγεία (HACCP)</div>
+          <div class="chk"><span class="s ok"><i data-lucide="check"></i></span><div><div class="t">Όρια θερμοκρασίας</div><div class="d">Και τα 5 ψυγεία έχουν όρια από το είδος τους</div></div><button class="btn ghost">Αλλαγή</button></div>
+          <div class="chk"><span class="s ok"><i data-lucide="check"></i></span><div><div class="t">Αρχικό απόθεμα</div><div class="d">Ξεκινά από μηδέν. Το περνάς με απογραφή όταν θέλεις</div></div><button class="btn ghost">Απογραφή</button></div>
+          <div class="chk"><span class="s wait"><i data-lucide="clock"></i></span><div><div class="t">Αισθητήρες θερμοκρασίας</div><div class="d">0 από 5 στέλνουν μετρήσεις · μέχρι τότε καταγραφή με το χέρι</div></div><button class="btn">Οδηγίες</button></div>
+        </div>
+
+        <div class="card">
+          <div class="sec-h"><i data-lucide="layout-grid"></i>Τραπέζια</div>
+          <div class="chk"><span class="s ok"><i data-lucide="check"></i></span><div><div class="t">14 τραπέζια σε 2 ζώνες</div><div class="d">Φαίνονται στο ταμείο μαζί με τις κρατήσεις</div></div><button class="btn ghost">Κάτοψη</button></div>
+        </div>
+
+        <div class="row"><span class="grow note">Μπορείς να φύγεις τώρα. Η λίστα μένει στη σελίδα του σημείου μέχρι να γίνουν όλα πράσινα.</span><button class="btn primary">Τέλος</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+<script>
+  // ψεύτικο QR για το mockup
+  const qr = document.querySelector(".qr"); let s = 7;
+  for (let i = 0; i < 169; i++) { s = (s * 9301 + 49297) % 233280; const x = i % 13, y = (i / 13) | 0;
+    const finder = (x < 3 && y < 3) || (x > 9 && y < 3) || (x < 3 && y > 9);
+    const e = document.createElement("span"); if (!finder && s / 233280 < 0.48) e.className = "o"; if (finder && x % 2 && y % 2 && (x === 1 || x === 11) && (y === 1 || y === 11)) e.className = "o"; qr.appendChild(e); }
+  lucide.createIcons();
+</script>
+<style>.chk .s.ok{background:oklch(0.575 0.108 155 / 14%);color:var(--ok-ink)}.chk .s.wait{background:oklch(0.8 0.14 75 / 20%);color:var(--warn-ink)}.chk .s.bad{background:oklch(0.565 0.232 27.5 / 12%);color:var(--danger)}</style>
+</body>
+</html>
