@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<title>Κεντρικό ταμείο · παραγγελίες εκτός καταστήματος και αναγνώριση πελάτη</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: #111315; --panel: #1A1C1F; --card: #212428; --raised: #2A2D32; --line: rgba(255,255,255,.08);
+    --text: #FAFAFA; --muted: #B4B7BD; --faint: #787C84; --ink: #121417; --action: #F4F4F5;
+    --ok: #7FD1A1; --wait: #F2C46D; --bad: #F28B8B;
+    --c1: #D9DADD; --c2: #C9CAEE; --c3: #CDE5DB; --c4: #F0D2C4; --c5: #C8DAEA; --c6: #E6DECB; --c7: #DDE9C4; --c8: #EBCAD8;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #0A0B0C; color: var(--text); font-family: "Inter Tight", system-ui, sans-serif; font-size: 13.5px; padding: 40px; display: grid; gap: 24px; justify-content: center; }
+  .note { color: var(--muted); font-size: 14px; max-width: 1280px; line-height: 1.45; }
+  .note b { color: var(--text); font-weight: 600; font-size: 18px; display: block; margin-bottom: 4px; }
+  .note em { font-style: normal; color: var(--text); }
+  .num { font-variant-numeric: tabular-nums; }
+  svg.lucide { width: 18px; height: 18px; stroke-width: 1.75; }
+
+  .tablet { width: 1280px; height: 800px; background: var(--bg); border-radius: 20px; overflow: hidden; display: grid; grid-template-columns: 200px 1fr; outline: 10px solid #1F2124; }
+  nav { padding: 20px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15.5px; padding: 0 8px 20px; }
+  .logo i { width: 22px; height: 22px; border-radius: 11px; background: var(--c8); display: inline-block; }
+  nav a { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-radius: 12px; color: var(--muted); font-weight: 600; }
+  nav a.on { background: var(--raised); color: var(--text); }
+  nav a .n { margin-left: auto; min-width: 22px; height: 22px; border-radius: 11px; padding: 0 6px; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--wait); color: var(--ink); }
+  nav .foot { margin-top: auto; border-top: 1px solid var(--line); padding: 16px 8px 0; display: grid; gap: 4px; }
+  nav .foot b { font-weight: 600; font-size: 13px; }
+  nav .foot span { color: var(--muted); font-size: 12px; font-weight: 500; }
+
+  main { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .top { display: flex; align-items: center; gap: 12px; }
+  .top h1 { font-size: 20px; font-weight: 600; }
+  .top small { color: var(--muted); font-weight: 500; font-size: 13.5px; }
+  .sp { flex: 1; }
+  .seg { display: flex; background: var(--panel); border-radius: 12px; padding: 4px; gap: 2px; }
+  .seg span { white-space: nowrap; height: 36px; padding: 0 14px; border-radius: 9px; display: grid; place-items: center; color: var(--muted); font-weight: 600; }
+  .seg span.on { background: var(--raised); color: var(--text); }
+  .btn { height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); display: inline-flex; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap; }
+  .btn.p { background: var(--action); color: var(--ink); border-color: var(--action); }
+  .legend { display: flex; gap: 18px; color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  /* τραπέζια */
+  .zone { color: var(--muted); font-weight: 600; font-size: 13px; }
+  .tables { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .tb { height: 132px; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; background: var(--card); position: relative; }
+  .tb .no { font-size: 22px; font-weight: 700; }
+  .tb .meta { color: var(--muted); font-weight: 500; font-size: 12.5px; display: flex; align-items: center; gap: 5px; }
+  .tb .meta svg.lucide { width: 14px; height: 14px; }
+  .tb .amt { margin-top: auto; font-size: 17px; font-weight: 700; }
+  .tb.free { background: transparent; border: 1px dashed rgba(255,255,255,.14); }
+  .tb.free .no { color: var(--faint); }
+  .tb.free .amt { color: var(--faint); font-size: 13px; font-weight: 600; }
+  .tb.open { background: var(--c5); color: var(--ink); }
+  .tb.open .meta { color: rgba(18,20,23,.7); }
+  .tb.bill { background: var(--c4); color: var(--ink); }
+  .tb.bill .meta { color: rgba(18,20,23,.7); }
+  .tb.late { box-shadow: inset 0 0 0 3px var(--bad); }
+  .tb .flag { position: absolute; top: 10px; right: 10px; height: 24px; padding: 0 8px; border-radius: 12px; background: var(--ink); color: var(--action); font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
+  .tb .flag svg.lucide { width: 13px; height: 13px; stroke-width: 2.2; }
+  .tb.res { background: transparent; border: 1px dashed var(--c2); }
+  .tb.res .no { color: var(--c2); }
+  .tb.res .amt { color: var(--c2); font-size: 13px; font-weight: 600; }
+  .tb.sel { outline: 3px solid var(--text); outline-offset: 2px; }
+
+  /* λογαριασμός τραπεζιού */
+  .split { display: grid; grid-template-columns: 1fr 380px; gap: 16px; min-height: 0; flex: 1; }
+  .rounds { display: grid; gap: 10px; align-content: start; }
+  .round { background: var(--panel); border-radius: 14px; padding: 12px 14px; display: grid; gap: 8px; }
+  .round .rh { display: flex; align-items: center; gap: 10px; }
+  .round .rh b { font-weight: 600; }
+  .round .rh small { color: var(--muted); font-weight: 500; }
+  .doc { margin-left: auto; height: 26px; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+  .doc svg.lucide { width: 14px; height: 14px; stroke-width: 2; }
+  .doc.ok { color: var(--ok); background: rgba(127,209,161,.12); }
+  .doc.wait { color: var(--wait); background: rgba(242,196,109,.12); }
+  .doc.bad { color: var(--bad); background: rgba(242,139,139,.12); }
+  .li { display: flex; align-items: baseline; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+  .li .q { width: 24px; color: var(--muted); font-weight: 600; }
+  .li .n { flex: 1; font-weight: 600; }
+  .li .n small { display: block; color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .li .p { font-weight: 600; }
+  .li.void .n, .li.void .p { color: var(--faint); text-decoration: line-through; }
+  .side { background: var(--panel); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .side .kv { display: flex; justify-content: space-between; color: var(--muted); font-weight: 500; }
+  .side .kv b { color: var(--text); font-weight: 600; }
+  .side .tot { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--line); padding-top: 10px; }
+  .side .tot span { font-weight: 600; font-size: 15px; }
+  .side .tot b { font-size: 30px; font-weight: 700; letter-spacing: -.5px; }
+  .go { height: 56px; border-radius: 28px; background: var(--action); color: var(--ink); display: flex; align-items: center; justify-content: space-between; padding: 0 22px; font-weight: 600; font-size: 16px; }
+  .go b { font-weight: 700; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .row2 .btn { justify-content: center; }
+  .info { background: var(--card); border-radius: 12px; padding: 12px; color: var(--muted); font-weight: 500; font-size: 12.5px; line-height: 1.45; display: flex; gap: 8px; }
+  .info svg.lucide { flex: none; color: var(--text); }
+
+  /* παραγγελίες */
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; flex: 1; min-height: 0; }
+  .col { background: var(--panel); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .col h3 { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; padding: 2px 2px 4px; }
+  .col h3 small { color: var(--muted); font-weight: 500; }
+  .oc { background: var(--card); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
+  .oc.new { box-shadow: inset 0 0 0 2px var(--wait); }
+  .oc .h { white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+  .src { height: 24px; padding: 0 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--ink); }
+  .src svg.lucide { width: 14px; height: 14px; stroke-width: 2; }
+  .src.phone { background: var(--c3); }
+  .src.wolt { background: var(--c5); }
+  .src.efood { background: var(--c4); }
+  .src.table { background: var(--c2); }
+  .oc .h .t { margin-left: auto; color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  .oc .who b { font-weight: 600; display: block; }
+  .oc .who span { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .oc .items { color: var(--muted); font-weight: 500; font-size: 12.5px; line-height: 1.4; }
+  .oc .f { gap: 8px; display: flex; align-items: center; justify-content: space-between; }
+  .oc .f b { font-weight: 700; white-space: nowrap; }
+  .pill { white-space: nowrap; height: 24px; padding: 0 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+  .pill.paid { color: var(--ok); background: rgba(127,209,161,.12); }
+  .pill.due { color: var(--wait); background: rgba(242,196,109,.12); }
+  .oc .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .oc .acts span { height: 40px; border-radius: 10px; display: grid; place-items: center; font-weight: 600; border: 1px solid var(--line); }
+  .oc .acts span.p { background: var(--action); color: var(--ink); border-color: var(--action); }
+  .timer { color: var(--wait); font-weight: 700; }
+
+  /* κινητό σερβιτόρου */
+  .phones { display: flex; gap: 40px; }
+  .mobile { width: 375px; height: 812px; background: var(--bg); border-radius: 40px; outline: 10px solid #1F2124; overflow: hidden; display: flex; flex-direction: column; }
+  .ph-top { padding: 52px 20px 12px; display: flex; align-items: center; gap: 10px; }
+  .ph-top h2 { font-size: 20px; font-weight: 700; }
+  .ph-top small { color: var(--muted); font-weight: 500; }
+  .ph-body { flex: 1; padding: 0 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+  .ph-tables { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .ph-tables .tb { height: 96px; padding: 10px; }
+  .ph-tables .tb .no { font-size: 19px; }
+  .ph-tables .tb .amt { font-size: 14px; }
+  .chips { display: flex; gap: 6px; overflow: hidden; }
+  .chip { height: 40px; padding: 0 14px; border-radius: 20px; display: inline-flex; align-items: center; font-weight: 600; color: var(--ink); white-space: nowrap; }
+  .pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pk { height: 84px; border-radius: 12px; background: var(--card); padding: 10px; display: flex; flex-direction: column; border-left: 4px solid var(--c); }
+  .pk b { font-weight: 600; font-size: 14px; }
+  .pk span { margin-top: auto; color: var(--muted); font-weight: 600; }
+  .pk.in { background: var(--c); color: var(--ink); }
+  .pk.in span { color: rgba(18,20,23,.7); }
+  .tray { margin-top: auto; background: var(--panel); border-radius: 20px 20px 0 0; margin-left: -16px; margin-right: -16px; padding: 14px 16px 28px; display: grid; gap: 10px; }
+  .tray .tl { display: grid; gap: 4px; }
+  .tray .tl div { display: flex; justify-content: space-between; font-weight: 500; color: var(--muted); }
+  .tray .tl div b { color: var(--text); font-weight: 600; }
+  .tray .go { height: 54px; }
+
+  /* κρατήσεις */
+  .tline { background: var(--panel); border-radius: 14px; padding: 12px 14px; display: grid; grid-template-columns: 64px 1fr; row-gap: 6px; align-content: start; position: relative; }
+  .tline .hrs { display: grid; grid-template-columns: repeat(6, 1fr); color: var(--faint); font-weight: 600; font-size: 12px; }
+  .tline .lab { color: var(--muted); font-weight: 600; height: 44px; display: flex; align-items: center; }
+  .tline .lane { position: relative; height: 44px; border-top: 1px solid var(--line); }
+  .bk { position: absolute; top: 4px; bottom: 4px; border-radius: 8px; padding: 0 10px; display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12.5px; color: var(--ink); white-space: nowrap; overflow: hidden; }
+  .bk small { font-weight: 500; opacity: .75; }
+  .bk.seated { background: var(--c5); }
+  .bk.booked { background: var(--c2); }
+  .bk.late { background: transparent; border: 2px solid var(--wait); color: var(--wait); }
+  .now { position: absolute; top: 30px; bottom: 8px; width: 2px; background: var(--bad); }
+  .form { display: grid; gap: 10px; }
+  .fld { display: grid; gap: 4px; }
+  .fld span { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .fld div { height: 44px; border-radius: 10px; background: var(--card); display: flex; align-items: center; padding: 0 12px; font-weight: 600; }
+  .fld div.ph { color: var(--faint); font-weight: 500; }
+  .opts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .opts span { height: 40px; min-width: 44px; padding: 0 12px; border-radius: 10px; background: var(--card); display: grid; place-items: center; font-weight: 600; }
+  .opts span.on { background: var(--action); color: var(--ink); }
+  .opts span.no { color: var(--faint); text-decoration: line-through; }
+
+  /* επιστροφή & απώλειες */
+  .rl { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--card); }
+  .rl .ck { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--faint); flex: none; display: grid; place-items: center; }
+  .rl .ck.on { background: var(--action); border-color: var(--action); color: var(--ink); }
+  .rl .ck svg.lucide { width: 16px; height: 16px; stroke-width: 3; }
+  .rl .n { flex: 1; font-weight: 600; }
+  .rl .n small { display: block; color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .rl .p { font-weight: 600; }
+  .rl.off { opacity: .55; }
+  .step { display: flex; align-items: center; gap: 0; border-radius: 10px; background: var(--raised); }
+  .step span { min-width: 40px; padding: 0 6px; white-space: nowrap; height: 40px; display: grid; place-items: center; font-weight: 700; }
+  .rcpt { background: var(--card); border-radius: 12px; padding: 12px; display: grid; gap: 4px; }
+  .rcpt b { font-weight: 600; }
+  .rcpt span { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .reasons span { height: 52px; border-radius: 12px; background: var(--card); display: flex; align-items: center; gap: 8px; padding: 0 12px; font-weight: 600; }
+  .reasons span.on { background: var(--c4); color: var(--ink); }
+  .bars { display: grid; gap: 8px; }
+  .bar { display: grid; grid-template-columns: 110px 1fr 64px; gap: 10px; align-items: center; font-weight: 500; color: var(--muted); font-size: 12.5px; }
+  .bar i { height: 10px; border-radius: 5px; background: var(--raised); display: block; position: relative; overflow: hidden; }
+  .bar i em { position: absolute; inset: 0 auto 0 0; background: var(--c4); border-radius: 5px; }
+  .bar b { color: var(--text); font-weight: 600; text-align: right; }
+
+  /* κρατήσεις */
+  .tb.soon { border: 1px solid var(--c2); background: rgba(201,202,238,.08); }
+  .tb.soon .no { color: var(--c2); }
+  .tb.soon .amt { color: var(--c2); font-size: 13px; font-weight: 600; }
+  .tb .rs { margin-top: 6px; display: grid; gap: 2px; font-size: 12.5px; font-weight: 600; color: var(--c2); }
+  .tb.open .rs { color: #3D3F8F; }
+  .tb .rs span { color: var(--muted); font-weight: 500; }
+  .tb.open .rs span { color: rgba(18,20,23,.65); }
+  .wrap2 { display: grid; grid-template-columns: 1fr 400px; gap: 16px; flex: 1; min-height: 0; }
+  .days { display: flex; gap: 6px; }
+  .days span { height: 40px; min-width: 64px; padding: 0 12px; border-radius: 10px; display: grid; place-items: center; font-weight: 600; color: var(--muted); background: var(--panel); }
+  .days span.on { background: var(--action); color: var(--ink); }
+  .list { display: grid; gap: 6px; align-content: start; }
+  .slot { color: var(--muted); font-weight: 600; font-size: 13px; padding: 8px 2px 2px; display: flex; gap: 8px; }
+  .slot small { color: var(--faint); font-weight: 500; }
+  .rv { background: var(--panel); border-radius: 12px; padding: 10px 12px; display: grid; grid-template-columns: 56px 1fr auto auto; gap: 12px; align-items: center; min-height: 60px; }
+  .rv .tm { font-size: 17px; font-weight: 700; }
+  .rv .who b { font-weight: 600; display: block; }
+  .rv .who span { color: var(--muted); font-weight: 500; font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
+  .rv .who svg.lucide { width: 14px; height: 14px; }
+  .rv .tbl { height: 32px; min-width: 44px; padding: 0 10px; border-radius: 8px; background: var(--card); display: grid; place-items: center; font-weight: 700; }
+  .rv .tbl.none { color: var(--wait); background: rgba(242,196,109,.12); font-size: 12px; }
+  .st { white-space: nowrap; height: 28px; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; }
+  .st svg.lucide { width: 14px; height: 14px; stroke-width: 2; }
+  .st.booked { color: var(--c2); background: rgba(201,202,238,.12); }
+  .st.seated { color: var(--ok); background: rgba(127,209,161,.12); }
+  .st.late { color: var(--wait); background: rgba(242,196,109,.12); }
+  .st.noshow { color: var(--bad); background: rgba(242,139,139,.12); }
+  .st.done { color: var(--faint); background: var(--card); }
+  .rv.past { opacity: .55; }
+  .rv.hot { box-shadow: inset 0 0 0 2px var(--wait); }
+  .cap { background: var(--panel); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .cap h3 { font-size: 15px; font-weight: 600; }
+  .cap .sub { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .bars { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; align-items: end; height: 120px; padding-top: 8px; }
+  .bars i { display: block; border-radius: 4px 4px 0 0; background: var(--raised); }
+  .bars i.hi { background: var(--c2); }
+  .bars i.full { background: var(--wait); }
+  .hrs { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; color: var(--faint); font-size: 11.5px; font-weight: 500; text-align: center; }
+  .kpis { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .kpi { background: var(--card); border-radius: 12px; padding: 10px 12px; display: grid; gap: 2px; }
+  .kpi b { font-size: 22px; font-weight: 700; }
+  .kpi span { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .acts3 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: auto; }
+  .acts3 .btn { justify-content: center; }
+
+  /* νέα κράτηση */
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+  .tablet.rel { position: relative; }
+  .sheet { position: absolute; right: 0; top: 0; bottom: 0; width: 560px; background: var(--panel); padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; border-left: 1px solid var(--line); }
+  .sheet h2 { font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .sheet h2 .x { margin-left: auto; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--card); }
+  .fl { display: grid; gap: 6px; }
+  .fl label { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  .in { height: 48px; border-radius: 12px; background: var(--card); padding: 0 14px; display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; }
+  .in.ph { color: var(--faint); font-weight: 500; }
+  .in svg.lucide { color: var(--muted); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hint { color: var(--muted); font-weight: 500; font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
+  .hint svg.lucide { width: 14px; height: 14px; color: var(--ok); }
+  .step { display: grid; grid-template-columns: 48px 1fr 48px; gap: 6px; }
+  .step span { height: 48px; border-radius: 12px; background: var(--card); display: grid; place-items: center; font-weight: 700; font-size: 17px; }
+  .times { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .times span { height: 44px; border-radius: 10px; background: var(--card); display: grid; place-items: center; font-weight: 600; }
+  .times span.on { background: var(--action); color: var(--ink); }
+  .times span.off { background: transparent; border: 1px dashed var(--line); color: var(--faint); text-decoration: line-through; }
+  .tpick { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .tpick span { height: 52px; border-radius: 10px; background: var(--card); display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 700; }
+  .tpick span small { font-size: 11.5px; font-weight: 500; color: var(--muted); }
+  .tpick span.on { background: var(--c2); color: var(--ink); }
+  .tpick span.on small { color: rgba(18,20,23,.7); }
+  .tpick span.busy { background: transparent; border: 1px dashed var(--line); color: var(--faint); }
+  .tpick span.busy small { color: var(--faint); }
+
+  /* ── παραγγελίες εκτός καταστήματος & αναγνώριση πελάτη ── */
+  .tablet { position: relative; }
+  .dim { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+  .drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 620px; background: var(--panel); border-left: 1px solid var(--line); padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .modal { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 760px; background: var(--panel); border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .ring { display: flex; align-items: center; gap: 12px; background: var(--c3); color: var(--ink); border-radius: 14px; padding: 12px 14px; }
+  .ring .ic { width: 40px; height: 40px; border-radius: 20px; background: var(--ink); color: var(--c3); display: grid; place-items: center; flex: none; }
+  .ring b { font-weight: 700; font-size: 15px; display: block; }
+  .ring span { font-weight: 500; font-size: 12.5px; color: rgba(18,20,23,.7); }
+  .ring .x { margin-left: auto; height: 36px; padding: 0 12px; border-radius: 10px; background: rgba(18,20,23,.08); display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12.5px; }
+  .ring.unknown { background: var(--c6); }
+  .ring.unknown .ic { color: var(--c6); }
+  .who-h { display: flex; align-items: flex-start; gap: 14px; }
+  .av { width: 52px; height: 52px; border-radius: 26px; background: var(--c5); color: var(--ink); display: grid; place-items: center; font-weight: 700; font-size: 18px; flex: none; }
+  .who-h h2 { font-size: 22px; font-weight: 600; }
+  .who-h p { color: var(--muted); font-weight: 500; margin-top: 2px; }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .fact { background: var(--card); border-radius: 12px; padding: 10px 12px; }
+  .fact span { color: var(--muted); font-weight: 500; font-size: 12px; display: block; }
+  .fact b { font-size: 18px; font-weight: 700; }
+  .fact small { color: var(--ok); font-weight: 600; font-size: 12px; margin-left: 4px; }
+  .addr { display: grid; grid-template-columns: 1fr 210px; gap: 10px; }
+  .ad { display: grid; gap: 6px; align-content: start; }
+  .ad .a { background: var(--card); border-radius: 12px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start; }
+  .ad .a.on { box-shadow: inset 0 0 0 2px var(--text); }
+  .ad .a b { font-weight: 600; display: block; }
+  .ad .a span { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .map { border-radius: 12px; overflow: hidden; background: #1d2226; position: relative; height: 100%; min-height: 150px; }
+  .map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .map .lbl { position: absolute; left: 8px; bottom: 8px; background: var(--ink); color: var(--text); border-radius: 8px; padding: 4px 8px; font-size: 12px; font-weight: 600; }
+  .sec { color: var(--muted); font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .sec small { color: var(--faint); font-weight: 500; margin-left: auto; }
+  .ord { display: grid; grid-template-columns: 74px 1fr auto auto; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+  .ord .d { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  .ord .d small { display: block; color: var(--faint); font-weight: 500; }
+  .ord .i { font-weight: 500; font-size: 12.5px; color: var(--text); line-height: 1.35; }
+  .ord .i small { display: flex; gap: 6px; align-items: center; color: var(--muted); margin-top: 2px; }
+  .ord .p { font-weight: 600; }
+  .again { height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12.5px; }
+  .again svg.lucide { width: 15px; height: 15px; }
+  .src.mini { height: 20px; padding: 0 6px; font-size: 11.5px; }
+  .src.mini svg.lucide { width: 12px; height: 12px; }
+  .acts3 { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; }
+  .acts3 .btn { justify-content: center; }
+  .note2 { background: rgba(242,196,109,.1); color: var(--wait); border-radius: 12px; padding: 10px 12px; font-weight: 500; font-size: 12.5px; display: flex; gap: 8px; align-items: flex-start; line-height: 1.4; }
+  .note2 svg.lucide { flex: none; width: 16px; height: 16px; }
+  .note2 b { color: var(--text); font-weight: 600; }
+  /* μηνιαίες παραγγελίες */
+  .mbars { display: flex; align-items: flex-end; gap: 6px; height: 56px; padding-top: 4px; }
+  .mbars div { flex: 1; display: grid; gap: 4px; justify-items: center; }
+  .mbars i { width: 100%; border-radius: 4px 4px 2px 2px; background: var(--raised); display: block; }
+  .mbars i.cur { background: var(--c5); }
+  .mbars span { color: var(--faint); font-size: 11px; font-weight: 600; }
+
+  /* τηλεφωνική παραγγελία */
+  .sale { display: grid; grid-template-columns: 1fr 420px; gap: 16px; flex: 1; min-height: 0; }
+  .cats { display: flex; gap: 6px; }
+  .prods { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; align-content: start; }
+  .prods .pk { height: 92px; }
+  .seg.full { display: grid; grid-template-columns: 1fr 1fr; }
+  .seg.full span { display: flex; align-items: center; justify-content: center; }
+  .times { display: flex; gap: 6px; flex-wrap: wrap; }
+  .times span { height: 40px; padding: 0 12px; border-radius: 10px; background: var(--card); display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+  .times span.on { background: var(--action); color: var(--ink); }
+  .times span small { font-weight: 500; opacity: .7; }
+  .cust { background: var(--card); border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
+  .cust .av { width: 36px; height: 36px; font-size: 14px; }
+  .cust b { font-weight: 600; display: block; }
+  .cust span { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .cust .sp + span { color: var(--text); }
+
+  /* αποδοχή πλατφόρμας */
+  .mh { display: flex; align-items: center; gap: 10px; }
+  .mh h2 { font-size: 22px; font-weight: 600; }
+  .mh .t { margin-left: auto; color: var(--wait); font-weight: 700; display: inline-flex; gap: 6px; align-items: center; }
+  .two { display: grid; grid-template-columns: 1fr 300px; gap: 16px; }
+  .prep { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .prep span { height: 56px; border-radius: 12px; background: var(--card); display: grid; place-items: center; font-weight: 700; font-size: 17px; }
+  .prep span small { display: block; font-size: 11.5px; font-weight: 500; color: var(--muted); text-align: center; margin-top: -10px; }
+  .prep span.on { background: var(--action); color: var(--ink); }
+  .prep span.on small { color: rgba(18,20,23,.6); }
+  .mf { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+  .mf .btn { justify-content: center; height: 56px; }
+  .mf .go { height: 56px; }
+  .rej { display: flex; gap: 6px; flex-wrap: wrap; }
+  .rej span { height: 32px; padding: 0 10px; border-radius: 8px; background: var(--card); color: var(--muted); font-weight: 600; font-size: 12.5px; display: inline-flex; align-items: center; }
+
+  /* λίστα + λεπτομέρεια */
+  .ol { display: grid; gap: 6px; align-content: start; }
+  .ol .grp { color: var(--muted); font-weight: 600; font-size: 12.5px; padding: 8px 2px 2px; display: flex; gap: 6px; }
+  .ol .grp small { color: var(--faint); font-weight: 500; }
+  .or { background: var(--panel); border-radius: 12px; padding: 10px 12px; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+  .or.sel { box-shadow: inset 0 0 0 2px var(--text); }
+  .or.new { box-shadow: inset 0 0 0 2px var(--wait); }
+  .or b { font-weight: 600; display: block; }
+  .or span { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .or .r { text-align: right; }
+  .or .src, .ord .src { color: var(--ink); }
+  .or .r b { font-weight: 700; }
+  .steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .steps div { display: grid; gap: 6px; }
+  .steps i { height: 6px; border-radius: 3px; background: var(--raised); display: block; }
+  .steps .done i { background: var(--ok); }
+  .steps .cur i { background: var(--wait); }
+  .steps span { font-size: 12px; font-weight: 600; color: var(--faint); }
+  .steps .done span, .steps .cur span { color: var(--text); }
+  .steps small { font-size: 11.5px; color: var(--muted); font-weight: 500; }
+  .misscall { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 10px; background: rgba(242,139,139,.12); color: var(--bad); font-weight: 600; font-size: 12.5px; }
+
+  /* κρατήσεις: ιστορικό πελάτη */
+  .hist { background: var(--card); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+  .hist .hh { display: flex; align-items: center; gap: 10px; }
+  .hist .hh b { font-weight: 600; font-size: 15px; display: block; }
+  .hist .hh span { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ubars { display: grid; gap: 8px; }
+  .tags > span { height: 26px; padding: 0 8px; border-radius: 7px; background: var(--raised); font-weight: 600; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; }
+  .tags > span.ok { color: var(--ok); background: rgba(127,209,161,.12); }
+  .tags > span.bad { color: var(--bad); background: rgba(242,139,139,.12); }
+  .tags svg.lucide { width: 13px; height: 13px; }
+  .bar.c i em { background: var(--c2); }
+  .bar.c { grid-template-columns: 150px 1fr 40px; }
+  .vis { display: grid; grid-template-columns: 70px 1fr auto; gap: 8px; font-size: 12.5px; font-weight: 500; color: var(--muted); padding: 6px 0; border-top: 1px solid var(--line); }
+  .vis b { color: var(--text); font-weight: 600; }
+
+  /* web: ρυθμίσεις (φωτεινό θέμα κονσόλας) */
+  .web { width: 1280px; background: #F6F7F9; color: #1B1F27; border-radius: 14px; overflow: hidden; outline: 10px solid #1F2124; display: grid; grid-template-columns: 220px 1fr; font-size: 13px; }
+  .web aside { background: #fff; border-right: 1px solid #E5E7EB; padding: 18px 12px; display: grid; gap: 2px; align-content: start; }
+  .web aside .lg { font-weight: 700; padding: 0 8px 16px; display: flex; gap: 8px; align-items: center; }
+  .web aside .lg i { width: 20px; height: 20px; border-radius: 6px; background: #16213F; display: inline-block; }
+  .web aside a { height: 34px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 8px; color: #4B5160; font-weight: 500; }
+  .web aside a.on { background: #EEF1F7; color: #16213F; font-weight: 600; }
+  .web aside svg.lucide { width: 16px; height: 16px; }
+  .web .wm { padding: 24px 28px; display: grid; gap: 16px; align-content: start; }
+  .web h1 { font-size: 20px; font-weight: 600; }
+  .web .sub { color: #5B6170; margin-top: 2px; }
+  .web .tabs { display: flex; gap: 4px; border-bottom: 1px solid #E5E7EB; }
+  .web .tabs span { padding: 10px 12px; color: #5B6170; font-weight: 500; }
+  .web .tabs span.on { color: #16213F; font-weight: 600; box-shadow: inset 0 -2px 0 #16213F; }
+  .web .grid3 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+  .web .cd { background: #fff; border: 1px solid #E5E7EB; border-radius: 12px; padding: 18px; display: grid; gap: 14px; align-content: start; }
+  .web .ch { display: flex; align-items: center; gap: 10px; }
+  .web .ch .lo { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: #EEF1F7; color: #16213F; }
+  .web .ch b { font-weight: 600; font-size: 15px; display: block; }
+  .web .ch span { color: #5B6170; font-size: 12.5px; }
+  .web .st { margin-left: auto; height: 26px; padding: 0 10px; border-radius: 13px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; }
+  .web .st.ok { background: #E6F4EC; color: #1E6B43; }
+  .web .st.wait { background: #FBF1DC; color: #8A5A0B; }
+  .web .st.off { background: #F0F1F4; color: #5B6170; }
+  .web .st svg.lucide { width: 13px; height: 13px; }
+  .web .f2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .web .wf { display: grid; gap: 4px; }
+  .web .wf span { color: #5B6170; font-weight: 500; font-size: 12.5px; }
+  .web .wf div { height: 36px; border: 1px solid #D9DCE3; border-radius: 8px; background: #fff; display: flex; align-items: center; padding: 0 10px; font-weight: 500; }
+  .web .wf div.ro { background: #F6F7F9; color: #4B5160; font-family: ui-monospace, monospace; font-size: 12px; }
+  .web .wf small { color: #6B7180; font-size: 12px; }
+  .web .tbl { display: grid; gap: 0; }
+  .web .tr { display: grid; grid-template-columns: 90px 1fr 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid #EEF0F3; align-items: center; }
+  .web .tr.h { color: #6B7180; font-size: 12px; font-weight: 600; border-top: 0; }
+  .web .wb { height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #D9DCE3; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; background: #fff; }
+  .web .wb.p { background: #16213F; color: #fff; border-color: #16213F; }
+  .web .row { display: flex; gap: 8px; align-items: center; }
+  .web .calls { display: grid; gap: 8px; }
+  .web .stack { display: flex; height: 14px; border-radius: 7px; overflow: hidden; }
+  .web .stack i { display: block; }
+  .web .lg2 { display: flex; gap: 14px; color: #4B5160; font-size: 12.5px; font-weight: 500; }
+  .web .lg2 span { display: inline-flex; gap: 6px; align-items: center; }
+  .web .lg2 i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .web .hint { background: #F6F7F9; border-radius: 10px; padding: 10px 12px; color: #4B5160; font-size: 12.5px; line-height: 1.45; display: flex; gap: 8px; }
+  .web .hint svg.lucide { flex: none; width: 16px; height: 16px; color: #16213F; }
+</style>
+</head>
+<body>
+
+<p class="note"><b>Παραγγελίες εκτός καταστήματος και αναγνώριση πελάτη</b>Επτά οθόνες: η κλήση που χτυπά (γνωστός και άγνωστος αριθμός), η τηλεφωνική παραγγελία, η αποδοχή παραγγελίας Wolt/efood με χρόνο ετοιμασίας, η πορεία μιας παραγγελίας ως την απόδειξη, το ιστορικό πελάτη στις κρατήσεις και οι συνδέσεις στη σελίδα ρυθμίσεων της κονσόλας. Ό,τι γράφει ο ταμίας εδώ γράφεται στον ίδιο πελάτη (συναλλασσόμενο) που βλέπει και η κονσόλα.</p>
+
+<!-- 1 -->
+<p class="note"><b>1 · Χτυπά το τηλέφωνο: γνωστός πελάτης</b>Το τηλεφωνικό κέντρο Yeastar στέλνει στο σύστημα την κλήση τη στιγμή που χτυπά. Αν ο αριθμός ανήκει σε πελάτη, το ταμείο του καταστήματος ανοίγει μόνο του την καρτέλα του, πάνω από ό,τι έκανε ο ταμίας (η πώληση στη μέση δεν χάνεται). Φαίνονται οι διευθύνσεις με χάρτη και απόσταση, οι σημειώσεις για τη διανομή και οι τελευταίες παραγγελίες από κάθε κανάλι. <em>«Ξανά»</em> γεμίζει το καλάθι με την ίδια παραγγελία στις σημερινές τιμές· ό,τι δεν πουλιέται πια φαίνεται και δεν μπαίνει. Το γράφημα δείχνει πόσο συχνά παραγγέλνει (ο τρέχων μήνας με χρώμα).</p>
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a class="on"><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a><i data-lucide="armchair"></i>Τραπέζια</a>
+    <a><i data-lucide="bike"></i>Παραγγελίες<span class="n num">3</span></a>
+    <a><i data-lucide="calendar-clock"></i>Κρατήσεις</a>
+    <a><i data-lucide="receipt-text"></i>Συναλλαγές</a>
+    <div class="foot"><b>Κατάστημα Πειραιά</b><span>Κεντρικό ταμείο · Μαρία Κ.</span></div>
+  </nav>
+  <main style="opacity:.35">
+    <div class="top"><h1>Πώληση</h1></div>
+    <div class="prods" style="grid-template-columns:repeat(5,1fr)">
+      <div class="pk" style="--c:var(--c3)"><b>Κύπελλο 2 μπάλες</b><span class="num">4,20 €</span></div>
+      <div class="pk" style="--c:var(--c3)"><b>Κύπελλο 3 μπάλες</b><span class="num">5,60 €</span></div>
+      <div class="pk" style="--c:var(--c4)"><b>Οικογενειακό 500 g</b><span class="num">8,90 €</span></div>
+      <div class="pk" style="--c:var(--c4)"><b>Οικογενειακό 1 kg</b><span class="num">16,50 €</span></div>
+      <div class="pk" style="--c:var(--c5)"><b>Freddo espresso</b><span class="num">3,20 €</span></div>
+    </div>
+  </main>
+  <div class="dim"></div>
+  <div class="drawer">
+    <div class="ring"><div class="ic"><i data-lucide="phone-incoming"></i></div><div><b class="num">694 812 3412 · χτυπά</b><span>Γραμμή καταστήματος Πειραιά · εσωτερικό 201</span></div><span class="x"><i data-lucide="x"></i>Κλείσιμο</span></div>
+    <div class="who-h">
+      <div class="av">ΚΛ</div>
+      <div style="flex:1"><h2>Κώστας Λαμπρόπουλος</h2><p>Πελάτης από Μάρτιο 2025 · συνήθως διανομή, Παρασκευή βράδυ</p></div>
+      <span class="again"><i data-lucide="pencil"></i>Στοιχεία</span>
+    </div>
+    <div class="facts">
+      <div class="fact"><span>Παραγγελίες</span><b class="num">23</b><small class="num">+3 τον Νοέμβριο</small></div>
+      <div class="fact"><span>Μέση παραγγελία</span><b class="num">19,40 €</b></div>
+      <div class="fact"><span>Τελευταία</span><b class="num">πριν 6 ημέρες</b></div>
+    </div>
+    <div class="addr">
+      <div class="ad">
+        <div class="sec"><i data-lucide="map-pin"></i>Αποστολή</div>
+        <div class="a on"><i data-lucide="house"></i><div><b>Σπίτι · Ηρώων Πολυτεχνείου 84</b><span>3ος όροφος · κουδούνι «Λαμπρόπουλος» · 1,2 km, ~8′ με μηχανάκι</span></div></div>
+        <div class="a"><i data-lucide="briefcase"></i><div><b>Γραφείο · Ακτή Μιαούλη 47</b><span>Ρεσεψιόν, 2ος · 0,6 km</span></div></div>
+      </div>
+      <div class="map">
+        <svg viewBox="0 0 210 170" preserveAspectRatio="xMidYMid slice">
+          <rect width="210" height="170" fill="#1d2226"/>
+          <path d="M0 120 Q60 100 110 118 T210 96 V170 H0Z" fill="#1a2a33"/>
+          <g stroke="#2c3238" stroke-width="7" fill="none" stroke-linecap="round"><path d="M-5 40 L215 70"/><path d="M40 -5 L70 175"/><path d="M150 -5 L120 175"/><path d="M-5 90 L215 30"/></g>
+          <g stroke="#262b30" stroke-width="3" fill="none"><path d="M0 15 L210 45"/><path d="M95 0 L90 170"/><path d="M0 65 L210 100"/></g>
+          <path d="M72 60 L95 64 L128 52" stroke="#CDE5DB" stroke-width="3" fill="none" stroke-dasharray="5 4" stroke-linecap="round"/>
+          <circle cx="72" cy="60" r="7" fill="#F4F4F5" stroke="#121417" stroke-width="2"/>
+          <circle cx="128" cy="52" r="8" fill="#C8DAEA" stroke="#121417" stroke-width="2"/>
+        </svg>
+        <span class="lbl num">Κατάστημα → Σπίτι · 1,2 km</span>
+      </div>
+    </div>
+    <div class="note2"><i data-lucide="sticky-note"></i><div><b>Σημείωση διανομής:</b> Χωρίς ξηρούς καρπούς (αλλεργία παιδιού). Πληρώνει συνήθως με κάρτα στην πόρτα.</div></div>
+    <div>
+      <div class="sec"><i data-lucide="history"></i>Τελευταίες παραγγελίες<small>όλα τα κανάλια</small></div>
+      <div class="ord"><div class="d num">20 Νοε<small>21:10</small></div><div class="i">1× Οικογενειακό 1 kg (Σοκολάτα, Βανίλια, Φράουλα), 2× Σιρόπι<small><span class="src mini phone"><i data-lucide="phone"></i>Τηλέφωνο</span>Διανομή · Κάρτα</small></div><b class="p num">19,80 €</b><span class="again"><i data-lucide="rotate-ccw"></i>Ξανά</span></div>
+      <div class="ord"><div class="d num">14 Νοε<small>20:45</small></div><div class="i">2× Κύπελλο 3 μπάλες, 1× Freddo espresso<small><span class="src mini wolt"><i data-lucide="bike"></i>Wolt</span>Πληρωμένη online</small></div><b class="p num">14,40 €</b><span class="again"><i data-lucide="rotate-ccw"></i>Ξανά</span></div>
+      </div>
+    <div>
+      <div class="sec"><i data-lucide="chart-column"></i>Παραγγελίες ανά μήνα<small>τελευταίοι 8 μήνες</small></div>
+      <div class="mbars">
+        <div><i style="height:12px"></i><span>Απρ</span></div><div><i style="height:20px"></i><span>Μάι</span></div><div><i style="height:36px"></i><span>Ιούν</span></div><div><i style="height:44px"></i><span>Ιούλ</span></div><div><i style="height:40px"></i><span>Αύγ</span></div><div><i style="height:24px"></i><span>Σεπ</span></div><div><i style="height:16px"></i><span>Οκτ</span></div><div><i class="cur" style="height:24px"></i><span>Νοε</span></div>
+      </div>
+    </div>
+    <div class="acts3">
+      <span class="btn"><i data-lucide="calendar-plus"></i>Κράτηση</span>
+      <span class="btn"><i data-lucide="store"></i>Παραλαβή</span>
+      <span class="btn p"><i data-lucide="bike"></i>Νέα παραγγελία διανομής</span>
+    </div>
+  </div>
+</div>
+
+<!-- 2 -->
+<p class="note"><b>2 · Χτυπά το τηλέφωνο: άγνωστος αριθμός</b>Ο αριθμός δεν υπάρχει. Η καρτέλα ανοίγει με το τηλέφωνο ήδη γραμμένο: όνομα και διεύθυνση (με προτάσεις διευθύνσεων όπως στην κονσόλα) και ο πελάτης γράφεται μία φορά για πάντα. Ο αριθμός φαίνεται ολόκληρος μόνο σε αυτή την καρτέλα· στις λίστες κρύβεται, όπως ήδη στις κρατήσεις. Αν ο ταμίας δεν τη χρειάζεται (λάθος κλήση, προμηθευτής), «Δεν είναι παραγγελία» την κλείνει χωρίς να γραφτεί τίποτα.</p>
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a class="on"><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a><i data-lucide="armchair"></i>Τραπέζια</a>
+    <a><i data-lucide="bike"></i>Παραγγελίες<span class="n num">3</span></a>
+    <a><i data-lucide="calendar-clock"></i>Κρατήσεις</a>
+    <a><i data-lucide="receipt-text"></i>Συναλλαγές</a>
+    <div class="foot"><b>Κατάστημα Πειραιά</b><span>Κεντρικό ταμείο · Μαρία Κ.</span></div>
+  </nav>
+  <main style="opacity:.35"><div class="top"><h1>Πώληση</h1></div></main>
+  <div class="dim"></div>
+  <div class="drawer">
+    <div class="ring unknown"><div class="ic"><i data-lucide="phone-incoming"></i></div><div><b class="num">210 412 7790 · χτυπά</b><span>Άγνωστος αριθμός · δεν έχει παραγγείλει ξανά</span></div><span class="x"><i data-lucide="x"></i>Δεν είναι παραγγελία</span></div>
+    <div class="form">
+      <div class="fld"><span>Τηλέφωνο</span><div class="num">210 412 7790</div></div>
+      <div class="fld"><span>Όνομα</span><div>Ειρήνη Σταθοπούλου</div></div>
+      <div class="fld"><span>Διεύθυνση</span><div>Γρ. Λαμπράκη 1<span style="color:var(--faint);font-weight:500">|</span></div></div>
+      <div style="background:var(--card);border-radius:12px;padding:4px">
+        <div class="rl" style="background:transparent"><i data-lucide="map-pin"></i><div class="n">Γρηγορίου Λαμπράκη 112, Πειραιάς 185 34<small>0,9 km από το κατάστημα · εντός ζώνης διανομής</small></div></div>
+        <div class="rl" style="background:transparent;opacity:.7"><i data-lucide="map-pin"></i><div class="n">Γρηγορίου Λαμπράκη 12, Κερατσίνι 187 55<small>3,8 km · εκτός ζώνης διανομής</small></div></div>
+      </div>
+      <div class="f2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fld"><span>Όροφος, κουδούνι</span><div class="ph">π.χ. 2ος, «Σταθοπούλου»</div></div>
+        <div class="fld"><span>Σημείωση για τη διανομή</span><div class="ph">προαιρετικό</div></div>
+      </div>
+      <div class="info"><i data-lucide="shield-check"></i>Ο πελάτης γράφεται στους συναλλασσόμενους της επιχείρησης. Το τηλέφωνο χρησιμοποιείται μόνο για τις παραγγελίες του· αν ζητήσει διαγραφή, γίνεται από το κέντρο GDPR.</div>
+    </div>
+    <div class="acts3" style="grid-template-columns:1fr 1.6fr">
+      <span class="btn"><i data-lucide="store"></i>Παραλαβή χωρίς διεύθυνση</span>
+      <span class="btn p"><i data-lucide="bike"></i>Αποθήκευση και παραγγελία</span>
+    </div>
+  </div>
+</div>
+
+<!-- 3 -->
+<p class="note"><b>3 · Τηλεφωνική παραγγελία</b>Η ίδια οθόνη πώλησης με τα ίδια φύλλα επιλογών· δεξιά, αντί για «Πληρωμή», τα στοιχεία της παραγγελίας. <em>Διανομή ή παραλαβή</em>, ώρα (το σύστημα προτείνει το συντομότερο με βάση όσες ετοιμάζονται ήδη) και πώς θα πληρώσει. Αν πληρώνει στην πόρτα, η απόδειξη βγαίνει όταν επιστρέψει ο διανομέας με τα χρήματα ή με την πληρωμή κάρτας· αν πληρώσει τώρα με κάρτα (τηλεφωνικά δεν γίνεται) ή έρθει να την πάρει, πληρώνει στο ταμείο όπως κάθε πώληση.</p>
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a class="on"><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a><i data-lucide="armchair"></i>Τραπέζια</a>
+    <a><i data-lucide="bike"></i>Παραγγελίες<span class="n num">3</span></a>
+    <a><i data-lucide="calendar-clock"></i>Κρατήσεις</a>
+    <a><i data-lucide="receipt-text"></i>Συναλλαγές</a>
+    <div class="foot"><b>Κατάστημα Πειραιά</b><span>Κεντρικό ταμείο · Μαρία Κ.</span></div>
+  </nav>
+  <main>
+    <div class="top"><h1>Τηλεφωνική για Κώστα Λ.</h1><small>από το «Ξανά» της 20 Νοε</small><div class="sp"></div><span class="btn"><i data-lucide="x"></i>Άκυρη</span></div>
+    <div class="sale">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="chips"><span class="chip" style="background:var(--c3)">Κύπελλα</span><span class="chip" style="background:var(--c4)">Οικογενειακά</span><span class="chip" style="background:var(--c5)">Καφέδες</span><span class="chip" style="background:var(--c6)">Γλυκά</span><span class="chip" style="background:var(--c7)">Σιρόπια</span></div>
+        <div class="prods">
+          <div class="pk" style="--c:var(--c4)"><b>Οικογενειακό 500 g</b><span class="num">8,90 €</span></div>
+          <div class="pk in" style="--c:var(--c4)"><b>Οικογενειακό 1 kg</b><span class="num">16,50 € · ×1</span></div>
+          <div class="pk" style="--c:var(--c4)"><b>Οικογενειακό 1,5 kg</b><span class="num">23,00 €</span></div>
+          <div class="pk" style="--c:var(--c4)"><b>Τούρτα παγωτό</b><span class="num">28,00 €</span></div>
+          <div class="pk in" style="--c:var(--c7)"><b>Σιρόπι σοκολάτας</b><span class="num">1,65 € · ×2</span></div>
+          <div class="pk" style="--c:var(--c7)"><b>Τριμμένο μπισκότο</b><span class="num">0,80 €</span></div>
+          <div class="pk" style="--c:var(--c5)"><b>Freddo espresso</b><span class="num">3,20 €</span></div>
+          <div class="pk" style="--c:var(--c5)"><b>Cappuccino</b><span class="num">3,40 €</span></div>
+        </div>
+        <div class="round" style="margin-top:auto">
+          <div class="rh"><b>Καλάθι</b><small class="num">3 είδη</small></div>
+          <div class="li"><span class="q num">1×</span><span class="n">Οικογενειακό 1 kg<small>Σοκολάτα, Βανίλια, Φράουλα</small></span><span class="p num">16,50 €</span></div>
+          <div class="li"><span class="q num">2×</span><span class="n">Σιρόπι σοκολάτας</span><span class="p num">3,30 €</span></div>
+        </div>
+      </div>
+      <div class="side">
+        <div class="cust"><div class="av">ΚΛ</div><div><b>Κώστας Λαμπρόπουλος</b><span>Ηρώων Πολυτεχνείου 84 · 3ος</span></div><span class="sp"></span><span class="again"><i data-lucide="repeat"></i>Άλλαξε</span></div>
+        <div class="seg full"><span class="on"><i data-lucide="bike" style="margin-right:6px"></i>Διανομή</span><span>Παραλαβή</span></div>
+        <div class="fld"><span>Πότε</span></div>
+        <div class="times"><span class="on">Το συντομότερο <small class="num">~30′ · 21:35</small></span><span>21:45</span><span>22:00</span><span>Άλλη ώρα</span></div>
+        <div class="fld"><span>Πληρωμή</span></div>
+        <div class="times"><span>Μετρητά στην πόρτα</span><span class="on">Κάρτα στην πόρτα</span></div>
+        <div class="fld"><span>Σημείωση</span><div>Χωρίς ξηρούς καρπούς</div></div>
+        <div class="kv"><span>Διανομή</span><b class="num">0,00 €</b></div>
+        <div class="tot"><span>Σύνολο</span><b class="num">19,80 €</b></div>
+        <div class="go"><span>Στείλε για ετοιμασία</span><i data-lucide="arrow-right"></i></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 4 -->
+<p class="note"><b>4 · Ήρθε παραγγελία Wolt ή efood</b>Η παραγγελία έρχεται μόνη της από την πλατφόρμα. Το ταμείο χτυπά (ήχος) και η κάρτα μένει πάνω από όλα μέχρι να απαντήσει κάποιος· ο χρόνος πάνω δεξιά είναι πόσο έχει μέχρι να τη χάσει. Ο ταμίας διαλέγει <em>σε πόσα λεπτά θα είναι έτοιμη</em> (προτείνεται ο συνηθισμένος χρόνος του καταστήματος) και η πλατφόρμα ενημερώνει πελάτη και διανομέα. Αν δεν μπορεί, «Απόρριψη» με λόγο. Τα είδη ταιριάζουν με τα προϊόντα μας από τον κωδικό τους· ένα που δεν βρέθηκε φαίνεται με κίτρινο για να το διορθώσει ο υπεύθυνος.</p>
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a><i data-lucide="armchair"></i>Τραπέζια</a>
+    <a class="on"><i data-lucide="bike"></i>Παραγγελίες<span class="n num">4</span></a>
+    <a><i data-lucide="calendar-clock"></i>Κρατήσεις</a>
+    <a><i data-lucide="receipt-text"></i>Συναλλαγές</a>
+    <div class="foot"><b>Κατάστημα Πειραιά</b><span>Κεντρικό ταμείο · Μαρία Κ.</span></div>
+  </nav>
+  <main style="opacity:.35"><div class="top"><h1>Παραγγελίες</h1></div></main>
+  <div class="dim"></div>
+  <div class="modal">
+    <div class="mh"><span class="src wolt" style="height:30px;font-size:13px"><i data-lucide="bike"></i>Wolt</span><h2>Νέα παραγγελία <span class="num" style="color:var(--muted);font-weight:500">#W-4821</span></h2><span class="t num"><i data-lucide="timer"></i>απάντησε σε 4:12</span></div>
+    <div class="two">
+      <div class="round" style="background:var(--card)">
+        <div class="rh"><b>Ελένη Κ.</b><small>Ο διανομέας της Wolt την παραλαμβάνει</small></div>
+        <div class="li"><span class="q num">1×</span><span class="n">Οικογενειακό 1 kg<small>Φιστίκι, Σοκολάτα</small></span><span class="p num">16,50 €</span></div>
+        <div class="li"><span class="q num">2×</span><span class="n">Κύπελλο 3 μπάλες<small>Λεμόνι, Μάνγκο, Φράουλα · Καρύδα, Σοκολάτα, Βανίλια</small></span><span class="p num">11,20 €</span></div>
+        <div class="li"><span class="q num">1×</span><span class="n" style="color:var(--wait)">«Crunchy topping»<small>δεν βρέθηκε στον κατάλογό μας · θα γραφτεί ως «Διάφορα 24%»</small></span><span class="p num">1,20 €</span></div>
+        <div class="note2" style="margin-top:4px"><i data-lucide="message-square"></i><div><b>Σχόλιο πελάτη:</b> Λίγο πιο μαλακό αν γίνεται</div></div>
+        <div class="f" style="display:flex;justify-content:space-between;align-items:center;margin-top:4px"><span class="pill paid"><i data-lucide="check"></i>Πληρωμένη online στη Wolt</span><b class="num" style="font-size:20px">28,90 €</b></div>
+      </div>
+      <div style="display:grid;gap:10px;align-content:start">
+        <div class="sec">Έτοιμη σε</div>
+        <div class="prep"><span>10′</span><span class="on">15′</span><span>20′</span><span>25′</span><span>30′</span><span>45′</span></div>
+        <div class="info"><i data-lucide="clock-3"></i>Συνήθως 15′ στις 21:00–22:00. Τώρα ετοιμάζονται 3 παραγγελίες.</div>
+        <div class="sec" style="margin-top:4px">Αν την απορρίψεις, λόγος</div>
+        <div class="rej"><span>Τελείωσε είδος</span><span>Πολύς φόρτος</span><span>Κλείνουμε</span><span>Άλλο</span></div>
+      </div>
+    </div>
+    <div class="mf"><span class="btn">Απόρριψη</span><div class="go"><span>Αποδοχή · έτοιμη στις <b class="num">21:20</b></span><i data-lucide="check"></i></div></div>
+  </div>
+</div>
+
+<!-- 5 -->
+<p class="note"><b>5 · Η πορεία της παραγγελίας ως την απόδειξη</b>Αριστερά όλες οι παραγγελίες της ημέρας κατά κατάσταση, από κάθε κανάλι· δεξιά η επιλεγμένη. Η μπάρα δείχνει πού βρίσκεται: <em>πράσινο</em> = έγινε, <em>κίτρινο</em> = τώρα. Η αλλαγή κατάστασης στέλνεται αμέσως και στη Wolt ή στο efood. Η απόδειξη: στις Wolt/efood που πληρώθηκαν online βγαίνει στην αποδοχή (η πληρωμή είναι «μέσω πλατφόρμας»)· στις «πληρώνει στην πόρτα» βγαίνει με το «Πληρώθηκε», με μετρητά ή με το τερματικό Viva. Πάνω δεξιά οι αναπάντητες κλήσεις της ημέρας για να τις πάρει πίσω ο ταμίας.</p>
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a><i data-lucide="armchair"></i>Τραπέζια</a>
+    <a class="on"><i data-lucide="bike"></i>Παραγγελίες<span class="n num">3</span></a>
+    <a><i data-lucide="calendar-clock"></i>Κρατήσεις</a>
+    <a><i data-lucide="receipt-text"></i>Συναλλαγές</a>
+    <div class="foot"><b>Κατάστημα Πειραιά</b><span>Κεντρικό ταμείο · Μαρία Κ.</span></div>
+  </nav>
+  <main>
+    <div class="top">
+      <h1>Παραγγελίες</h1><small class="num">7 σε εξέλιξη · 23 παραδόθηκαν</small><div class="sp"></div>
+      <div class="seg"><span class="on">Όλες</span><span>Τηλέφωνο</span><span>Wolt</span><span>efood</span></div>
+      <span class="misscall"><i data-lucide="phone-missed"></i><span class="num">2 αναπάντητες</span></span>
+      <div class="btn p"><i data-lucide="phone"></i>Νέα τηλεφωνική</div>
+    </div>
+    <div class="wrap2" style="grid-template-columns:420px 1fr">
+      <div class="ol">
+        <div class="grp">Νέες <small class="num">1</small></div>
+        <div class="or new"><span class="src efood"><i data-lucide="bike"></i>efood</span><div><b>Π. Δημητρίου</b><span>Διανομή efood · πριν 1′</span></div><div class="r"><b class="num">15,30 €</b><span>Μετρητά</span></div></div>
+        <div class="grp">Ετοιμάζονται <small class="num">3</small></div>
+        <div class="or sel"><span class="src phone"><i data-lucide="phone"></i>Τηλ.</span><div><b>Κώστας Λαμπρόπουλος</b><span>Διανομή · έτοιμη <span class="timer">σε 6′</span></span></div><div class="r"><b class="num">19,80 €</b><span>Κάρτα πόρτα</span></div></div>
+        <div class="or"><span class="src wolt"><i data-lucide="bike"></i>Wolt</span><div><b>Ελένη Κ.</b><span>Παραλαβή διανομέα 21:20</span></div><div class="r"><b class="num">28,90 €</b><span>Online</span></div></div>
+        <div class="or"><span class="src phone"><i data-lucide="phone"></i>Τηλ.</span><div><b>Μ. Ρήγας</b><span>Παραλαβή από το κατάστημα 21:40</span></div><div class="r"><b class="num">12,60 €</b><span>Στο ταμείο</span></div></div>
+        <div class="grp">Στον δρόμο <small class="num">2</small></div>
+        <div class="or"><span class="src phone"><i data-lucide="phone"></i>Τηλ.</span><div><b>Ειρήνη Σταθοπούλου</b><span>Έφυγε 21:02 · Γιώργος</span></div><div class="r"><b class="num">24,10 €</b><span>Μετρητά</span></div></div>
+        <div class="or"><span class="src efood"><i data-lucide="bike"></i>efood</span><div><b>Σ. Παππάς</b><span>Παρέλαβε ο διανομέας 20:58</span></div><div class="r"><b class="num">6,00 €</b><span>Online</span></div></div>
+      </div>
+      <div class="side">
+        <div class="cust"><div class="av">ΚΛ</div><div><b>Κώστας Λαμπρόπουλος · 69•• ••• 412</b><span>Ηρώων Πολυτεχνείου 84 · 3ος · κουδούνι «Λαμπρόπουλος»</span></div><span class="sp"></span><span class="again"><i data-lucide="phone"></i>Κλήση</span></div>
+        <div class="steps">
+          <div class="done"><i></i><span>Νέα</span><small class="num">21:05</small></div>
+          <div class="cur"><i></i><span>Ετοιμάζεται</span><small class="num">ως 21:35</small></div>
+          <div><i></i><span>Έτοιμη</span></div>
+          <div><i></i><span>Στον δρόμο</span></div>
+          <div><i></i><span>Παραδόθηκε</span></div>
+        </div>
+        <div class="li"><span class="q num">1×</span><span class="n">Οικογενειακό 1 kg<small>Σοκολάτα, Βανίλια, Φράουλα</small></span><span class="p num">16,50 €</span></div>
+        <div class="li"><span class="q num">2×</span><span class="n">Σιρόπι σοκολάτας</span><span class="p num">3,30 €</span></div>
+        <div class="note2"><i data-lucide="sticky-note"></i><div>Χωρίς ξηρούς καρπούς</div></div>
+        <div class="kv"><span>Πληρωμή</span><b>Κάρτα στην πόρτα · δεν πληρώθηκε ακόμα</b></div>
+        <div class="kv"><span>Απόδειξη</span><b style="color:var(--wait)">Βγαίνει μόλις πληρωθεί</b></div>
+        <div class="tot"><span>Σύνολο</span><b class="num">19,80 €</b></div>
+        <div class="row2"><span class="btn"><i data-lucide="printer"></i>Δελτίο κουζίνας</span><span class="btn"><i data-lucide="clock-plus"></i>+10′ αργεί</span></div>
+        <div class="go"><span>Έτοιμη</span><i data-lucide="arrow-right"></i></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 6 -->
+<p class="note"><b>6 · Κρατήσεις: τι παίρνει ο πελάτης</b>Στη νέα κράτηση, μόλις γραφτεί το τηλέφωνο, βγαίνει δεξιά το ιστορικό του: πόσες φορές ήρθε, αν έχει «δεν ήρθε», ποιο τραπέζι προτιμά και <em>τι παραγγέλνει συνήθως</em> (από τους λογαριασμούς των κρατήσεών του). Οι μπάρες δείχνουν σε πόσες από τις επισκέψεις του πήρε κάθε είδος. Εμφανίζεται από 3 επισκέψεις και πάνω, για να μη βγάζει συμπεράσματα από μία. Το ίδιο ιστορικό ανοίγει πατώντας μια κράτηση στη λίστα.</p>
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a><i data-lucide="armchair"></i>Τραπέζια</a>
+    <a><i data-lucide="bike"></i>Παραγγελίες</a>
+    <a class="on"><i data-lucide="calendar-clock"></i>Κρατήσεις</a>
+    <a><i data-lucide="receipt-text"></i>Συναλλαγές</a>
+    <div class="foot"><b>Κατάστημα Πειραιά</b><span>Κεντρικό ταμείο · Μαρία Κ.</span></div>
+  </nav>
+  <main>
+    <div class="top"><h1>Νέα κράτηση</h1><small>Παρασκευή 27 Νοε</small><div class="sp"></div><span class="btn"><i data-lucide="x"></i>Άκυρη</span></div>
+    <div class="wrap2" style="grid-template-columns:1fr 460px">
+      <div class="form">
+        <div class="fld"><span>Τηλέφωνο</span><div class="num">697 220 1188</div></div>
+        <div class="fld"><span>Όνομα</span><div>Νίκος Αλεξίου</div></div>
+        <div class="fld"><span>Άτομα</span></div>
+        <div class="opts"><span>1</span><span>2</span><span>3</span><span class="on">4</span><span>5</span><span>6</span><span>8</span><span>+</span></div>
+        <div class="fld"><span>Ώρα</span></div>
+        <div class="opts"><span>19:00</span><span>19:30</span><span class="on">20:00</span><span>20:30</span><span class="no">21:00</span><span>21:30</span></div>
+        <div class="fld"><span>Τραπέζι</span></div>
+        <div class="opts"><span class="on">6 · Βεράντα</span><span>7 · Βεράντα</span><span>Β2</span><span class="no">Β3</span><span>Όταν έρθουν</span></div>
+        <div class="fld"><span>Σημείωση</span><div>Γενέθλια κόρης, κερί στο παγωτό</div></div>
+        <div class="go" style="margin-top:auto"><span>Κράτηση για 4 · 20:00 · τραπέζι 6</span><i data-lucide="check"></i></div>
+      </div>
+      <div class="hist">
+        <div class="hh"><div class="av" style="width:44px;height:44px;font-size:16px;background:var(--c2)">ΝΑ</div><div><b>Νίκος Αλεξίου</b><span>Γνωστός πελάτης · 1η κράτηση Μάιο 2025</span></div></div>
+        <div class="tags"><span class="ok"><i data-lucide="check"></i><span class="num">11 επισκέψεις</span></span><span class="bad"><i data-lucide="calendar-x"></i><span class="num">1 δεν ήρθε</span></span><span><i data-lucide="armchair"></i>Προτιμά βεράντα · τρ. 6</span><span><i data-lucide="users"></i>Συνήθως 4</span></div>
+        <div class="sec"><i data-lucide="ice-cream-cone"></i>Τι παίρνει συνήθως<small>σε πόσες από τις 11 επισκέψεις</small></div>
+        <div class="ubars">
+          <div class="bar c"><span>Κύπελλο 3 μπάλες</span><i><em style="width:91%"></em></i><b class="num">10</b></div>
+          <div class="bar c"><span>Freddo cappuccino</span><i><em style="width:73%"></em></i><b class="num">8</b></div>
+          <div class="bar c"><span>Βάφλα με παγωτό</span><i><em style="width:55%"></em></i><b class="num">6</b></div>
+          <div class="bar c"><span>Πορτοκαλάδα</span><i><em style="width:36%"></em></i><b class="num">4</b></div>
+          <div class="bar c"><span>Τούρτα παγωτό</span><i><em style="width:18%"></em></i><b class="num">2</b></div>
+        </div>
+        <div class="tags"><span>Αγαπημένες γεύσεις: Φιστίκι · Καϊμάκι · Σοκολάτα</span></div>
+        <div class="sec"><i data-lucide="history"></i>Τελευταίες επισκέψεις<small>μέσος λογαριασμός 38,20 €</small></div>
+        <div>
+          <div class="vis"><span class="num">8 Νοε</span><span><b>4 άτομα · τρ. 6</b> · 2 κύπελλα, 2 freddo, βάφλα</span><b class="num">36,40 €</b></div>
+          <div class="vis"><span class="num">18 Οκτ</span><span><b>5 άτομα · τρ. 7</b> · τούρτα παγωτό, 3 freddo</span><b class="num">52,90 €</b></div>
+          <div class="vis"><span class="num">27 Σεπ</span><span><b>4 άτομα · τρ. 6</b> · δεν ήρθαν</span><b style="color:var(--bad)">—</b></div>
+        </div>
+        <div class="info"><i data-lucide="sticky-note"></i>Τελευταία σημείωση: «Θέλει το τραπέζι στη γωνία, έχει καρότσι»</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 7 -->
+<p class="note"><b>7 · Κονσόλα · Ρυθμίσεις › Συνδέσεις</b>Όλα τα στοιχεία σύνδεσης μπαίνουν από εδώ, όχι σε αρχεία. <em>Yeastar</em>: η διεύθυνση του τηλεφωνικού κέντρου και τα κλειδιά API που δίνει το ίδιο (Integrations › API)· «Έλεγχος» δοκιμάζει τη σύνδεση. Ο πίνακας λέει ποια γραμμή ή ποιο εσωτερικό ανοίγει καρτέλα σε ποιο ταμείο. Δεξιά: οι κλήσεις της ημέρας (απαντήθηκαν, έγιναν παραγγελία, χάθηκαν) ώστε να φαίνεται αν δουλεύει και πόσα χάνονται. <em>Wolt και efood</em> ενεργοποιούνται ανά κατάστημα όταν η πλατφόρμα εγκρίνει τη σύνδεση· μέχρι τότε η κάρτα λέει τι εκκρεμεί.</p>
+<div class="web">
+  <aside>
+    <div class="lg"><i></i>Gelato System</div>
+    <a><i data-lucide="layout-dashboard"></i>Αρχική</a>
+    <a><i data-lucide="store"></i>Καταστήματα</a>
+    <a><i data-lucide="users"></i>Πελάτες</a>
+    <a><i data-lucide="receipt-text"></i>Αποδείξεις</a>
+    <a><i data-lucide="monitor-smartphone"></i>Συσκευές</a>
+    <a class="on"><i data-lucide="settings"></i>Ρυθμίσεις</a>
+  </aside>
+  <div class="wm">
+    <div><h1>Ρυθμίσεις</h1><div class="sub">Σύνδεση με τηλεφωνικό κέντρο και πλατφόρμες παραγγελιών</div></div>
+    <div class="tabs"><span>Επιχείρηση</span><span>Πληρωμές</span><span class="on">Συνδέσεις</span><span>Ειδοποιήσεις</span></div>
+    <div class="grid3">
+      <div class="cd">
+        <div class="ch"><div class="lo"><i data-lucide="phone-call"></i></div><div><b>Τηλεφωνικό κέντρο Yeastar</b><span>P-Series · αναγνώριση πελάτη στην κλήση</span></div><span class="st ok"><i data-lucide="check"></i>Συνδεδεμένο · τελευταίο γεγονός πριν 2′</span></div>
+        <div class="f2">
+          <div class="wf"><span>Διεύθυνση τηλεφωνικού κέντρου</span><div>https://gelato-pbx.ras.yeastar.com</div></div>
+          <div class="wf"><span>Client ID</span><div>3f1c…a90e</div></div>
+          <div class="wf"><span>Client Secret</span><div>••••••••••••••••</div><small>Αποθηκεύεται κρυπτογραφημένο· δεν ξαναφαίνεται</small></div>
+          <div class="wf"><span>Webhook για το τηλεφωνικό κέντρο</span><div class="ro">https://app.gelato.gr/api/telephony/yeastar</div><small>Το αντιγράφεις στο Yeastar · γεγονότα 30011 και 30012</small></div>
+        </div>
+        <div class="tbl">
+          <div class="tr h"><span>Εσωτερικό</span><span>Ποια γραμμή</span><span>Ανοίγει καρτέλα στο</span></div>
+          <div class="tr"><span class="num">201</span><span>Πειραιάς · 210 41 xxxxx</span><span>Κεντρικό ταμείο Πειραιά (A3)</span></div>
+          <div class="tr"><span class="num">202</span><span>Γλυφάδα · 210 96 xxxxx</span><span>Ταμείο Γλυφάδας (B1)</span></div>
+          <div class="tr"><span class="num">203</span><span>Γλυφάδα · 210 96 xxxxx</span><span style="color:#6B7180">Κανένα (μόνο καταγραφή)</span></div>
+        </div>
+        <div class="row"><span class="wb"><i data-lucide="plug-zap"></i>Έλεγχος σύνδεσης</span><span class="wb p">Αποθήκευση</span></div>
+      </div>
+      <div style="display:grid;gap:16px;align-content:start">
+        <div class="cd">
+          <div class="ch"><div><b>Κλήσεις σήμερα</b><span>όλα τα καταστήματα</span></div><span class="st off num" style="font-size:14px">41</span></div>
+          <div class="calls">
+            <div class="stack"><i style="width:56%;background:#1E6B43"></i><i style="width:29%;background:#8FB8A0"></i><i style="width:15%;background:#C0392B"></i></div>
+            <div class="lg2"><span><i style="background:#1E6B43"></i><span class="num">23 έγιναν παραγγελία</span></span><span><i style="background:#8FB8A0"></i><span class="num">12 άλλο</span></span><span><i style="background:#C0392B"></i><span class="num">6 χάθηκαν</span></span></div>
+            <div class="hint"><i data-lucide="phone-missed"></i>Οι 6 χαμένες είναι στα ταμεία ως «αναπάντητες». 4 από αυτές είναι γνωστοί πελάτες.</div>
+          </div>
+        </div>
+        <div class="cd">
+          <div class="ch"><div class="lo" style="background:#E7F0F8"><i data-lucide="bike"></i></div><div><b>Wolt</b><span>Παραγγελίες, κατάσταση, διαθεσιμότητα</span></div><span class="st wait"><i data-lucide="clock"></i>Περιμένει έγκριση Wolt</span></div>
+          <div class="hint"><i data-lucide="info"></i>Η Wolt δίνει τα κλειδιά μετά την έγκριση της σύνδεσης. Τότε τα γράφεις εδώ και διαλέγεις ποιο κατάστημα είναι ποιο κατάστημα της Wolt.</div>
+        </div>
+        <div class="cd">
+          <div class="ch"><div class="lo" style="background:#FBEDE6"><i data-lucide="bike"></i></div><div><b>efood</b><span>Παραγγελίες μέσω Delivery Hero</span></div><span class="st off">Δεν έχει ενεργοποιηθεί</span></div>
+          <div class="row"><span class="wb">Ξεκίνα τη σύνδεση</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>lucide.createIcons();</script>
+</body>
+</html>
