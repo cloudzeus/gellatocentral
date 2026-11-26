@@ -34,6 +34,7 @@ import { canDelete, CLOSING_DAYS } from "@/lib/org-state";
 import { nextCharge } from "@/lib/plan-data";
 import { createResetLink } from "@/lib/reset";
 import { testIsvCredentials } from "@/lib/viva/cloud-terminal";
+import { checkTerminal } from "@/lib/viva/terminal-check";
 
 const id = z.string().cuid();
 const name = z.string().trim().min(2, "Το όνομα θέλει τουλάχιστον 2 χαρακτήρες").max(60);
@@ -277,6 +278,8 @@ export async function addDevice(form: FormData) {
   const linkedDeviceId = await ownTill(orgId, d.linkedDeviceId);
   if (d.series && (await db.device.findFirst({ where: { orgId, series: d.series } })))
     redirect(`/platform/${orgId}?error=${encodeURIComponent(`Η σειρά ${d.series} χρησιμοποιείται ήδη από άλλο ταμείο`)}#devices`);
+  const terminal = await checkTerminal({ terminalId: d.vivaTerminalId, orgId, storeId: d.storeId });
+  if (terminal) redirect(`/platform/${orgId}?error=${encodeURIComponent(terminal)}#devices`);
   await db.$transaction(async (tx) => {
     // ψυγείο και αυτόματος πωλητής είναι και αποθηκευτικοί χώροι: ο χώρος δημιουργείται μαζί με τη συσκευή
     // και δένεται στο κατάστημά της (προεπιλογή μόνο αν το κατάστημα δεν έχει ήδη)
@@ -305,6 +308,11 @@ export async function updateDevice(form: FormData) {
       const message = e instanceof WarehouseError ? WAREHOUSE_ERROR_MESSAGE[e.code] : "Η αποθήκη δεν επιτρέπεται στο κατάστημα";
       redirect(`/platform/${orgId}?error=${encodeURIComponent(message)}#devices`);
     }
+  }
+  // ελέγχεται μόνο όταν αλλάζει: ένα τερματικό που ήδη δουλεύει δεν μπλοκάρει την αποθήκευση άλλων πεδίων
+  if (DEVICE_KIND[device.kind].invoices && (d.vivaTerminalId ?? null) !== device.vivaTerminalId) {
+    const terminal = await checkTerminal({ terminalId: d.vivaTerminalId, orgId, storeId: device.storeId, deviceId: device.id });
+    if (terminal) redirect(`/platform/${orgId}?error=${encodeURIComponent(terminal)}#devices`);
   }
   // γράφονται μόνο αυτά τα πεδία· είδος και σειρά μένουν όπως είναι
   const v = forKind({ ...d, kind: device.kind, linkedDeviceId: await ownTill(orgId, d.linkedDeviceId === device.id ? null : d.linkedDeviceId) });
@@ -348,6 +356,12 @@ export async function toggleActive(orgId: string, section: keyof typeof TABLES, 
   // ίδιο σχήμα (id, orgId, active) και στους τέσσερις πίνακες
   const table = db[TABLES[section]] as unknown as typeof db.store;
   const row = await table.findFirst({ where, select: { active: true } });
+  // ενεργοποίηση ταμείου: το τερματικό του μπορεί στο μεταξύ να μπήκε σε άλλο ταμείο
+  if (row && !row.active && section === "devices") {
+    const device = await db.device.findFirstOrThrow({ where, select: { vivaTerminalId: true, storeId: true } });
+    const terminal = await checkTerminal({ terminalId: device.vivaTerminalId, orgId, storeId: device.storeId, deviceId: rowId });
+    if (terminal) redirect(`/platform/${orgId}?error=${encodeURIComponent(terminal)}#devices`);
+  }
   if (row) await table.updateMany({ where, data: { active: !row.active } });
   done(orgId, section);
 }

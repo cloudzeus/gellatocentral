@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { DEVICE_KIND } from "@/lib/devices";
 import { attachWarehouse } from "@/lib/warehouses";
 import { currentOrg } from "@/lib/auth";
+import { checkTerminal } from "@/lib/viva/terminal-check";
 
 const temperature = z.string().trim().max(8).default("").transform((v) => (v === "" ? null : Number(v.replace(",", ".")))).refine((v) => v === null || (Number.isFinite(v) && Math.abs(v) <= 100));
 const input = z
@@ -35,6 +36,8 @@ export async function addDevice(form: FormData) {
   // το κατάστημα πρέπει να ανήκει στην επιχείρηση· η σειρά είναι μοναδική ανά επιχείρηση
   if (!(await db.store.findFirst({ where: { id: data.storeId, orgId: org.id } }))) { await flashFail("Δεν αποθηκεύτηκε: το κατάστημα δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
   if (data.series && (await db.device.findFirst({ where: { orgId: org.id, series: data.series } }))) { await flashFail(`Δεν αποθηκεύτηκε: η σειρά ${data.series} χρησιμοποιείται ήδη από άλλο ταμείο`, "Γράψε άλλη σειρά και δοκίμασε ξανά."); return; }
+  const terminal = await checkTerminal({ terminalId: data.vivaTerminalId, orgId: org.id, storeId: data.storeId });
+  if (terminal) { await flashFail(`Δεν αποθηκεύτηκε: ${terminal}`, "Γράψε το σωστό Terminal ID και δοκίμασε ξανά."); return; }
   await db.$transaction(async (tx) => {
     // ψυγείο και αυτόματος πωλητής είναι και αποθηκευτικοί χώροι: δένονται αμέσως στο κατάστημα της συσκευής
     // (η attachWarehouse κάνει προεπιλογή μόνο αν το κατάστημα δεν έχει ήδη)
@@ -50,6 +53,9 @@ export async function addDevice(form: FormData) {
 export async function toggleDevice(deviceId: string) {
   const { org } = await currentOrg("devices.edit");
   const device = await db.device.findFirst({ where: { id: deviceId, orgId: org.id } });
+  // ενεργοποίηση: το τερματικό του μπορεί στο μεταξύ να μπήκε σε άλλο ταμείο
+  const terminal = device && !device.active ? await checkTerminal({ terminalId: device.vivaTerminalId, orgId: org.id, storeId: device.storeId, deviceId: device.id }) : null;
+  if (terminal) { await flashFail(`Δεν ενεργοποιήθηκε: ${terminal}`, "Άλλαξε το τερματικό της συσκευής και δοκίμασε ξανά."); return; }
   if (device) await db.device.update({ where: { id: device.id }, data: { active: !device.active } });
   revalidatePath("/devices");
   revalidatePath("/billing");
