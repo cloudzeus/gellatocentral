@@ -12,7 +12,7 @@ import { filterParam, listParams } from "@/lib/paging";
 import { look } from "@/lib/status";
 import { staffPayrollSummary } from "@/lib/staff-db";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
-import { employeePay, newDepartment, newEmployee, newLeave, newShift, publishStaffSchedule } from "./actions";
+import { employeePay, newDepartment, newEmployee, newLeave, newShift, publishStaffSchedule, setTillPin } from "./actions";
 
 const money = (value: number | null | undefined) => euro(value ?? 0);
 const dateTime = (value: Date) => new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short" }).format(value);
@@ -111,7 +111,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
           rows={staff.map((employee) => ({
             id: employee.id,
             cells: {
-              name: <span className="font-semibold">{employee.name}</span>,
+              name: <span className="font-semibold">{employee.name}{employee.tillPinHash ? <span className="ml-2 text-xs font-normal text-muted-foreground">· μπαίνει στο ταμείο</span> : null}</span>,
               department: (employee.departmentId ? departmentNames.get(employee.departmentId) : null) ?? "Χωρίς τμήμα",
               store: (employee.storeId ? storeNames.get(employee.storeId) : null) ?? "Χωρίς κατάστημα",
               email: employee.email ?? "—",
@@ -122,7 +122,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
             // σύνδεσμος προγράμματος και στοιχεία αμοιβής ανοίγουν κάτω από τη γραμμή
             details: canEdit || canPay ? {
               label: employee.name,
-              view: <div className="flex flex-wrap items-start gap-3">{canEdit ? <ScheduleLinkForm employeeId={employee.id} /> : null}{canPay ? <Modal size="sm" label="Στοιχεία αμοιβής" title={`Αμοιβή · ${employee.name}`}><form action={employeePay} className="grid gap-3"><input type="hidden" name="employeeId" value={employee.id} /><Select label="Τύπος" name="payType" defaultValue={employee.pay?.payType ?? "HOURLY"} options={[["HOURLY", "Ωρομίσθιο"], ["MONTHLY", "Μηνιαίος μισθός"]]} /><Field label="Ωρομίσθιο €" name="hourlyRate" inputMode="decimal" defaultValue={((employee.pay?.hourlyRateCents ?? 0) / 100).toFixed(2)} /><Field label="Μηνιαίος μισθός €" name="monthlySalary" inputMode="decimal" defaultValue={((employee.pay?.monthlySalaryCents ?? 0) / 100).toFixed(2)} /><Field label="IBAN" name="iban" defaultValue={employee.pay?.iban ?? ""} maxLength={34} /><Field label="ΑΦΜ" name="vatNumber" defaultValue={employee.pay?.vatNumber ?? ""} maxLength={20} /><TextareaField label="Σημειώσεις" name="notes" defaultValue={employee.pay?.notes ?? ""} maxLength={500} /><Submit className={btn("default")}>Αποθήκευση αμοιβής</Submit></form></Modal> : null}</div>,
+              view: <div className="flex flex-wrap items-start gap-3">{canEdit ? <ScheduleLinkForm employeeId={employee.id} /> : null}{canEdit ? <Modal size="sm" label={employee.tillPinHash ? "Αλλαγή PIN ταμείου" : "PIN ταμείου"} title={`PIN ταμείου · ${employee.name}`} description="Με αυτό ανοίγει βάρδια στο ταμείο Android του καταστήματός του. Ό,τι πουλήσει γράφεται στη βάρδιά του."><form action={setTillPin.bind(null, employee.id)} className="grid gap-3"><Field label="Νέο PIN (4 ψηφία)" name="pin" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete="off" required={!employee.tillPinHash} hint={employee.tillPinHash ? "Άφησέ το κενό και πάτα Αποθήκευση για να αφαιρέσεις το PIN" : undefined} /><Submit className={btn("default")}>Αποθήκευση</Submit></form></Modal> : null}{canPay ? <Modal size="sm" label="Στοιχεία αμοιβής" title={`Αμοιβή · ${employee.name}`}><form action={employeePay} className="grid gap-3"><input type="hidden" name="employeeId" value={employee.id} /><Select label="Τύπος" name="payType" defaultValue={employee.pay?.payType ?? "HOURLY"} options={[["HOURLY", "Ωρομίσθιο"], ["MONTHLY", "Μηνιαίος μισθός"]]} /><Field label="Ωρομίσθιο €" name="hourlyRate" inputMode="decimal" defaultValue={((employee.pay?.hourlyRateCents ?? 0) / 100).toFixed(2)} /><Field label="Μηνιαίος μισθός €" name="monthlySalary" inputMode="decimal" defaultValue={((employee.pay?.monthlySalaryCents ?? 0) / 100).toFixed(2)} /><Field label="IBAN" name="iban" defaultValue={employee.pay?.iban ?? ""} maxLength={34} /><Field label="ΑΦΜ" name="vatNumber" defaultValue={employee.pay?.vatNumber ?? ""} maxLength={20} /><TextareaField label="Σημειώσεις" name="notes" defaultValue={employee.pay?.notes ?? ""} maxLength={500} /><Submit className={btn("default")}>Αποθήκευση αμοιβής</Submit></form></Modal> : null}</div>,
             } : undefined,
           }))}
         />

@@ -22,6 +22,15 @@ export function parseSignResponse(text: string): SignedReceipt {
   return { mark, uid: tag(protocol, "invoiceUid"), authCode: tag(protocol, "authenticationCode"), qrUrl: tag(protocol, "qrUrl")?.replaceAll("&amp;", "&"), pdfUrl: text.match(/downloadingInvoiceUrl>([^<]+)</)?.[1], raw: json };
 }
 
+/**
+ * Σήμανση από την απάντηση πληρωμής του τερματικού (fiscalisationDetails, inter-app ή Cloud Terminal): MARK, QR της ΑΑΔΕ
+ * και ο σύνδεσμος της ψηφιακής απόδειξης. Τα στοιχεία είναι μέσα στο XML της ΑΑΔΕ, όπου κι αν το βάλει η Viva.
+ */
+export function terminalFiscal(raw: unknown): { mark?: string; uid?: string; qrUrl?: string; pdfUrl?: string } {
+  const text = JSON.stringify(raw ?? null);
+  return { mark: tag(text, "invoiceMark"), uid: tag(text, "invoiceUid"), qrUrl: tag(text, "qrUrl")?.replaceAll("&amp;", "&"), pdfUrl: tag(text, "downloadingInvoiceUrl") };
+}
+
 /** body: το fiscalisationData σε JSON με τα Int64 ως γυμνούς αριθμούς (toVivaJson). merchantId κενό = λογαριασμός της πλατφόρμας. */
 export async function signReceipt(body: string, merchantId: string | null): Promise<SignedReceipt> {
   // φόρτωση μόνο σε πραγματική κλήση: οι ρυθμίσεις ζουν στη βάση (το parseSignResponse ελέγχεται χωρίς αυτήν)
@@ -34,4 +43,13 @@ export async function signReceipt(body: string, merchantId: string | null): Prom
   const text = await res.text();
   if (!res.ok) throw new VivaSignError(`Viva Fiscal: HTTP ${res.status} ${text.slice(0, 300)}`);
   return parseSignResponse(text);
+}
+
+/** «Visa DEBIT •••• 4462» από την απάντηση της Viva (Cloud Terminal ή inter-app), αν υπάρχει. */
+export function cardLabel(raw: unknown): string | null {
+  const text = JSON.stringify(raw ?? null);
+  const pan = /"(?:primaryAccountNumberMasked|maskedPan|cardNumber)"\s*:\s*"[^"]*?(\d{4})"/.exec(text)?.[1];
+  if (!pan) return null;
+  const brand = /"(?:applicationLabel|cardType)"\s*:\s*"([^"]+)"/.exec(text)?.[1];
+  return `${brand ? `${brand} ` : ""}•••• ${pan}`;
 }

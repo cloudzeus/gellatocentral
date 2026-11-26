@@ -1,10 +1,11 @@
-import { Plus } from "lucide-react";
+import Link from "next/link";
+import { ListChecks, Plus, Store as StoreIcon } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { btn, Card, Page, Select } from "@/components/ui";
 import { db } from "@/lib/db";
 import { DEVICE_KIND, FOR, KIND_OPTIONS, readingStatus } from "@/lib/devices";
 import { currentOrg } from "@/lib/auth";
-import { addDevice, toggleDevice } from "./actions";
+import { addDevice, moveDevice, toggleDevice } from "./actions";
 import { Submit } from "@/components/submit";
 import { StatusBadge } from "@/components/status-badge";
 import { look } from "@/lib/status";
@@ -24,6 +25,8 @@ export default async function DevicesPage() {
     <Page section="Ταμείο & τιμολόγηση" title="Συσκευές" description={`Ταμεία, οθόνες κουζίνας, ψυγεία, αυτόματοι πωλητές και ζυγαριές. Κάθε ενεργή συσκευή χρεώνεται με την τιμή του πακέτου σου (βλ. Συνδρομή)`}
       actions={
         can("devices.add") ? (
+        <>
+        <Link href="/devices/setup" className={btn("outline")}><StoreIcon /> Νέο σημείο</Link>
         <Modal label={<><Plus /> Νέα συσκευή</>} variant="default" title="Νέα συσκευή" description="Η τιμή της εξαρτάται από το είδος και το πακέτο σου. Τη βλέπεις στη Συνδρομή">
           <form action={addDevice} data-by-kind className="grid gap-4 sm:grid-cols-2 [&>button]:sm:col-span-2 [&>button]:sm:justify-self-end">
             <label className="block space-y-1 text-sm font-medium">Όνομα<input name="name" required minLength={2} maxLength={40} placeholder="π.χ. Ταμείο 2" className={field} /></label>
@@ -36,12 +39,13 @@ export default async function DevicesPage() {
             <Submit className={btn("default")}>Προσθήκη συσκευής</Submit>
           </form>
         </Modal>
+        </>
         ) : null
       }>
         <div className="max-w-7xl space-y-4">
           {stores.map((s) => (
             <Card key={s.id}>
-              <h2 className="border-b border-border/70 px-5 py-4 text-lg">{s.name}</h2>
+              <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4"><h2 className="flex-1 text-lg">{s.name}</h2><Link href={`/devices/setup/${s.id}`} className={btn("outline", "sm")}><ListChecks /> Ετοιμότητα</Link></div>
               <ul className="divide-y divide-border/70">
                 {s.devices.length === 0 ? <li className="px-5 py-6 text-muted-foreground">Κανένα ταμείο ακόμα σε αυτό το κατάστημα</li> : null}
                 {s.devices.map((d) => {
@@ -53,8 +57,17 @@ export default async function DevicesPage() {
                         <p className="font-semibold">{d.name}</p>
                         <p className="text-xs text-muted-foreground">{[kind.label, kind.invoices && `σειρά ${d.series} · επόμενη #${d.nextAa}`, kind.invoices && (d.vivaTerminalId ? `τερματικό ${d.vivaTerminalId}` : "χωρίς τερματικό Viva"), kind.storage && (d.tempMin !== null || d.tempMax !== null) && `όρια ${d.tempMin ?? "…"} έως ${d.tempMax ?? "…"} °C`].filter(Boolean).join(" · ")}</p>
                       </div>
+                      {kind.invoices ? <p className="w-full text-xs text-muted-foreground sm:order-last" title="Η MAC δεν διαβάζεται σε Android 10 και νεότερα· η συσκευή αναγνωρίζεται από το Android ID, που αλλάζει μόνο με επαναφορά εργοστασιακών ρυθμίσεων">{d.androidId ? <>Ταυτότητα συσκευής <code className="rounded bg-muted px-1.5 py-0.5 font-mono">{d.androidId.match(/.{1,4}/g)?.join(" ")}</code>{d.lastSeenAt ? ` · τελευταία επαφή ${when.format(d.lastSeenAt)}` : ""}</> : "Η συσκευή δεν έχει συνδεθεί ακόμα με την εφαρμογή"}</p> : null}
                       {status ? <StatusBadge look={look(status.tone, status.text)} /> : null}
                       <StatusBadge look={look(d.active ? "success" : "neutral", !d.active ? "Ανενεργή" : kind.invoices ? "Ενεργή — χρεώνεται" : "Ενεργή — χωρίς χρέωση")} />
+                      {can("devices.edit") && kind.invoices && stores.length > 1 ? (
+                        <Modal size="sm" label="Αλλαγή καταστήματος" title={`Σε ποιο κατάστημα είναι το «${d.name}»;`} description="Όταν η συσκευή μεταφέρεται σε άλλο μαγαζί. Η σειρά αποδείξεων μένει ίδια.">
+                          <form action={moveDevice.bind(null, d.id)} className="grid gap-3">
+                            <Select label="Κατάστημα" name="storeId" defaultValue={s.id} className={field} options={stores.filter((x) => x.active).map((x): [string, string] => [x.id, x.name])} />
+                            <Submit className={btn("default")}>Μεταφορά</Submit>
+                          </form>
+                        </Modal>
+                      ) : null}
                       {can("devices.edit") ? <form action={toggleDevice.bind(null, d.id)}><Submit className={btn("outline", "sm")}>{d.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form> : null}
                     </li>
                   );

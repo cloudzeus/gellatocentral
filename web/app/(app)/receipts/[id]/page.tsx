@@ -1,5 +1,6 @@
 import { ProcessFlow } from "@/components/process-flow";
-import { RotateCcw } from "lucide-react";
+import { ExternalLink, RotateCcw } from "lucide-react";
+import QRCode from "qrcode";
 import { notFound } from "next/navigation";
 import { Submit } from "@/components/submit";
 import { btn, Card, Page } from "@/components/ui";
@@ -7,6 +8,7 @@ import { db } from "@/lib/db";
 import { dateTime, FiscalBadge } from "@/lib/labels";
 import { euro } from "@/lib/money";
 import { currentOrg } from "@/lib/auth";
+import { terminalFiscal } from "@/lib/viva/sign";
 import { issueCreditNote, syncCreditNote } from "../actions";
 
 const FISCAL_STEP = {
@@ -21,12 +23,19 @@ export default async function ReceiptPage({ params }: PageProps<"/receipts/[id]"
   const { org, can } = await currentOrg("receipts.read");
   const sale = await db.sale.findFirst({
     where: { id: (await params).id, orgId: org.id, status: "COMPLETED" },
-    include: { lines: true, payment: { include: { method: true } }, fiscal: true, store: true },
+    include: { lines: true, payment: { include: { method: true } }, shares: { where: { status: "PAID" }, orderBy: { createdAt: "asc" }, include: { method: true } }, fiscal: true, store: true },
   });
   if (!sale) notFound();
+  // μοίρασμα κατά ποσό: τα μερίδια πριν και η πληρωμή του υπολοίπου· αλλιώς μία πληρωμή για όλο το ποσό
+  const pays = [...sale.shares, ...(sale.payment ? [sale.payment] : [])].map((p) => ({ name: p.method.name, cents: sale.shares.length ? p.amountCents : sale.totalCents }));
+  const paidWith = pays.map((p) => (pays.length > 1 ? `${p.name} ${euro(p.cents)}` : p.name)).join(" · ");
   // πιστωτικά που έχουν εκδοθεί για αυτή την απόδειξη (11.4, συσχετιζόμενα)
   const credits = sale.fiscal ? await db.fiscalDocument.findMany({ where: { orgId: org.id, relatedId: sale.fiscal.id }, orderBy: { createdAt: "desc" } }) : [];
   const creditable = can("receipts.reissue") && sale.fiscal?.status === "SIGNED" && sale.fiscal.docType === "11.1" && !credits.some((c) => c.status !== "FAILED");
+  // σήμανση ΑΑΔΕ από την απάντηση του τερματικού: MARK, QR ελέγχου και η ψηφιακή απόδειξη του παρόχου
+  const aade = sale.fiscal?.status === "SIGNED" ? terminalFiscal(sale.fiscal.response) : {};
+  const mark = sale.fiscal?.mark ?? aade.mark;
+  const qrSvg = aade.qrUrl ? await QRCode.toString(aade.qrUrl, { type: "svg", errorCorrectionLevel: "M", margin: 0 }) : null;
   const vat = new Map<number, number>();
   for (const l of sale.lines) vat.set(l.vatRate, (vat.get(l.vatRate) ?? 0) + Math.round((l.quantity * l.unitPriceCents * l.vatRate) / (100 + l.vatRate)));
 
@@ -35,7 +44,7 @@ export default async function ReceiptPage({ params }: PageProps<"/receipts/[id]"
       <div className="mx-auto mb-4 max-w-3xl rounded-xl border border-border bg-card p-4 print:hidden">
         <ProcessFlow label="Πορεία απόδειξης" steps={[
           { id: "sale", label: "Πώληση", state: "done", detail: sale.issuedAt ? dateTime.format(sale.issuedAt) : undefined },
-          { id: "pay", label: "Πληρωμή", state: sale.payment ? "done" : "todo", detail: sale.payment ? `${sale.payment.method.name} · ${euro(sale.totalCents)}` : undefined },
+          { id: "pay", label: "Πληρωμή", state: sale.payment ? "done" : "todo", detail: sale.payment ? (pays.length > 1 ? paidWith : `${paidWith} · ${euro(sale.totalCents)}`) : undefined },
           { id: "aade", label: "Διαβίβαση ΑΑΔΕ", ...FISCAL_STEP[sale.fiscal?.status ?? "NOT_SENT"] },
         ]} />
       </div>
@@ -60,15 +69,27 @@ export default async function ReceiptPage({ params }: PageProps<"/receipts/[id]"
         {[...vat].map(([rate, cents]) => (
           <div key={rate} className="flex justify-between"><span>εκ των οποίων ΦΠΑ {rate}%</span><span className="tabular-nums">{euro(cents)}</span></div>
         ))}
-        <div className="flex justify-between"><span>Πληρωμή</span><span>{sale.payment ? sale.payment.method.name : ""}</span></div>
+        {pays.length > 1
+          ? pays.map((p, i) => <div key={i} className="flex justify-between"><span>{i ? "" : "Πληρωμή"} {p.name}</span><span className="tabular-nums">{euro(p.cents)}</span></div>)
+          : <div className="flex justify-between"><span>Πληρωμή</span><span>{paidWith}</span></div>}
         <hr className="my-2 border-dashed border-black" />
         {sale.fiscal?.status === "SIGNED" ? (
-          <p className="break-all text-center">Αναφορά: {sale.fiscal.receiptReference}</p>
+          <div className="space-y-2 text-center">
+            {mark ? <p>MARK {mark}</p> : null}
+            {qrSvg ? <div className="mx-auto size-32 [&_svg]:size-full" role="img" aria-label="QR ελέγχου στην ΑΑΔΕ" dangerouslySetInnerHTML={{ __html: qrSvg }} /> : null}
+            <p className="break-all text-xs">Αναφορά: {sale.fiscal.receiptReference}</p>
+          </div>
         ) : (
           <p className="text-center font-semibold">ΔΟΚΙΜΑΣΤΙΚΟ — ΔΕΝ ΑΠΟΤΕΛΕΙ ΦΟΡΟΛΟΓΙΚΟ ΣΤΟΙΧΕΙΟ</p>
         )}
       </article>
       <p className="mt-4 text-center print:hidden">{sale.fiscal ? <FiscalBadge status={sale.fiscal.status} /> : null}</p>
+      {aade.pdfUrl || aade.qrUrl ? (
+        <p className="mx-auto mt-3 flex max-w-3xl flex-wrap justify-center gap-2 print:hidden">
+          {aade.pdfUrl ? <a href={aade.pdfUrl} target="_blank" rel="noopener noreferrer" className={btn("outline", "sm")}><ExternalLink /> Ψηφιακή απόδειξη</a> : null}
+          {aade.qrUrl ? <a href={aade.qrUrl} target="_blank" rel="noopener noreferrer" className={btn("outline", "sm")}><ExternalLink /> Έλεγχος στην ΑΑΔΕ</a> : null}
+        </p>
+      ) : null}
       {creditable || credits.length ? (
         <Card className="mx-auto mt-4 max-w-3xl print:hidden">
           <div className="flex flex-wrap items-center gap-3 px-5 py-4">

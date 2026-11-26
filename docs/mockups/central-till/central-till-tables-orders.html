@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<title>Κεντρικό ταμείο · τραπέζια, παραγγελίες, σερβιτόρος</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: #111315; --panel: #1A1C1F; --card: #212428; --raised: #2A2D32; --line: rgba(255,255,255,.08);
+    --text: #FAFAFA; --muted: #B4B7BD; --faint: #787C84; --ink: #121417; --action: #F4F4F5;
+    --ok: #7FD1A1; --wait: #F2C46D; --bad: #F28B8B;
+    --c1: #D9DADD; --c2: #C9CAEE; --c3: #CDE5DB; --c4: #F0D2C4; --c5: #C8DAEA; --c6: #E6DECB; --c7: #DDE9C4; --c8: #EBCAD8;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #0A0B0C; color: var(--text); font-family: "Inter Tight", system-ui, sans-serif; font-size: 13.5px; padding: 40px; display: grid; gap: 24px; justify-content: center; }
+  .note { color: var(--muted); font-size: 14px; max-width: 1280px; line-height: 1.45; }
+  .note b { color: var(--text); font-weight: 600; font-size: 18px; display: block; margin-bottom: 4px; }
+  .note em { font-style: normal; color: var(--text); }
+  .num { font-variant-numeric: tabular-nums; }
+  svg.lucide { width: 18px; height: 18px; stroke-width: 1.75; }
+
+  .tablet { width: 1280px; height: 800px; background: var(--bg); border-radius: 20px; overflow: hidden; display: grid; grid-template-columns: 200px 1fr; outline: 10px solid #1F2124; }
+  nav { padding: 20px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15.5px; padding: 0 8px 20px; }
+  .logo i { width: 22px; height: 22px; border-radius: 11px; background: var(--c8); display: inline-block; }
+  nav a { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-radius: 12px; color: var(--muted); font-weight: 600; }
+  nav a.on { background: var(--raised); color: var(--text); }
+  nav a .n { margin-left: auto; min-width: 22px; height: 22px; border-radius: 11px; padding: 0 6px; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--wait); color: var(--ink); }
+  nav .foot { margin-top: auto; border-top: 1px solid var(--line); padding: 16px 8px 0; display: grid; gap: 4px; }
+  nav .foot b { font-weight: 600; font-size: 13px; }
+  nav .foot span { color: var(--muted); font-size: 12px; font-weight: 500; }
+
+  main { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .top { display: flex; align-items: center; gap: 12px; }
+  .top h1 { font-size: 20px; font-weight: 600; }
+  .top small { color: var(--muted); font-weight: 500; font-size: 13.5px; }
+  .sp { flex: 1; }
+  .seg { display: flex; background: var(--panel); border-radius: 12px; padding: 4px; gap: 2px; }
+  .seg span { white-space: nowrap; height: 36px; padding: 0 14px; border-radius: 9px; display: grid; place-items: center; color: var(--muted); font-weight: 600; }
+  .seg span.on { background: var(--raised); color: var(--text); }
+  .btn { height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); display: inline-flex; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap; }
+  .btn.p { background: var(--action); color: var(--ink); border-color: var(--action); }
+  .legend { display: flex; gap: 18px; color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  /* τραπέζια */
+  .zone { color: var(--muted); font-weight: 600; font-size: 13px; }
+  .tables { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .tb { height: 132px; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; background: var(--card); position: relative; }
+  .tb .no { font-size: 22px; font-weight: 700; }
+  .tb .meta { color: var(--muted); font-weight: 500; font-size: 12.5px; display: flex; align-items: center; gap: 5px; }
+  .tb .meta svg.lucide { width: 14px; height: 14px; }
+  .tb .amt { margin-top: auto; font-size: 17px; font-weight: 700; }
+  .tb.free { background: transparent; border: 1px dashed rgba(255,255,255,.14); }
+  .tb.free .no { color: var(--faint); }
+  .tb.free .amt { color: var(--faint); font-size: 13px; font-weight: 600; }
+  .tb.open { background: var(--c5); color: var(--ink); }
+  .tb.open .meta { color: rgba(18,20,23,.7); }
+  .tb.bill { background: var(--c4); color: var(--ink); }
+  .tb.bill .meta { color: rgba(18,20,23,.7); }
+  .tb.late { box-shadow: inset 0 0 0 3px var(--bad); }
+  .tb .flag { position: absolute; top: 10px; right: 10px; height: 24px; padding: 0 8px; border-radius: 12px; background: var(--ink); color: var(--action); font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
+  .tb .flag svg.lucide { width: 13px; height: 13px; stroke-width: 2.2; }
+  .tb.res { background: transparent; border: 1px dashed var(--c2); }
+  .tb.res .no { color: var(--c2); }
+  .tb.res .amt { color: var(--c2); font-size: 13px; font-weight: 600; }
+  .tb.sel { outline: 3px solid var(--text); outline-offset: 2px; }
+
+  /* λογαριασμός τραπεζιού */
+  .split { display: grid; grid-template-columns: 1fr 380px; gap: 16px; min-height: 0; flex: 1; }
+  .rounds { display: grid; gap: 10px; align-content: start; }
+  .round { background: var(--panel); border-radius: 14px; padding: 12px 14px; display: grid; gap: 8px; }
+  .round .rh { display: flex; align-items: center; gap: 10px; }
+  .round .rh b { font-weight: 600; }
+  .round .rh small { color: var(--muted); font-weight: 500; }
+  .doc { margin-left: auto; height: 26px; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+  .doc svg.lucide { width: 14px; height: 14px; stroke-width: 2; }
+  .doc.ok { color: var(--ok); background: rgba(127,209,161,.12); }
+  .doc.wait { color: var(--wait); background: rgba(242,196,109,.12); }
+  .doc.bad { color: var(--bad); background: rgba(242,139,139,.12); }
+  .li { display: flex; align-items: baseline; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+  .li .q { width: 24px; color: var(--muted); font-weight: 600; }
+  .li .n { flex: 1; font-weight: 600; }
+  .li .n small { display: block; color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .li .p { font-weight: 600; }
+  .li.void .n, .li.void .p { color: var(--faint); text-decoration: line-through; }
+  .side { background: var(--panel); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .side .kv { display: flex; justify-content: space-between; color: var(--muted); font-weight: 500; }
+  .side .kv b { color: var(--text); font-weight: 600; }
+  .side .tot { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--line); padding-top: 10px; }
+  .side .tot span { font-weight: 600; font-size: 15px; }
+  .side .tot b { font-size: 30px; font-weight: 700; letter-spacing: -.5px; }
+  .go { height: 56px; border-radius: 28px; background: var(--action); color: var(--ink); display: flex; align-items: center; justify-content: space-between; padding: 0 22px; font-weight: 600; font-size: 16px; }
+  .go b { font-weight: 700; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .row2 .btn { justify-content: center; }
+  .info { background: var(--card); border-radius: 12px; padding: 12px; color: var(--muted); font-weight: 500; font-size: 12.5px; line-height: 1.45; display: flex; gap: 8px; }
+  .info svg.lucide { flex: none; color: var(--text); }
+
+  /* παραγγελίες */
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; flex: 1; min-height: 0; }
+  .col { background: var(--panel); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .col h3 { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; padding: 2px 2px 4px; }
+  .col h3 small { color: var(--muted); font-weight: 500; }
+  .oc { background: var(--card); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
+  .oc.new { box-shadow: inset 0 0 0 2px var(--wait); }
+  .oc .h { white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+  .src { height: 24px; padding: 0 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--ink); }
+  .src svg.lucide { width: 14px; height: 14px; stroke-width: 2; }
+  .src.phone { background: var(--c3); }
+  .src.wolt { background: var(--c5); }
+  .src.efood { background: var(--c4); }
+  .src.table { background: var(--c2); }
+  .oc .h .t { margin-left: auto; color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  .oc .who b { font-weight: 600; display: block; }
+  .oc .who span { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .oc .items { color: var(--muted); font-weight: 500; font-size: 12.5px; line-height: 1.4; }
+  .oc .f { gap: 8px; display: flex; align-items: center; justify-content: space-between; }
+  .oc .f b { font-weight: 700; white-space: nowrap; }
+  .pill { white-space: nowrap; height: 24px; padding: 0 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+  .pill.paid { color: var(--ok); background: rgba(127,209,161,.12); }
+  .pill.due { color: var(--wait); background: rgba(242,196,109,.12); }
+  .oc .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .oc .acts span { height: 40px; border-radius: 10px; display: grid; place-items: center; font-weight: 600; border: 1px solid var(--line); }
+  .oc .acts span.p { background: var(--action); color: var(--ink); border-color: var(--action); }
+  .timer { color: var(--wait); font-weight: 700; }
+
+  /* κινητό σερβιτόρου */
+  .phones { display: flex; gap: 40px; }
+  .mobile { width: 375px; height: 812px; background: var(--bg); border-radius: 40px; outline: 10px solid #1F2124; overflow: hidden; display: flex; flex-direction: column; }
+  .ph-top { padding: 52px 20px 12px; display: flex; align-items: center; gap: 10px; }
+  .ph-top h2 { font-size: 20px; font-weight: 700; }
+  .ph-top small { color: var(--muted); font-weight: 500; }
+  .ph-body { flex: 1; padding: 0 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+  .ph-tables { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .ph-tables .tb { height: 96px; padding: 10px; }
+  .ph-tables .tb .no { font-size: 19px; }
+  .ph-tables .tb .amt { font-size: 14px; }
+  .chips { display: flex; gap: 6px; overflow: hidden; }
+  .chip { height: 40px; padding: 0 14px; border-radius: 20px; display: inline-flex; align-items: center; font-weight: 600; color: var(--ink); white-space: nowrap; }
+  .pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pk { height: 84px; border-radius: 12px; background: var(--card); padding: 10px; display: flex; flex-direction: column; border-left: 4px solid var(--c); }
+  .pk b { font-weight: 600; font-size: 14px; }
+  .pk span { margin-top: auto; color: var(--muted); font-weight: 600; }
+  .pk.in { background: var(--c); color: var(--ink); }
+  .pk.in span { color: rgba(18,20,23,.7); }
+  .tray { margin-top: auto; background: var(--panel); border-radius: 20px 20px 0 0; margin-left: -16px; margin-right: -16px; padding: 14px 16px 28px; display: grid; gap: 10px; }
+  .tray .tl { display: grid; gap: 4px; }
+  .tray .tl div { display: flex; justify-content: space-between; font-weight: 500; color: var(--muted); }
+  .tray .tl div b { color: var(--text); font-weight: 600; }
+  .tray .go { height: 54px; }
+
+  /* κρατήσεις */
+  .tline { background: var(--panel); border-radius: 14px; padding: 12px 14px; display: grid; grid-template-columns: 64px 1fr; row-gap: 6px; align-content: start; position: relative; }
+  .tline .hrs { display: grid; grid-template-columns: repeat(6, 1fr); color: var(--faint); font-weight: 600; font-size: 12px; }
+  .tline .lab { color: var(--muted); font-weight: 600; height: 44px; display: flex; align-items: center; }
+  .tline .lane { position: relative; height: 44px; border-top: 1px solid var(--line); }
+  .bk { position: absolute; top: 4px; bottom: 4px; border-radius: 8px; padding: 0 10px; display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12.5px; color: var(--ink); white-space: nowrap; overflow: hidden; }
+  .bk small { font-weight: 500; opacity: .75; }
+  .bk.seated { background: var(--c5); }
+  .bk.booked { background: var(--c2); }
+  .bk.late { background: transparent; border: 2px solid var(--wait); color: var(--wait); }
+  .now { position: absolute; top: 30px; bottom: 8px; width: 2px; background: var(--bad); }
+  .form { display: grid; gap: 10px; }
+  .fld { display: grid; gap: 4px; }
+  .fld span { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .fld div { height: 44px; border-radius: 10px; background: var(--card); display: flex; align-items: center; padding: 0 12px; font-weight: 600; }
+  .fld div.ph { color: var(--faint); font-weight: 500; }
+  .opts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .opts span { height: 40px; min-width: 44px; padding: 0 12px; border-radius: 10px; background: var(--card); display: grid; place-items: center; font-weight: 600; }
+  .opts span.on { background: var(--action); color: var(--ink); }
+  .opts span.no { color: var(--faint); text-decoration: line-through; }
+
+  /* επιστροφή & απώλειες */
+  .rl { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--card); }
+  .rl .ck { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--faint); flex: none; display: grid; place-items: center; }
+  .rl .ck.on { background: var(--action); border-color: var(--action); color: var(--ink); }
+  .rl .ck svg.lucide { width: 16px; height: 16px; stroke-width: 3; }
+  .rl .n { flex: 1; font-weight: 600; }
+  .rl .n small { display: block; color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .rl .p { font-weight: 600; }
+  .rl.off { opacity: .55; }
+  .step { display: flex; align-items: center; gap: 0; border-radius: 10px; background: var(--raised); }
+  .step span { min-width: 40px; padding: 0 6px; white-space: nowrap; height: 40px; display: grid; place-items: center; font-weight: 700; }
+  .rcpt { background: var(--card); border-radius: 12px; padding: 12px; display: grid; gap: 4px; }
+  .rcpt b { font-weight: 600; }
+  .rcpt span { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .reasons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .reasons span { height: 52px; border-radius: 12px; background: var(--card); display: flex; align-items: center; gap: 8px; padding: 0 12px; font-weight: 600; }
+  .reasons span.on { background: var(--c4); color: var(--ink); }
+  .bars { display: grid; gap: 8px; }
+  .bar { display: grid; grid-template-columns: 110px 1fr 64px; gap: 10px; align-items: center; font-weight: 500; color: var(--muted); font-size: 12.5px; }
+  .bar i { height: 10px; border-radius: 5px; background: var(--raised); display: block; position: relative; overflow: hidden; }
+  .bar i em { position: absolute; inset: 0 auto 0 0; background: var(--c4); border-radius: 5px; }
+  .bar b { color: var(--text); font-weight: 600; text-align: right; }
+</style>
+</head>
+<body>
+
+<p class="note"><b>1 · Τραπέζια στο κεντρικό ταμείο</b>Νέο μενού «Τραπέζια». Κάθε τραπέζι δείχνει πόσα χρωστάει, από πότε κάθεται και ποιος σερβιτόρος το έχει. <em>Γαλάζιο</em> = ανοιχτό, <em>ροδακινί</em> = ζήτησε λογαριασμό, <em>κόκκινο περίγραμμα</em> = δελτίο παραγγελίας που δεν διαβιβάστηκε. Πατώντας τραπέζι ανοίγει ο λογαριασμός του.</p>
+
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a class="on"><i data-lucide="armchair"></i>Τραπέζια<span class="n num">6</span></a>
+    <a><i data-lucide="bike"></i>Παραγγελίες<span class="n num">3</span></a>
+    <a><i data-lucide="undo-2"></i>Επιστροφές</a>
+    <a><i data-lucide="package-x"></i>Απώλειες</a>
+    <div class="foot"><b>Κατάστημα Πειραιά</b><span>Κεντρικό ταμείο · σειρά A3</span></div>
+  </nav>
+  <main>
+    <div class="top">
+      <h1>Τραπέζια</h1><small class="num">6 ανοιχτά · 184,60 €</small>
+      <div class="sp"></div>
+      <div class="seg"><span class="on">Όλα</span><span>Σάλα</span><span>Βεράντα</span></div>
+      <div class="seg"><span class="on">Τραπέζια</span><span>Κρατήσεις <b class="num" style="margin-left:6px">5</b></span></div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--c5)"></i>Ανοιχτό</span>
+      <span><i style="background:var(--c4)"></i>Ζήτησε λογαριασμό</span>
+      <span><i style="border:2px solid var(--bad)"></i>Δελτίο δεν διαβιβάστηκε</span>
+      <span><i style="border:1px dashed var(--c2)"></i>Κράτηση</span>
+      <span><i style="border:1px dashed var(--faint)"></i>Ελεύθερο</span>
+    </div>
+    <div class="zone">Σάλα</div>
+    <div class="tables">
+      <div class="tb open"><div class="no">1</div><div class="meta"><i data-lucide="user"></i>Γιώργος · 42′</div><div class="amt num">23,80 €</div></div>
+      <div class="tb free"><div class="no">2</div><div class="amt">Ελεύθερο</div></div>
+      <div class="tb bill"><span class="flag"><i data-lucide="receipt-text"></i>Λογαριασμός</span><div class="no">3</div><div class="meta"><i data-lucide="user"></i>Μαρία · 1 ώ 05′</div><div class="amt num">41,20 €</div></div>
+      <div class="tb open late"><span class="flag" style="color:var(--bad)"><i data-lucide="triangle-alert"></i>Δελτίο</span><div class="no">4</div><div class="meta"><i data-lucide="user"></i>Γιώργος · 12′</div><div class="amt num">9,60 €</div></div>
+      <div class="tb res"><div class="no">5</div><div class="meta"><i data-lucide="calendar-clock"></i>Παπαδάκη · 4 άτομα</div><div class="amt num">Κράτηση 19:30</div></div>
+      <div class="tb open sel"><div class="no">6</div><div class="meta"><i data-lucide="user"></i>Μαρία · 28′</div><div class="amt num">27,40 €</div></div>
+    </div>
+    <div class="zone">Βεράντα</div>
+    <div class="tables">
+      <div class="tb open"><div class="no">11</div><div class="meta"><i data-lucide="user"></i>Νίκος · 18′</div><div class="amt num">14,30 €</div></div>
+      <div class="tb free"><div class="no">12</div><div class="amt">Ελεύθερο</div></div>
+      <div class="tb bill"><span class="flag"><i data-lucide="receipt-text"></i>Λογαριασμός</span><div class="no">13</div><div class="meta"><i data-lucide="user"></i>Νίκος · 54′</div><div class="amt num">68,30 €</div></div>
+      <div class="tb res"><div class="no">14</div><div class="meta"><i data-lucide="calendar-clock"></i>Λεβέντης · 6 άτομα</div><div class="amt num">Κράτηση 20:30</div></div>
+      <div class="tb free"><div class="no">15</div><div class="amt">Ελεύθερο</div></div>
+      <div class="tb free"><div class="no">16</div><div class="amt">Ελεύθερο</div></div>
+    </div>
+  </main>
+</div>
+
+<p class="note"><b>2 · Ο λογαριασμός του τραπεζιού (κουβάς)</b>Κάθε «αποστολή» του σερβιτόρου είναι ένα <em>Δελτίο Παραγγελίας 8.6</em> που διαβιβάζεται τη στιγμή της παραγγελίας. Μια γραμμή που ακυρώνεται πριν πληρωθεί φαίνεται διαγραμμένη και βγαίνει δελτίο μερικής ακύρωσης. Η «Πληρωμή» ανοίγει το μοίρασμα (ανά είδη και ανά ποσό)· όλες οι αποδείξεις αναφέρουν τα δελτία του τραπεζιού και τα σύνολά τους πρέπει να ταιριάζουν ακριβώς.</p>
+
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a class="on"><i data-lucide="armchair"></i>Τραπέζια<span class="n num">6</span></a>
+    <a><i data-lucide="bike"></i>Παραγγελίες<span class="n num">3</span></a>
+    <a><i data-lucide="undo-2"></i>Επιστροφές</a>
+    <a><i data-lucide="package-x"></i>Απώλειες</a>
+    <div class="foot"><b>Κατάστημα Πειραιά</b><span>Κεντρικό ταμείο · σειρά A3</span></div>
+  </nav>
+  <main>
+    <div class="top">
+      <div class="btn" style="width:44px;padding:0;justify-content:center;border-radius:22px"><i data-lucide="arrow-left"></i></div>
+      <h1>Τραπέζι 6</h1><small class="num">Σάλα · Μαρία · από 18:14 (28′) · 4 άτομα</small>
+      <div class="sp"></div>
+      <div class="btn"><i data-lucide="arrow-right-left"></i>Μεταφορά</div>
+      <div class="btn"><i data-lucide="plus"></i>Προσθήκη</div>
+    </div>
+    <div class="split">
+      <div class="rounds">
+        <div class="round">
+          <div class="rh"><b>Αποστολή 1</b><small class="num">18:16 · Μαρία</small><span class="doc ok"><i data-lucide="check"></i>Δελτίο 8.6 · Δ 218</span></div>
+          <div class="li"><span class="q num">2</span><span class="n">Freddo espresso<small>Μέτριος</small></span><span class="p num">6,40 €</span></div>
+          <div class="li"><span class="q num">1</span><span class="n">Espresso<small>Σκέτος</small></span><span class="p num">2,80 €</span></div>
+          <div class="li void"><span class="q num">1</span><span class="n">Freddo espresso<small>Ακυρώθηκε 18:20 · δελτίο ακύρωσης Δ 219</small></span><span class="p num">3,20 €</span></div>
+        </div>
+        <div class="round">
+          <div class="rh"><b>Αποστολή 2</b><small class="num">18:31 · Μαρία</small><span class="doc ok"><i data-lucide="check"></i>Δελτίο 8.6 · Δ 224</span></div>
+          <div class="li"><span class="q num">1</span><span class="n">Χωνάκι 2 μπάλες<small>2× Φιστίκι Αιγίνης, Σαντιγί</small></span><span class="p num">5,70 €</span></div>
+          <div class="li"><span class="q num">1</span><span class="n">Κύπελλο 3 μπάλες<small>Βανίλια, Σοκολάτα bitter, Φράουλα</small></span><span class="p num">6,00 €</span></div>
+          <div class="li"><span class="q num">1</span><span class="n">Χωνάκι 1 μπάλα<small>Λεμόνι σορμπέ</small></span><span class="p num">2,80 €</span></div>
+        </div>
+        <div class="round">
+          <div class="rh"><b>Αποστολή 3</b><small class="num">18:40 · Μαρία</small><span class="doc wait"><i data-lucide="loader"></i>Διαβιβάζεται…</span></div>
+          <div class="li"><span class="q num">1</span><span class="n">Νερό 500 ml</span><span class="p num">0,50 €</span></div>
+          <div class="li"><span class="q num">1</span><span class="n">Αναψυκτικό</span><span class="p num">3,20 €</span></div>
+        </div>
+      </div>
+      <div class="side">
+        <div class="kv"><span>Δελτία παραγγελίας</span><b class="num">3 (+1 ακύρωση)</b></div>
+        <div class="kv"><span>Είδη</span><b class="num">8</b></div>
+        <div class="kv"><span>Καθαρή αξία · ΦΠΑ</span><b class="num">23,66 € · 3,74 €</b></div>
+        <div class="tot"><span>Χρωστάει</span><b class="num">27,40 €</b></div>
+        <div class="info"><i data-lucide="info"></i>Η πληρωμή περιμένει να διαβιβαστεί η αποστολή 3. Αν το δελτίο αποτύχει, ξαναστέλνεται από εδώ· το τραπέζι δεν κλείνει με αδιαβίβαστο δελτίο.</div>
+        <div style="flex:1"></div>
+        <div class="row2"><div class="btn"><i data-lucide="printer"></i>Προλογαριασμός</div><div class="btn"><i data-lucide="split"></i>Μοίρασμα</div></div>
+        <div class="go"><span>Πληρωμή όλου</span><b class="num">27,40 €</b></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<p class="note"><b>3 · Παραγγελίες: τηλέφωνο, Wolt, efood</b>Μία λίστα για ό,τι δεν κάθεται σε τραπέζι. Τηλεφωνική: ο ταμίας τη γράφει (πελάτης, τηλέφωνο, παραλαβή ή διανομή, ώρα) και πληρώνεται στην παράδοση. Wolt και efood: έρχονται μόνες τους από την πλατφόρμα, ήδη πληρωμένες online ή «μετρητά στον διανομέα». Η καινούργια αναβοσβήνει μέχρι να πατηθεί «Αποδοχή» και ο χρόνος μετράει αντίστροφα για την ώρα παραλαβής. Η απόδειξη βγαίνει όταν η παραγγελία πληρωθεί ή παραδοθεί.</p>
+
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a><i data-lucide="armchair"></i>Τραπέζια<span class="n num">6</span></a>
+    <a class="on"><i data-lucide="bike"></i>Παραγγελίες<span class="n num">3</span></a>
+    <a><i data-lucide="undo-2"></i>Επιστροφές</a>
+    <a><i data-lucide="package-x"></i>Απώλειες</a>
+    <div class="foot"><b>Κατάστημα Πειραιά</b><span>Κεντρικό ταμείο · σειρά A3</span></div>
+  </nav>
+  <main>
+    <div class="top">
+      <h1>Παραγγελίες</h1><small class="num">7 σε εξέλιξη</small>
+      <div class="sp"></div>
+      <div class="seg"><span class="on">Όλες</span><span>Τηλέφωνο</span><span>Wolt</span><span>efood</span></div>
+      <div class="btn p"><i data-lucide="phone"></i>Νέα τηλεφωνική</div>
+    </div>
+    <div class="board">
+      <div class="col">
+        <h3>Νέες <small class="num">2</small></h3>
+        <div class="oc new">
+          <div class="h"><span class="src wolt"><i data-lucide="bike"></i>Wolt</span><span class="num">#W-4821</span><span class="t num">πριν 1′</span></div>
+          <div class="who"><b>Ελένη Κ.</b><span>Παραλαβή διανομέα 18:55</span></div>
+          <div class="items">1× Οικογενειακό 1 kg (Φιστίκι, Σοκολάτα), 2× Κύπελλο 3 μπάλες</div>
+          <div class="f"><span class="pill paid"><i data-lucide="check"></i>Πληρωμένη online</span><b class="num">34,00 €</b></div>
+          <div class="acts"><span>Απόρριψη</span><span class="p">Αποδοχή</span></div>
+        </div>
+        <div class="oc new">
+          <div class="h"><span class="src efood"><i data-lucide="bike"></i>efood</span><span class="num">#E-90317</span><span class="t num">πριν 2′</span></div>
+          <div class="who"><b>Π. Δημητρίου</b><span>Διανομή · Ακτή Μιαούλη 12</span></div>
+          <div class="items">3× Freddo espresso, 1× Χωνάκι 2 μπάλες</div>
+          <div class="f"><span class="pill due"><i data-lucide="banknote"></i>Μετρητά στον διανομέα</span><b class="num">15,30 €</b></div>
+          <div class="acts"><span>Απόρριψη</span><span class="p">Αποδοχή</span></div>
+        </div>
+      </div>
+      <div class="col">
+        <h3>Ετοιμάζονται <small class="num">3</small></h3>
+        <div class="oc">
+          <div class="h"><span class="src phone"><i data-lucide="phone"></i>Τηλέφωνο</span><span class="t timer num">σε 12′</span></div>
+          <div class="who"><b>Κώστας Λ. · 69•• ••• 412</b><span>Παραλαβή από το κατάστημα 19:05</span></div>
+          <div class="items">2× Οικογενειακό 500 g, 1× Σιρόπι σοκολάτας</div>
+          <div class="f"><span class="pill due"><i data-lucide="clock"></i>Πληρώνει στην παραλαβή</span><b class="num">18,40 €</b></div>
+          <div class="acts"><span>Αλλαγή</span><span class="p">Έτοιμη</span></div>
+        </div>
+        <div class="oc">
+          <div class="h"><span class="src wolt"><i data-lucide="bike"></i>Wolt</span><span class="num">#W-4816</span><span class="t timer num">σε 4′</span></div>
+          <div class="who"><b>Άννα Μ.</b><span>Παραλαβή διανομέα 18:48</span></div>
+          <div class="items">2× Freddo espresso</div>
+          <div class="f"><span class="pill paid"><i data-lucide="check"></i>Πληρωμένη online</span><b class="num">6,40 €</b></div>
+          <div class="acts"><span>Καθυστέρηση</span><span class="p">Έτοιμη</span></div>
+        </div>
+      </div>
+      <div class="col">
+        <h3>Έτοιμες <small class="num">1</small></h3>
+        <div class="oc">
+          <div class="h"><span class="src efood"><i data-lucide="bike"></i>efood</span><span class="num">#E-90302</span><span class="t num">περιμένει 3′</span></div>
+          <div class="who"><b>Σ. Παππάς</b><span>Ο διανομέας έρχεται</span></div>
+          <div class="items">1× Κύπελλο 3 μπάλες</div>
+          <div class="f"><span class="pill paid"><i data-lucide="check"></i>Πληρωμένη online</span><b class="num">6,00 €</b></div>
+          <div class="acts"><span>Απόδειξη</span><span class="p">Παραδόθηκε</span></div>
+        </div>
+      </div>
+      <div class="col">
+        <h3>Παραδόθηκαν <small class="num">σήμερα 23</small></h3>
+        <div class="oc" style="opacity:.6">
+          <div class="h"><span class="src phone"><i data-lucide="phone"></i>Τηλέφωνο</span><span class="t num">18:20</span></div>
+          <div class="who"><b>Μ. Ρήγας</b><span>Απόδειξη A3 1040 · Μετρητά</span></div>
+          <div class="f"><span></span><b class="num">12,60 €</b></div>
+        </div>
+        <div class="oc" style="opacity:.6">
+          <div class="h"><span class="src wolt"><i data-lucide="bike"></i>Wolt</span><span class="t num">18:02</span></div>
+          <div class="who"><b>Δ. Σ.</b><span>Απόδειξη A3 1036 · Online</span></div>
+          <div class="f"><span></span><b class="num">21,50 €</b></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+
+<p class="note"><b>5 · Κρατήσεις τραπεζιών</b>Στο ίδιο μενού «Τραπέζια», δεύτερη καρτέλα. Η βραδιά σε γραμμή χρόνου ανά τραπέζι: <em>γαλάζιο</em> = κάθεται τώρα, <em>λιλά</em> = κράτηση, <em>κίτρινο περίγραμμα</em> = άργησε. Η κόκκινη γραμμή είναι η ώρα τώρα. Νέα κράτηση: όνομα, τηλέφωνο, άτομα, ώρα και το σύστημα προτείνει μόνο τραπέζια που χωράνε και είναι ελεύθερα. Όταν έρθει ο πελάτης, «Κάθισαν» ανοίγει τον λογαριασμό του τραπεζιού. 30′ πριν την κράτηση το τραπέζι φαίνεται «Κράτηση 19:30» στην κάτοψη ώστε να μην το δώσει κανείς.</p>
+
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a class="on"><i data-lucide="armchair"></i>Τραπέζια<span class="n num">6</span></a>
+    <a><i data-lucide="bike"></i>Παραγγελίες<span class="n num">3</span></a>
+    <a><i data-lucide="undo-2"></i>Επιστροφές</a>
+    <a><i data-lucide="package-x"></i>Απώλειες</a>
+    <div class="foot"><b>Κατάστημα Πειραιά</b><span>Κεντρικό ταμείο · σειρά A3</span></div>
+  </nav>
+  <main>
+    <div class="top">
+      <h1>Κρατήσεις</h1><small class="num">Πέμπτη 26/11 · 5 κρατήσεις · 17 άτομα</small>
+      <div class="sp"></div>
+      <div class="seg"><span>Τραπέζια</span><span class="on">Κρατήσεις <b class="num" style="margin-left:6px">5</b></span></div>
+      <div class="seg"><span>‹</span><span class="on">Σήμερα</span><span>›</span></div>
+    </div>
+    <div class="split">
+      <div class="tline">
+        <div></div><div class="hrs num"><span>18:00</span><span>19:00</span><span>20:00</span><span>21:00</span><span>22:00</span><span>23:00</span></div>
+        <div class="lab">Τραπ. 1</div><div class="lane"><div class="bk seated" style="left:5.00%;width:25.00%">Γιώργος <small>κάθεται</small></div></div><div class="lab">Τραπ. 3</div><div class="lane"><div class="bk seated" style="left:-1.67%;width:26.67%">Μαρία <small>λογαριασμός</small></div><div class="bk booked" style="left:50.00%;width:25.00%">Αθανασίου · 2 <small>21:00</small></div></div><div class="lab">Τραπ. 5</div><div class="lane"><div class="bk booked" style="left:25.00%;width:25.00%">Παπαδάκη · 4 <small>19:30 · παιδικό κάθισμα</small></div></div><div class="lab">Τραπ. 6</div><div class="lane"><div class="bk seated" style="left:3.83%;width:25.00%">Μαρία <small>κάθεται</small></div></div><div class="lab">Τραπ. 12</div><div class="lane"><div class="bk late" style="left:8.33%;width:20.83%">Κωνσταντίνου · 3 <small>18:30 · άργησε 12′</small></div></div><div class="lab">Τραπ. 14</div><div class="lane"><div class="bk booked" style="left:41.67%;width:33.33%">Λεβέντης · 6 <small>20:30 · γενέθλια</small></div></div><div class="lab">Τραπ. 15</div><div class="lane"><div class="bk booked" style="left:58.33%;width:25.00%">Online · 2 <small>21:30</small></div></div>
+        <div class="now" style="left:calc(64px + 14px + (100% - 64px - 28px) * 0.1167)"></div>
+      </div>
+      <div class="side">
+        <div class="kv" style="color:var(--text)"><b style="font-size:16px">Νέα κράτηση</b></div>
+        <div class="form">
+          <div class="fld"><span>Όνομα</span><div>Αθανασίου</div></div>
+          <div class="fld"><span>Τηλέφωνο</span><div class="num">69•• ••• 207</div></div>
+          <div class="fld"><span>Άτομα</span><div class="opts"><span>1</span><span class="on">2</span><span>3</span><span>4</span><span>5</span><span>6+</span></div></div>
+          <div class="fld"><span>Ώρα</span><div class="opts num"><span>20:30</span><span class="on">21:00</span><span>21:30</span><span>22:00</span></div></div>
+          <div class="fld"><span>Τραπέζι · ελεύθερα 21:00–22:30 για 2</span><div class="opts"><span class="on">3</span><span>12</span><span>15</span><span class="no">14</span></div></div>
+          <div class="fld"><span>Σημείωση</span><div class="ph">π.χ. γενέθλια, παιδικό κάθισμα</div></div>
+        </div>
+        <div style="flex:1"></div>
+        <div class="info"><i data-lucide="message-square"></i>Στέλνεται SMS επιβεβαίωσης στον πελάτη (αν το ενεργοποιήσεις στις ρυθμίσεις).</div>
+        <div class="go"><span>Αποθήκευση κράτησης</span><b class="num">Τραπ. 3 · 21:00</b></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<p class="note"><b>6 · Επιστροφή</b>Ο ταμίας βρίσκει την απόδειξη (σκανάρει το QR ή γράφει αριθμό), τσεκάρει ό,τι επιστρέφεται και τα χρήματα γυρίζουν με τον ίδιο τρόπο που πληρώθηκαν: η κάρτα με επιστροφή στο τερματικό Viva, τα μετρητά από το συρτάρι. Βγαίνει <em>Πιστωτικό Στοιχείο Λιανικής 11.4</em> που αναφέρει την αρχική απόδειξη. Θέλει δικαίωμα υπεύθυνου (PIN) και λόγο. Ό,τι επιστράφηκε ήδη δεν ξαναεπιστρέφεται.</p>
+
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a><i data-lucide="armchair"></i>Τραπέζια<span class="n num">6</span></a>
+    <a><i data-lucide="bike"></i>Παραγγελίες<span class="n num">3</span></a>
+    <a class="on"><i data-lucide="undo-2"></i>Επιστροφές</a>
+    <a><i data-lucide="package-x"></i>Απώλειες</a>
+    <div class="foot"><b>Κατάστημα Πειραιά</b><span>Κεντρικό ταμείο · σειρά A3</span></div>
+  </nav>
+  <main>
+    <div class="top">
+      <h1>Επιστροφή</h1><small class="num">από απόδειξη A3 1043</small>
+      <div class="sp"></div>
+      <div class="btn"><i data-lucide="scan-line"></i>Σκανάρισμα QR</div>
+      <div class="btn"><i data-lucide="search"></i>Αριθμός απόδειξης</div>
+    </div>
+    <div class="split">
+      <div class="rounds">
+        <div class="rcpt"><b class="num">Απόδειξη A3 1043 · 26/11 18:52 · 14,30 €</b><span>Τραπέζι 6 · Μαρία · πληρώθηκε: Κάρτα 8,50 € (Viva ••4417), Μετρητά 5,80 €</span></div>
+        <div class="rl"><span class="ck on"><i data-lucide="check"></i></span><span class="n">Κύπελλο 3 μπάλες<small>Βανίλια, Σοκολάτα bitter, Φράουλα</small></span><div class="step"><span>−</span><span class="num">1/1</span><span>+</span></div><span class="p num">6,00 €</span></div>
+        <div class="rl"><span class="ck on"><i data-lucide="check"></i></span><span class="n">Freddo espresso<small>Μέτριος</small></span><div class="step"><span>−</span><span class="num">1/2</span><span>+</span></div><span class="p num">3,20 €</span></div>
+        <div class="rl"><span class="ck"></span><span class="n">Χωνάκι 2 μπάλες<small>2× Φιστίκι Αιγίνης, Σαντιγί</small></span><span class="p num">5,70 €</span></div>
+        <div class="rl off"><span class="ck"></span><span class="n">Freddo espresso<small>Επιστράφηκε ήδη · πιστωτικό ΠΛ 12</small></span><span class="p num">3,20 €</span></div>
+        <div class="fld"><span>Λόγος επιστροφής</span><div class="opts"><span class="on">Λάθος παραγγελία</span><span>Παράπονο πελάτη</span><span>Λάθος χρέωση</span><span>Άλλο</span></div></div>
+        <div class="fld"><span>Το είδος</span><div class="opts"><span class="on">Πετιέται (απώλεια)</span><span>Γυρίζει στο απόθεμα</span></div></div>
+      </div>
+      <div class="side">
+        <div class="kv"><span>Είδη που επιστρέφονται</span><b class="num">2</b></div>
+        <div class="kv"><span>Καθαρή αξία · ΦΠΑ</span><b class="num">7,93 € · 1,27 €</b></div>
+        <div class="tot"><span>Επιστροφή</span><b class="num">9,20 €</b></div>
+        <div class="kv" style="color:var(--text)"><b>Πώς γυρίζουν</b></div>
+        <div class="rl"><i data-lucide="credit-card"></i><span class="n">Κάρτα ••4417<small>επιστροφή στο τερματικό Viva</small></span><span class="p num">8,50 €</span></div>
+        <div class="rl"><i data-lucide="banknote"></i><span class="n">Μετρητά<small>από το συρτάρι</small></span><span class="p num">0,70 €</span></div>
+        <div class="info"><i data-lucide="shield-check"></i>Χρειάζεται PIN υπεύθυνου. Βγαίνει πιστωτικό 11.4 με αναφορά στην A3 1043 και διαβιβάζεται στο myDATA.</div>
+        <div style="flex:1"></div>
+        <div class="go"><span>Επιστροφή χρημάτων</span><b class="num">9,20 €</b></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<p class="note"><b>7 · Απώλειες: καταστροφή και ιδιοχρήση</b>Ό,τι φεύγει από το απόθεμα χωρίς πώληση: λιωμένο ή ληγμένο παγωτό, σπασμένο, δοκιμή γεύσης, κέρασμα, κατανάλωση προσωπικού. Δεν βγαίνει απόδειξη πελάτη· γράφεται κίνηση αποθήκης με λόγο, ποιος και πότε, και μετράει στο κόστος. Η ιδιοχρήση και το κέρασμα μπαίνουν χωριστά γιατί έχουν ΦΠΑ· η καταστροφή χρειάζεται τεκμηρίωση (φωτογραφία ή πρωτόκολλο). Δεξιά: πού πάνε οι απώλειες της εβδομάδας.</p>
+
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a><i data-lucide="armchair"></i>Τραπέζια<span class="n num">6</span></a>
+    <a><i data-lucide="bike"></i>Παραγγελίες<span class="n num">3</span></a>
+    <a><i data-lucide="undo-2"></i>Επιστροφές</a>
+    <a class="on"><i data-lucide="package-x"></i>Απώλειες</a>
+    <div class="foot"><b>Κατάστημα Πειραιά</b><span>Κεντρικό ταμείο · σειρά A3</span></div>
+  </nav>
+  <main>
+    <div class="top">
+      <h1>Απώλειες</h1><small class="num">Νέα καταγραφή · Κατάστημα Πειραιά</small>
+      <div class="sp"></div>
+      <div class="seg"><span class="on">Νέα</span><span>Ιστορικό</span></div>
+    </div>
+    <div class="split">
+      <div class="rounds">
+        <div class="fld"><span>Λόγος</span></div>
+        <div class="reasons">
+          <span class="on"><i data-lucide="thermometer-sun"></i>Καταστροφή · λιώσιμο, λήξη, σπάσιμο</span>
+          <span><i data-lucide="user-round"></i>Ιδιοχρήση · προσωπικό, ιδιοκτήτης</span>
+          <span><i data-lucide="gift"></i>Κέρασμα πελάτη</span>
+          <span><i data-lucide="utensils"></i>Δοκιμή γεύσης</span>
+        </div>
+        <div class="rl"><span class="n">Φιστίκι Αιγίνης · λεκάνη<small>Βιτρίνα 2 · έπεσε η θερμοκρασία στις 14:10</small></span><div class="step"><span>−</span><span class="num">1,2 kg</span><span>+</span></div><span class="p num">14,40 €</span></div>
+        <div class="rl"><span class="n">Σοκολάτα bitter · λεκάνη<small>Βιτρίνα 2</small></span><div class="step"><span>−</span><span class="num">0,8 kg</span><span>+</span></div><span class="p num">8,00 €</span></div>
+        <div class="rl"><span class="n">Χωνάκια<small>σπασμένα στη συσκευασία</small></span><div class="step"><span>−</span><span class="num">12 τεμ.</span><span>+</span></div><span class="p num">1,80 €</span></div>
+        <div class="btn" style="justify-content:center"><i data-lucide="plus"></i>Προσθήκη είδους</div>
+        <div class="fld"><span>Τεκμηρίωση</span><div class="opts"><span><i data-lucide="camera"></i>&nbsp;Φωτογραφία</span><span class="on">Συνδέεται με HACCP: βιτρίνα 2, 14:10</span></div></div>
+      </div>
+      <div class="side">
+        <div class="kv"><span>Είδη</span><b class="num">3</b></div>
+        <div class="kv"><span>Κόστος (τιμή κτήσης)</span><b class="num">24,20 €</b></div>
+        <div class="tot"><span>Απώλεια</span><b class="num">24,20 €</b></div>
+        <div class="kv" style="color:var(--text);padding-top:4px"><b>Αυτή την εβδομάδα · 96,40 €</b></div>
+        <div class="bars num">
+          <div class="bar"><span>Καταστροφή</span><i><em style="width:62%"></em></i><b>59,80 €</b></div>
+          <div class="bar"><span>Ιδιοχρήση</span><i><em style="width:22%"></em></i><b>21,20 €</b></div>
+          <div class="bar"><span>Κέρασμα</span><i><em style="width:11%"></em></i><b>10,60 €</b></div>
+          <div class="bar"><span>Δοκιμή</span><i><em style="width:5%"></em></i><b>4,80 €</b></div>
+        </div>
+        <div class="info"><i data-lucide="trending-down"></i>Οι απώλειες είναι 2,1% των πωλήσεων της εβδομάδας (στόχος κάτω από 3%). Οι μισές ήρθαν από τη βιτρίνα 2: δες τη θερμοκρασία της.</div>
+        <div style="flex:1"></div>
+        <div class="go"><span>Καταχώριση απώλειας</span><b class="num">24,20 €</b></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<p class="note"><b>8 · Η εφαρμογή του σερβιτόρου (κινητό)</b>Ίδιο ύφος, μικρότερη οθόνη. Βλέπει τα τραπέζια του (και όλα, με φίλτρο), μπαίνει σε τραπέζι, γράφει παραγγελία με τα ίδια φύλλα επιλογών και πατά «Αποστολή»: βγαίνει το δελτίο 8.6 και η παραγγελία φαίνεται αμέσως στο ταμείο. Αν το τραπέζι θέλει να πληρώσει στο ταμείο, δεν κάνει τίποτα: το ταμείο ανοίγει το ίδιο τραπέζι. Αν θέλει να πληρώσει στο τραπέζι, «Πληρωμή» με το ίδιο μοίρασμα (κάρτα μέσω Viva στο κινητό).</p>
+
+<div class="phones">
+  <div class="mobile">
+    <div class="ph-top"><h2>Τα τραπέζια μου</h2><div class="sp"></div><small>Μαρία</small></div>
+    <div class="ph-body">
+      <div class="seg" style="align-self:flex-start"><span class="on">Δικά μου</span><span>Όλα</span></div>
+      <div class="ph-tables">
+        <div class="tb bill"><span class="flag" style="height:20px;font-size:10.5px"><i data-lucide="receipt-text"></i></span><div class="no">3</div><div class="meta num">1 ώ 05′</div><div class="amt num">41,20 €</div></div>
+        <div class="tb open"><div class="no">6</div><div class="meta num">28′</div><div class="amt num">27,40 €</div></div>
+        <div class="tb free"><div class="no">2</div><div class="amt">Ελεύθερο</div></div>
+        <div class="tb free"><div class="no">5</div><div class="amt">Ελεύθερο</div></div>
+        <div class="tb free"><div class="no">12</div><div class="amt">Ελεύθερο</div></div>
+        <div class="tb free"><div class="no">14</div><div class="amt">Ελεύθερο</div></div>
+      </div>
+      <div class="info"><i data-lucide="bell"></i>Το τραπέζι 3 ζήτησε λογαριασμό πριν 4′.</div>
+    </div>
+  </div>
+
+  <div class="mobile">
+    <div class="ph-top"><div class="btn" style="width:40px;height:40px;padding:0;justify-content:center;border-radius:20px"><i data-lucide="arrow-left"></i></div><h2>Τραπέζι 6</h2><div class="sp"></div><small class="num">27,40 €</small></div>
+    <div class="ph-body">
+      <div class="chips"><span class="chip" style="background:var(--c2)">Παγωτό</span><span class="chip" style="background:var(--c6)">Καφές</span><span class="chip" style="background:var(--c5)">Ποτά</span><span class="chip" style="background:var(--c3)">Γλυκά</span></div>
+      <div class="pgrid" style="--c:var(--c6)">
+        <div class="pk in"><b>Freddo espresso</b><span class="num">3,20 € · × 2</span></div>
+        <div class="pk"><b>Freddo cappuccino</b><span class="num">3,60 €</span></div>
+        <div class="pk"><b>Espresso</b><span class="num">2,80 €</span></div>
+        <div class="pk"><b>Affogato</b><span class="num">4,50 €</span></div>
+      </div>
+      <div class="tray">
+        <div class="tl">
+          <div><span>Νέα αποστολή</span><b class="num">2 είδη</b></div>
+          <div><span>2× Freddo espresso · Μέτριος, Σκέτος</span><b class="num">6,40 €</b></div>
+        </div>
+        <div class="go"><span>Αποστολή</span><b class="num">6,40 €</b></div>
+        <div class="row2"><div class="btn"><i data-lucide="list"></i>Λογαριασμός</div><div class="btn"><i data-lucide="credit-card"></i>Πληρωμή</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>lucide.createIcons();</script>
+</body>
+</html>

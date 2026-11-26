@@ -4,6 +4,10 @@
     "strict": true
   },
   "exclude": [
-    "till.test.ts"
+    "reservations.test.ts",
+    "till.test.ts",
+    "drawer.test.ts", "orders.test.ts",
+    "pair-qr.test.ts",
+    "transactions.test.ts"
   ]
 }

@@ -42,6 +42,8 @@ export function buildReceipt(input: {
   moment: Date;
   payItem: PayItem;
   lines: FiscalLine[];
+  /** Μοίρασμα κατά ποσό: ό,τι εισπράχθηκε πριν (πρωτόκολλα πληρωμής). Το payItem παίρνει το υπόλοιπο. */
+  prior?: Prior[];
 }) {
   if (input.lines.length === 0) throw new RangeError("Απόδειξη χωρίς γραμμές");
   const moment = input.moment.toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -79,17 +81,38 @@ export function buildReceipt(input: {
       cbReceiptAmount: total,
       currencyCode: "978",
       cbChargeItems,
-      cbPayItems: [
-        {
-          position: 1,
-          description: input.payItem.description,
-          amount: total,
-          ftPayItemCase: GR + BigInt(input.payItem.payItemCase),
-          currencyCode: "978",
-          moment,
-        },
-      ],
+      cbPayItems: payItems(input.prior ?? [], input.payItem, total, moment),
     },
+  };
+}
+
+export type Prior = PayItem & { amountCents: number; moment?: Date };
+
+const iso = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
+
+function payItems(prior: Prior[], last: PayItem, total: number, moment: string) {
+  const before = prior.reduce((s, p) => s + p.amountCents, 0);
+  if (prior.some((p) => !Number.isInteger(p.amountCents) || p.amountCents <= 0) || before >= total) throw new RangeError("Τα μερίδια ξεπερνούν το σύνολο");
+  const item = (p: PayItem, amount: number, at: string, i: number) => ({
+    position: i + 1, description: p.description, amount, ftPayItemCase: GR + BigInt(p.payItemCase), currencyCode: "978", moment: at,
+    ...(p.transactionId ? { transactionId: p.transactionId } : {}),
+  });
+  return [...prior.map((p, i) => item(p, p.amountCents, p.moment ? iso(p.moment) : moment, i)), item(last, total - before, moment, prior.length)];
+}
+
+const PROTOCOL = GR + 0x3005n; // «payment protocol»: χρέωση χωρίς είδη, χωρίς σειρά/ΑΑ, χωρίς εκτύπωση (greece-samples, split payments)
+
+/** Χρέωση μέρους του λογαριασμού πριν από την απόδειξη (μοίρασμα κατά ποσό). Η απόδειξη έρχεται με το υπόλοιπο. */
+export function buildPaymentProtocol(input: { reference: string; moment: Date; amountCents: number; payItem: PayItem }) {
+  if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new RangeError("Μη έγκυρο ποσό");
+  const moment = iso(input.moment);
+  return {
+    cbPayItems: [{ position: 1, description: input.payItem.description, amount: input.amountCents, ftPayItemCase: GR + BigInt(input.payItem.payItemCase), currencyCode: "978", moment }],
+    cbChargeItems: [],
+    cbReceiptMoment: moment,
+    cbReceiptReference: input.reference,
+    ftReceiptCase: PROTOCOL,
+    currencyCode: "978",
   };
 }
 

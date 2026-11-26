@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<title>Κεντρικό ταμείο · νέο ύφος (Cosy)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: #111315; --panel: #1A1C1F; --raised: #24272B; --card: #202326; --line: rgba(255,255,255,.07);
+    --text: #F2F2F3; --muted: #A1A4AA; --faint: #6B6F76; --ink: #16181B;
+    --primary: #F4F4F5;
+    --ok: #7FD1A1; --wait: #F2C46D; --bad: #F28B8B;
+    /* 8 θέσεις χρώματος κατηγορίας: παστέλ με σκούρο κείμενο */
+    --c1: #D9DADD; --c2: #C9CAEE; --c3: #CDE5DB; --c4: #F0D2C4; --c5: #C8DAEA; --c6: #E6DECB; --c7: #DDE9C4; --c8: #EBCAD8;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #0A0B0C; color: var(--text); font-family: Inter, system-ui, sans-serif; font-size: 13px; padding: 40px; display: grid; gap: 24px; justify-content: center; }
+  .note { color: var(--muted); font-size: 14px; max-width: 1280px; }
+  .note b { color: var(--text); font-weight: 500; font-size: 18px; display: block; margin-bottom: 4px; }
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font-family: "JetBrains Mono", monospace; font-size: 11px; }
+  svg.lucide { width: 18px; height: 18px; stroke-width: 1.5; }
+
+  .tablet { width: 1280px; height: 800px; background: var(--bg); border-radius: 20px; overflow: hidden; display: grid; grid-template-columns: 200px 1fr 348px; position: relative; outline: 10px solid #1F2124; }
+
+  /* αριστερό μενού */
+  nav { background: var(--bg); padding: 20px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; padding: 0 8px 20px; }
+  .logo i { width: 22px; height: 22px; border-radius: 11px; background: var(--c8); display: inline-block; box-shadow: inset -4px -3px 0 rgba(0,0,0,.08); }
+  nav a { height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-radius: 10px; color: var(--muted); text-decoration: none; font-weight: 500; }
+  nav a.on { background: var(--raised); color: var(--text); }
+  nav a .n { margin-left: auto; color: var(--wait); }
+  .shift { margin-top: auto; padding: 16px 8px 0; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+  .shift .row { display: flex; justify-content: space-between; color: var(--muted); }
+  .shift .row span:last-child { color: var(--text); }
+  .who { display: flex; align-items: center; gap: 8px; padding: 12px 8px 0; color: var(--muted); }
+  .av { width: 28px; height: 28px; border-radius: 14px; background: var(--c3); color: var(--ink); display: grid; place-items: center; font-weight: 600; font-size: 12px; }
+
+  /* μέση */
+  main { padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .top { display: flex; align-items: center; gap: 12px; }
+  .search { flex: 1; height: 44px; border-radius: 12px; background: var(--panel); display: flex; align-items: center; gap: 8px; padding: 0 14px; color: var(--faint); }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 4px; background: var(--ok); }
+  .h { font-size: 15px; font-weight: 600; display: flex; align-items: baseline; gap: 8px; }
+  .h small { color: var(--muted); font-weight: 400; font-size: 13px; }
+
+  .cats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .cat { height: 84px; border-radius: 12px; padding: 12px; color: var(--ink); display: flex; flex-direction: column; justify-content: space-between; position: relative; }
+  .cat svg.lucide { width: 20px; height: 20px; }
+  .cat b { font-weight: 600; font-size: 14px; }
+  .cat span { font-size: 11.5px; opacity: .7; }
+  .cat.on { outline: 2px solid var(--text); outline-offset: 2px; }
+
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .p { height: 112px; border-radius: 12px; background: var(--card); padding: 12px; display: flex; flex-direction: column; position: relative; border-left: 4px solid var(--c); }
+  .p .tag { font-size: 11px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  .p b { font-weight: 500; font-size: 14px; margin-top: 6px; line-height: 1.25; }
+  .p .price { margin-top: auto; display: flex; align-items: center; justify-content: space-between; }
+  .p .price span { color: var(--muted); }
+  .step { display: flex; align-items: center; gap: 4px; }
+  .step i { width: 28px; height: 28px; border-radius: 8px; border: 1px solid currentColor; display: grid; place-items: center; font-style: normal; opacity: .6; }
+  .p.in { background: var(--c); color: var(--ink); border-left-color: var(--c); }
+  .p.in .tag, .p.in .price span { color: rgba(22,24,27,.65); }
+  .p.out { opacity: .45; }
+  .p.out .price span { color: var(--muted); }
+
+  /* δεξιά: πώληση */
+  aside { background: var(--panel); padding: 20px 16px; display: flex; flex-direction: column; gap: 12px; }
+  aside .head { display: flex; align-items: center; justify-content: space-between; }
+  .icon-btn { width: 36px; height: 36px; border-radius: 18px; border: 1px solid var(--line); display: grid; place-items: center; color: var(--muted); }
+  aside { min-width: 0; }
+  .lines { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .line { background: var(--card); border-radius: 12px; padding: 10px 12px; display: grid; gap: 4px; }
+  .line .r { display: flex; align-items: center; gap: 8px; }
+  .line .q { width: 22px; height: 22px; border-radius: 11px; background: var(--raised); display: grid; place-items: center; font-size: 11px; color: var(--muted); }
+  .line .nm { flex: 1; font-weight: 500; }
+  .opts { padding-left: 30px; color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .opts span { display: inline-flex; align-items: center; gap: 5px; }
+  .scoop { width: 9px; height: 9px; border-radius: 5px; display: inline-block; }
+  .line.sel { background: var(--raised); outline: 1px solid rgba(255,255,255,.12); }
+  .line .tools { padding-left: 30px; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chip { height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+  .chip.qty { gap: 12px; color: var(--text); }
+  .sum { margin-top: auto; background: var(--card); border-radius: 12px; padding: 14px; display: grid; gap: 6px; }
+  .sum .r { display: flex; justify-content: space-between; color: var(--muted); }
+  .sum .t { color: var(--text); font-size: 15px; font-weight: 500; padding-top: 6px; border-top: 1px solid var(--line); }
+  .sum .t span:last-child { font-size: 26px; font-weight: 600; }
+  .pay { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .pay div { height: 56px; border-radius: 12px; border: 1px solid var(--line); display: grid; place-items: center; align-content: center; gap: 4px; color: var(--muted); font-size: 12px; }
+  .pay div.on { background: var(--primary); color: var(--ink); border-color: var(--primary); }
+  .go { height: 52px; border-radius: 26px; background: var(--primary); color: var(--ink); display: flex; align-items: center; justify-content: space-between; padding: 0 22px; font-weight: 600; font-size: 15px; }
+  .hold { height: 44px; border-radius: 22px; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); }
+
+  /* φύλλο επιλογών */
+  .scrim { position: absolute; inset: 0; background: rgba(5,6,7,.62); }
+  .sheet { position: absolute; left: 216px; top: 40px; width: 848px; bottom: 40px; background: var(--panel); border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; outline: 1px solid var(--line); }
+  .sheet header { padding: 20px 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }
+  .sheet header .sw { width: 40px; height: 40px; border-radius: 12px; background: var(--c2); display: grid; place-items: center; color: var(--ink); }
+  .sheet header b { font-size: 16px; font-weight: 600; }
+  .sheet header small { color: var(--muted); }
+  .sheet .body { padding: 16px 24px; display: grid; gap: 20px; overflow: hidden; }
+  .grp .gh { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .grp .gh b { font-weight: 600; font-size: 14px; }
+  .grp .gh small { color: var(--muted); }
+  .badge { margin-left: auto; height: 24px; padding: 0 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 500; }
+  .badge svg.lucide { width: 14px; height: 14px; }
+  .badge.ok { color: var(--ok); background: rgba(127,209,161,.12); }
+  .badge.bad { color: var(--bad); background: rgba(242,139,139,.12); }
+  .opts-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .o { height: 52px; border-radius: 12px; background: var(--card); display: flex; align-items: center; gap: 10px; padding: 0 12px; font-weight: 500; position: relative; }
+  .o .sc { width: 14px; height: 14px; border-radius: 7px; flex: none; }
+  .o small { margin-left: auto; color: var(--muted); font-weight: 400; }
+  .o.on { background: var(--c); color: var(--ink); }
+  .o.on small { color: rgba(22,24,27,.6); }
+  .o .x { position: absolute; top: -6px; right: -6px; height: 22px; min-width: 28px; border-radius: 11px; background: var(--text); color: var(--ink); font-size: 11.5px; font-weight: 600; display: grid; place-items: center; padding: 0 6px; }
+  .o.off { color: var(--faint); text-decoration: line-through; }
+  .sheet footer { margin-top: auto; padding: 16px 24px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 16px; }
+  .sheet footer .chip { height: 44px; }
+  .sheet footer .calc { color: var(--muted); flex: 1; }
+  .sheet footer .go { width: 240px; }
+  .sheet footer .go.dim { background: var(--raised); color: var(--faint); }
+</style>
+</head>
+<body>
+
+<p class="note"><b>Κεντρικό ταμείο · νέο ύφος</b>Tablet 1280×800 dp, σκοτεινό. Παστέλ χρώμα ανά κατηγορία με σκούρο κείμενο, σκούρες κάρτες προϊόντων, λευκό κουμπί είσπραξης. Γραμματοσειρά Inter (έχει ελληνικά). Ό,τι είναι στο καλάθι γεμίζει με το χρώμα της κατηγορίας του.</p>
+
+<!-- 1. Οθόνη πώλησης -->
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a class="on"><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a><i data-lucide="receipt-text"></i>Αποδείξεις</a>
+    <a><i data-lucide="tablet-smartphone"></i>Συσκευή</a>
+    <div class="shift">
+      <div class="row"><span>Σήμερα</span><span class="num">84 αποδείξεις</span></div>
+      <div class="row"><span>Πωλήσεις</span><span class="num">612,40 €</span></div>
+    </div>
+    <div class="who"><span class="av">ΠΚ</span>Κατάστημα Πειραιά<br>Κεντρικό ταμείο · A3</div>
+  </nav>
+
+  <main>
+    <div class="top">
+      <div class="search"><i data-lucide="search"></i>Αναζήτηση προϊόντος</div>
+      <div class="status"><span class="dot"></span>Συνδεδεμένο</div>
+      <div class="status num">18:42</div>
+    </div>
+
+    <div class="cats">
+      <div class="cat" style="background:var(--c1)"><i data-lucide="star"></i><div><b>Συχνά</b><br><span>12 είδη</span></div></div>
+      <div class="cat on" style="background:var(--c2)"><i data-lucide="ice-cream-cone"></i><div><b>Παγωτό</b><br><span>8 είδη</span></div></div>
+      <div class="cat" style="background:var(--c3)"><i data-lucide="cup-soda"></i><div><b>Γρανίτες</b><br><span>4 είδη</span></div></div>
+      <div class="cat" style="background:var(--c6)"><i data-lucide="coffee"></i><div><b>Καφές</b><br><span>9 είδη</span></div></div>
+      <div class="cat" style="background:var(--c8)"><i data-lucide="cake-slice"></i><div><b>Γλυκά</b><br><span>6 είδη</span></div></div>
+    </div>
+
+    <div class="h">Παγωτό <small>8 είδη</small></div>
+    <div class="grid" style="--c:var(--c2)">
+      <div class="p in"><div class="tag"><span class="mono">Χ1</span></div><b>Χωνάκι 1 μπάλα</b><div class="price"><span class="num">2,80 €</span><div class="step"><i>−</i><span class="num">1</span><i>+</i></div></div></div>
+      <div class="p in"><div class="tag"><span class="mono">Χ2</span></div><b>Χωνάκι 2 μπάλες</b><div class="price"><span class="num">4,50 €</span><div class="step"><i>−</i><span class="num">2</span><i>+</i></div></div></div>
+      <div class="p"><div class="tag"><span class="mono">Χ3</span></div><b>Χωνάκι 3 μπάλες</b><div class="price"><span class="num">5,80 €</span></div></div>
+      <div class="p"><div class="tag"><span class="mono">Χ6</span></div><b>Χωνάκι βάφλας</b><div class="price"><span class="num">4,60 €</span></div></div>
+      <div class="p"><div class="tag"><span class="mono">Κ1</span></div><b>Κύπελλο μικρό</b><div class="price"><span class="num">2,80 €</span></div></div>
+      <div class="p"><div class="tag"><span class="mono">Κ3</span></div><b>Κύπελλο 3 μπάλες</b><div class="price"><span class="num">6,00 €</span></div></div>
+      <div class="p"><div class="tag"><span class="mono">Ο1</span></div><b>Οικογενειακό 500 g</b><div class="price"><span class="num">9,00 €</span></div></div>
+      <div class="p out"><div class="tag"><span class="mono">Ο2</span>· Εξαντλήθηκε</div><b>Οικογενειακό 1 kg</b><div class="price"><span class="num">16,00 €</span></div></div>
+    </div>
+  </main>
+
+  <aside>
+    <div class="head"><div class="h">Πώληση <small class="mono">A3 · 1042</small></div><div class="icon-btn"><i data-lucide="trash-2"></i></div></div>
+    <div class="lines">
+      <div class="line"><div class="r"><span class="q num">1</span><span class="nm">Χωνάκι 1 μπάλα</span><span class="num">2,80 €</span></div><div class="opts"><span><i class="scoop" style="background:#CDE5DB"></i>Φιστίκι</span></div></div>
+      <div class="line sel">
+        <div class="r"><span class="q num">2</span><span class="nm">Χωνάκι 2 μπάλες</span><span class="num">10,80 €</span></div>
+        <div class="opts"><span><i class="scoop" style="background:#E6DECB"></i>Βανίλια</span><span><i class="scoop" style="background:#C9A98E"></i>Σοκολάτα bitter</span><span>+ Σαντιγί 0,60</span></div>
+        <div class="tools"><span class="chip qty"><span>−</span><b class="num">2</b><span>+</span></span><span class="chip"><i data-lucide="sliders-horizontal"></i>Επιλογές</span><span class="chip"><i data-lucide="sticky-note"></i>Σημείωση</span></div>
+      </div>
+      <div class="line"><div class="r"><span class="q num">1</span><span class="nm">Freddo espresso</span><span class="num">2,80 €</span></div><div class="opts"><span>Μέτριος · Χωρίς γάλα</span></div></div>
+    </div>
+    <div class="sum">
+      <div class="r"><span>Καθαρή αξία</span><span class="num">14,51 €</span></div>
+      <div class="r"><span>ΦΠΑ 13%</span><span class="num">1,89 €</span></div>
+      <div class="r t"><span>Σύνολο</span><span class="num">16,40 €</span></div>
+    </div>
+    <div class="pay">
+      <div class="on"><i data-lucide="banknote"></i>Μετρητά</div>
+      <div><i data-lucide="credit-card"></i>Κάρτα</div>
+      <div><i data-lucide="smartphone"></i>IRIS</div>
+    </div>
+    <div class="go"><span>Είσπραξη</span><span class="num">16,40 €</span></div>
+  </aside>
+</div>
+
+<p class="note"><b>Επιλογές προϊόντος</b>Ανοίγει με το πάτημα προϊόντος που έχει υποχρεωτικές επιλογές. Η επιλεγμένη γεύση γεμίζει με το χρώμα της κατηγορίας· ξαναπατημένη γίνεται «× 2». Όταν η ομάδα γεμίσει, το επόμενο πάτημα αντικαθιστά την παλαιότερη. Το κουμπί μένει σβηστό όσο λείπει κάτι.</p>
+
+<!-- 2. Φύλλο επιλογών -->
+<div class="tablet">
+  <nav><div class="logo"><i></i>Gelato System</div><a class="on"><i data-lucide="ice-cream-cone"></i>Πώληση</a><a><i data-lucide="receipt-text"></i>Αποδείξεις</a><a><i data-lucide="tablet-smartphone"></i>Συσκευή</a></nav>
+  <main><div class="top"><div class="search"><i data-lucide="search"></i>Αναζήτηση προϊόντος</div></div></main>
+  <aside></aside>
+  <div class="scrim"></div>
+  <div class="sheet" style="--c:var(--c2)">
+    <header>
+      <div class="sw"><i data-lucide="ice-cream-cone"></i></div>
+      <div><b>Χωνάκι 2 μπάλες</b><br><small class="num">Βασική τιμή 4,50 €</small></div>
+      <div class="icon-btn" style="margin-left:auto"><i data-lucide="x"></i></div>
+    </header>
+    <div class="body">
+      <div class="grp">
+        <div class="gh"><b>Χωνάκι</b><small>διάλεξε 1</small><span class="badge ok"><i data-lucide="check"></i>Έτοιμο</span></div>
+        <div class="opts-grid">
+          <div class="o">Απλό</div>
+          <div class="o on">Βάφλας<small class="num">+0,60</small></div>
+          <div class="o">Σοκολάτας<small class="num">+0,50</small></div>
+          <div class="o">Σε κύπελλο</div>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="gh"><b>Γεύσεις</b><small>διάλεξε 2 · η ίδια γεύση μπορεί δύο φορές</small><span class="badge bad"><i data-lucide="triangle-alert"></i>Λείπει 1</span></div>
+        <div class="opts-grid">
+          <div class="o on"><i class="sc" style="background:#9FC6A8"></i>Φιστίκι Αιγίνης<small class="num">+0,30</small></div>
+          <div class="o"><i class="sc" style="background:#8A5A44"></i>Σοκολάτα bitter</div>
+          <div class="o"><i class="sc" style="background:#F1E6C8"></i>Βανίλια</div>
+          <div class="o"><i class="sc" style="background:#E89AA6"></i>Φράουλα</div>
+          <div class="o"><i class="sc" style="background:#EDE7DA"></i>Γιαούρτι μέλι</div>
+          <div class="o"><i class="sc" style="background:#C8925A"></i>Καραμέλα</div>
+          <div class="o off"><i class="sc" style="background:#3A3D42"></i>Λεμόνι σορμπέ</div>
+          <div class="o"><i class="sc" style="background:#E9E4DA"></i>Stracciatella</div>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="gh"><b>Έξτρα</b><small>προαιρετικά</small></div>
+        <div class="opts-grid">
+          <div class="o on">Σαντιγί<small class="num">+0,60</small></div>
+          <div class="o">Σιρόπι σοκολάτας<small class="num">+0,40</small></div>
+          <div class="o">Ξηροί καρποί<small class="num">+0,70</small></div>
+          <div class="o">Τρούφα<small class="num">+0,30</small></div>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="gh"><b>Χωρίς</b><small>προαιρετικά, δεν αλλάζει η τιμή</small></div>
+        <div class="opts-grid">
+          <div class="o">Χωρίς γλουτένη</div>
+          <div class="o">Χωρίς ζάχαρη</div>
+          <div class="o">Χωρίς λακτόζη</div>
+          <div class="o" style="color:var(--muted)"><i data-lucide="sticky-note"></i>Σημείωση</div>
+        </div>
+      </div>
+    </div>
+    <footer>
+      <span class="chip qty"><span>−</span><b class="num">1</b><span>+</span></span>
+      <span class="calc num">4,50 + 0,60 βάφλα + 0,30 φιστίκι + 0,60 σαντιγί</span>
+      <div class="go dim"><span>Προσθήκη</span><span class="num">6,00 €</span></div>
+    </footer>
+  </div>
+</div>
+
+<script>lucide.createIcons();</script>
+</body>
+</html>

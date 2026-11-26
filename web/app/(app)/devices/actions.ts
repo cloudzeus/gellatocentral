@@ -62,3 +62,21 @@ export async function toggleDevice(deviceId: string) {
   if (device) await flashOk(`Η συσκευή «${device.name}» ${device.active ? "απενεργοποιήθηκε" : "ενεργοποιήθηκε"}`);
   else await flashFail("Δεν έγινε: η συσκευή δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά.");
 }
+
+/** Μεταφορά ταμείου σε άλλο κατάστημα (η συσκευή άλλαξε μαγαζί). Κρατά σειρά και Android ID· η αποθήκη ξαναδιαλέγεται. */
+export async function moveDevice(deviceId: string, form: FormData) {
+  const { org } = await currentOrg("devices.edit");
+  const storeId = String(form.get("storeId") ?? "");
+  const [device, store] = await Promise.all([
+    db.device.findFirst({ where: { id: deviceId, orgId: org.id } }),
+    db.store.findFirst({ where: { id: storeId, orgId: org.id, active: true }, select: { id: true, name: true } }),
+  ]);
+  if (!device || !store || !DEVICE_KIND[device.kind].invoices) { await flashFail("Δεν έγινε η μεταφορά", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
+  if (device.storeId === store.id) return;
+  if (await db.tillShift.count({ where: { deviceId: device.id, endedAt: null } })) { await flashFail("Δεν έγινε η μεταφορά: η βάρδια στο ταμείο είναι ανοιχτή", "Κλείσε τη βάρδια από το ταμείο και δοκίμασε ξανά."); return; }
+  const terminal = await checkTerminal({ terminalId: device.vivaTerminalId, orgId: org.id, storeId: store.id, deviceId: device.id });
+  if (terminal) { await flashFail(`Δεν έγινε η μεταφορά: ${terminal}`, "Άλλαξε πρώτα το τερματικό της συσκευής."); return; }
+  await db.device.update({ where: { id: device.id }, data: { storeId: store.id, defaultWarehouseId: null, linkedDeviceId: null } });
+  revalidatePath("/devices");
+  await flashOk(`Το «${device.name}» είναι τώρα στο ${store.name}`);
+}

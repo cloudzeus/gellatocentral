@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<title>Μία εφαρμογή, ρόλοι ανά συσκευή · κουζίνα · αποθήκη</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: #111315; --panel: #1A1C1F; --card: #212428; --raised: #2A2D32; --line: rgba(255,255,255,.08);
+    --text: #FAFAFA; --muted: #B4B7BD; --faint: #787C84; --ink: #121417; --action: #F4F4F5;
+    --ok: #7FD1A1; --wait: #F2C46D; --bad: #F28B8B;
+    --c2: #C9CAEE; --c3: #CDE5DB; --c4: #F0D2C4; --c5: #C8DAEA; --c6: #E6DECB; --c8: #EBCAD8;
+    --navy: #1E2A4A;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #0A0B0C; color: var(--text); font-family: "Inter Tight", system-ui, sans-serif; font-size: 13.5px; padding: 40px; display: grid; gap: 24px; justify-content: center; }
+  .note { color: var(--muted); font-size: 14px; max-width: 1280px; line-height: 1.45; }
+  .note b { color: var(--text); font-weight: 600; font-size: 18px; display: block; margin-bottom: 4px; }
+  .note em { font-style: normal; color: var(--text); }
+  .num { font-variant-numeric: tabular-nums; }
+  svg.lucide { width: 18px; height: 18px; stroke-width: 1.75; }
+
+  /* κονσόλα (web, ανοιχτό θέμα) */
+  .console { width: 1280px; background: #F4F5F7; color: #121417; border-radius: 16px; padding: 28px; display: grid; gap: 16px; outline: 10px solid #1F2124; }
+  .console h2 { font-size: 20px; font-weight: 600; }
+  .console .sub { color: #5B6170; font-weight: 500; }
+  .roles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .role { background: #fff; border: 1px solid #E2E4E9; border-radius: 14px; padding: 16px; display: grid; gap: 10px; align-content: start; }
+  .role.on { border: 2px solid var(--navy); box-shadow: 0 0 0 4px rgba(30,42,74,.08); }
+  .role .ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--ink); }
+  .role b { font-size: 15.5px; font-weight: 600; }
+  .role p { color: #5B6170; font-weight: 500; line-height: 1.4; }
+  .role .dev { display: flex; align-items: center; gap: 6px; color: #121417; font-weight: 600; font-size: 12.5px; background: #F1F2F5; border-radius: 8px; padding: 6px 8px; }
+  .role .dev svg.lucide { width: 15px; height: 15px; }
+  .role ul { padding-left: 16px; color: #3A3F4B; font-weight: 500; line-height: 1.6; }
+  .crow { display: flex; gap: 12px; align-items: stretch; }
+  .cbox { background: #fff; border: 1px solid #E2E4E9; border-radius: 14px; padding: 16px; display: grid; gap: 6px; }
+  .cbox span { color: #5B6170; font-weight: 500; font-size: 12.5px; }
+  .cbox b { font-weight: 600; font-size: 15px; }
+  .code { font-size: 34px; font-weight: 700; letter-spacing: 6px; }
+  .cbtn { height: 44px; padding: 0 18px; border-radius: 10px; background: var(--navy); color: #fff; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; align-self: end; }
+
+  /* κουζίνα */
+  .kds { width: 1280px; height: 720px; background: #0C0D0F; border-radius: 12px; outline: 14px solid #1F2124; overflow: hidden; display: flex; flex-direction: column; }
+  .kh { height: 64px; display: flex; align-items: center; gap: 20px; padding: 0 20px; border-bottom: 1px solid var(--line); }
+  .kh h1 { font-size: 24px; font-weight: 700; }
+  .kh .st { display: flex; gap: 6px; }
+  .kh .st span { height: 44px; padding: 0 16px; border-radius: 12px; display: grid; place-items: center; font-weight: 600; font-size: 16px; color: var(--muted); background: var(--panel); }
+  .kh .st span.on { background: var(--action); color: var(--ink); }
+  .kh .kpi { margin-left: auto; display: flex; gap: 24px; }
+  .kh .kpi div { display: grid; text-align: right; }
+  .kh .kpi small { color: var(--muted); font-weight: 500; font-size: 13px; }
+  .kh .kpi b { font-size: 22px; font-weight: 700; }
+  .tickets { flex: 1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 12px; min-height: 0; }
+  .tk { background: var(--panel); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+  .tk .hd { padding: 10px 12px; display: grid; gap: 2px; color: var(--ink); }
+  .tk .hd .r1 { display: flex; align-items: baseline; justify-content: space-between; }
+  .tk .hd b { font-size: 22px; font-weight: 700; }
+  .tk .hd .tm { font-size: 24px; font-weight: 700; }
+  .tk .hd small { font-weight: 600; font-size: 13.5px; opacity: .75; }
+  .tk.g .hd { background: var(--ok); } .tk.y .hd { background: var(--wait); } .tk.r .hd { background: var(--bad); }
+  .tk .it { padding: 10px 12px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 30px 1fr; gap: 2px 6px; }
+  .tk .it:first-of-type { border-top: 0; }
+  .tk .it .q { font-size: 20px; font-weight: 700; }
+  .tk .it .n { font-size: 18px; font-weight: 600; line-height: 1.2; }
+  .tk .it .m { grid-column: 2; color: var(--muted); font-size: 15px; font-weight: 500; line-height: 1.3; }
+  .tk .it .m.x { color: var(--bad); font-weight: 600; }
+  .tk .it .m.note { color: var(--wait); font-weight: 600; }
+  .tk .it.done .n, .tk .it.done .q, .tk .it.done .m { color: var(--faint); text-decoration: line-through; }
+  .tk .bump { margin-top: auto; height: 56px; display: grid; place-items: center; font-size: 18px; font-weight: 700; background: var(--raised); }
+  .tk .src { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 6px; background: rgba(18,20,23,.14); font-size: 12.5px; font-weight: 700; }
+  .tk .src svg.lucide { width: 14px; height: 14px; stroke-width: 2.2; }
+
+  /* αποθήκη: φορητό με scanner */
+  .hands { display: flex; gap: 40px; }
+  .hand { width: 360px; height: 740px; background: var(--bg); border-radius: 28px; outline: 12px solid #2B2E33; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+  .hand::before { content: ""; position: absolute; top: -12px; left: 130px; width: 100px; height: 6px; background: #F2C46D; border-radius: 0 0 4px 4px; }
+  .hh { padding: 20px 16px 12px; display: flex; align-items: center; gap: 10px; }
+  .hh h2 { font-size: 20px; font-weight: 700; }
+  .hh small { color: var(--muted); font-weight: 500; margin-left: auto; }
+  .hb { flex: 1; padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
+  .prog { display: grid; gap: 6px; }
+  .prog .t { display: flex; justify-content: space-between; color: var(--muted); font-weight: 600; }
+  .prog .t b { color: var(--text); }
+  .prog i { height: 8px; border-radius: 4px; background: var(--raised); position: relative; display: block; overflow: hidden; }
+  .prog i em { position: absolute; inset: 0 auto 0 0; background: var(--ok); }
+  .scan { border: 2px dashed rgba(242,196,109,.5); border-radius: 16px; padding: 14px; display: flex; align-items: center; gap: 12px; color: var(--wait); font-weight: 600; font-size: 15px; }
+  .scan svg.lucide { width: 28px; height: 28px; }
+  .big { background: var(--card); border-radius: 16px; padding: 16px; display: grid; gap: 8px; }
+  .big .loc { display: flex; align-items: center; gap: 6px; color: var(--muted); font-weight: 600; }
+  .big .loc b { color: var(--ink); background: var(--c6); border-radius: 6px; padding: 2px 8px; font-size: 15px; }
+  .big h3 { font-size: 22px; font-weight: 700; line-height: 1.15; }
+  .big .code2 { color: var(--muted); font-weight: 500; }
+  .qty { display: grid; grid-template-columns: 64px 1fr 64px; gap: 8px; align-items: center; }
+  .qty span { height: 64px; border-radius: 14px; background: var(--raised); display: grid; place-items: center; font-size: 28px; font-weight: 700; }
+  .qty div { text-align: center; }
+  .qty div b { font-size: 36px; font-weight: 700; display: block; }
+  .qty div small { color: var(--muted); font-weight: 600; }
+  .next { display: grid; gap: 6px; }
+  .next .row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--panel); font-weight: 600; }
+  .next .row small { color: var(--muted); font-weight: 500; }
+  .next .row .r { margin-left: auto; color: var(--muted); }
+  .next .row.ok { color: var(--faint); }
+  .next .row.ok svg.lucide { color: var(--ok); }
+  .hgo { margin: 12px 16px 20px; height: 60px; border-radius: 30px; background: var(--action); color: var(--ink); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; gap: 8px; }
+  .hsec { display: flex; gap: 8px; }
+  .hsec span { flex: 1; height: 48px; border-radius: 12px; border: 1px solid var(--line); display: grid; place-items: center; font-weight: 600; }
+  .warn { background: rgba(242,196,109,.12); color: var(--wait); border-radius: 12px; padding: 10px 12px; font-weight: 600; display: flex; gap: 8px; line-height: 1.35; }
+  .warn svg.lucide { flex: none; }
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .keys span { height: 52px; border-radius: 12px; background: var(--card); display: grid; place-items: center; font-size: 22px; font-weight: 600; }
+  .cam { position: relative; height: 330px; border-radius: 16px; overflow: hidden; background: linear-gradient(160deg,#3a3d42,#24272b); }
+  .paper { position: absolute; left: 34px; top: 26px; width: 260px; height: 290px; background: #F3F1EC; border-radius: 4px; transform: rotate(-3deg); padding: 14px; display: grid; gap: 6px; align-content: start; box-shadow: 0 8px 24px rgba(0,0,0,.35); color: #3a3a3a; font-size: 9px; }
+  .paper .pl { height: 6px; border-radius: 3px; background: #CFCBC2; }
+  .paper .qr { position: absolute; right: 14px; top: 14px; width: 46px; height: 46px; background: repeating-conic-gradient(#222 0 25%, #F3F1EC 0 50%) 0 0/9px 9px; outline: 3px solid var(--ok); outline-offset: 3px; }
+  .frame { position: absolute; inset: 16px; border: 3px solid rgba(255,255,255,.85); border-radius: 14px; }
+  .camtag { position: absolute; left: 12px; right: 12px; bottom: 12px; background: rgba(12,13,15,.85); border-radius: 12px; padding: 10px 12px; display: flex; gap: 8px; align-items: center; font-weight: 600; color: var(--ok); }
+  .shutter { display: flex; align-items: center; justify-content: space-between; padding: 0 8px; }
+  .shutter i.b { width: 72px; height: 72px; border-radius: 36px; border: 5px solid var(--action); display: block; background: rgba(255,255,255,.12); }
+  .shutter span { width: 48px; height: 48px; border-radius: 12px; background: var(--card); display: grid; place-items: center; }
+  .docm { background: var(--card); border-radius: 14px; padding: 12px; display: grid; gap: 4px; }
+  .docm b { font-weight: 700; font-size: 16px; }
+  .docm span { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .tag { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 6px; font-size: 12px; font-weight: 700; width: max-content; }
+  .tag.ok { color: var(--ok); background: rgba(127,209,161,.12); }
+  .tag.wait { color: var(--wait); background: rgba(242,196,109,.12); }
+  .tag svg.lucide { width: 14px; height: 14px; }
+
+  /* παραγωγή */
+  .tab { width: 1280px; height: 800px; background: var(--bg); border-radius: 20px; overflow: hidden; display: grid; grid-template-columns: 200px 1fr; outline: 10px solid #1F2124; }
+  .tab nav { padding: 20px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .tab .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15.5px; padding: 0 8px 20px; }
+  .tab .logo i { width: 22px; height: 22px; border-radius: 11px; background: var(--c3); display: inline-block; }
+  .tab nav a { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-radius: 12px; color: var(--muted); font-weight: 600; }
+  .tab nav a.on { background: var(--raised); color: var(--text); }
+  .tab nav a .n { margin-left: auto; min-width: 22px; height: 22px; border-radius: 11px; padding: 0 6px; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--bad); color: var(--ink); }
+  .tab nav .foot { margin-top: auto; border-top: 1px solid var(--line); padding: 16px 8px 0; display: grid; gap: 4px; }
+  .tab nav .foot b { font-weight: 600; font-size: 13px; }
+  .tab nav .foot span { color: var(--muted); font-size: 12px; font-weight: 500; }
+  .tab main { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .ttop { display: flex; align-items: center; gap: 12px; }
+  .ttop h1 { font-size: 20px; font-weight: 600; }
+  .ttop small { color: var(--muted); font-weight: 500; }
+  .ttop .sp { flex: 1; }
+  .tbtn { height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); display: inline-flex; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap; }
+  .pgrid2 { display: grid; grid-template-columns: 290px 1fr 320px; gap: 14px; flex: 1; min-height: 0; }
+  .pcol { background: var(--panel); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+  .pcol h3 { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .pcol h3 small { color: var(--muted); font-weight: 500; margin-left: auto; }
+  .stp { display: grid; grid-template-columns: 28px 1fr; gap: 2px 10px; padding: 8px 6px; border-radius: 10px; align-items: start; }
+  .stp .d { width: 28px; height: 28px; border-radius: 14px; display: grid; place-items: center; font-weight: 700; font-size: 13px; background: var(--raised); color: var(--muted); }
+  .stp .d svg.lucide { width: 16px; height: 16px; stroke-width: 3; }
+  .stp.ok .d { background: var(--ok); color: var(--ink); }
+  .stp.now { background: var(--card); box-shadow: inset 0 0 0 2px var(--text); }
+  .stp.now .d { background: var(--action); color: var(--ink); }
+  .stp b { font-weight: 600; }
+  .stp > span:not(.d) { grid-column: 2; color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .ccp { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 5px; background: var(--bad); color: var(--ink); font-size: 11px; font-weight: 800; margin-left: 6px; vertical-align: 2px; }
+  .bigstep { background: var(--card); border-radius: 14px; padding: 16px; display: grid; gap: 10px; }
+  .bigstep h2 { font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .bigstep p { color: var(--muted); font-weight: 500; font-size: 14.5px; line-height: 1.45; }
+  .read { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .read div { background: var(--raised); border-radius: 12px; padding: 10px 12px; display: grid; gap: 2px; }
+  .read small { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .read b { font-size: 20px; font-weight: 700; white-space: nowrap; }
+  .read b.good { color: var(--ok); }
+  .ing { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 10px; align-items: center; padding: 8px 2px; border-top: 1px solid var(--line); }
+  .ing b { font-weight: 600; }
+  .ing small { color: var(--muted); font-weight: 500; font-size: 12px; grid-column: 1; }
+  .ing .g { font-weight: 600; text-align: right; }
+  .ing .lot { font-size: 11.5px; font-weight: 600; color: var(--muted); background: var(--raised); border-radius: 6px; padding: 3px 7px; }
+  .algs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .algs span { height: 28px; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12.5px; background: var(--c4); color: var(--ink); }
+  .algs svg.lucide { width: 15px; height: 15px; }
+  .chk { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--card); font-weight: 600; }
+  .chk .bx { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--faint); flex: none; display: grid; place-items: center; }
+  .chk.ok .bx { background: var(--ok); border-color: var(--ok); color: var(--ink); }
+  .chk.bad { box-shadow: inset 0 0 0 2px var(--bad); }
+  .chk.bad .bx { border-color: var(--bad); color: var(--bad); }
+  .chk .bx svg.lucide { width: 16px; height: 16px; stroke-width: 3; }
+  .chk small { color: var(--muted); font-weight: 500; font-size: 12.5px; display: block; }
+  .chk .r { margin-left: auto; color: var(--text); font-weight: 600; font-size: 12.5px; white-space: nowrap; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+  .score { display: flex; align-items: baseline; gap: 10px; }
+  .score b { font-size: 40px; font-weight: 700; }
+  .score span { color: var(--muted); font-weight: 500; }
+  .sm { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sm .c { background: var(--card); border-radius: 12px; padding: 10px 12px; display: grid; gap: 4px; }
+  .sm .c .t { display: grid; font-weight: 600; font-size: 12.5px; }
+  .sm .c .t b { font-weight: 700; font-size: 17px; }
+  .sm .c small { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .kv2 { display: flex; justify-content: space-between; color: var(--muted); font-weight: 500; }
+  .kv2 b { color: var(--text); font-weight: 600; }
+  .pgo { height: 60px; border-radius: 30px; background: var(--action); color: var(--ink); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; font-weight: 700; font-size: 17px; }
+
+  /* ιδιοκτήτης */
+  .hand.own { border-radius: 40px; outline-width: 10px; outline-color: #1F2124; height: 780px; }
+  .hand.own::before { display: none; }
+  .ohead { padding: 44px 18px 10px; display: flex; align-items: center; gap: 10px; }
+  .ohead h2 { font-size: 22px; font-weight: 700; }
+  .ohead small { color: var(--muted); font-weight: 500; margin-left: auto; }
+  .ob { flex: 1; padding: 0 16px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  .hero { background: var(--card); border-radius: 16px; padding: 14px; display: grid; gap: 4px; }
+  .hero small { color: var(--muted); font-weight: 500; }
+  .hero b { font-size: 34px; font-weight: 700; letter-spacing: -.5px; }
+  .hero .ch { color: var(--ok); font-weight: 600; font-size: 13px; }
+  .lg { display: flex; gap: 12px; color: var(--muted); font-weight: 500; font-size: 12px; }
+  .lg i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: 3px; margin-right: 5px; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tiles div { background: var(--card); border-radius: 14px; padding: 10px 12px; display: grid; gap: 2px; }
+  .tiles small { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .tiles b { font-size: 19px; font-weight: 700; }
+  .tiles span { font-size: 12px; font-weight: 600; }
+  .al { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--card); font-weight: 600; }
+  .al small { display: block; color: var(--muted); font-weight: 500; font-size: 12px; }
+  .al .r { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .tabbar { height: 70px; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, 1fr); padding-bottom: 8px; }
+  .tabbar span { display: grid; place-items: center; align-content: center; gap: 3px; color: var(--faint); font-weight: 600; font-size: 11.5px; }
+  .tabbar span.on { color: var(--text); }
+  .dv { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 10px 12px; border-radius: 12px; background: var(--card); align-items: center; }
+  .dv b { font-weight: 600; display: flex; align-items: center; gap: 7px; }
+  .dv small { color: var(--muted); font-weight: 500; font-size: 12px; grid-column: 1; }
+  .dv .v { font-weight: 700; font-size: 16px; text-align: right; grid-row: 1 / span 2; grid-column: 2; }
+  .dot { width: 9px; height: 9px; border-radius: 5px; display: inline-block; flex: none; }
+  .segm { display: flex; background: var(--panel); border-radius: 12px; padding: 4px; gap: 2px; }
+  .segm span { flex: 1; height: 34px; border-radius: 9px; display: grid; place-items: center; color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  .segm span.on { background: var(--raised); color: var(--text); }
+  .slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .slots div { border-radius: 10px; background: var(--card); padding: 6px 8px; display: grid; gap: 4px; font-size: 11.5px; font-weight: 600; }
+  .slots div i { height: 5px; border-radius: 3px; background: var(--raised); display: block; position: relative; overflow: hidden; }
+  .slots div i em { position: absolute; inset: 0 auto 0 0; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<p class="note"><b>1 · Ένα app, ρόλος ανά συσκευή (στην κονσόλα)</b>Όταν προσθέτεις συσκευή, διαλέγεις τι είναι. Ο κωδικός σύζευξης που βγαίνει «ξέρει» τον ρόλο: η ίδια εφαρμογή Android ανοίγει ως ταμείο, σερβιτόρος, κουζίνα, αποθήκη ή παραγωγή. Ο ιδιοκτήτης δεν κάνει σύζευξη συσκευής: μπαίνει με τον λογαριασμό του από το δικό του κινητό και βλέπει όλα τα καταστήματα, με το δικό της στήσιμο για το μέγεθος της συσκευής. Ο υπάλληλος μπαίνει με PIN και βλέπει μόνο όσα επιτρέπει ο ρόλος του. Ο ρόλος αλλάζει από την κονσόλα χωρίς επανεγκατάσταση.</p>
+
+<div class="console">
+  <div><h2>Νέα συσκευή · Κατάστημα Πειραιά</h2><span class="sub">Τι θα κάνει αυτή η συσκευή;</span></div>
+  <div class="roles">
+    <div class="role">
+      <div class="ic" style="background:var(--c2)"><i data-lucide="monitor-smartphone"></i></div>
+      <b>Ταμείο</b>
+      <p>Πωλήσεις, τραπέζια, παραγγελίες, επιστροφές, απώλειες.</p>
+      <div class="dev"><i data-lucide="tablet"></i>Tablet 10–13″ οριζόντιο</div>
+      <ul><li>Εκδίδει αποδείξεις (σειρά)</li><li>Συνδέεται με τερματικό Viva</li></ul>
+    </div>
+    <div class="role on">
+      <div class="ic" style="background:var(--c5)"><i data-lucide="hand-platter"></i></div>
+      <b>Σερβιτόρος</b>
+      <p>Τα τραπέζια του, παραγγελία, αποστολή στην κουζίνα, πληρωμή στο τραπέζι.</p>
+      <div class="dev"><i data-lucide="smartphone"></i>Κινητό 6″ κάθετο</div>
+      <ul><li>Εκδίδει δελτία 8.6</li><li>Κάρτα μέσω Viva στο κινητό</li></ul>
+    </div>
+    <div class="role">
+      <div class="ic" style="background:var(--c4)"><i data-lucide="chef-hat"></i></div>
+      <b>Κουζίνα</b>
+      <p>Βλέπει ό,τι πρέπει να ετοιμαστεί, από τραπέζια, ταμείο, Wolt, efood.</p>
+      <div class="dev"><i data-lucide="tv"></i>Οθόνη 15–24″ στον τοίχο</div>
+      <ul><li>Κλειδωμένη σε μία οθόνη</li><li>Δεν εκδίδει, δεν χρεώνει</li></ul>
+    </div>
+    <div class="role">
+      <div class="ic" style="background:var(--c6)"><i data-lucide="scan-barcode"></i></div>
+      <b>Αποθήκη</b>
+      <p>Συλλογή παραγγελιών (picking), απογραφή, παραλαβή από προμηθευτή.</p>
+      <div class="dev"><i data-lucide="scan-line"></i>Φορητό 5″ με scanner</div>
+      <ul><li>Δουλεύει και χωρίς δίκτυο</li><li>Σκανάρει barcode / QR</li></ul>
+    </div>
+    <div class="role">
+      <div class="ic" style="background:var(--c3)"><i data-lucide="flask-conical"></i></div>
+      <b>Παραγωγή</b>
+      <p>Συνταγές βήμα βήμα, παρτίδες, HACCP, ετικέτες.</p>
+      <div class="dev"><i data-lucide="tablet"></i>Tablet 10″ σε βάση</div>
+      <ul><li>Ζυγαριά και θερμόμετρο</li><li>Ιχνηλασιμότητα ΕΦΕΤ</li></ul>
+    </div>
+  </div>
+  <div class="crow">
+    <div class="cbox" style="flex:1"><span>Όνομα συσκευής</span><b>Κινητό Μαρίας</b></div>
+    <div class="cbox" style="flex:1"><span>Τμήματα που βλέπει</span><b>Σάλα, Βεράντα</b></div>
+    <div class="cbox"><span>Κωδικός σύζευξης · λήγει σε 10′</span><b class="code num">482 917</b></div>
+    <div class="cbtn"><i data-lucide="check"></i>Έτοιμο</div>
+  </div>
+</div>
+
+<p class="note"><b>2 · Οθόνη κουζίνας (KDS) · 24″ στον τοίχο, διαβάζεται από 2 μέτρα</b>Κάθε κάρτα είναι μία αποστολή. Το χρώμα δείχνει πόσο περιμένει: <em>πράσινο</em> κάτω από 5′, <em>κίτρινο</em> 5–10′, <em>κόκκινο</em> πάνω από 10′. Πατάς ένα είδος και διαγράφεται· «Έτοιμο» στέλνει ειδοποίηση στον σερβιτόρο ή στο ταμείο (για Wolt/efood: «έτοιμη για τον διανομέα»). Τα «χωρίς» φαίνονται κόκκινα, οι σημειώσεις κίτρινες. Πάνω, φίλτρο σταθμού: ο πάγκος του παγωτού δεν βλέπει καφέδες.</p>
+
+<div class="kds">
+  <div class="kh">
+    <h1>Κουζίνα</h1>
+    <div class="st"><span class="on">Όλα</span><span>Παγωτό</span><span>Καφές</span><span>Κρύα κουζίνα</span></div>
+    <div class="kpi">
+      <div><small>Σε αναμονή</small><b class="num">5</b></div>
+      <div><small>Μέσος χρόνος σήμερα</small><b class="num">6′ 40″</b></div>
+      <div><small>Ώρα</small><b class="num">18:42</b></div>
+    </div>
+  </div>
+  <div class="tickets">
+    <div class="tk r">
+      <div class="hd"><div class="r1"><b>Τραπέζι 4</b><span class="tm num">12′</span></div><small>Γιώργος · αποστολή 1</small></div>
+      <div class="it"><span class="q num">2</span><span class="n">Κύπελλο 3 μπάλες</span><span class="m">Βανίλια, Φράουλα, Μπανάνα</span><span class="m x">χωρίς σιρόπι</span></div>
+      <div class="it done"><span class="q num">1</span><span class="n">Freddo espresso</span><span class="m">Μέτριος</span></div>
+      <div class="bump">Έτοιμο</div>
+    </div>
+    <div class="tk y">
+      <div class="hd"><div class="r1"><span class="src"><i data-lucide="bike"></i>Wolt #4821</span><span class="tm num">7′</span></div><small>Διανομέας 18:55</small></div>
+      <div class="it"><span class="q num">1</span><span class="n">Οικογενειακό 1 kg</span><span class="m">Φιστίκι, Σοκολάτα</span></div>
+      <div class="it"><span class="q num">2</span><span class="n">Κύπελλο 3 μπάλες</span><span class="m">Λεμόνι, Μάνγκο, Φράουλα</span></div>
+      <div class="bump">Έτοιμο</div>
+    </div>
+    <div class="tk y">
+      <div class="hd"><div class="r1"><b>Τραπέζι 6</b><span class="tm num">6′</span></div><small>Μαρία · αποστολή 2</small></div>
+      <div class="it"><span class="q num">1</span><span class="n">Χωνάκι 2 μπάλες</span><span class="m">2× Φιστίκι Αιγίνης, Σαντιγί</span></div>
+      <div class="it done"><span class="q num">1</span><span class="n">Κύπελλο 3 μπάλες</span><span class="m">Βανίλια, Σοκολάτα bitter, Φράουλα</span></div>
+      <div class="it"><span class="q num">1</span><span class="n">Χωνάκι 1 μπάλα</span><span class="m">Λεμόνι σορμπέ</span><span class="m note">σε κύπελλο, για παιδί</span></div>
+      <div class="bump">Έτοιμο</div>
+    </div>
+    <div class="tk g">
+      <div class="hd"><div class="r1"><span class="src"><i data-lucide="phone"></i>Τηλέφωνο</span><span class="tm num">3′</span></div><small>Κώστας Λ. · παραλαβή 19:05</small></div>
+      <div class="it"><span class="q num">2</span><span class="n">Οικογενειακό 500 g</span><span class="m">Καραμέλα, Cookies</span></div>
+      <div class="it"><span class="q num">1</span><span class="n">Σιρόπι σοκολάτας</span><span class="m">ξεχωριστά</span></div>
+      <div class="bump">Έτοιμο</div>
+    </div>
+    <div class="tk g">
+      <div class="hd"><div class="r1"><b>Ταμείο</b><span class="tm num">1′</span></div><small>Πακέτο · A3 1047</small></div>
+      <div class="it"><span class="q num">3</span><span class="n">Freddo espresso</span><span class="m">Μέτριος</span></div>
+      <div class="it"><span class="q num">1</span><span class="n">Χωνάκι 2 μπάλες</span><span class="m">Σοκολάτα, Βανίλια</span></div>
+      <div class="bump">Έτοιμο</div>
+    </div>
+  </div>
+</div>
+
+<p class="note"><b>3 · Αποθήκη · φορητό 5″ με scanner</b>Ένα βήμα κάθε φορά, σκανάρισμα πρώτα, μεγάλα κουμπιά (δουλεύεται και με γάντια στον καταψύκτη). <em>Picking</em>: η λίστα έρχεται έτοιμη ταξινομημένη κατά θέση· σκανάρεις τη θέση, μετά το είδος, και η ποσότητα συμπληρώνεται. Αν σκανάρεις λάθος είδος, δονείται και το λέει. <em>Απογραφή</em>: «τυφλή»· ο υπάλληλος δεν βλέπει τι περιμένει το σύστημα, ώστε να μετρήσει πραγματικά. Οι διαφορές φαίνονται στον υπεύθυνο στην κονσόλα. Όλα δουλεύουν χωρίς δίκτυο και στέλνονται όταν επανέλθει.</p>
+
+<div class="hands">
+  <div class="hand">
+    <div class="hh"><h2>Picking</h2><small class="num">Μεταφορά #T-118</small></div>
+    <div class="hb">
+      <div class="prog"><div class="t"><span>Εργαστήριο → Πειραιάς</span><b class="num">4 / 9</b></div><i><em style="width:44%"></em></i></div>
+      <div class="big">
+        <div class="loc"><i data-lucide="map-pin"></i>Θέση <b>Κ2 · ράφι 3</b></div>
+        <h3>Φιστίκι Αιγίνης · λεκάνη 5 L</h3>
+        <span class="code2 num">Κωδ. ΠΓ-014 · παρτίδα 2611-02</span>
+        <div class="qty"><span>−</span><div><b class="num">3</b><small class="num">από 3 λεκάνες</small></div><span>+</span></div>
+      </div>
+      <div class="scan"><i data-lucide="scan-barcode"></i>Σκάναρε το επόμενο: Σοκολάτα bitter</div>
+      <div class="next">
+        <div class="row ok"><i data-lucide="check"></i>Βανίλια Μαδαγασκάρης<span class="r num">4/4</span></div>
+        <div class="row"><i data-lucide="circle"></i>Σοκολάτα bitter<small>Κ2 · ράφι 3</small><span class="r num">0/2</span></div>
+        <div class="row"><i data-lucide="circle"></i>Χωνάκια (κιβώτιο)<small>Ξ1</small><span class="r num">0/3</span></div>
+      </div>
+    </div>
+    <div class="hgo"><i data-lucide="arrow-right"></i>Επόμενο είδος</div>
+  </div>
+
+  <div class="hand">
+    <div class="hh"><h2>Απογραφή</h2><small>Καταψύκτης Κ2</small></div>
+    <div class="hb">
+      <div class="prog"><div class="t"><span>Μετρημένα είδη</span><b class="num">17 / 32</b></div><i><em style="width:53%"></em></i></div>
+      <div class="big">
+        <div class="loc"><i data-lucide="map-pin"></i>Θέση <b>Κ2 · ράφι 1</b></div>
+        <h3>Σοκολάτα bitter · λεκάνη</h3>
+        <span class="code2">Μέτρησε λεκάνες και ζύγισε την ανοιχτή</span>
+        <div class="hsec"><span style="background:var(--action);color:var(--ink)">Λεκάνες</span><span>Ζυγαριά (kg)</span></div>
+        <div class="qty"><span>−</span><div><b class="num">2</b><small>γεμάτες</small></div><span>+</span></div>
+      </div>
+      <div class="warn"><i data-lucide="scale"></i>Ανοιχτή λεκάνη: 1,35 kg από τη ζυγαριά Bluetooth</div>
+      <div class="keys num"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></div>
+    </div>
+    <div class="hgo"><i data-lucide="check"></i>Μετρήθηκε · επόμενο</div>
+  </div>
+
+  <div class="hand">
+    <div class="hh"><h2>Παραλαβή</h2><small>Γαλακτοκομικά Α.Ε.</small></div>
+    <div class="hb">
+      <div class="prog"><div class="t"><span>Δελτίο αποστολής 4412</span><b class="num">5 / 6</b></div><i><em style="width:83%"></em></i></div>
+      <div class="next">
+        <div class="row ok"><i data-lucide="check"></i>Γάλα 3,5% · 1 L<span class="r num">24/24</span></div>
+        <div class="row ok"><i data-lucide="check"></i>Κρέμα γάλακτος 35%<span class="r num">12/12</span></div>
+        <div class="row ok"><i data-lucide="check"></i>Βούτυρο 250 g<span class="r num">10/10</span></div>
+        <div class="row ok"><i data-lucide="check"></i>Γιαούρτι στραγγιστό<span class="r num">6/6</span></div>
+        <div class="row" style="box-shadow:inset 0 0 0 2px var(--wait)"><i data-lucide="triangle-alert" style="color:var(--wait)"></i>Μασκαρπόνε 500 g<span class="r num" style="color:var(--wait)">4/6</span></div>
+        <div class="row"><i data-lucide="circle"></i>Αυγά (θήκη 30)<span class="r num">0/2</span></div>
+      </div>
+      <div class="warn"><i data-lucide="thermometer-snowflake"></i>Θερμοκρασία παραλαβής: 3,8 °C · εντός ορίων (καταγράφεται στο HACCP)</div>
+      <div class="warn" style="color:var(--bad);background:rgba(242,139,139,.12)"><i data-lucide="package-minus"></i>Λείπουν 2 μασκαρπόνε: θα σημειωθούν στο δελτίο ως ελλείψεις</div>
+    </div>
+    <div class="hgo"><i data-lucide="scan-barcode"></i>Σκάναρε αυγά</div>
+  </div>
+</div>
+
+
+<p class="note"><b>4 · Σκανάρισμα παραστατικών προμηθευτή</b>Ο αποθηκάριος φωτογραφίζει το τιμολόγιο ή το δελτίο αποστολής. <em>Πρώτα κοιτάμε για το QR του myDATA</em>: αν υπάρχει, παίρνουμε τα επίσημα στοιχεία από την ΑΑΔΕ (ΜΑΡΚ, προμηθευτής, γραμμές, ΦΠΑ) χωρίς λάθη ανάγνωσης. Αν δεν υπάρχει QR (χειρόγραφο, παλιό δελτίο), διαβάζεται με OCR και ό,τι δεν είναι σίγουρο σημειώνεται κίτρινο για έλεγχο. Οι γραμμές ταιριάζουν με τα είδη μας (με τον κωδικό του προμηθευτή, και μαθαίνει από τις διορθώσεις). Το παραστατικό δένεται με την παραλαβή, ενημερώνει κόστος και απόθεμα, και η φωτογραφία μένει στο αρχείο για τον λογιστή.</p>
+
+<div class="hands">
+  <div class="hand">
+    <div class="hh"><h2>Παραστατικό</h2><small>Φωτογράφιση</small></div>
+    <div class="hb">
+      <div class="cam">
+        <div class="paper">
+          <div class="qr"></div>
+          <b style="font-size:11px">ΓΑΛΑΚΤΟΚΟΜΙΚΑ Α.Ε.</b>
+          <div class="pl" style="width:60%"></div><div class="pl" style="width:45%"></div>
+          <b style="font-size:10px;margin-top:6px">ΤΙΜΟΛΟΓΙΟ - ΔΕΛΤΙΟ ΑΠΟΣΤΟΛΗΣ</b>
+          <div class="pl"></div><div class="pl"></div><div class="pl" style="width:80%"></div><div class="pl"></div><div class="pl" style="width:70%"></div><div class="pl"></div>
+          <div class="pl" style="width:40%;margin-left:auto;margin-top:8px;background:#9c978c"></div>
+        </div>
+        <div class="frame"></div>
+        <div class="camtag"><i data-lucide="qr-code"></i>Βρέθηκε QR myDATA · κράτα σταθερά</div>
+      </div>
+      <div class="shutter"><span><i data-lucide="image"></i></span><i class="b"></i><span><i data-lucide="zap"></i></span></div>
+      <div class="info" style="background:var(--card);border-radius:12px;padding:10px 12px;color:var(--muted);font-weight:500;display:flex;gap:8px"><i data-lucide="files"></i>Πολυσέλιδο; Φωτογράφισε όλες τις σελίδες, ενώνονται σε ένα.</div>
+    </div>
+    <div class="hgo" style="background:var(--raised);color:var(--text)"><i data-lucide="keyboard"></i>Χωρίς φωτογραφία · πληκτρολόγηση</div>
+  </div>
+
+  <div class="hand">
+    <div class="hh"><h2>Έλεγχος</h2><small>1 από 1 σελίδα</small></div>
+    <div class="hb">
+      <div class="docm">
+        <span class="tag ok"><i data-lucide="badge-check"></i>Επίσημα στοιχεία από myDATA</span>
+        <b>Τιμολόγιο-Δελτίο 1.1 · Α 4412</b>
+        <span class="num">Γαλακτοκομικά Α.Ε. · ΑΦΜ 0•• ••• 318 · 26/11</span>
+        <span class="num">ΜΑΡΚ 400001954226173 · καθαρή 178,28 € · με ΦΠΑ 13% 201,46 €</span>
+      </div>
+      <div class="next">
+        <div class="row ok"><i data-lucide="check"></i>Γάλα 3,5% · 1 L<span class="r num">24 × 1,12</span></div>
+        <div class="row ok"><i data-lucide="check"></i>Κρέμα γάλακτος 35%<span class="r num">12 × 4,80</span></div>
+        <div class="row ok"><i data-lucide="check"></i>Βούτυρο 250 g<span class="r num">10 × 2,90</span></div>
+        <div class="row ok"><i data-lucide="check"></i>Γιαούρτι στραγγιστό<span class="r num">6 × 3,40</span></div>
+        <div class="row" style="box-shadow:inset 0 0 0 2px var(--wait)"><i data-lucide="link-2" style="color:var(--wait)"></i>«ΜΑΣΚΑΡΠ. 500ΓΡ»<small>διάλεξε είδος</small><span class="r num">6 × 4,20</span></div>
+        <div class="row ok"><i data-lucide="check"></i>Αυγά (θήκη 30)<span class="r num">2 × 9,60</span></div>
+      </div>
+      <div class="warn"><i data-lucide="package-minus"></i>Χρεώνει 6 μασκαρπόνε, παραλήφθηκαν 4: θα ζητηθεί πιστωτικό για 8,40 € + ΦΠΑ</div>
+      <div class="warn" style="color:var(--bad);background:rgba(242,139,139,.12)"><i data-lucide="trending-up"></i>Η κρέμα γάλακτος ακρίβυνε 6,7% από την προηγούμενη παραλαβή</div>
+    </div>
+    <div class="hgo"><i data-lucide="link"></i>Σύνδεση με παραλαβή 4412</div>
+  </div>
+</div>
+
+
+<p class="note"><b>5 · Παραγωγή · tablet 10″ στο εργαστήριο: συνταγή βήμα βήμα με CCP</b>Ο τεχνίτης βλέπει το πλάνο της ημέρας και ξεκινά παρτίδα. Η συνταγή τρέχει σε βήματα: ζύγιση υλικών από τη ζυγαριά με <em>σκανάρισμα της παρτίδας κάθε υλικού</em> (ιχνηλασιμότητα για τον ΕΦΕΤ, FEFO), παστερίωση, ωρίμανση, παγοποίηση, σκλήρυνση. Τα κρίσιμα σημεία ελέγχου (<em>CCP</em>) δεν προχωρούν αν δεν γραφτεί μέτρηση εντός ορίων· τη μέτρηση τη δίνει ο αισθητήρας του παστεριωτή ή πληκτρολογείται. Αν βγει εκτός, ζητά διορθωτική ενέργεια και γράφεται απόκλιση στο HACCP. Πατάει πάνω σε ό,τι υπάρχει ήδη στην κονσόλα: πλάνα παραγωγής, συνταγές, παρτίδες με FEFO, έντυπα HACCP. Τα βήματα της συνταγής και τα όρια CCP είναι νέα.</p>
+
+<div class="tab">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a class="on"><i data-lucide="play"></i>Σήμερα</a><a><i data-lucide="flask-conical"></i>Συνταγές</a><a><i data-lucide="shield-check"></i>HACCP<span class="n num">2</span></a><a><i data-lucide="tag"></i>Ετικέτες</a><a><i data-lucide="route"></i>Ιχνηλασιμότητα</a>
+    <div class="foot"><b>Εργαστήριο Ρέντη</b><span>Παραγωγή · Νίκος Π. (PIN)</span></div>
+  </nav>
+  <main>
+    <div class="ttop">
+      <h1>Φιστίκι Αιγίνης · 20 L</h1><small class="num">Παρτίδα 20261126-3 · συνταγή v4 · Παστεριωτής 1</small>
+      <div class="sp"></div>
+      <div class="tbtn"><i data-lucide="pause"></i>Παύση</div>
+      <div class="tbtn"><i data-lucide="circle-x"></i>Ακύρωση παρτίδας</div>
+    </div>
+    <div class="pgrid2">
+      <div class="pcol">
+        <h3>Βήματα<small class="num">4 / 7</small></h3>
+        <div class="stp ok"><span class="d"><i data-lucide="check"></i></span><b>Ζύγιση υλικών</b><span>7 υλικά · 7 παρτίδες σκαναρισμένες</span></div>
+        <div class="stp ok"><span class="d"><i data-lucide="check"></i></span><b>Ανάμειξη βάσης</b><span>Νίκος · 09:12</span></div>
+        <div class="stp ok"><span class="d"><i data-lucide="check"></i></span><b>Θέρμανση</b><span>09:14 → 09:25</span></div>
+        <div class="stp now"><span class="d">4</span><b>Παστερίωση<span class="ccp">CCP 1</span></b><span>≥ 85 °C για 15″</span></div>
+        <div class="stp"><span class="d">5</span><b>Ψύξη και ωρίμανση<span class="ccp">CCP 2</span></b><span>≤ 4 °C μέσα σε 60′ · 6 ώρες</span></div>
+        <div class="stp"><span class="d">6</span><b>Παγοποίηση</b><span>Batch freezer · πάστα φιστικιού</span></div>
+        <div class="stp"><span class="d">7</span><b>Σκλήρυνση και ετικέτα</b><span>−35 °C · ετικέτα με αλλεργιογόνα</span></div>
+      </div>
+      <div class="pcol">
+        <div class="bigstep">
+          <h2>Παστερίωση <span class="ccp" style="height:26px;font-size:13px">CCP 1</span></h2>
+          <p>Κράτα το μείγμα στους 85 °C τουλάχιστον 15 δευτερόλεπτα. Η θερμοκρασία έρχεται από τον αισθητήρα του παστεριωτή.</p>
+          <div class="read num">
+            <div><small>Τώρα</small><b class="good">85,6 °C</b></div>
+            <div><small>Πάνω από 85 °C</small><b class="good">3′ 05″</b></div>
+            <div><small>Όριο</small><b>≥ 85 °C</b></div>
+          </div>
+          <svg viewBox="0 0 380 170" width="100%">
+  <line x1="36" x2="370" y1="146.0" y2="146.0" stroke="rgba(255,255,255,.06)"/><text x="30" y="150.0" fill="#787C84" font-size="11" text-anchor="end">20°</text><line x1="36" x2="370" y1="107.1" y2="107.1" stroke="rgba(255,255,255,.06)"/><text x="30" y="111.1" fill="#787C84" font-size="11" text-anchor="end">40°</text><line x1="36" x2="370" y1="68.3" y2="68.3" stroke="rgba(255,255,255,.06)"/><text x="30" y="72.3" fill="#787C84" font-size="11" text-anchor="end">60°</text><line x1="36" x2="370" y1="29.4" y2="29.4" stroke="rgba(255,255,255,.06)"/><text x="30" y="33.4" fill="#787C84" font-size="11" text-anchor="end">80°</text>
+  <rect x="36" y="10.0" width="334" height="9.7" fill="rgba(127,209,161,.12)"/>
+  <line x1="36" x2="370" y1="19.7" y2="19.7" stroke="#7FD1A1" stroke-dasharray="4 4"/>
+  <text x="366" y="37.7" fill="#7FD1A1" font-size="12" font-weight="700" text-anchor="end">όριο CCP 85 °C</text>
+  <path d="M36.0,142.1 L39.0,137.0 L42.0,132.1 L44.9,127.4 L47.9,122.9 L50.9,118.5 L53.9,114.4 L56.9,110.4 L59.9,106.6 L62.8,102.9 L65.8,99.4 L68.8,96.0 L71.8,92.8 L74.8,89.7 L77.8,86.7 L80.7,83.9 L83.7,81.1 L86.7,78.5 L89.7,76.0 L92.7,73.6 L95.6,71.3 L98.6,69.0 L101.6,66.9 L104.6,64.9 L107.6,62.9 L110.6,61.0 L113.5,59.2 L116.5,57.5 L119.5,55.8 L122.5,54.2 L125.5,52.7 L128.4,51.2 L131.4,49.8 L134.4,48.5 L137.4,47.2 L140.4,46.0 L143.4,44.8 L146.3,43.6 L149.3,42.5 L152.3,41.5 L155.3,40.5 L158.3,39.5 L161.2,38.6 L164.2,37.7 L167.2,36.8 L170.2,36.0 L173.2,35.2 L176.2,34.5 L179.1,33.8 L182.1,33.1 L185.1,32.4 L188.1,31.8 L191.1,31.2 L194.1,30.6 L197.0,30.0 L200.0,29.5 L203.0,29.0 L206.0,28.5 L209.0,28.0 L211.9,27.5 L214.9,27.1 L217.9,26.7 L220.9,26.3 L223.9,25.9 L226.9,25.5 L229.8,25.2 L232.8,24.8 L235.8,24.5 L238.8,24.2 L241.8,23.9 L244.8,23.6 L247.7,23.3 L250.7,23.0 L253.7,22.8 L256.7,22.5 L259.7,22.3 L262.6,22.1 L265.6,21.9 L268.6,21.7 L271.6,21.5 L274.6,21.3 L277.6,21.1 L280.5,20.9 L283.5,20.7 L286.5,20.6 L289.5,20.4 L292.5,20.3 L295.4,20.1 L298.4,18.6 L301.4,18.8 L304.4,18.8 L307.4,18.8 L310.4,18.6 L313.3,18.4 L316.3,18.3 L319.3,18.3 L322.3,18.5 L325.3,18.7 L328.2,18.8 L331.2,18.8 L334.2,18.7 L337.2,18.4 L340.2,18.3 L343.2,18.3 L346.1,18.4 L349.1,18.6 L352.1,18.8 L355.1,18.8 L358.1,18.7 L361.1,18.5 L364.0,18.3 L367.0,18.3 L370.0,18.3" fill="none" stroke="#FAFAFA" stroke-width="2.5" stroke-linejoin="round"/>
+  <circle cx="370.0" cy="18.5" r="5" fill="#7FD1A1"/>
+  <text x="36.0" y="162" fill="#787C84" font-size="11" text-anchor="middle">0′</text><text x="131.4" y="162" fill="#787C84" font-size="11" text-anchor="middle">4′</text><text x="226.9" y="162" fill="#787C84" font-size="11" text-anchor="middle">8′</text><text x="322.3" y="162" fill="#787C84" font-size="11" text-anchor="middle">12′</text><text x="370.0" y="162" fill="#787C84" font-size="11" text-anchor="middle">14′</text>
+</svg>
+        </div>
+        <div class="chk ok"><span class="bx"><i data-lucide="check"></i></span><div>Εντός ορίων · γράφτηκε στο HACCP<small>Νίκος Π. · 09:28 · παρτίδα 20261126-3</small></div></div>
+        <div style="flex:1"></div>
+        <div class="pgo"><span>Τέλος βήματος</span><span>Επόμενο: Ψύξη →</span></div>
+      </div>
+      <div class="pcol">
+        <h3>Υλικά και παρτίδες<small>FEFO</small></h3>
+        <div class="ing"><b>Γάλα 3,5%</b><span class="g num">11,20 kg</span><span class="lot num">L-2611-07</span></div>
+        <div class="ing"><b>Κρέμα 35%</b><span class="g num">2,40 kg</span><span class="lot num">L-2511-14</span></div>
+        <div class="ing"><b>Ζάχαρη</b><span class="g num">3,10 kg</span><span class="lot num">L-1011-02</span></div>
+        <div class="ing"><b>Δεξτρόζη</b><span class="g num">0,80 kg</span><span class="lot num">L-0911-01</span></div>
+        <div class="ing"><b>Γάλα σε σκόνη</b><span class="g num">0,90 kg</span><span class="lot num">L-0211-05</span></div>
+        <div class="ing"><b>Σταθεροποιητής</b><span class="g num">0,10 kg</span><span class="lot num">L-2010-03</span></div>
+        <div class="ing"><b>Πάστα φιστικιού</b><span class="g num">1,50 kg</span><span class="lot num">L-1411-01</span><small>μπαίνει στο βήμα 6</small></div>
+        <div style="flex:1"></div>
+        <h3>Αλλεργιογόνα στην ετικέτα</h3>
+        <div class="algs"><span><i data-lucide="milk"></i>Γάλα</span><span><i data-lucide="nut"></i>Φιστίκι (ξηροί καρποί)</span></div>
+        <div class="chk"><span class="bx"></span><div>Καθαρισμός πάγκου μετά το φουντούκι<small>κίνδυνος διασταυρούμενης επιμόλυνσης</small></div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<p class="note"><b>6 · Παραγωγή · HACCP της ημέρας και φάκελος για τον ΕΦΕΤ</b>Ό,τι πρέπει να γραφτεί σήμερα. Οι θερμοκρασίες ψυγείων και καταψυκτών έρχονται μόνες τους από τους αισθητήρες· ο τεχνίτης απαντά μόνο στις αποκλίσεις (εδώ: ο καταψύκτης 2 ανέβηκε στους −12 °C και θέλει διορθωτική ενέργεια). Καθαρισμοί, απολυμάνσεις και υπογραφή υπεύθυνου κλείνουν τη βάρδια. Ο «Φάκελος ελέγχου ΕΦΕΤ» βγάζει σε ένα PDF ό,τι ζητά ο επιθεωρητής: αρχεία HACCP, ιχνηλασιμότητα κάθε παρτίδας ένα βήμα πίσω και ένα μπροστά, αλλεργιογόνα.</p>
+
+<div class="tab">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a><i data-lucide="play"></i>Σήμερα</a><a><i data-lucide="flask-conical"></i>Συνταγές</a><a class="on"><i data-lucide="shield-check"></i>HACCP<span class="n num">2</span></a><a><i data-lucide="tag"></i>Ετικέτες</a><a><i data-lucide="route"></i>Ιχνηλασιμότητα</a>
+    <div class="foot"><b>Εργαστήριο Ρέντη</b><span>Παραγωγή · Νίκος Π. (PIN)</span></div>
+  </nav>
+  <main>
+    <div class="ttop">
+      <h1>HACCP · Πέμπτη 26/11</h1><small class="num">Εργαστήριο Ρέντη · 14 από 18 εγγραφές</small>
+      <div class="sp"></div>
+      <div class="tbtn"><i data-lucide="file-check-2"></i>Φάκελος ελέγχου ΕΦΕΤ</div>
+    </div>
+    <div class="pgrid2" style="grid-template-columns: 1fr 1fr 300px">
+      <div class="pcol">
+        <h3>Θέλουν απάντηση<small class="num">2</small></h3>
+        <div class="chk bad"><span class="bx"><i data-lucide="x"></i></span><div>Καταψύκτης 2 · −12 °C<small>όριο ≤ −18 °C · εκτός 12:00–14:10</small></div><span class="r">Διορθωτική</span></div>
+        <div class="chk bad"><span class="bx"><i data-lucide="x"></i></span><div>Παραλαβή μασκαρπόνε<small>4 από 6 · έλλειψη</small></div><span class="r">Σημείωση</span></div>
+        <h3 style="margin-top:8px">Καθαρισμός και απολύμανση</h3>
+        <div class="chk ok"><span class="bx"><i data-lucide="check"></i></span><div>Παστεριωτής 1<small>Νίκος · 08:40</small></div></div>
+        <div class="chk ok"><span class="bx"><i data-lucide="check"></i></span><div>Batch freezer<small>Νίκος · 08:45</small></div></div>
+        <div class="chk ok"><span class="bx"><i data-lucide="check"></i></span><div>Πάγκοι εργασίας<small>Ελένη · 08:50</small></div></div>
+        <div class="chk"><span class="bx"></span><div>Δάπεδο και σιφώνια<small>μέχρι 16:00</small></div></div>
+        <div class="chk"><span class="bx"></span><div>Υπογραφή υπεύθυνου βάρδιας<small>κλείνει την ημέρα</small></div></div>
+      </div>
+      <div class="pcol">
+        <h3>Θερμοκρασίες · 12 ώρες<small>αυτόματα</small></h3>
+        <div class="sm num">
+          <div class="c"><div class="t"><span>Καταψύκτης 1</span><b>−20,5 °C</b></div><svg viewBox="0 0 130 40" width="100%" height="40" preserveAspectRatio="none"><rect x="0" y="9.8" width="130" height="20.4" fill="rgba(127,209,161,.10)"/><path d="M0.0,15.6 L11.8,17.1 L23.6,18.5 L35.5,15.6 L47.3,14.2 L59.1,15.6 L70.9,18.5 L82.7,17.1 L94.5,15.6 L106.4,12.7 L118.2,15.6 L130.0,17.1" fill="none" stroke="#FAFAFA" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg><small>όριο ≤ −18 °C · εντός</small></div>
+          <div class="c" style="box-shadow:inset 0 0 0 2px var(--bad)"><div class="t"><span>Καταψύκτης 2</span><b>−18,5 °C</b></div><svg viewBox="0 0 130 40" width="100%" height="40" preserveAspectRatio="none"><rect x="0" y="19.1" width="130" height="13.2" fill="rgba(127,209,161,.10)"/><path d="M0.0,20.0 L11.8,20.9 L23.6,20.9 L35.5,20.0 L47.3,15.3 L59.1,11.5 L70.9,7.8 L82.7,13.4 L94.5,19.4 L106.4,20.2 L118.2,20.9 L130.0,20.0" fill="none" stroke="#F28B8B" stroke-width="1.6" vector-effect="non-scaling-stroke"/><circle cx="47.3" cy="15.3" r="3" fill="#F28B8B"/><circle cx="59.1" cy="11.5" r="3" fill="#F28B8B"/><circle cx="70.9" cy="7.8" r="3" fill="#F28B8B"/><circle cx="82.7" cy="13.4" r="3" fill="#F28B8B"/></svg><small style="color:var(--bad)">εκτός 12:00–14:10</small></div>
+          <div class="c"><div class="t"><span>Ψυγείο υλικών</span><b>3,2 °C</b></div><svg viewBox="0 0 130 40" width="100%" height="40" preserveAspectRatio="none"><rect x="0" y="12.0" width="130" height="16.0" fill="rgba(127,209,161,.10)"/><path d="M0.0,16.0 L11.8,14.0 L23.6,12.8 L35.5,14.0 L47.3,16.0 L59.1,15.2 L70.9,12.8 L82.7,12.4 L94.5,13.6 L106.4,14.4 L118.2,16.0 L130.0,15.2" fill="none" stroke="#FAFAFA" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg><small>όριο 0–4 °C · εντός</small></div>
+          <div class="c"><div class="t"><span>Σκληρυντής</span><b>−35,0 °C</b></div><svg viewBox="0 0 130 40" width="100%" height="40" preserveAspectRatio="none"><rect x="0" y="8.6" width="130" height="22.9" fill="rgba(127,209,161,.10)"/><path d="M0.0,20.0 L11.8,17.7 L23.6,20.0 L35.5,22.3 L47.3,20.0 L59.1,18.9 L70.9,20.0 L82.7,21.1 L94.5,20.0 L106.4,17.7 L118.2,20.0 L130.0,20.0" fill="none" stroke="#FAFAFA" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg><small>όριο ≤ −30 °C · εντός</small></div>
+        </div>
+        <h3 style="margin-top:8px">Παρτίδες σήμερα</h3>
+        <div class="chk ok"><span class="bx"><i data-lucide="check"></i></span><div>20261126-1 · Βανίλια 20 L<small>CCP 1 ✓ · CCP 2 ✓ · ετικέτα ✓</small></div></div>
+        <div class="chk"><span class="bx"></span><div>20261126-2 · Σοκολάτα bitter 15 L<small>CCP 1 ✓ · CCP 2 σε εξέλιξη</small></div></div>
+        <div class="chk"><span class="bx"></span><div>20261126-3 · Φιστίκι 20 L<small>CCP 1 ✓ · στο βήμα 5</small></div></div>
+      </div>
+      <div class="pcol">
+        <h3>Κατάσταση σήμερα</h3>
+        <div class="score num"><b>78%</b><span>14 από 18</span></div>
+        <div class="prog"><i><em style="width:78%"></em></i></div>
+        <div style="display:grid;gap:8px;margin-top:6px">
+          <div class="kv2"><span>Ανοιχτές αποκλίσεις</span><b style="color:var(--bad)">2</b></div>
+          <div class="kv2"><span>Κλειστές την εβδομάδα</span><b>5</b></div>
+          <div class="kv2"><span>Τελευταίος έλεγχος ΕΦΕΤ</span><b>12/09</b></div>
+        </div>
+        <div class="warn" style="margin-top:6px"><i data-lucide="info"></i>Δεύτερη φορά αυτή την εβδομάδα που ανεβαίνει ο καταψύκτης 2: έλεγξε τη στεγανότητα της πόρτας.</div>
+        <div style="flex:1"></div>
+        <div class="hgo" style="margin:0;font-size:15px"><i data-lucide="shield-alert"></i>Διορθωτική για καταψύκτη 2</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<p class="note"><b>7 · Εφαρμογή ιδιοκτήτη (κινητό): βλέπει τα πάντα</b>Η ίδια εφαρμογή, με λογαριασμό ιδιοκτήτη. <em>Σήμερα</em>: πωλήσεις όλων των καταστημάτων και των αυτόματων πωλητών ζωντανά, σε σύγκριση με την ίδια μέρα της προηγούμενης εβδομάδας, και κατάταξη καταστημάτων. <em>Παρακολούθηση</em>: κάθε θερμόμετρο, βιτρίνα και αυτόματος πωλητής με την κατάστασή του· ό,τι θέλει προσοχή ανεβαίνει πρώτο και έρχεται ως ειδοποίηση. <em>Αυτόματος πωλητής</em>: θερμοκρασία, γεύσεις που τελειώνουν, πωλήσεις, και «Γέμισμα» που στέλνει εντολή picking στην αποθήκη. Ο ιδιοκτήτης βλέπει, δεν πουλάει: δεν εκδίδει αποδείξεις από το κινητό του.</p>
+
+<div class="hands">
+  <div class="hand own">
+    <div class="ohead"><h2>Σήμερα</h2><small class="num">Πέμ 26/11 · 19:02</small></div>
+    <div class="ob">
+      <div class="hero num"><small>Πωλήσεις όλων</small><b>2.184,60 €</b><span class="ch">+8,4% από την περασμένη Πέμπτη ίδια ώρα</span></div>
+      <div class="hero" style="gap:8px">
+        <div class="lg"><span><i style="background:#C9CAEE"></i>Σήμερα</span><span><i style="background:#787C84"></i>Περασμένη Πέμπτη</span></div>
+        <svg viewBox="0 0 328 120" width="100%" height="120">
+  <line x1="0" x2="328" y1="102.0" y2="102.0" stroke="rgba(255,255,255,.08)"/>
+  <path d="M6.0,95.3 L28.6,86.9 L51.1,78.5 L73.7,71.8 L96.3,61.7 L118.9,51.6 L141.4,55.0 L164.0,58.4 L186.6,51.6 L209.1,38.2 L231.7,24.8 L254.3,14.7 L276.9,21.4 L299.4,41.6 L322.0,71.8" fill="none" stroke="#787C84" stroke-width="1.6" stroke-dasharray="3 3"/>
+  <path d="M6.0,93.6 L28.6,85.2 L51.1,75.1 L73.7,66.8 L96.3,58.4 L118.9,48.3 L141.4,51.6 L164.0,51.6 L186.6,44.9 L209.1,29.8 L231.7,16.4" fill="none" stroke="#C9CAEE" stroke-width="2.6" stroke-linejoin="round"/>
+  <circle cx="231.7" cy="16.4" r="4.5" fill="#C9CAEE"/>
+  <text x="6.0" y="117" fill="#787C84" font-size="10.5" text-anchor="middle">9:00</text><text x="96.3" y="117" fill="#787C84" font-size="10.5" text-anchor="middle">13:00</text><text x="186.6" y="117" fill="#787C84" font-size="10.5" text-anchor="middle">17:00</text><text x="276.9" y="117" fill="#787C84" font-size="10.5" text-anchor="middle">21:00</text>
+</svg>
+      </div>
+      <div class="hero" style="gap:8px"><small>Ανά κατάστημα</small><div style="display:grid;grid-template-columns:78px 1fr 72px;gap:8px;align-items:center;font-size:12.5px;font-weight:500;color:var(--muted)"><span>Πειραιάς</span><i style="height:8px;border-radius:4px;background:var(--raised);position:relative;display:block;overflow:hidden"><em style="position:absolute;inset:0 auto 0 0;width:100%;background:#C9CAEE;border-radius:4px"></em></i><b class="num" style="color:var(--text);font-weight:600;text-align:right;font-size:12.5px;letter-spacing:0">812,40 €</b></div><div style="display:grid;grid-template-columns:78px 1fr 72px;gap:8px;align-items:center;font-size:12.5px;font-weight:500;color:var(--muted)"><span>Γλυφάδα</span><i style="height:8px;border-radius:4px;background:var(--raised);position:relative;display:block;overflow:hidden"><em style="position:absolute;inset:0 auto 0 0;width:80%;background:#5C5F66;border-radius:4px"></em></i><b class="num" style="color:var(--text);font-weight:600;text-align:right;font-size:12.5px;letter-spacing:0">646,20 €</b></div><div style="display:grid;grid-template-columns:78px 1fr 72px;gap:8px;align-items:center;font-size:12.5px;font-weight:500;color:var(--muted)"><span>Κηφισιά</span><i style="height:8px;border-radius:4px;background:var(--raised);position:relative;display:block;overflow:hidden"><em style="position:absolute;inset:0 auto 0 0;width:61%;background:#5C5F66;border-radius:4px"></em></i><b class="num" style="color:var(--text);font-weight:600;text-align:right;font-size:12.5px;letter-spacing:0">498,80 €</b></div><div style="display:grid;grid-template-columns:78px 1fr 72px;gap:8px;align-items:center;font-size:12.5px;font-weight:500;color:var(--muted)"><span>Vending (3)</span><i style="height:8px;border-radius:4px;background:var(--raised);position:relative;display:block;overflow:hidden"><em style="position:absolute;inset:0 auto 0 0;width:28%;background:#5C5F66;border-radius:4px"></em></i><b class="num" style="color:var(--text);font-weight:600;text-align:right;font-size:12.5px;letter-spacing:0">227,20 €</b></div></div>
+      <div class="tiles num">
+        <div><small>Αποδείξεις</small><b>418</b><span style="color:var(--ok)">μέση 5,23 €</span></div>
+        <div><small>Τραπέζια ανοιχτά</small><b>6</b><span style="color:var(--muted)">184,60 € σε εξέλιξη</span></div>
+      </div>
+    </div>
+    <div class="tabbar"><span class="on"><i data-lucide="chart-line"></i>Σήμερα</span><span><i data-lucide="activity"></i>Παρακολούθηση</span><span><i data-lucide="store"></i>Καταστήματα</span><span><i data-lucide="bell"></i>Ειδοπ.</span></div>
+  </div>
+
+  <div class="hand own">
+    <div class="ohead"><h2>Παρακολούθηση</h2><small class="num">24 συσκευές</small></div>
+    <div class="ob">
+      <div class="segm"><span class="on">Όλα</span><span>Θερμόμετρα</span><span>Vending</span></div>
+      <div class="al" style="box-shadow:inset 0 0 0 2px var(--bad)"><span class="dot" style="background:var(--bad)"></span><div>Vending Γλυφάδα · εκτός σύνδεσης<small>τελευταίο σήμα 18:37 · 25′</small></div><span class="r">Τώρα</span></div>
+      <div class="al" style="box-shadow:inset 0 0 0 2px var(--bad)"><span class="dot" style="background:var(--bad)"></span><div>Vending Λιμάνι · −13,5 °C<small>ανεβαίνει από τις 17:30 · όριο ≤ −16 °C</small></div><span class="r">32′</span></div>
+      <div class="al"><span class="dot" style="background:var(--wait)"></span><div>Vending Λιμάνι · 3 γεύσεις τελείωσαν<small>Φιστίκι, Λεμόνι, Cookies</small></div><span class="r">1 ώ</span></div>
+      <div class="al"><span class="dot" style="background:var(--wait)"></span><div>Καταψύκτης 2 · Ρέντη<small>εκτός 12:00–14:10 · διορθωτική εκκρεμεί</small></div><span class="r">5 ώ</span></div>
+      <small style="color:var(--muted);font-weight:600;margin-top:4px">Εντός ορίων · 20</small>
+      <div class="dv num"><b><span class="dot" style="background:var(--ok)"></span>Βιτρίνα 1 · Πειραιάς</b><small>όριο −14 έως −11 °C</small><span class="v">−12,4 °C</span></div>
+      <div class="dv num"><b><span class="dot" style="background:var(--ok)"></span>Βιτρίνα 2 · Πειραιάς</b><small>όριο −14 έως −11 °C</small><span class="v">−12,9 °C</span></div>
+      <div class="dv num"><b><span class="dot" style="background:var(--ok)"></span>Vending Κηφισιά</b><small>82% γεμάτο · 41 πωλήσεις σήμερα</small><span class="v">−18,6 °C</span></div>
+    </div>
+    <div class="tabbar"><span><i data-lucide="chart-line"></i>Σήμερα</span><span class="on"><i data-lucide="activity"></i>Παρακολούθηση</span><span><i data-lucide="store"></i>Καταστήματα</span><span><i data-lucide="bell"></i>Ειδοπ.</span></div>
+  </div>
+
+  <div class="hand own">
+    <div class="ohead"><h2>Vending Λιμάνι</h2><small>Πειραιάς</small></div>
+    <div class="ob">
+      <div class="tiles num">
+        <div><small>Θερμοκρασία</small><b style="color:var(--bad)">−13,5 °C</b><span style="color:var(--bad)">όριο ≤ −16 °C</span></div>
+        <div><small>Πωλήσεις σήμερα</small><b>86,40 €</b><span style="color:var(--muted)">24 τεμάχια</span></div>
+      </div>
+      <div class="hero" style="gap:6px"><small>Θερμοκρασία · 12 ώρες</small><svg viewBox="0 0 328 70" width="100%" height="70" preserveAspectRatio="none"><rect x="0" y="22.0" width="328" height="36.0" fill="rgba(127,209,161,.10)"/><path d="M0.0,30.0 L29.8,32.0 L59.6,30.0 L89.5,28.0 L119.3,30.0 L149.1,30.8 L178.9,30.0 L208.7,26.0 L238.5,18.0 L268.4,12.0 L298.2,14.0 L328.0,16.0" fill="none" stroke="#F28B8B" stroke-width="1.6" vector-effect="non-scaling-stroke"/><circle cx="238.5" cy="18.0" r="3" fill="#F28B8B"/><circle cx="268.4" cy="12.0" r="3" fill="#F28B8B"/><circle cx="298.2" cy="14.0" r="3" fill="#F28B8B"/><circle cx="328.0" cy="16.0" r="3" fill="#F28B8B"/></svg></div>
+      <div class="hero" style="gap:8px"><small>Γεύσεις · τι έμεινε</small><div class="slots"><div><span>Φιστίκι</span><i><em style="width:3%;background:var(--bad)"></em></i><span class="num" style="color:var(--muted);font-weight:500">0%</span></div><div><span>Σοκολάτα</span><i><em style="width:15%;background:var(--wait)"></em></i><span class="num" style="color:var(--muted);font-weight:500">15%</span></div><div><span>Βανίλια</span><i><em style="width:60%;background:var(--ok)"></em></i><span class="num" style="color:var(--muted);font-weight:500">60%</span></div><div><span>Φράουλα</span><i><em style="width:45%;background:var(--ok)"></em></i><span class="num" style="color:var(--muted);font-weight:500">45%</span></div><div><span>Λεμόνι</span><i><em style="width:3%;background:var(--bad)"></em></i><span class="num" style="color:var(--muted);font-weight:500">0%</span></div><div><span>Καραμέλα</span><i><em style="width:70%;background:var(--ok)"></em></i><span class="num" style="color:var(--muted);font-weight:500">70%</span></div><div><span>Cookies</span><i><em style="width:3%;background:var(--bad)"></em></i><span class="num" style="color:var(--muted);font-weight:500">0%</span></div><div><span>Μάνγκο</span><i><em style="width:35%;background:var(--ok)"></em></i><span class="num" style="color:var(--muted);font-weight:500">35%</span></div></div></div>
+      <div class="warn" style="color:var(--bad);background:rgba(242,139,139,.12)"><i data-lucide="thermometer-sun"></i>Αν δεν πέσει κάτω από −16 °C σε 30′, το μηχάνημα σταματά τις πωλήσεις μόνο του.</div>
+    </div>
+    <div class="hgo"><i data-lucide="truck"></i>Γέμισμα · εντολή στην αποθήκη</div>
+  </div>
+</div>
+
+
+<p class="note"><b>8 · Οι βάρδιές μου: όλοι, σε κάθε συσκευή, μόνο τις δικές τους</b>Όποιος μπαίνει με PIN (ταμείο, σερβιτόρος, κουζίνα, αποθήκη, παραγωγή) ή με λογαριασμό στο κινητό του, έχει «Οι βάρδιές μου». Βλέπει <em>μόνο τις δικές του</em> δημοσιευμένες βάρδιες, ποτέ των συναδέλφων ή τις αμοιβές. Όταν ο υπεύθυνος αλλάξει το πρόγραμμα, η αλλαγή φαίνεται κίτρινη και ο υπάλληλος πατά «Το είδα» (μένει καταγραφή ότι ενημερώθηκε). Σε κοινόχρηστη συσκευή (ταμείο, κουζίνα) ανοίγει ως πάνελ και κλείνει μόνο του μετά από 30″, ώστε να μη μείνει ανοιχτό για τον επόμενο. Πατάει στο υπάρχον βαρδιολόγιο της κονσόλας (βάρδιες, δημοσίευση, επιβεβαίωση).</p>
+
+<div class="hands">
+  <div class="hand own">
+    <div class="ohead"><h2>Οι βάρδιές μου</h2><small class="num">Μαρία Κ. · 40 ώ</small></div>
+    <div class="ob">
+      <div class="segm"><span>‹</span><span class="on">23–29 Νοε</span><span>›</span></div>
+      <div class="warn"><i data-lucide="calendar-sync"></i>Το Σάββατο άλλαξε: Γλυφάδα 12:00–20:00 (ήταν Πειραιάς 16:00–24:00)</div>
+      <div class="dv num" style="opacity:.55"><b>Δευ 23</b><small>Πειραιάς · ταμείο</small><span class="v">09:00–17:00</span></div><div class="dv num" style="background:transparent;border:1px dashed var(--line)"><b>Τρι 24</b><small>—</small><span class="v">Ρεπό</span></div><div class="dv num" style="opacity:.55"><b>Τετ 25</b><small>Πειραιάς · σάλα</small><span class="v">14:00–22:00</span></div><div class="dv num" style="box-shadow:inset 0 0 0 2px var(--text)"><b>Πέμ 26<span class="tag ok" style="margin-left:6px">σήμερα</span></b><small>Πειραιάς · σάλα</small><span class="v">16:00–24:00</span></div><div class="dv num" style=""><b>Παρ 27</b><small>Πειραιάς · σάλα</small><span class="v">16:00–24:00</span></div><div class="dv num" style="box-shadow:inset 0 0 0 2px var(--wait)"><b>Σάβ 28<span class="tag wait" style="margin-left:6px">άλλαξε</span></b><small>Γλυφάδα · σάλα</small><span class="v">12:00–20:00</span></div><div class="dv num" style="background:transparent;border:1px dashed var(--line)"><b>Κυρ 29</b><small>—</small><span class="v">Ρεπό</span></div>
+          </div>
+    <div class="hgo"><i data-lucide="check"></i>Το είδα</div>
+  </div>
+</div>
+
+<script>lucide.createIcons();</script>
+</body>
+</html>

@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { db } from "@/lib/db";
+import { flashFail } from "@/lib/flash-server";
 import { tenantWriteTransaction } from "@/lib/migration-cutover";
 import { completeSale, failSale, issueSale } from "@/lib/pos";
 import { currentContext, POS_DEVICE_COOKIE } from "@/lib/tenant";
@@ -18,14 +20,16 @@ export async function addLine(productId: string) {
   // το προϊόν πρέπει να ανήκει στην επιχείρηση του χρήστη
   const product = await db.product.findFirst({ where: { id: id.parse(productId), orgId: ctx.org.id, active: true }, include: { vatRate: true } });
   if (!product) return;
+  // shortcut: το ταμείο του browser δεν έχει φύλλο επιλογών· προϊόν με υποχρεωτικές επιλογές πουλιέται από το ταμείο Android
+  if (await db.productModifierGroup.findFirst({ where: { productId: product.id, group: { kind: "REQUIRED" } } }))
+    return flashFail(`Το «${product.name}» θέλει επιλογές (π.χ. γεύσεις)`, "Πούλησέ το από το ταμείο της tablet.");
   await tenantWriteTransaction(ctx.org.id, async (tx) => {
     const where = { deviceId: ctx.device.id, status: "DRAFT" as const };
     const sale = (await tx.sale.findFirst({ where })) ?? (await tx.sale.create({ data: { orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id } }));
-    await tx.saleLine.upsert({
-      where: { saleId_productId: { saleId: sale.id, productId: product.id } },
-      update: { quantity: { increment: 1 } },
-      create: { saleId: sale.id, productId: product.id, name: product.name, quantity: 1, unitPriceCents: product.priceCents, vatRate: product.vatRate.rate },
-    });
+    // η γραμμή χωρίς επιλογές του προϊόντος· με επιλογές θα ήταν άλλη γραμμή
+    const line = await tx.saleLine.findFirst({ where: { saleId: sale.id, productId: product.id, options: { equals: Prisma.DbNull }, note: null } });
+    if (line) await tx.saleLine.update({ where: { id: line.id }, data: { quantity: { increment: 1 } } });
+    else await tx.saleLine.create({ data: { saleId: sale.id, productId: product.id, name: product.name, quantity: 1, unitPriceCents: product.priceCents, vatRate: product.vatRate.rate } });
   });
   revalidatePath("/pos");
 }

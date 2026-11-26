@@ -96,7 +96,7 @@ export async function startSale(input: {
       tipAmount: 0,
       showTransactionResult: true,
       showReceipt: false, // την απόδειξη την τυπώνουμε εμείς, με τα στοιχεία σήμανσης
-      isvDetails: { terminalMerchantId: input.terminalMerchantId },
+      isvDetails: { amount: 0, terminalMerchantId: input.terminalMerchantId }, // amount = προμήθεια ISV· η Viva δεν δέχεται null εκτός από preauth
       fiscalisationData: input.fiscalisationData,
     }));
 }
@@ -207,7 +207,7 @@ export async function startRefund(input: {
       currencyCode: "978",
       merchantReference: input.merchantReference,
       showTransactionResult: true,
-      isvDetails: { terminalMerchantId: input.terminalMerchantId },
+      isvDetails: { amount: 0, terminalMerchantId: input.terminalMerchantId }, // amount = προμήθεια ISV· η Viva δεν δέχεται null εκτός από preauth
       fiscalisationData: input.fiscalisationData,
     }));
 }

@@ -18,20 +18,32 @@ const back = (q = ""): never => {
 const fail = (msg: string): never => back(`?error=${encodeURIComponent(msg)}`);
 
 export async function saveCategory(form: FormData) {
-  const d = z.object({ categoryId: z.string().max(80), name: z.string().trim().min(2, "Γράψε όνομα κατηγορίας").max(40) }).safeParse(Object.fromEntries(form));
+  const d = z.object({
+    categoryId: z.string().max(80),
+    name: z.string().trim().min(2, "Γράψε όνομα κατηγορίας").max(40),
+    // κενό = αυτόματο χρώμα από τη σειρά της κατηγορίας
+    color: z.enum(["", "1", "2", "3", "4", "5", "6", "7", "8"], "Άγνωστο χρώμα").optional(),
+  }).safeParse(Object.fromEntries(form));
   if (!d.success) return fail(d.error.issues[0].message);
   const { org } = await currentOrg(d.data.categoryId ? "products.edit" : "products.add");
   const name = d.data.name;
+  const color = d.data.color ? Number(d.data.color) : null;
   if (await db.category.findFirst({ where: { orgId: org.id, name, NOT: { id: d.data.categoryId || undefined } } })) return fail(`Υπάρχει ήδη κατηγορία «${name}»`);
-  if (d.data.categoryId) await db.category.updateMany({ where: { id: d.data.categoryId, orgId: org.id }, data: { name } });
-  else await db.category.create({ data: { orgId: org.id, name, position: await db.category.count({ where: { orgId: org.id } }) } });
+  if (d.data.categoryId) await db.category.updateMany({ where: { id: d.data.categoryId, orgId: org.id }, data: { name, color } });
+  else await db.category.create({ data: { orgId: org.id, name, color, position: await db.category.count({ where: { orgId: org.id } }) } });
   updateTag(productsTag(org.id));
   back("?saved=1");
 }
 
 export async function saveProduct(form: FormData) {
   const raw = Object.fromEntries(form);
-  const d = z.object({ productId: z.string().max(80), categoryId: z.string().cuid(), vatRateId: z.string().min(1).max(80), name: z.string().trim().min(2, "Γράψε όνομα προϊόντος").max(60) }).safeParse(raw);
+  const d = z.object({
+    productId: z.string().max(80),
+    categoryId: z.string().cuid(),
+    vatRateId: z.string().min(1).max(80),
+    name: z.string().trim().min(2, "Γράψε όνομα προϊόντος").max(60),
+    code: z.string().trim().max(6, "Ο κωδικός στο ταμείο έχει έως 6 χαρακτήρες").optional(),
+  }).safeParse(raw);
   if (!d.success) return fail(d.error.issues[0].message);
   const { org } = await currentOrg(d.data.productId ? "products.edit" : "products.add");
   // η τιμή γράφεται σε ευρώ (με κόμμα ή τελεία), κρατιέται σε λεπτά
@@ -43,9 +55,27 @@ export async function saveProduct(form: FormData) {
   if (!rate) return fail("Άγνωστος συντελεστής ΦΠΑ");
   const name = d.data.name;
   if (await db.product.findFirst({ where: { orgId: org.id, categoryId: d.data.categoryId, name, NOT: { id: d.data.productId || undefined } } })) return fail(`Υπάρχει ήδη «${name}» σε αυτή την κατηγορία`);
-  const data = { categoryId: d.data.categoryId, vatRateId: rate.id, name, priceCents };
-  if (d.data.productId) await db.product.updateMany({ where: { id: d.data.productId, orgId: org.id }, data });
-  else await db.product.create({ data: { ...data, orgId: org.id } });
+  if (d.data.productId && !(await db.product.findFirst({ where: { id: d.data.productId, orgId: org.id }, select: { id: true } }))) return fail("Το προϊόν δεν βρέθηκε στην επιχείρηση· ανανέωσε τη λίστα");
+  // επιλογές προϊόντος: μόνο ομάδες της επιχείρησης· το «πόσες» μετρά μόνο στις υποχρεωτικές
+  const groupIds = [...new Set(form.getAll("group").map(String))].slice(0, 50);
+  const groups = groupIds.length ? await db.modifierGroup.findMany({ where: { id: { in: groupIds }, orgId: org.id }, select: { id: true, kind: true, name: true } }) : [];
+  if (groups.length !== groupIds.length) return fail("Άγνωστη ομάδα επιλογών· ανανέωσε τη σελίδα");
+  const links: { groupId: string; pick: number; position: number }[] = [];
+  for (const g of groups) {
+    const pick = g.kind === "REQUIRED" ? Number(raw[`pick_${g.id}`] ?? 1) : 1;
+    if (!Number.isInteger(pick) || pick < 1 || pick > 10) return fail(`«${g.name}»: το «πόσες» είναι αριθμός από 1 έως 10`);
+    links.push({ groupId: g.id, pick, position: groupIds.indexOf(g.id) });
+  }
+  const data = { categoryId: d.data.categoryId, vatRateId: rate.id, name, priceCents, code: d.data.code || null };
+  if (d.data.productId) {
+    const productId = d.data.productId;
+    // προϊόν και οι ομάδες του αλλάζουν μαζί ή καθόλου
+    await db.$transaction([
+      db.product.updateMany({ where: { id: productId, orgId: org.id }, data }),
+      db.productModifierGroup.deleteMany({ where: { productId, product: { orgId: org.id } } }),
+      db.productModifierGroup.createMany({ data: links.map((l) => ({ ...l, productId })) }),
+    ]);
+  } else await db.product.create({ data: { ...data, orgId: org.id, modifierGroups: { create: links } } });
   updateTag(productsTag(org.id));
   back("?saved=1");
 }
