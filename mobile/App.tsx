@@ -996,8 +996,7 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
   // Έξοδος από πληρωμή που κόλλησε: η συσκευή δηλώνει «δεν πληρώθηκε». Ο server ρωτά πρώτα τη Viva· αν βρει
   // πληρωμή κλείνει την απόδειξη κανονικά (και η οθόνη λέει «πληρώθηκε»), αλλιώς η πώληση γυρίζει σε πρόχειρο.
   const cancelPayment = () => {
-    const p = pendingRef.current;
-    if (p) void settle(() => reportResult(session, p.saleId, { success: false, callback: "cancelled-by-cashier" }));
+    if (pending) void settle(() => reportResult(session, pending.saleId, { success: false, callback: "cancelled-by-cashier" }));
   };
   const askCancel: Action = { label: "Ακύρωση πληρωμής", onPress: () => status && setStatus({ kind: "cancel", back: status }) };
 
@@ -1038,47 +1037,47 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
     const amount = pending ? euro(pending.amountCents) : euro(paying ? paying.dueCents : sums.totalCents);
     const how = pending?.methodName || method?.name || "";
     const summary = pending ? `${amount} · ${how}${pending.items ? ` · ${kinds(pending.items)}` : ""} · ${time(pending.startedAt)}` : undefined;
-    const card = (tone: Tone, label: string, title: string, text: string, actions: Action[], note?: string) => <StatusCard t={t} tone={tone} label={label} title={title} text={text} actions={actions} note={note} busy={busy} summary={summary} />;
+    // StatusCard γράφεται κατευθείαν ως JSX (όχι helper): ο React Compiler δεν δέχεται κλήση συνάρτησης στο render με handlers που διαβάζουν ref
     // Χαμένη απάντηση του server: το Viva Terminal μπορεί να μην άνοιξε ποτέ για αυτή την πώληση, και τότε η Viva δεν θα
     // απαντήσει ποτέ. Το ξανάνοιγμα όμως μπορεί να χρεώσει δεύτερη φορά πελάτη που ήδη πλήρωσε, άρα προσφέρεται ΜΟΝΟ όταν
     // ο server ρώτησε τη Viva και εκείνη είπε ότι δεν έχει πληρωμή, και δεν έχει γυρίσει callback. Ποτέ μετά από σφάλμα δικτύου.
     const reopen: Action[] = status.kind === "unknown" && status.noPaymentYet && pending && !pending.callback
       ? [{ label: "Ο πελάτης δεν πλήρωσε: άνοιξε το Viva Terminal", onPress: () => { setStatus({ kind: "waiting" }); void openViva(pending); } }] : [];
     switch (status.kind) {
-      case "waiting": if (pending?.external) return card("neutral", "Σε εξέλιξη", "Πλήρωσε στο POS", `${how} · ${amount}. Η χρέωση στάλθηκε στο POS της Viva. Η οθόνη αλλάζει μόνη της μόλις τελειώσει.`, [askCancel, { label: "Έλεγχος πληρωμής", onPress: () => check(), primary: true }]);
-        return card("neutral", "Σε εξέλιξη", "Περιμένουμε το Viva Terminal", `${how} · ${amount}. Η οθόνη αλλάζει μόνη της μόλις τελειώσει.`, [askCancel, { label: "Viva Terminal", onPress: () => pending && void openViva(pending) }, { label: "Έλεγχος πληρωμής", onPress: () => check(), primary: true }]);
-      case "paid": return card("ok", "Ολοκληρώθηκε", paying?.share ? `Εισπράχθηκε μερίδιο ${amount}` : `Πληρώθηκε ${amount}`, `${how}${status.aa != null ? ` · απόδειξη ${status.series ?? ""} ${status.aa}` : ""}.${paying?.share ? " Η απόδειξη βγαίνει με το τελευταίο μερίδιο." : ""}${paying && paying.billDueCents > paying.dueCents ? ` Στον λογαριασμό μένουν ${euro(paying.billDueCents - paying.dueCents)}.` : ""}`, [paying?.share
+      case "waiting": if (pending?.external) return <StatusCard t={t} busy={busy} summary={summary} tone="neutral" label="Σε εξέλιξη" title="Πλήρωσε στο POS" text={`${how} · ${amount}. Η χρέωση στάλθηκε στο POS της Viva. Η οθόνη αλλάζει μόνη της μόλις τελειώσει.`} actions={[askCancel, { label: "Έλεγχος πληρωμής", onPress: () => check(), primary: true }]} />;
+        return <StatusCard t={t} busy={busy} summary={summary} tone="neutral" label="Σε εξέλιξη" title="Περιμένουμε το Viva Terminal" text={`${how} · ${amount}. Η οθόνη αλλάζει μόνη της μόλις τελειώσει.`} actions={[askCancel, { label: "Viva Terminal", onPress: () => pending && void openViva(pending) }, { label: "Έλεγχος πληρωμής", onPress: () => check(), primary: true }]} />;
+      case "paid": return <StatusCard t={t} busy={busy} summary={summary} tone="ok" label="Ολοκληρώθηκε" title={paying?.share ? `Εισπράχθηκε μερίδιο ${amount}` : `Πληρώθηκε ${amount}`} text={`${how}${status.aa != null ? ` · απόδειξη ${status.series ?? ""} ${status.aa}` : ""}.${paying?.share ? " Η απόδειξη βγαίνει με το τελευταίο μερίδιο." : ""}${paying && paying.billDueCents > paying.dueCents ? ` Στον λογαριασμό μένουν ${euro(paying.billDueCents - paying.dueCents)}.` : ""}`} actions={[paying?.share
         ? { label: "Επόμενο μερίδιο", primary: true, onPress: () => { setPeople(Math.max(1, people - 1)); setPaying(undefined); backToSale(); } }
         : paying && paying.billDueCents > paying.dueCents
         ? { label: "Επόμενη απόδειξη", primary: true, onPress: () => { setPaying(undefined); backToSale(); } }
         : paying
         ? { label: "Στα τραπέζια", primary: true, onPress: () => { toTables(); backToSale(); } }
-        : { label: "Νέα πώληση", primary: true, onPress: () => { setCart([]); setSelected(undefined); backToSale(); } }]);
-      case "unknown": return card("wait", "Περιμένει", "Δεν ξέρουμε ακόμα αν πληρώθηκε", "Η Viva δεν απάντησε. Ρωτάμε ξανά μόνοι μας. Μην χρεώσεις ξανά τον πελάτη.", [askCancel, ...reopen, { label: "Έλεγξε ξανά τώρα", primary: true, onPress: () => check(status.attempt) }], `Τελευταίος έλεγχος ${time(status.checkedAt)}`);
-      case "failed": return card("bad", "Θέλει ενέργεια", "Η πληρωμή δεν έγινε", `Ο πελάτης δεν χρεώθηκε. ${paying ? `Ο λογαριασμός «${paying.title}» μένει ανοιχτός.` : lines.length ? "Η πώληση είναι όπως την άφησες." : "Η πώληση ακυρώθηκε· ξεκίνα νέα."}`, [
+        : { label: "Νέα πώληση", primary: true, onPress: () => { setCart([]); setSelected(undefined); backToSale(); } }]} />;
+      case "unknown": return <StatusCard t={t} busy={busy} summary={summary} tone="wait" label="Περιμένει" title="Δεν ξέρουμε ακόμα αν πληρώθηκε" text="Η Viva δεν απάντησε. Ρωτάμε ξανά μόνοι μας. Μην χρεώσεις ξανά τον πελάτη." actions={[askCancel, ...reopen, { label: "Έλεγξε ξανά τώρα", primary: true, onPress: () => check(status.attempt) }]} note={`Τελευταίος έλεγχος ${time(status.checkedAt)}`} />;
+      case "failed": return <StatusCard t={t} busy={busy} summary={summary} tone="bad" label="Θέλει ενέργεια" title="Η πληρωμή δεν έγινε" text={`Ο πελάτης δεν χρεώθηκε. ${paying ? `Ο λογαριασμός «${paying.title}» μένει ανοιχτός.` : lines.length ? "Η πώληση είναι όπως την άφησες." : "Η πώληση ακυρώθηκε· ξεκίνα νέα."}`} actions={[
         ...(lines.length || paying ? methods.map((m) => ({ label: m.code === "cash" ? "Με μετρητά" : "Ξανά με κάρτα", onPress: () => { setMethodId(m.id); setStatus(undefined); if (m.code === "cash") setCash(true); else void startPayment(m); } })) : []),
         { label: paying ? "Πίσω στον λογαριασμό" : "Πίσω στην πώληση", onPress: () => { setPaying(undefined); backToSale(); }, primary: true },
-      ]);
-      case "unverified": return card("bad", "Θέλει ενέργεια", "Η πληρωμή δεν έγινε", "Η Viva δεν επιβεβαίωσε την πληρωμή. Μην δώσεις το προϊόν ως πληρωμένο· φώναξε τον υπεύθυνο.", [{ label: "Πίσω στην πώληση", onPress: backToSale, primary: true }]);
-      case "resume": return card("wait", "Περιμένει", "Έμεινε μια πληρωμή στη μέση", `Η εφαρμογή έκλεισε πριν μάθουμε αν πληρώθηκε: ${amount}${how ? `, ${how}` : ""}${pending ? `, ${time(pending.startedAt)}` : ""}.`, [askCancel, { label: "Έλεγξε αν πληρώθηκε", primary: true, onPress: () => check() }]);
-      case "cancel": return card("bad", "Επιβεβαίωση", "Ακύρωση πληρωμής;", "Κάν' το μόνο αν ο πελάτης δεν πλήρωσε. Πρώτα ρωτάμε τη Viva: αν βρει πληρωμή, η απόδειξη κλείνει κανονικά. Αλλιώς η πώληση ακυρώνεται και ο πελάτης δεν χρεώνεται.", [
+      ]} />;
+      case "unverified": return <StatusCard t={t} busy={busy} summary={summary} tone="bad" label="Θέλει ενέργεια" title="Η πληρωμή δεν έγινε" text="Η Viva δεν επιβεβαίωσε την πληρωμή. Μην δώσεις το προϊόν ως πληρωμένο· φώναξε τον υπεύθυνο." actions={[{ label: "Πίσω στην πώληση", onPress: backToSale, primary: true }]} />;
+      case "resume": return <StatusCard t={t} busy={busy} summary={summary} tone="wait" label="Περιμένει" title="Έμεινε μια πληρωμή στη μέση" text={`Η εφαρμογή έκλεισε πριν μάθουμε αν πληρώθηκε: ${amount}${how ? `, ${how}` : ""}${pending ? `, ${time(pending.startedAt)}` : ""}.`} actions={[askCancel, { label: "Έλεγξε αν πληρώθηκε", primary: true, onPress: () => check() }]} />;
+      case "cancel": return <StatusCard t={t} busy={busy} summary={summary} tone="bad" label="Επιβεβαίωση" title="Ακύρωση πληρωμής;" text="Κάν' το μόνο αν ο πελάτης δεν πλήρωσε. Πρώτα ρωτάμε τη Viva: αν βρει πληρωμή, η απόδειξη κλείνει κανονικά. Αλλιώς η πώληση ακυρώνεται και ο πελάτης δεν χρεώνεται." actions={[
         { label: "Πίσω", onPress: () => setStatus(status.back) },
         { label: "Ο πελάτης δεν πλήρωσε", primary: true, onPress: cancelPayment },
-      ]);
-      case "offline": return card("bad", "Θέλει ενέργεια", "Δεν υπάρχει σύνδεση", "Το ταμείο δεν μπορεί να βγάλει απόδειξη χωρίς internet. Η πώληση που έγραψες μένει στη συσκευή.", [
+      ]} />;
+      case "offline": return <StatusCard t={t} busy={busy} summary={summary} tone="bad" label="Θέλει ενέργεια" title="Δεν υπάρχει σύνδεση" text="Το ταμείο δεν μπορεί να βγάλει απόδειξη χωρίς internet. Η πώληση που έγραψες μένει στη συσκευή." actions={[
         // χωρίς κατάλογο (π.χ. άλλαξε η διεύθυνση του server) η μόνη έξοδος είναι νέα σύνδεση
         ...(catalog ? [{ label: "Πίσω στην πώληση", onPress: backToSale }] : [{ label: "Αποσύνδεση ταμείου", onPress: () => setStatus({ kind: "unpair" }) }]),
         { label: "Δοκίμασε ξανά", primary: true, onPress: () => { if (catalog && (lines.length || paying)) void startPayment(); else { setStatus(undefined); loadCatalog(); } } },
-      ]);
+      ]} />;
       // Με πληρωμή στη μέση δεν αποσυνδέεται: η εκκρεμότητα θα χανόταν μαζί με το κλειδί.
       case "unpair": return pending
-        ? card("wait", "Περιμένει", "Πρώτα η πληρωμή που έμεινε", "Υπάρχει πληρωμή που δεν ξέρουμε αν έγινε. Έλεγξέ την πρώτα και μετά αποσύνδεσε το ταμείο.", [{ label: "Πίσω", primary: true, onPress: backToSale }])
-        : card("bad", "Επιβεβαίωση", "Αποσύνδεση ταμείου;", `Η συσκευή ξεχνά το «${catalog?.device.name ?? "ταμείο"}». Για να ξαναπουλήσει, θέλει νέο QR σύνδεσης από την κονσόλα (Συσκευές → Ετοιμότητα).`, [
+        ? <StatusCard t={t} busy={busy} summary={summary} tone="wait" label="Περιμένει" title="Πρώτα η πληρωμή που έμεινε" text="Υπάρχει πληρωμή που δεν ξέρουμε αν έγινε. Έλεγξέ την πρώτα και μετά αποσύνδεσε το ταμείο." actions={[{ label: "Πίσω", primary: true, onPress: backToSale }]} />
+        : <StatusCard t={t} busy={busy} summary={summary} tone="bad" label="Επιβεβαίωση" title="Αποσύνδεση ταμείου;" text={`Η συσκευή ξεχνά το «${catalog?.device.name ?? "ταμείο"}». Για να ξαναπουλήσει, θέλει νέο QR σύνδεσης από την κονσόλα (Συσκευές → Ετοιμότητα).`} actions={[
           { label: "Πίσω", onPress: catalog ? backToSale : () => setStatus({ kind: "offline" }) },
           { label: "Αποσύνδεση", primary: true, onPress: onUnpair },
-        ]);
-      case "unpaired": return card("bad", "Θέλει ενέργεια", "Το ταμείο αποσυνδέθηκε", "Το κλειδί της συσκευής δεν ισχύει. Ζήτα νέο κωδικό σύζευξης από τον διαχειριστή.", [{ label: "Νέα σύζευξη", primary: true, onPress: onUnpair }]);
-      case "blocked": return card("bad", "Θέλει ενέργεια", paying ? "Δεν ξεκίνησε η πληρωμή" : "Δεν έγινε η πώληση", status.message, [{ label: paying ? "Πίσω στον λογαριασμό" : "Πίσω στην πώληση", onPress: () => { setPaying(undefined); backToSale(); }, primary: true }]);
+        ]} />;
+      case "unpaired": return <StatusCard t={t} busy={busy} summary={summary} tone="bad" label="Θέλει ενέργεια" title="Το ταμείο αποσυνδέθηκε" text="Το κλειδί της συσκευής δεν ισχύει. Ζήτα νέο κωδικό σύζευξης από τον διαχειριστή." actions={[{ label: "Νέα σύζευξη", primary: true, onPress: onUnpair }]} />;
+      case "blocked": return <StatusCard t={t} busy={busy} summary={summary} tone="bad" label="Θέλει ενέργεια" title={paying ? "Δεν ξεκίνησε η πληρωμή" : "Δεν έγινε η πώληση"} text={status.message} actions={[{ label: paying ? "Πίσω στον λογαριασμό" : "Πίσω στην πώληση", onPress: () => { setPaying(undefined); backToSale(); }, primary: true }]} />;
     }
   }
   // Ο κατάλογος απέτυχε όσο φαινόταν άλλη οθόνη: όχι ατελείωτο «φορτώνει», αλλά σφάλμα με «Δοκίμασε ξανά».
