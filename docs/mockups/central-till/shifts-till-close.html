@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<title>Ταμείο · Βάρδιες ταμία και κλείσιμο ταμείου</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: #111315; --panel: #1A1C1F; --card: #212428; --raised: #2A2D32; --line: rgba(255,255,255,.08); --div: rgba(255,255,255,.12);
+    --text: #FAFAFA; --muted: #B4B7BD; --faint: #787C84; --ink: #121417; --action: #F4F4F5;
+    --ok: #7FD1A1; --wait: #F2C46D; --bad: #F28B8B; --card-c: #C8DAEA; --cash-c: #CDE5DB; --p1: #EBCAD8; --p2: #D9D2F2;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #0A0B0C; color: var(--text); font-family: "Inter Tight", system-ui, sans-serif; font-size: 13px; padding: 40px; display: grid; gap: 24px; justify-content: center; }
+  .note { color: var(--muted); font-size: 14px; max-width: 1280px; line-height: 1.5; }
+  .note b { color: var(--text); font-weight: 600; font-size: 18px; display: block; margin-bottom: 4px; }
+  .note em { font-style: normal; color: var(--text); }
+  .note ul { margin: 6px 0 0 18px; display: grid; gap: 3px; }
+  .num { font-variant-numeric: tabular-nums; }
+  svg.lucide { width: 18px; height: 18px; stroke-width: 1.75; }
+  .tablet { width: 1280px; height: 800px; background: var(--bg); border-radius: 20px; overflow: hidden; outline: 10px solid #1F2124; position: relative; }
+  .btn { height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; white-space: nowrap; color: var(--text); background: var(--card); }
+  .btn.p { background: var(--action); color: var(--ink); border-color: var(--action); }
+  .muted { color: var(--muted); } .faint { color: var(--faint); }
+  .av { width: 44px; height: 44px; border-radius: 22px; display: grid; place-items: center; font-weight: 700; color: var(--ink); flex: none; }
+  .tag { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 8px; font-weight: 600; font-size: 12px; }
+  .tag.ok { background: rgba(127,209,161,.14); color: var(--ok); }
+  .tag.wait { background: rgba(242,196,109,.14); color: var(--wait); }
+  .tag.bad { background: rgba(242,139,139,.14); color: var(--bad); }
+  h1 { font-size: 20px; font-weight: 600; }
+  h2 { font-size: 15px; font-weight: 600; }
+
+  /* nav */
+  .shell { display: grid; grid-template-columns: 200px 1fr; height: 100%; }
+  nav { padding: 20px 12px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--div); }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; padding: 0 8px 20px; }
+  .logo i { width: 22px; height: 22px; border-radius: 11px; background: var(--p1); display: inline-block; }
+  nav a { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-radius: 12px; color: var(--muted); font-weight: 600; }
+  nav a.on { background: var(--raised); color: var(--text); }
+  .who { margin-top: auto; border-top: 1px solid var(--div); padding: 14px 4px 0; display: grid; gap: 10px; }
+  .who .me { display: flex; gap: 10px; align-items: center; }
+  .who .me .av { width: 36px; height: 36px; font-size: 13px; }
+  .who b { font-weight: 600; font-size: 13px; display: block; }
+  .who span { color: var(--muted); font-size: 12px; }
+  .who .btn { height: 40px; font-size: 12.5px; }
+
+  /* A. είσοδος */
+  .lock { display: grid; grid-template-columns: 1fr 440px; height: 100%; }
+  .lock .l { padding: 36px 40px; display: flex; flex-direction: column; gap: 20px; border-right: 1px solid var(--div); }
+  .staff { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .st { background: var(--card); border-radius: 14px; padding: 16px; display: flex; gap: 12px; align-items: center; height: 84px; }
+  .st.sel { background: var(--raised); box-shadow: inset 0 0 0 2px rgba(255,255,255,.5); }
+  .st b { font-weight: 600; font-size: 14px; display: block; }
+  .st span { color: var(--muted); font-size: 12px; }
+  .st.off { opacity: .5; }
+  .lock .r { padding: 36px 40px; display: flex; flex-direction: column; gap: 18px; background: var(--panel); }
+  .dots { display: flex; gap: 14px; justify-content: center; padding: 6px 0; }
+  .dots i { width: 16px; height: 16px; border-radius: 8px; border: 2px solid var(--muted); }
+  .dots i.f { background: var(--text); border-color: var(--text); }
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .pad span { height: 60px; border-radius: 14px; background: var(--card); display: grid; place-items: center; font-size: 22px; font-weight: 600; }
+  .pad span.x { background: transparent; color: var(--muted); font-size: 14px; }
+  .float { background: var(--card); border-radius: 14px; padding: 14px 16px; display: grid; gap: 8px; }
+  .float .v { display: flex; align-items: center; gap: 10px; }
+  .float .v b { font-size: 22px; font-weight: 600; flex: 1; }
+  .float .v .s { width: 40px; height: 40px; border-radius: 10px; background: var(--raised); display: grid; place-items: center; }
+
+  /* C. κλείσιμο βάρδιας */
+  .close { display: grid; grid-template-columns: 1fr 440px; height: 100%; min-height: 0; }
+  .close .l { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .close .r { background: var(--panel); border-left: 1px solid var(--div); padding: 20px 22px; display: flex; flex-direction: column; gap: 12px; }
+  .top { display: flex; align-items: center; gap: 12px; }
+  .sp { flex: 1; }
+  .ks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .k { background: var(--panel); border-radius: 14px; padding: 14px 16px; display: grid; gap: 6px; }
+  .k .l2 { color: var(--muted); font-weight: 500; font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
+  .k .l2 svg.lucide { width: 15px; height: 15px; }
+  .k .v { font-size: 24px; font-weight: 600; }
+  .k .s { color: var(--muted); font-size: 12.5px; }
+  .split { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 2px; }
+  .leg { display: flex; gap: 14px; color: var(--muted); font-size: 12.5px; }
+  .leg span { display: inline-flex; align-items: center; gap: 6px; }
+  .leg i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+  .box { background: var(--panel); border-radius: 14px; padding: 14px 16px; }
+  .box .hd { display: flex; justify-content: space-between; color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
+  .bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; height: 90px; }
+  .bars div { display: flex; flex-direction: column-reverse; gap: 2px; height: 100%; }
+  .bars i { display: block; border-radius: 3px; }
+  .ticks { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; color: var(--faint); font-size: 11.5px; margin-top: 4px; text-align: center; }
+  .calc { display: grid; gap: 0; }
+  .calc div { display: flex; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--div); }
+  .calc div:first-child { border-top: 0; }
+  .calc div.t { font-weight: 600; font-size: 14px; }
+  .den { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 18px; }
+  .den div { display: grid; grid-template-columns: 58px 1fr 70px; align-items: center; gap: 8px; height: 40px; border-bottom: 1px solid var(--div); }
+  .den .q { height: 30px; border-radius: 8px; background: var(--card); display: flex; align-items: center; justify-content: center; font-weight: 600; }
+  .den .m { text-align: right; color: var(--muted); }
+  .diff { border-radius: 14px; padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; }
+  .diff.wait { background: rgba(242,196,109,.12); color: var(--wait); }
+  .diff b { display: block; font-size: 15px; }
+  .diff span { color: var(--muted); font-size: 12.5px; }
+  .leave { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .leave div { background: var(--card); border-radius: 12px; padding: 10px 12px; display: grid; gap: 2px; }
+  .leave b { font-size: 17px; font-weight: 600; }
+  .leave span { color: var(--muted); font-size: 12px; }
+
+  /* D. κλείσιμο ημέρας */
+  .day { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; height: 100%; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: right; color: var(--muted); font-weight: 500; font-size: 12.5px; padding: 0 12px 10px; }
+  th:first-child, td:first-child { text-align: left; }
+  td { text-align: right; padding: 14px 12px; border-top: 1px solid var(--div); font-variant-numeric: tabular-nums; }
+  td .nm { display: flex; gap: 10px; align-items: center; }
+  td .nm .av { width: 32px; height: 32px; font-size: 12px; }
+  td .nm b { display: block; font-weight: 600; }
+  td .nm span { color: var(--muted); font-size: 12px; }
+  tr.tot td { font-weight: 600; font-size: 14px; }
+  .mini { display: flex; height: 8px; width: 140px; border-radius: 4px; overflow: hidden; gap: 2px; margin-left: auto; }
+
+  /* E. συσκευή ↔ κατάστημα */
+  .pair { display: grid; grid-template-columns: 520px 1fr; gap: 24px; align-items: start; }
+  .sheet { background: var(--bg); border-radius: 20px; outline: 10px solid #1F2124; padding: 28px; display: grid; gap: 16px; }
+  .found { background: var(--card); border-radius: 14px; padding: 16px; display: flex; gap: 14px; align-items: center; }
+  .found .ic { width: 44px; height: 44px; border-radius: 12px; background: var(--cash-c); color: var(--ink); display: grid; place-items: center; }
+  .found b { font-weight: 600; font-size: 15px; display: block; }
+  .found span { color: var(--muted); font-size: 12.5px; }
+  .web { background: #FFFFFF; color: #16181B; border-radius: 14px; padding: 22px 24px; display: grid; gap: 14px; font-size: 13.5px; }
+  .web h2 { font-size: 17px; }
+  .web .muted { color: #5F646C; }
+  .web .row { display: grid; grid-template-columns: 1.3fr 1.2fr 1.1fr 120px; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid #E7E8EA; }
+  .web .row.h { color: #5F646C; font-size: 12.5px; border-top: 0; padding-top: 0; }
+  .web .sel { height: 38px; border: 1px solid #D5D7DB; border-radius: 9px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; }
+  .web code { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; background: #F2F3F5; padding: 3px 6px; border-radius: 6px; }
+  .web .info { background: #EEF4FA; border-radius: 10px; padding: 10px 12px; display: flex; gap: 10px; color: #2B4560; font-size: 12.5px; line-height: 1.45; }
+  .web .g { color: #1E7A4A; } .web .w { color: #9A6A10; }
+</style>
+</head>
+<body>
+
+<div class="note"><b>Βάρδιες ταμία και κλείσιμο ταμείου</b>
+Κάθε απόδειξη, επιστροφή και μέτρηση μετρητών γράφεται στον ταμία που είναι στη βάρδια. Στην αλλαγή βάρδιας ο ταμίας μετρά το συρτάρι, βλέπει αν λείπουν ή περισσεύουν χρήματα και παραδίδει. Στο τέλος της ημέρας το ταμείο κλείνει με σύνολα ανά ταμία.
+<ul>
+  <li><em>Προσωπικό:</em> οι υπάλληλοι του καταστήματος (Προσωπικό στην κονσόλα) με 4ψήφιο PIN ταμείου. Νέο πεδίο μόνο το PIN.</li>
+  <li><em>Βάρδια ταμείου:</em> νέος πίνακας: ταμείο, υπάλληλος, ώρα έναρξης και λήξης, μετρητά έναρξης, μέτρηση λήξης, διαφορά, αιτία. Κάθε πώληση και πιστωτικό κρατά τη βάρδια του.</li>
+  <li>Δεν είναι οι βάρδιες του ωραρίου (Shift). Αν ο υπάλληλος έχει προγραμματισμένη βάρδια, εμφανίζεται πρώτος στη λίστα.</li>
+</ul></div>
+
+<!-- A. Έναρξη βάρδιας -->
+<div class="tablet"><div class="lock">
+  <div class="l">
+    <div class="top"><span class="logo" style="padding:0"><i></i>Gelato System</span><span class="sp"></span><span class="muted">Κατάστημα Πειραιά · Κεντρικό ταμείο</span></div>
+    <div><h1>Ποιος ξεκινά βάρδια;</h1><p class="muted" style="margin-top:6px">Πάτα το όνομά σου και γράψε το PIN σου. Ό,τι πουλήσεις μετρά στη δική σου βάρδια.</p></div>
+    <div class="staff">
+      <div class="st sel"><div class="av" style="background:var(--p1)">ΜΚ</div><div><b>Μαρία Κ.</b><span>Στο πρόγραμμα 09:00–15:00</span></div></div>
+      <div class="st"><div class="av" style="background:var(--p2)">ΝΠ</div><div><b>Νίκος Π.</b><span>Στο πρόγραμμα 15:00–23:00</span></div></div>
+      <div class="st"><div class="av" style="background:var(--cash-c)">ΕΣ</div><div><b>Ελένη Σ.</b><span>Όχι στο πρόγραμμα σήμερα</span></div></div>
+      <div class="st"><div class="av" style="background:var(--card-c)">ΓΔ</div><div><b>Γιώργος Δ.</b><span>Υπεύθυνος καταστήματος</span></div></div>
+      <div class="st off"><div class="av" style="background:var(--raised);color:var(--muted)">ΑΛ</div><div><b>Άννα Λ.</b><span>Σε άδεια</span></div></div>
+    </div>
+    <div class="sp"></div>
+    <div class="box" style="display:flex;gap:12px;align-items:center"><i data-lucide="info" class="muted"></i><span class="muted">Βλέπεις μόνο το προσωπικό αυτού του καταστήματος. Νέο άτομο ή PIN: κονσόλα → Προσωπικό.</span></div>
+  </div>
+  <div class="r">
+    <div style="display:flex;gap:12px;align-items:center"><div class="av" style="background:var(--p1)">ΜΚ</div><div><h2>Μαρία Κ.</h2><span class="muted">Γράψε το PIN σου</span></div></div>
+    <div class="dots"><i class="f"></i><i class="f"></i><i class="f"></i><i></i></div>
+    <div class="pad"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span class="x">Καθαρισμός</span><span>0</span><span class="x"><i data-lucide="delete"></i></span></div>
+    <div class="float">
+      <span class="muted">Μετρητά στο συρτάρι τώρα</span>
+      <div class="v"><span class="s"><i data-lucide="minus"></i></span><b class="num">100,00 €</b><span class="s"><i data-lucide="plus"></i></span></div>
+      <span class="faint" style="font-size:12px">Η προηγούμενη βάρδια (Νίκος Π., χθες 23:05) άφησε 100,00 €. Άλλαξέ το μόνο αν μέτρησες κάτι άλλο.</span>
+    </div>
+    <span class="btn p" style="height:52px"><i data-lucide="log-in"></i>Έναρξη βάρδιας</span>
+  </div>
+</div></div>
+
+<div class="note"><b>Κλείσιμο βάρδιας (αλλαγή ταμία)</b>
+Από το κάτω μέρος του μενού: «Αλλαγή βάρδιας». Αριστερά τι έγινε στη βάρδια, δεξιά η μέτρηση του συρταριού. Το σύστημα δείχνει πόσα πρέπει να υπάρχουν και η διαφορά βγαίνει αμέσως με χρώμα: πράσινο όταν συμφωνεί, κίτρινο έως 5 €, κόκκινο πάνω από 5 € (το όριο αλλάζει στις ρυθμίσεις). Με διαφορά ζητείται αιτία. Μετά ανοίγει η οθόνη «Ποιος ξεκινά βάρδια;» με προτεινόμενα τα μετρητά που αφέθηκαν.</div>
+
+<!-- C. Κλείσιμο βάρδιας -->
+<div class="tablet"><div class="shell">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a><i data-lucide="layout-grid"></i>Τραπέζια</a>
+    <a><i data-lucide="calendar-clock"></i>Κρατήσεις</a>
+    <a><i data-lucide="receipt-text"></i>Συναλλαγές</a>
+    <a class="on"><i data-lucide="wallet"></i>Ταμείο</a>
+    <div class="who">
+      <div class="me"><div class="av" style="background:var(--p1)">ΜΚ</div><div><b>Μαρία Κ.</b><span>Βάρδια από 09:02</span></div></div>
+      <span class="btn"><i data-lucide="repeat"></i>Αλλαγή βάρδιας</span>
+    </div>
+  </nav>
+  <div class="close">
+    <div class="l">
+      <div class="top"><h1>Κλείσιμο βάρδιας</h1><span class="muted">Μαρία Κ. · 09:02–15:08 · 6 ώ 6′</span><span class="sp"></span><span class="btn"><i data-lucide="printer"></i>Εκτύπωση</span></div>
+      <div class="ks">
+        <div class="k"><span class="l2"><i data-lucide="trending-up"></i>Εισπράξεις βάρδιας</span><span class="v num">412,60 €</span>
+          <div class="split"><i style="flex:221.4;background:var(--card-c)"></i><i style="flex:191.2;background:var(--cash-c)"></i></div>
+          <div class="leg"><span><i style="background:var(--card-c)"></i>Κάρτα 221,40 €</span><span><i style="background:var(--cash-c)"></i>Μετρητά 191,20 €</span></div></div>
+        <div class="k"><span class="l2"><i data-lucide="receipt"></i>Αποδείξεις</span><span class="v num">38</span><span class="s">Μέση απόδειξη 10,86 € · κανονική για Τετάρτη</span></div>
+        <div class="k"><span class="l2"><i data-lucide="undo-2"></i>Επιστροφές</span><span class="v num">1</span><span class="s">−4,80 € μετρητά · «Λάθος παραγγελία»</span></div>
+      </div>
+      <div class="box">
+        <div class="hd"><span>Εισπράξεις ανά ώρα</span><span>Κορυφή 13:00–14:00 · 96,40 €</span></div>
+        <div class="bars">
+          <div><i style="height:18%;background:var(--card-c)"></i><i style="height:10%;background:var(--cash-c)"></i></div>
+          <div><i style="height:26%;background:var(--card-c)"></i><i style="height:20%;background:var(--cash-c)"></i></div>
+          <div><i style="height:30%;background:var(--card-c)"></i><i style="height:26%;background:var(--cash-c)"></i></div>
+          <div><i style="height:36%;background:var(--card-c)"></i><i style="height:32%;background:var(--cash-c)"></i></div>
+          <div><i style="height:52%;background:var(--card-c)"></i><i style="height:46%;background:var(--cash-c)"></i></div>
+          <div><i style="height:34%;background:var(--card-c)"></i><i style="height:30%;background:var(--cash-c)"></i></div>
+          <div><i style="height:6%;background:var(--card-c)"></i><i style="height:4%;background:var(--cash-c)"></i></div>
+        </div>
+        <div class="ticks"><span>09</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span></div>
+      </div>
+      <div class="box">
+        <div class="hd"><span>Πόσα πρέπει να έχει το συρτάρι</span></div>
+        <div class="calc num">
+          <div><span class="muted">Μετρητά έναρξης</span><span>100,00 €</span></div>
+          <div><span class="muted">+ Πωλήσεις μετρητοίς</span><span>191,20 €</span></div>
+          <div><span class="muted">− Επιστροφές μετρητοίς</span><span>−4,80 €</span></div>
+          <div class="t"><span>Αναμενόμενα</span><span>286,40 €</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="r">
+      <h2>Μέτρησε το συρτάρι</h2>
+      <span class="muted" style="margin-top:-6px">Γράψε πόσα τεμάχια έχεις από το καθένα· το σύνολο βγαίνει μόνο του.</span>
+      <div class="den num">
+        <div><span>50 €</span><span class="q">2</span><span class="m">100,00</span></div>
+        <div><span>2 €</span><span class="q">9</span><span class="m">18,00</span></div>
+        <div><span>20 €</span><span class="q">5</span><span class="m">100,00</span></div>
+        <div><span>1 €</span><span class="q">12</span><span class="m">12,00</span></div>
+        <div><span>10 €</span><span class="q">3</span><span class="m">30,00</span></div>
+        <div><span>0,50 €</span><span class="q">8</span><span class="m">4,00</span></div>
+        <div><span>5 €</span><span class="q">3</span><span class="m">15,00</span></div>
+        <div><span>Ψιλά</span><span class="q">5,40</span><span class="m">5,40</span></div>
+      </div>
+      <div class="calc num"><div class="t"><span>Μέτρησες</span><span>284,40 €</span></div></div>
+      <div class="diff wait"><i data-lucide="triangle-alert"></i><div><b class="num">Λείπουν 2,00 €</b><span>Γράψε τι έγινε, π.χ. «ρέστα σε πελάτη». Ο υπεύθυνος το βλέπει στην κονσόλα.</span></div></div>
+      <div class="leave num">
+        <div><span>Αφήνω για την επόμενη βάρδια</span><b>100,00 €</b></div>
+        <div><span>Βγαίνουν για κατάθεση</span><b>184,40 €</b></div>
+      </div>
+      <span class="sp"></span>
+      <span class="btn p" style="height:52px"><i data-lucide="check"></i>Κλείσιμο βάρδιας</span>
+    </div>
+  </div>
+</div></div>
+
+<div class="note"><b>Κλείσιμο ημέρας</b>
+Στο τέλος της ημέρας, αφού κλείσει η τελευταία βάρδια. Ένα σύνολο ανά ταμία, ώστε να φαίνεται ποιος είχε διαφορά. Το κουμπί κλειδώνει την ημέρα: μετά δεν γίνονται πωλήσεις με αυτή την ημερομηνία στο ταμείο. Αν υπάρχει λογαριασμός τραπεζιού ανοιχτός ή χρέωση που περιμένει στο POS, το κουμπί λέει τι πρέπει να κλείσει πρώτα.</div>
+
+<!-- D. Κλείσιμο ημέρας -->
+<div class="tablet"><div class="shell">
+  <nav>
+    <div class="logo"><i></i>Gelato System</div>
+    <a><i data-lucide="ice-cream-cone"></i>Πώληση</a>
+    <a><i data-lucide="layout-grid"></i>Τραπέζια</a>
+    <a><i data-lucide="calendar-clock"></i>Κρατήσεις</a>
+    <a><i data-lucide="receipt-text"></i>Συναλλαγές</a>
+    <a class="on"><i data-lucide="wallet"></i>Ταμείο</a>
+    <div class="who">
+      <div class="me"><div class="av" style="background:var(--p2)">ΝΠ</div><div><b>Νίκος Π.</b><span>Η βάρδια έκλεισε 23:05</span></div></div>
+    </div>
+  </nav>
+  <div class="day">
+    <div class="top"><h1>Κλείσιμο ημέρας</h1><span class="muted">Τετάρτη 26 Νοεμβρίου · Κεντρικό ταμείο</span><span class="sp"></span><span class="btn"><i data-lucide="printer"></i>Εκτύπωση</span></div>
+    <div class="ks">
+      <div class="k"><span class="l2"><i data-lucide="trending-up"></i>Εισπράξεις ημέρας</span><span class="v num">1.086,30 €</span><span class="s">+8% σε σχέση με την προηγούμενη Τετάρτη</span></div>
+      <div class="k"><span class="l2"><i data-lucide="banknote"></i>Μετρητά για κατάθεση</span><span class="v num">472,10 €</span><span class="s">100,00 € μένουν στο συρτάρι για αύριο</span></div>
+      <div class="k"><span class="l2"><i data-lucide="scale"></i>Διαφορά μετρητών</span><span class="v num" style="color:var(--wait)">−2,00 €</span><span class="s">Μία βάρδια με διαφορά · μέσα στο όριο</span></div>
+    </div>
+    <div class="box" style="padding:16px 8px 6px">
+      <table>
+        <tr><th>Ταμίας</th><th>Αποδείξεις</th><th>Κάρτα / μετρητά</th><th>Εισπράξεις</th><th>Αναμενόμενα</th><th>Μέτρησε</th><th>Διαφορά</th></tr>
+        <tr><td><div class="nm"><div class="av" style="background:var(--p1)">ΜΚ</div><div><b>Μαρία Κ.</b><span>09:02–15:08</span></div></div></td><td>38</td>
+          <td><div class="mini"><i style="flex:221;background:var(--card-c)"></i><i style="flex:191;background:var(--cash-c)"></i></div></td>
+          <td>412,60 €</td><td>286,40 €</td><td>284,40 €</td><td><span class="tag wait">−2,00 €</span></td></tr>
+        <tr><td><div class="nm"><div class="av" style="background:var(--p2)">ΝΠ</div><div><b>Νίκος Π.</b><span>15:08–23:05</span></div></div></td><td>61</td>
+          <td><div class="mini"><i style="flex:385;background:var(--card-c)"></i><i style="flex:289;background:var(--cash-c)"></i></div></td>
+          <td>673,70 €</td><td>388,10 €</td><td>388,10 €</td><td><span class="tag ok"><i data-lucide="check" style="width:14px;height:14px"></i>Σωστό</span></td></tr>
+        <tr class="tot"><td>Σύνολο</td><td>99</td>
+          <td><div class="mini"><i style="flex:606;background:var(--card-c)"></i><i style="flex:480;background:var(--cash-c)"></i></div></td>
+          <td>1.086,30 €</td><td>574,50 €</td><td>572,50 €</td><td style="color:var(--wait)">−2,00 €</td></tr>
+      </table>
+    </div>
+    <div class="box" style="display:flex;gap:12px;align-items:center"><i data-lucide="circle-check" style="color:var(--ok)"></i><span class="muted">Όλα είναι κλειστά: κανένα ανοιχτό τραπέζι, καμία χρέωση σε αναμονή στο POS, όλες οι αποδείξεις έχουν MARK.</span></div>
+    <div class="sp"></div>
+    <div style="display:flex;gap:12px;justify-content:flex-end;padding-bottom:8px"><span class="btn" style="height:52px">Πίσω</span><span class="btn p" style="height:52px;padding:0 28px"><i data-lucide="lock"></i>Κλείσιμο ημέρας</span></div>
+  </div>
+</div></div>
+
+<div class="note"><b>Συσκευή → κατάστημα, αυτόματα</b>
+Η MAC δεν διαβάζεται από εφαρμογές σε Android 10 και νεότερα (το σύστημα δίνει ψεύτικη, τυχαία τιμή). Κρατάμε το <em>Android ID</em> της συσκευής: μένει ίδιο σε επανεγκατάσταση της εφαρμογής και αλλάζει μόνο με επαναφορά εργοστασιακών ρυθμίσεων. Όταν μια γνωστή συσκευή συνδέεται ξανά, το κατάστημα και το ταμείο προτείνονται μόνα τους, και ο χρήστης μπορεί να τα αλλάξει.</div>
+
+<!-- E. Σύζευξη + κονσόλα -->
+<div class="pair">
+  <div class="sheet">
+    <h1>Σύνδεση ταμείου</h1>
+    <div class="found"><span class="ic"><i data-lucide="tablet-smartphone"></i></span><div><b>Βρήκαμε αυτή τη συσκευή</b><span>Ήταν το «Κεντρικό ταμείο» στο Κατάστημα Πειραιά (μέχρι 26/11, 09:01)</span></div></div>
+    <div class="float"><span class="muted">Κατάστημα</span><div class="v"><b style="font-size:17px">Κατάστημα Πειραιά</b><span class="btn" style="height:36px">Αλλαγή</span></div></div>
+    <div class="float"><span class="muted">Ταμείο</span><div class="v"><b style="font-size:17px">Κεντρικό ταμείο · σειρά A3</b><span class="btn" style="height:36px">Αλλαγή</span></div></div>
+    <span class="btn p" style="height:52px"><i data-lucide="link"></i>Σύνδεση ως Κεντρικό ταμείο</span>
+    <span class="faint" style="font-size:12px;text-align:center">Για άλλο κατάστημα πάτα «Αλλαγή». Η επιλογή σου μένει για την επόμενη φορά.</span>
+  </div>
+  <div class="web">
+    <h2>Συσκευές · Κατάστημα Πειραιά</h2>
+    <div class="info"><i data-lucide="info"></i><span>Κάθε συσκευή αναγνωρίζεται από το Android ID της. Αν μια συσκευή μετακινηθεί σε άλλο κατάστημα, άλλαξέ το εδώ· την επόμενη φορά που θα συνδεθεί θα προτείνει το νέο κατάστημα.</span></div>
+    <div class="row h"><span>Συσκευή</span><span>Ταυτότητα (Android ID)</span><span>Κατάστημα</span><span>Τελευταία φορά</span></div>
+    <div class="row"><div><b>Κεντρικό ταμείο</b><div class="muted">Tablet · σειρά A3</div></div><div><code>9f3c 21ab 7e04 d1c2</code></div><div class="sel">Κατάστημα Πειραιά<i data-lucide="chevron-down"></i></div><span class="g">Τώρα</span></div>
+    <div class="row"><div><b>Ταμείο Android</b><div class="muted">Τηλέφωνο · σειρά A2</div></div><div><code>41d0 8a6e 02bf 93aa</code></div><div class="sel">Κατάστημα Πειραιά<i data-lucide="chevron-down"></i></div><span class="muted">Πριν 2 ώρες</span></div>
+    <div class="row"><div><b>Ταμείο βιτρίνας</b><div class="muted">Tablet · σειρά B1</div></div><div><span class="w">Δεν έχει συνδεθεί ακόμα</span></div><div class="sel">Κατάστημα Γλυφάδας<i data-lucide="chevron-down"></i></div><span class="muted">—</span></div>
+  </div>
+</div>
+
+<script>lucide.createIcons();</script>
+</body>
+</html>
