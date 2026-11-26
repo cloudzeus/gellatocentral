@@ -6,6 +6,8 @@ import { requireStockContext } from "@/lib/stock-context";
 import { createLeave, createScheduleLink, createShift, publishSchedule, saveDepartment, saveEmployee, saveEmployeePay } from "@/lib/staff-db";
 import { workflowMessage } from "@/lib/workflow-db";
 import { redirectUrl } from "@/lib/flash";
+import { db } from "@/lib/db";
+import { pinHash } from "@/lib/till-shift";
 
 const cents = (value: FormDataEntryValue | null) => Math.round(Number(String(value ?? "0").replace(",", ".")) * 100);
 const date = (value: FormDataEntryValue | null) => String(value ?? "") ? new Date(String(value)) : null;
@@ -74,4 +76,16 @@ export async function issueScheduleLink(employeeId: string) {
   const ctx = await requireStockContext("staff.edit");
   try { const result = await createScheduleLink(ctx, employeeId); revalidatePath("/staff"); return { token: result.token as string, error: null as string | null }; }
   catch (error) { return { token: null as string | null, error: workflowMessage(error) }; }
+}
+
+/** PIN ταμείου (4 ψηφία) για να ανοίγει ο υπάλληλος βάρδια στο ταμείο Android του καταστήματός του. Κενό = αφαίρεση. */
+export async function setTillPin(employeeId: string, form: FormData) {
+  const ctx = await requireStockContext("staff.edit");
+  const pin = String(form.get("pin") ?? "").trim();
+  if (pin && !/^\d{4}$/.test(pin)) back(`?error=${encodeURIComponent("Το PIN είναι 4 ψηφία")}`);
+  const employee = await db.employee.findFirst({ where: { id: employeeId, orgId: ctx.orgId, ...(ctx.storeIds.length ? { storeId: { in: [...ctx.storeIds] } } : {}) }, select: { id: true, name: true, storeId: true } });
+  if (!employee) back(`?error=${encodeURIComponent("Ο εργαζόμενος δεν βρέθηκε")}`);
+  if (pin && !employee!.storeId) back(`?error=${encodeURIComponent("Διάλεξε πρώτα κατάστημα για τον εργαζόμενο: μπαίνει στα ταμεία του καταστήματός του")}`);
+  await db.employee.update({ where: { id: employee!.id }, data: { tillPinHash: pin ? pinHash(employee!.id, pin) : null } });
+  back(`?saved=${encodeURIComponent(pin ? `Ο/η ${employee!.name} μπαίνει πλέον στο ταμείο με το PIN του` : `Αφαιρέθηκε το PIN ταμείου του/της ${employee!.name}`)}`);
 }

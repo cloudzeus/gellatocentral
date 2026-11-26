@@ -24,7 +24,15 @@
     },
     "scheme": "gelatosystem",
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Η κάμερα χρειάζεται για το QR σύνδεσης του ταμείου.",
+          "recordAudioAndroid": false
+        }
+      ]
     ]
   }
 }

@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<title>Ταμείο · Συναλλαγές και επιστροφές</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: #111315; --panel: #1A1C1F; --card: #212428; --raised: #2A2D32; --line: rgba(255,255,255,.08);
+    --text: #FAFAFA; --muted: #B4B7BD; --faint: #787C84; --ink: #121417; --action: #F4F4F5;
+    --ok: #7FD1A1; --wait: #F2C46D; --bad: #F28B8B; --card-c: #C8DAEA; --cash-c: #CDE5DB;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #0A0B0C; color: var(--text); font-family: "Inter Tight", system-ui, sans-serif; font-size: 13.5px; padding: 40px; display: grid; gap: 24px; justify-content: center; }
+  .note { color: var(--muted); font-size: 14px; max-width: 1280px; line-height: 1.5; }
+  .note b { color: var(--text); font-weight: 600; font-size: 18px; display: block; margin-bottom: 4px; }
+  .note em { font-style: normal; color: var(--text); }
+  .note ul { margin: 6px 0 0 18px; display: grid; gap: 3px; }
+  .num { font-variant-numeric: tabular-nums; }
+  svg.lucide { width: 18px; height: 18px; stroke-width: 1.75; }
+
+  .tablet { width: 1280px; height: 800px; background: var(--bg); border-radius: 20px; overflow: hidden; display: grid; grid-template-columns: 200px 1fr 400px; outline: 10px solid #1F2124; position: relative; }
+  nav { padding: 20px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15.5px; padding: 0 8px 20px; }
+  .logo i { width: 22px; height: 22px; border-radius: 11px; background: #EBCAD8; display: inline-block; }
+  nav a { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-radius: 12px; color: var(--muted); font-weight: 600; }
+  nav a.on { background: var(--raised); color: var(--text); }
+  nav a .n { margin-left: auto; min-width: 22px; height: 22px; border-radius: 11px; padding: 0 6px; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--wait); color: var(--ink); }
+  nav .foot { margin-top: auto; border-top: 1px solid var(--line); padding: 16px 8px 0; display: grid; gap: 4px; }
+  nav .foot b { font-weight: 600; font-size: 13px; }
+  nav .foot span { color: var(--muted); font-size: 12px; font-weight: 500; }
+
+  main { padding: 20px 20px 0 24px; display: flex; flex-direction: column; gap: 14px; min-width: 0; min-height: 0; }
+  .top { display: flex; align-items: center; gap: 12px; }
+  .top h1 { font-size: 20px; font-weight: 600; }
+  .top small { color: var(--muted); font-weight: 500; font-size: 13.5px; }
+  .sp { flex: 1; }
+  .seg { display: flex; background: var(--panel); border-radius: 12px; padding: 4px; gap: 2px; }
+  .seg span { white-space: nowrap; height: 36px; padding: 0 12px; border-radius: 9px; display: grid; place-items: center; color: var(--muted); font-weight: 600; }
+  .seg span.on { background: var(--raised); color: var(--text); }
+  .btn { height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; white-space: nowrap; color: var(--text); background: transparent; }
+  .btn.p { background: var(--action); color: var(--ink); border-color: var(--action); }
+  .btn.danger { background: rgba(242,139,139,.14); color: var(--bad); border-color: rgba(242,139,139,.35); }
+  .btn.dangerp { background: var(--bad); color: var(--ink); border-color: var(--bad); }
+
+  /* σύνοψη ημέρας */
+  .sum { display: grid; grid-template-columns: 1.35fr 1fr 1fr; gap: 10px; }
+  .k { background: var(--panel); border-radius: 14px; padding: 14px 16px; display: grid; gap: 6px; }
+  .k .l { color: var(--muted); font-weight: 500; font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
+  .k .l svg.lucide { width: 15px; height: 15px; }
+  .k .v { font-size: 24px; font-weight: 600; }
+  .k .s { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+  .k .s.bad { color: var(--bad); }
+  .split { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 2px; }
+  .split i { display: block; }
+  .leg { display: flex; gap: 14px; color: var(--muted); font-size: 12.5px; font-weight: 500; }
+  .leg span { display: inline-flex; align-items: center; gap: 6px; }
+  .leg i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+
+  /* ωριαίο γράφημα */
+  .hours { background: var(--panel); border-radius: 14px; padding: 12px 16px 10px; }
+  .hours .hd { display: flex; justify-content: space-between; color: var(--muted); font-size: 12.5px; font-weight: 500; margin-bottom: 8px; }
+  .bars { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; align-items: end; height: 56px; }
+  .bars div { display: flex; flex-direction: column-reverse; gap: 2px; height: 100%; justify-content: flex-start; }
+  .bars i { display: block; border-radius: 3px; }
+  .bars .now i { outline: 1px solid rgba(255,255,255,.5); }
+  .ticks { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; color: var(--faint); font-size: 11.5px; margin-top: 4px; text-align: center; }
+
+  /* λίστα */
+  .filters { display: flex; gap: 8px; align-items: center; }
+  .chip { height: 36px; padding: 0 12px; border-radius: 10px; background: var(--panel); color: var(--muted); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+  .chip.on { background: var(--raised); color: var(--text); }
+  .chip .c { color: var(--faint); font-weight: 500; }
+  .search { margin-left: auto; height: 36px; width: 210px; border-radius: 10px; background: var(--panel); color: var(--faint); display: flex; align-items: center; gap: 8px; padding: 0 12px; }
+  .list { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; }
+  .row { display: grid; grid-template-columns: 52px 36px 1fr auto 132px; align-items: center; gap: 12px; height: 60px; padding: 0 14px; border-radius: 12px; background: var(--card); }
+  .row.sel { background: var(--raised); box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); }
+  .row .t { color: var(--muted); font-weight: 500; }
+  .row .ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--ink); }
+  .row .ic.card { background: var(--card-c); }
+  .row .ic.cash { background: var(--cash-c); }
+  .row .ic.ref { background: transparent; border: 1px dashed rgba(255,255,255,.2); color: var(--muted); }
+  .row .what b { font-weight: 600; display: block; }
+  .row .what span { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+  .row .amt { font-weight: 600; font-size: 15.5px; text-align: right; }
+  .row .amt.neg { color: var(--muted); }
+  .st { justify-self: end; height: 26px; padding: 0 10px; border-radius: 13px; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .st svg.lucide { width: 14px; height: 14px; }
+  .st.ok { color: var(--ok); background: rgba(127,209,161,.1); }
+  .st.wait { color: var(--wait); background: rgba(242,196,109,.12); }
+  .st.bad { color: var(--bad); background: rgba(242,139,139,.12); }
+  .st.ret { color: var(--muted); background: rgba(255,255,255,.06); }
+
+  /* λεπτομέρειες */
+  aside { background: var(--panel); border-left: 1px solid var(--line); padding: 20px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+  aside .h { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
+  aside h2 { font-size: 17px; font-weight: 600; }
+  aside .sub { color: var(--muted); font-weight: 500; margin-top: 2px; }
+  .box { background: var(--card); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; }
+  .box .r { display: flex; justify-content: space-between; gap: 10px; }
+  .box .r span { color: var(--muted); font-weight: 500; }
+  .box .r b { font-weight: 600; }
+  .box .r.tot { border-top: 1px solid var(--line); padding-top: 8px; font-size: 15.5px; }
+  .box .r.tot span { color: var(--text); }
+  .lbl { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; }
+  .hint { color: var(--muted); font-size: 12.5px; line-height: 1.45; display: flex; gap: 8px; }
+  .hint svg.lucide { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+  .acts { margin-top: auto; display: grid; gap: 8px; }
+  .acts .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* διάλογος */
+  .ov { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: grid; place-items: center; }
+  .dlg { width: 460px; background: var(--panel); border-radius: 20px; padding: 24px; display: grid; gap: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .dlg .icn { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; background: rgba(242,139,139,.14); color: var(--bad); }
+  .dlg .icn.wait { background: rgba(242,196,109,.14); color: var(--wait); }
+  .dlg .icn svg.lucide { width: 24px; height: 24px; }
+  .dlg h3 { font-size: 20px; font-weight: 600; }
+  .dlg p { color: var(--muted); line-height: 1.5; }
+  .dlg p b { color: var(--text); font-weight: 600; }
+  .steps { display: grid; gap: 10px; }
+  .steps div { display: flex; gap: 10px; align-items: center; color: var(--muted); font-weight: 500; }
+  .steps div.done { color: var(--text); }
+  .steps div.done svg { color: var(--ok); }
+  .steps div.cur { color: var(--text); }
+  .steps div.cur svg { color: var(--wait); }
+  .reason { display: flex; flex-wrap: wrap; gap: 8px; }
+  .reason span { height: 36px; padding: 0 12px; border-radius: 10px; background: var(--card); color: var(--muted); font-weight: 600; display: inline-flex; align-items: center; }
+  .reason span.on { background: var(--raised); color: var(--text); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
+
+  /* κινητό */
+  .phones { display: flex; gap: 40px; }
+  .phone { width: 375px; height: 812px; background: var(--bg); border-radius: 36px; outline: 10px solid #1F2124; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+  .phone .bar { padding: 18px 18px 10px; display: flex; align-items: center; gap: 10px; }
+  .phone .bar h1 { font-size: 18px; font-weight: 600; }
+  .phone .bar .back { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--panel); }
+  .phone .pbody { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; overflow: hidden; }
+  .phone .row { grid-template-columns: 36px 1fr auto; height: 64px; padding: 0 12px; }
+  .phone .row .what span { display: block; }
+  .phone .row .right { display: grid; justify-items: end; gap: 4px; }
+  .phone .st { height: 22px; font-size: 12px; padding: 0 8px; }
+  .phone .k .v { font-size: 22px; }
+  .phone .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--panel); border-radius: 24px 24px 0 0; padding: 12px 18px 22px; display: grid; gap: 12px; box-shadow: 0 -10px 40px rgba(0,0,0,.5); }
+  .phone .grab { width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.2); justify-self: center; }
+  .dim { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>Ταμείο · Συναλλαγές και επιστροφές</b>
+  Νέα οθόνη «Συναλλαγές» στο ταμείο, δίπλα στην Πώληση και τα Τραπέζια. Δείχνει ό,τι εισπράχθηκε σήμερα σε αυτό το ταμείο, κάρτα και μετρητά, και από εδώ γίνονται δύο πράγματα:
+  <ul>
+    <li><em>Ακύρωση χρέωσης</em>: μια χρέωση που περιμένει ακόμα στο POS σταματά πριν πληρωθεί. Δεν εκδίδεται τίποτα.</li>
+    <li><em>Επιστροφή χρημάτων</em>: σε απόδειξη που πληρώθηκε εκδίδεται πιστωτικό 11.4 προς την ΑΑΔΕ. Αν πληρώθηκε με κάρτα, η επιστροφή πάει στο ίδιο POS και ο πελάτης ακουμπά την κάρτα. Αν πληρώθηκε με μετρητά, ο ταμίας δίνει τα χρήματα από το συρτάρι.</li>
+  </ul>
+</div>
+
+<!-- 1. Λίστα + λεπτομέρειες -->
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelateria Demo</div>
+    <a><i data-lucide="shopping-bag"></i>Πώληση</a>
+    <a><i data-lucide="layout-grid"></i>Τραπέζια<span class="n">3</span></a>
+    <a><i data-lucide="calendar-clock"></i>Κρατήσεις</a>
+    <a class="on"><i data-lucide="receipt-text"></i>Συναλλαγές</a>
+    <div class="foot"><b>Κεντρικό ταμείο</b><span>Κατάστημα Πειραιά · POS 16017204</span></div>
+  </nav>
+
+  <main>
+    <div class="top">
+      <h1>Συναλλαγές</h1><small>Πέμπτη 26 Νοεμβρίου</small>
+      <div class="sp"></div>
+      <div class="seg"><span class="on">Σήμερα</span><span>Χθες</span><span>7 ημέρες</span></div>
+    </div>
+
+    <div class="sum">
+      <div class="k">
+        <div class="l"><i data-lucide="wallet"></i>Εισπράξεις σήμερα</div>
+        <div class="v num">412,80 €</div>
+        <div class="split"><i style="width:64%;background:var(--card-c)"></i><i style="width:36%;background:var(--cash-c)"></i></div>
+        <div class="leg"><span><i style="background:var(--card-c)"></i>Κάρτα 264,20 €</span><span><i style="background:var(--cash-c)"></i>Μετρητά 148,60 €</span></div>
+      </div>
+      <div class="k">
+        <div class="l"><i data-lucide="receipt"></i>Αποδείξεις</div>
+        <div class="v num">57</div>
+        <div class="s">Μέση απόδειξη 7,24 € · 0,40 € πάνω από χθες</div>
+      </div>
+      <div class="k">
+        <div class="l"><i data-lucide="undo-2"></i>Επιστροφές</div>
+        <div class="v num">−11,00 €</div>
+        <div class="s">2 πιστωτικά · 1 χρέωση ακυρώθηκε</div>
+      </div>
+    </div>
+
+    <div class="hours">
+      <div class="hd"><span>Εισπράξεις ανά ώρα</span><span class="num">πιο πολλή κίνηση 13:00–14:00 · 86,40 €</span></div>
+      <div class="bars">
+        <div><i style="height:14%;background:var(--card-c)"></i><i style="height:10%;background:var(--cash-c)"></i></div>
+        <div><i style="height:22%;background:var(--card-c)"></i><i style="height:12%;background:var(--cash-c)"></i></div>
+        <div><i style="height:30%;background:var(--card-c)"></i><i style="height:18%;background:var(--cash-c)"></i></div>
+        <div><i style="height:40%;background:var(--card-c)"></i><i style="height:22%;background:var(--cash-c)"></i></div>
+        <div><i style="height:62%;background:var(--card-c)"></i><i style="height:34%;background:var(--cash-c)"></i></div>
+        <div class="now"><i style="height:44%;background:var(--card-c)"></i><i style="height:20%;background:var(--cash-c)"></i></div>
+        <div></div><div></div><div></div><div></div><div></div><div></div>
+      </div>
+      <div class="ticks num"><span>09</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span></div>
+    </div>
+
+    <div class="filters">
+      <span class="chip on">Όλες <span class="c num">60</span></span>
+      <span class="chip"><i data-lucide="credit-card"></i>Κάρτα <span class="c num">36</span></span>
+      <span class="chip"><i data-lucide="banknote"></i>Μετρητά <span class="c num">21</span></span>
+      <span class="chip"><i data-lucide="undo-2"></i>Επιστροφές <span class="c num">3</span></span>
+      <span class="search"><i data-lucide="search"></i>Αριθμός ή ποσό</span>
+    </div>
+
+    <div class="list">
+      <div class="row">
+        <span class="t num">14:21</span><span class="ic card"><i data-lucide="credit-card"></i></span>
+        <div class="what"><b>A3 · 58 <span style="color:var(--muted);font-weight:500">· Τραπέζι 4, μέρος 1 από 2</span></b><span>Περιμένει στο POS από 14:21 · κάρτα</span></div>
+        <span class="amt num">4,00 €</span><span class="st wait"><i data-lucide="loader"></i>Στο POS</span>
+      </div>
+      <div class="row sel">
+        <span class="t num">14:12</span><span class="ic card"><i data-lucide="credit-card"></i></span>
+        <div class="what"><b>A3 · 57</b><span>2 κύπελλα, 1 φρέντο · Visa •••• 4242</span></div>
+        <span class="amt num">6,30 €</span><span class="st ok"><i data-lucide="check"></i>Πληρώθηκε</span>
+      </div>
+      <div class="row">
+        <span class="t num">14:05</span><span class="ic cash"><i data-lucide="banknote"></i></span>
+        <div class="what"><b>A3 · 56</b><span>Χωνάκι 2 μπάλες · μετρητά, ρέστα 1,50 €</span></div>
+        <span class="amt num">3,50 €</span><span class="st ok"><i data-lucide="check"></i>Πληρώθηκε</span>
+      </div>
+      <div class="row">
+        <span class="t num">13:58</span><span class="ic ref"><i data-lucide="undo-2"></i></span>
+        <div class="what"><b>Πιστωτικό ΠΑ3 · 2 <span style="color:var(--muted);font-weight:500">για A3 · 54</span></b><span>Επέστρεψε στην κάρτα Mastercard •••• 8812</span></div>
+        <span class="amt num neg">−5,50 €</span><span class="st ret"><i data-lucide="undo-2"></i>Επιστροφή</span>
+      </div>
+      <div class="row">
+        <span class="t num">13:54</span><span class="ic card"><i data-lucide="credit-card"></i></span>
+        <div class="what"><b>A3 · 55</b><span>Η κάρτα απορρίφθηκε στο POS · πληρώθηκε μετά με μετρητά</span></div>
+        <span class="amt num">8,20 €</span><span class="st bad"><i data-lucide="x"></i>Απορρίφθηκε</span>
+      </div>
+      <div class="row">
+        <span class="t num">13:47</span><span class="ic card"><i data-lucide="credit-card"></i></span>
+        <div class="what"><b>A3 · 54</b><span>Τάρτα, καφές · πιστώθηκε 13:58</span></div>
+        <span class="amt num neg">5,50 €</span><span class="st ret"><i data-lucide="undo-2"></i>Επεστράφη</span>
+      </div>
+      <div class="row">
+        <span class="t num">13:40</span><span class="ic cash"><i data-lucide="banknote"></i></span>
+        <div class="what"><b>A3 · 53</b><span>Κουτί 500 γρ. · μετρητά</span></div>
+        <span class="amt num">9,00 €</span><span class="st ok"><i data-lucide="check"></i>Πληρώθηκε</span>
+      </div>
+    </div>
+  </main>
+
+  <aside>
+    <div class="h">
+      <div><h2>Απόδειξη A3 · 57</h2><div class="sub">Σήμερα 14:12 · Κεντρικό ταμείο</div></div>
+      <span class="st ok"><i data-lucide="check"></i>Πληρώθηκε</span>
+    </div>
+    <div class="box">
+      <div class="r"><span>2 × Κύπελλο 2 μπάλες</span><b class="num">4,40 €</b></div>
+      <div class="r"><span>1 × Φρέντο εσπρέσο</span><b class="num">1,90 €</b></div>
+      <div class="r tot"><span>Σύνολο</span><b class="num">6,30 €</b></div>
+    </div>
+    <div class="box">
+      <div class="r"><span>Πληρωμή</span><b>Visa •••• 4242</b></div>
+      <div class="r"><span>POS</span><b class="num">16017204</b></div>
+      <div class="r"><span>MARK ΑΑΔΕ</span><b class="mono">400001977083650</b></div>
+    </div>
+    <div class="hint"><i data-lucide="info"></i>Η επιστροφή εκδίδει πιστωτικό στην ΑΑΔΕ και στέλνει τα 6,30 € πίσω στην ίδια κάρτα μέσω του POS. Γίνεται για όλη την απόδειξη.</div>
+    <div class="acts">
+      <div class="two"><span class="btn"><i data-lucide="printer"></i>Εκτύπωση</span><span class="btn"><i data-lucide="qr-code"></i>Ψηφιακή</span></div>
+      <span class="btn danger"><i data-lucide="undo-2"></i>Επιστροφή 6,30 €</span>
+    </div>
+  </aside>
+</div>
+
+<div class="note">
+  <b>Επιβεβαίωση επιστροφής</b>
+  Ένα πάτημα δεν αρκεί: ο ταμίας βλέπει το ποσό, πού θα πάνε τα χρήματα και διαλέγει αιτία. Η αιτία γράφεται στο πιστωτικό και φαίνεται στην αναφορά της ημέρας.
+</div>
+
+<!-- 2. Διάλογος επιβεβαίωσης -->
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelateria Demo</div>
+    <a><i data-lucide="shopping-bag"></i>Πώληση</a>
+    <a><i data-lucide="layout-grid"></i>Τραπέζια<span class="n">3</span></a>
+    <a><i data-lucide="calendar-clock"></i>Κρατήσεις</a>
+    <a class="on"><i data-lucide="receipt-text"></i>Συναλλαγές</a>
+    <div class="foot"><b>Κεντρικό ταμείο</b><span>Κατάστημα Πειραιά · POS 16017204</span></div>
+  </nav>
+  <main></main><aside></aside>
+  <div class="ov">
+    <div class="dlg">
+      <span class="icn"><i data-lucide="undo-2"></i></span>
+      <h3>Επιστροφή 6,30 € στην κάρτα;</h3>
+      <p>Για την απόδειξη <b>A3 · 57</b>. Θα εκδοθεί πιστωτικό στην ΑΑΔΕ και το POS θα ζητήσει από τον πελάτη να ακουμπήσει την κάρτα <b>Visa •••• 4242</b>. Δεν αναιρείται μετά.</p>
+      <div class="lbl">Αιτία</div>
+      <div class="reason"><span class="on">Λάθος παραγγελία</span><span>Παράπονο πελάτη</span><span>Διπλή χρέωση</span><span>Άλλο</span></div>
+      <div class="acts" style="margin-top:4px"><div class="two"><span class="btn">Πίσω</span><span class="btn dangerp"><i data-lucide="undo-2"></i>Επιστροφή</span></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <b>Η επιστροφή περιμένει στο POS</b>
+  Όπως και στην πώληση: το ταμείο ρωτά το POS κάθε λίγα δευτερόλεπτα. Αν ο πελάτης δεν ακουμπήσει την κάρτα, η «Ακύρωση» σταματά το POS και το πιστωτικό δεν εκδίδεται. Με μετρητά αυτό το βήμα δεν υπάρχει: «Δώσε 3,50 € από το συρτάρι».
+</div>
+
+<!-- 3. Αναμονή στο POS -->
+<div class="tablet">
+  <nav>
+    <div class="logo"><i></i>Gelateria Demo</div>
+    <a><i data-lucide="shopping-bag"></i>Πώληση</a>
+    <a><i data-lucide="layout-grid"></i>Τραπέζια<span class="n">3</span></a>
+    <a><i data-lucide="calendar-clock"></i>Κρατήσεις</a>
+    <a class="on"><i data-lucide="receipt-text"></i>Συναλλαγές</a>
+    <div class="foot"><b>Κεντρικό ταμείο</b><span>Κατάστημα Πειραιά · POS 16017204</span></div>
+  </nav>
+  <main></main><aside></aside>
+  <div class="ov">
+    <div class="dlg">
+      <span class="icn wait"><i data-lucide="smartphone-nfc"></i></span>
+      <h3>Ακούμπησε την κάρτα στο POS</h3>
+      <p>Επιστροφή <b>6,30 €</b> στη Visa •••• 4242. Το POS στο τηλέφωνο δείχνει ήδη το ποσό.</p>
+      <div class="steps">
+        <div class="done"><i data-lucide="circle-check"></i>Το πιστωτικό ετοιμάστηκε</div>
+        <div class="cur"><i data-lucide="loader"></i>Περιμένει την κάρτα στο POS</div>
+        <div><i data-lucide="circle"></i>Σφραγίζεται στην ΑΑΔΕ και τυπώνεται</div>
+      </div>
+      <div class="acts" style="margin-top:4px"><div class="two"><span class="btn">Ακύρωση</span><span class="btn"><i data-lucide="refresh-cw"></i>Έλεγχος</span></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <b>Κινητό ταμείο</b>
+  Ίδια λίστα, χωρίς ωριαίο γράφημα. Οι λεπτομέρειες ανοίγουν από κάτω. Μια χρέωση που περιμένει στο POS έχει δικό της κουμπί «Ακύρωση χρέωσης».
+</div>
+
+<div class="phones">
+  <div class="phone">
+    <div class="bar"><span class="back"><i data-lucide="arrow-left"></i></span><h1>Συναλλαγές</h1><div class="sp"></div><div class="seg"><span class="on">Σήμερα</span><span>Χθες</span></div></div>
+    <div class="pbody">
+      <div class="k">
+        <div class="l"><i data-lucide="wallet"></i>Εισπράξεις σήμερα · 57 αποδείξεις</div>
+        <div class="v num">412,80 €</div>
+        <div class="split"><i style="width:64%;background:var(--card-c)"></i><i style="width:36%;background:var(--cash-c)"></i></div>
+        <div class="leg"><span><i style="background:var(--card-c)"></i>Κάρτα 264,20</span><span><i style="background:var(--cash-c)"></i>Μετρητά 148,60</span></div>
+        <div class="s bad">Επιστροφές −11,00 €</div>
+      </div>
+      <div class="filters"><span class="chip on">Όλες</span><span class="chip">Κάρτα</span><span class="chip">Μετρητά</span><span class="chip">Επιστροφές</span></div>
+      <div class="row">
+        <span class="ic card"><i data-lucide="credit-card"></i></span>
+        <div class="what"><b>A3 · 58</b><span class="num">14:21 · Τραπέζι 4</span></div>
+        <div class="right"><span class="amt num">4,00 €</span><span class="st wait"><i data-lucide="loader"></i>Στο POS</span></div>
+      </div>
+      <div class="row sel">
+        <span class="ic card"><i data-lucide="credit-card"></i></span>
+        <div class="what"><b>A3 · 57</b><span class="num">14:12 · Visa •••• 4242</span></div>
+        <div class="right"><span class="amt num">6,30 €</span><span class="st ok"><i data-lucide="check"></i>Πληρώθηκε</span></div>
+      </div>
+      <div class="row">
+        <span class="ic cash"><i data-lucide="banknote"></i></span>
+        <div class="what"><b>A3 · 56</b><span class="num">14:05 · μετρητά</span></div>
+        <div class="right"><span class="amt num">3,50 €</span><span class="st ok"><i data-lucide="check"></i>Πληρώθηκε</span></div>
+      </div>
+      <div class="row">
+        <span class="ic ref"><i data-lucide="undo-2"></i></span>
+        <div class="what"><b>Πιστωτικό ΠΑ3 · 2</b><span class="num">13:58 · για A3 · 54</span></div>
+        <div class="right"><span class="amt num neg">−5,50 €</span><span class="st ret">Επιστροφή</span></div>
+      </div>
+      <div class="row">
+        <span class="ic card"><i data-lucide="credit-card"></i></span>
+        <div class="what"><b>A3 · 55</b><span class="num">13:54 · απορρίφθηκε</span></div>
+        <div class="right"><span class="amt num">8,20 €</span><span class="st bad"><i data-lucide="x"></i>Απορρίφθηκε</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phone">
+    <div class="bar"><span class="back"><i data-lucide="arrow-left"></i></span><h1>Συναλλαγές</h1></div>
+    <div class="pbody">
+      <div class="row"><span class="ic card"><i data-lucide="credit-card"></i></span><div class="what"><b>A3 · 58</b><span>14:21</span></div><div class="right"><span class="amt num">4,00 €</span></div></div>
+      <div class="row"><span class="ic card"><i data-lucide="credit-card"></i></span><div class="what"><b>A3 · 57</b><span>14:12</span></div><div class="right"><span class="amt num">6,30 €</span></div></div>
+      <div class="row"><span class="ic cash"><i data-lucide="banknote"></i></span><div class="what"><b>A3 · 56</b><span>14:05</span></div><div class="right"><span class="amt num">3,50 €</span></div></div>
+    </div>
+    <div class="dim"></div>
+    <div class="sheet">
+      <span class="grab"></span>
+      <div class="h" style="display:flex;justify-content:space-between;align-items:start">
+        <div><h2 style="font-size:17px;font-weight:600">Χρέωση A3 · 58</h2><div style="color:var(--muted);font-weight:500;margin-top:2px">Τραπέζι 4 · μέρος 1 από 2</div></div>
+        <span class="st wait"><i data-lucide="loader"></i>Στο POS</span>
+      </div>
+      <div class="box">
+        <div class="r"><span>Ποσό</span><b class="num">4,00 €</b></div>
+        <div class="r"><span>Στάλθηκε στο POS</span><b class="num">14:21 · 16017204</b></div>
+      </div>
+      <div class="hint"><i data-lucide="info"></i>Ο πελάτης δεν έχει πληρώσει ακόμα. Η ακύρωση σταματά το POS και δεν εκδίδεται απόδειξη.</div>
+      <div class="acts" style="margin-top:4px"><div class="two"><span class="btn"><i data-lucide="refresh-cw"></i>Έλεγχος</span><span class="btn danger"><i data-lucide="x"></i>Ακύρωση χρέωσης</span></div></div>
+    </div>
+  </div>
+</div>
+
+<script>lucide.createIcons();</script>
+</body>
+</html>

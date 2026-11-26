@@ -4,7 +4,7 @@ import { DataTable } from "@/components/data-table";
 import { Files } from "@/components/files";
 import { GeoCascade } from "@/components/geo-fields";
 import { ProcessFlow } from "@/components/process-flow";
-import { MonitorUp, Pencil, Plus } from "lucide-react";
+import { AlertTriangle, CheckCircle2, MonitorUp, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -94,6 +94,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
       roles: { orderBy: { name: "asc" } },
       stores: { orderBy: { name: "asc" }, include: { devices: { orderBy: { createdAt: "asc" }, include: { printer: true, warehouse: true, defaultWarehouse: true, linkedDevice: true, readings: { orderBy: { at: "desc" }, take: 1 } } }, printers: { orderBy: { name: "asc" } } } },
       warehouses: { orderBy: { name: "asc" }, include: { device: true, stores: { include: { store: true }, orderBy: [{ isDefault: "desc" }, { priority: "asc" }] } } },
+
+      legalEntities: { orderBy: { name: "asc" }, include: { _count: { select: { stores: true } } } },
     },
   });
   if (!org) notFound();
@@ -330,17 +332,31 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
           </div>
         </Section>
 
-        <Section
-          id="viva" title="Viva" hint="Ο έμπορος πρέπει να έχει συνδεθεί με τον λογαριασμό ISV και να έχει ενεργό το Viva Fiscal"
-          action={me.can("setup.edit") && <Modal label={edit} title="Σύνδεση με Viva">
-            <form key={org.vivaMerchantId} action={saveViva} className="grid gap-4 [&>button]:justify-self-end">
-              {hidden}
-              <Field label="Κωδικός εμπόρου (Merchant ID)" name="vivaMerchantId" defaultValue={org.vivaMerchantId ?? ""} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" hint="Από το Viva: Ρυθμίσεις › Πρόσβαση API. Χωρίς αυτόν τα ταμεία μένουν σε δοκιμαστική λειτουργία." />
-              {save}
-            </form>
-          </Modal>}
-        >
-          <Facts items={[["Κωδικός εμπόρου", org.vivaMerchantId], ["Λειτουργία ταμείων", org.vivaMerchantId ? "Κανονική" : "Δοκιμαστική"]]} />
+        <Section id="viva" title="Εκδότες: Viva και myDATA" hint="Κάθε ΑΦΜ που εκδίδει θέλει δικό του έμπορο Viva (συνδεδεμένο με τον λογαριασμό ISV, με ενεργό Viva Fiscal) και, για τα τιμολόγια, κλειδιά myDATA">
+          <ul className="divide-y divide-border/70">
+            {[{ id: "", name: org.legalName || org.name, vatNumber: org.vatNumber, note: "Η επιχείρηση · εκδίδουν όσα καταστήματα δεν έχουν δικό τους ΑΦΜ", active: true, vivaMerchantId: org.vivaMerchantId, aadeUserId: org.aadeUserId, aadeSubKey: org.aadeSubKey },
+              ...org.legalEntities.map((e) => ({ ...e, note: e._count.stores ? `${e._count.stores} ${e._count.stores === 1 ? "κατάστημα" : "καταστήματα"}` : "Κανένα κατάστημα ακόμη" }))].map((i) => (
+              <li key={i.id || "org"} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                <div className="min-w-48 flex-1">
+                  <p className={i.active ? "font-semibold" : "font-semibold text-muted-foreground line-through"}>{i.name} <span className="font-normal text-muted-foreground tabular-nums">· ΑΦΜ {i.vatNumber}</span></p>
+                  <p className="text-xs text-muted-foreground">{i.note}</p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge tone={i.vivaMerchantId ? "success" : "warning"} icon={i.vivaMerchantId ? CheckCircle2 : AlertTriangle}>{i.vivaMerchantId ? "Viva: κανονική λειτουργία" : "Viva: δοκιμαστική λειτουργία"}</Badge>
+                  <Badge tone={i.aadeUserId && i.aadeSubKey ? "success" : "neutral"} icon={i.aadeUserId && i.aadeSubKey ? CheckCircle2 : null}>{i.aadeUserId && i.aadeSubKey ? "myDATA: συνδεδεμένο" : "myDATA: χωρίς κλειδιά"}</Badge>
+                </div>
+                {me.can("setup.edit") && <Modal label={edit} size="sm" title={`Σύνδεση ${i.name}`} description={`ΑΦΜ ${i.vatNumber}`}>
+                  <form key={[i.vivaMerchantId, i.aadeUserId, !!i.aadeSubKey].join()} action={saveViva} className="grid gap-4 [&>button]:justify-self-end">
+                    {hidden}<input type="hidden" name="legalEntityId" value={i.id} />
+                    <Field label="Κωδικός εμπόρου Viva (Merchant ID)" name="vivaMerchantId" defaultValue={i.vivaMerchantId ?? ""} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" hint="Από το Viva: Ρυθμίσεις › Πρόσβαση API. Χωρίς αυτόν τα ταμεία του ΑΦΜ μένουν σε δοκιμαστική λειτουργία" />
+                    <Field label="Όνομα χρήστη myDATA" name="aadeUserId" defaultValue={i.aadeUserId ?? ""} maxLength={100} autoComplete="off" hint="Από το myDATA REST API της ΑΑΔΕ. Αν το σβήσεις, σβήνει και το κλειδί" />
+                    <Field label="Κλειδί συνδρομής myDATA" name="aadeSubKey" type="password" maxLength={100} autoComplete="new-password" placeholder={i.aadeSubKey ? "Έχει οριστεί · άφησέ το κενό για να μείνει" : ""} hint="Δεν εμφανίζεται ξανά μετά την αποθήκευση" />
+                    {save}
+                  </form>
+                </Modal>}
+              </li>
+            ))}
+          </ul>
         </Section>
 
         <Section

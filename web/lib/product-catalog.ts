@@ -4,6 +4,10 @@ import { db } from "@/lib/db";
 export const productsTag = (orgId: string) => `products:${orgId}`;
 export const VAT_RATES_TAG = "vat-rates";
 
+export const MODIFIER_KIND_LABEL = { REQUIRED: "Υποχρεωτική επιλογή", EXTRA: "Έξτρα με χρέωση", REMOVE: "Χωρίς (αφαίρεση)" } as const;
+// Σειρά ίδια με τη σταθερή παλέτα του ταμείου (mobile/theme.ts): θέση 1 = «Ουδέτερο».
+export const TILL_COLORS = ["Ουδέτερο", "Λεβάντα", "Μέντα", "Ροδακινί", "Γαλάζιο", "Άμμος", "Λάιμ", "Ροζ"] as const;
+
 type ProductPageQuery = {
   orgId: string;
   q: string;
@@ -24,9 +28,10 @@ export async function getProductPageData({ orgId, q, categoryParam, status, sort
   cacheLife("max");
   cacheTag(productsTag(orgId), VAT_RATES_TAG);
 
-  const [categories, vatRates] = await Promise.all([
+  const [categories, vatRates, modifierGroups] = await Promise.all([
     db.category.findMany({ where: { orgId }, orderBy: [{ position: "asc" }, { name: "asc" }] }),
     db.vatRate.findMany({ where: { active: true }, orderBy: { rate: "desc" } }),
+    db.modifierGroup.findMany({ where: { orgId }, orderBy: [{ position: "asc" }, { name: "asc" }], select: { id: true, name: true, kind: true } }),
   ]);
   const category = categories.some((c) => c.id === categoryParam) ? categoryParam : undefined;
   const where = {
@@ -41,9 +46,9 @@ export async function getProductPageData({ orgId, q, categoryParam, status, sort
         : sort === "status" ? { active: direction }
           : { name: direction };
   const [products, total] = await Promise.all([
-    db.product.findMany({ where, orderBy, skip, take, include: { category: true, vatRate: true } }),
+    db.product.findMany({ where, orderBy, skip, take, include: { category: true, vatRate: true, modifierGroups: { select: { groupId: true, pick: true } } } }),
     db.product.count({ where }),
   ]);
 
-  return { categories, vatRates, category, products, total };
+  return { categories, vatRates, modifierGroups, category, products, total };
 }

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<title>Κεντρικό ταμείο · μοίρασμα λογαριασμού</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg: #111315; --panel: #1A1C1F; --card: #212428; --raised: #2A2D32; --line: rgba(255,255,255,.08);
+    --text: #FAFAFA; --muted: #B4B7BD; --faint: #787C84; --ink: #121417; --action: #F4F4F5;
+    --ok: #7FD1A1; --wait: #F2C46D; --bad: #F28B8B;
+    --c2: #C9CAEE; --c3: #CDE5DB; --c6: #E6DECB; --c5: #C8DAEA;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #0A0B0C; color: var(--text); font-family: "Inter Tight", system-ui, sans-serif; font-size: 13.5px; padding: 40px; display: grid; gap: 24px; justify-content: center; }
+  .note { color: var(--muted); font-size: 14px; max-width: 1280px; line-height: 1.45; }
+  .note b { color: var(--text); font-weight: 600; font-size: 18px; display: block; margin-bottom: 4px; }
+  .num { font-variant-numeric: tabular-nums; }
+  svg.lucide { width: 18px; height: 18px; stroke-width: 1.75; }
+  .tablet { width: 1280px; height: 800px; background: var(--bg); border-radius: 20px; overflow: hidden; display: grid; grid-template-columns: 1fr 420px; outline: 10px solid #1F2124; }
+
+  /* αριστερά: ο λογαριασμός */
+  .bill { padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .top { display: flex; align-items: center; gap: 12px; }
+  .back { width: 44px; height: 44px; border-radius: 22px; border: 1px solid var(--line); display: grid; place-items: center; color: var(--muted); }
+  .top h1 { font-size: 20px; font-weight: 600; }
+  .top small { color: var(--muted); font-size: 13.5px; font-weight: 500; }
+  .top .sp { flex: 1; }
+  .ghost { height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text); }
+
+  .progress { background: var(--panel); border-radius: 14px; padding: 16px; display: grid; gap: 10px; }
+  .progress .r { display: flex; justify-content: space-between; align-items: baseline; }
+  .progress .r b { font-size: 15px; font-weight: 600; }
+  .progress .r span { color: var(--muted); font-weight: 500; }
+  .bar { height: 10px; border-radius: 5px; background: var(--raised); display: flex; overflow: hidden; gap: 2px; }
+  .bar i { display: block; height: 100%; }
+  .legend { display: flex; gap: 16px; color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  .lines { display: grid; gap: 6px; }
+  .ln { min-height: 64px; border-radius: 12px; background: var(--card); display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-left: 4px solid var(--c); }
+  .ln .chk { width: 28px; height: 28px; border-radius: 8px; border: 2px solid var(--faint); flex: none; display: grid; place-items: center; }
+  .ln .nm { flex: 1; min-width: 0; }
+  .ln .nm b { font-weight: 600; font-size: 14.5px; display: block; }
+  .ln .nm small { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .ln .pr { font-weight: 600; font-size: 14.5px; min-width: 76px; text-align: right; }
+  .step { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 12px; height: 44px; }
+  .step span { width: 40px; text-align: center; font-size: 18px; font-weight: 600; }
+  .step b { min-width: 64px; text-align: center; font-weight: 600; }
+  .step b em { font-style: normal; color: var(--muted); font-weight: 500; }
+  .ln.on { background: var(--c); color: var(--ink); }
+  .ln.on .nm small, .ln.on .step b em { color: rgba(18,20,23,.65); }
+  .ln.on .chk { background: var(--ink); border-color: var(--ink); color: var(--c); }
+  .ln.on .step { border-color: rgba(18,20,23,.25); }
+  .ln.part { background: linear-gradient(90deg, var(--c) 0 var(--p), var(--card) var(--p)); }
+  .ln.paid { opacity: .5; border-left-color: var(--faint); }
+  .ln.paid .pr { color: var(--muted); }
+  .tag { height: 24px; padding: 0 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--ok); background: rgba(127,209,161,.12); }
+  .tag svg.lucide { width: 14px; height: 14px; stroke-width: 2; }
+
+  /* δεξιά: η απόδειξη που ετοιμάζεται */
+  aside { background: var(--panel); padding: 24px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
+  aside h2 { font-size: 16px; font-weight: 600; display: flex; align-items: baseline; gap: 8px; }
+  aside h2 small { color: var(--muted); font-weight: 500; font-size: 13px; }
+  .who { display: flex; gap: 6px; }
+  .who div { height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid var(--line); display: grid; place-items: center; color: var(--muted); font-weight: 600; font-size: 13px; }
+  .who div.done { color: var(--ok); border-color: rgba(127,209,161,.35); }
+  .who div.on { background: var(--action); color: var(--ink); border-color: var(--action); }
+  .sel { display: grid; gap: 4px; }
+  .sel .r { display: flex; justify-content: space-between; font-weight: 500; }
+  .sel .r span:first-child { color: var(--muted); }
+  .sum { margin-top: auto; background: var(--card); border-radius: 14px; padding: 14px; display: grid; gap: 6px; }
+  .sum .r { display: flex; justify-content: space-between; color: var(--muted); font-weight: 500; }
+  .sum .t { color: var(--text); padding-top: 8px; border-top: 1px solid var(--line); align-items: baseline; }
+  .sum .t span:first-child { font-size: 15px; font-weight: 600; }
+  .sum .t span:last-child { font-size: 28px; font-weight: 700; letter-spacing: -.5px; }
+  .pay { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .pay div { height: 58px; border-radius: 12px; border: 1px solid var(--line); display: grid; place-items: center; align-content: center; gap: 4px; color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  .pay div.on { background: var(--action); color: var(--ink); border-color: var(--action); }
+  .go { height: 56px; border-radius: 28px; background: var(--action); color: var(--ink); display: flex; align-items: center; justify-content: space-between; padding: 0 22px; font-weight: 600; font-size: 16px; }
+  .go b { font-weight: 700; }
+  .receipts { display: grid; gap: 6px; }
+  .rc { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-radius: 10px; background: var(--card); font-weight: 500; }
+  .rc .ic { color: var(--ok); display: grid; }
+  .rc .m { flex: 1; color: var(--muted); }
+  .rc b { font-weight: 600; }
+
+  .pays { background: var(--card); border-radius: 14px; padding: 12px; display: grid; gap: 6px; }
+  .pays .ph { display: flex; align-items: center; justify-content: space-between; padding: 2px 2px 4px; }
+  .pays .ph b { font-weight: 600; }
+  .eq { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .eq i { font-style: normal; width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); display: grid; place-items: center; color: var(--text); font-weight: 600; }
+  .pr2 { height: 52px; border-radius: 10px; background: var(--raised); display: flex; align-items: center; gap: 10px; padding: 0 6px 0 12px; font-weight: 600; }
+  .pr2 > span:first-of-type { flex: 1; }
+  .pr2 small { color: var(--muted); font-weight: 500; }
+  .pr2 .amt { height: 40px; min-width: 96px; border-radius: 8px; background: var(--bg); display: grid; place-items: center; padding: 0 10px; font-weight: 700; outline: 2px solid var(--action); }
+  .pr2.rest .amt { outline: none; color: var(--muted); }
+  .pr2 .x { width: 36px; height: 36px; display: grid; place-items: center; color: var(--faint); }
+  .add { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .add span { height: 44px; border-radius: 10px; border: 1px dashed rgba(255,255,255,.18); display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-weight: 600; }
+  /* τέλος */
+  .done-wrap { grid-column: 1 / -1; display: grid; place-items: center; }
+  .done-card { width: 560px; background: var(--panel); border-radius: 20px; padding: 28px; display: grid; gap: 16px; }
+  .done-card h2 { font-size: 22px; font-weight: 600; }
+  .done-card p { color: var(--muted); font-weight: 500; line-height: 1.45; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .split div { background: var(--card); border-radius: 12px; padding: 14px; display: grid; gap: 4px; }
+  .split div span { color: var(--muted); font-weight: 500; display: inline-flex; gap: 6px; align-items: center; }
+  .split div b { font-size: 22px; font-weight: 700; }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .btn { height: 48px; padding: 0 18px; border-radius: 12px; display: inline-flex; align-items: center; font-weight: 600; border: 1px solid var(--line); }
+  .btn.p { background: var(--action); color: var(--ink); border-color: var(--action); }
+</style>
+</head>
+<body>
+
+<p class="note"><b>Μοίρασμα λογαριασμού · ανά είδη και ανά ποσό</b>Από την πώληση πατάς «Μοίρασμα». Τσεκάρεις ό,τι πληρώνει ο πρώτος πελάτης (ή μέρος μιας γραμμής: «1 από 3 freddo»), και εισπράττεις. Κάθε απόδειξη πληρώνεται με έναν ή περισσότερους τρόπους: π.χ. 5 € μετρητά και το υπόλοιπο κάρτα, ή «Ίσα σε 3» για τρεις κάρτες. Κάθε πελάτης παίρνει δική του απόδειξη, με τα δικά του είδη· αν δεν θέλουν μοίρασμα ανά είδη, τσεκάρεις όλα και μοιράζεις μόνο το ποσό. Η μπάρα πάνω δείχνει πόσα πληρώθηκαν και πόσα μένουν. Δεν φεύγεις αν δεν πληρωθούν όλα ή αν δεν πατήσεις «Πίσω στην πώληση» (ό,τι έμεινε απλήρωτο μένει στο καλάθι).</p>
+
+<!-- 1. Μοίρασμα σε εξέλιξη: ο 1ος πλήρωσε με κάρτα, ο 2ος διαλέγει -->
+<div class="tablet">
+  <section class="bill">
+    <div class="top">
+      <div class="back"><i data-lucide="arrow-left"></i></div>
+      <h1>Μοίρασμα λογαριασμού</h1><small class="num">8 είδη · 27,40 €</small>
+      <div class="sp"></div>
+      <div class="ghost"><i data-lucide="list-checks"></i>Όλα όσα μένουν</div>
+    </div>
+
+    <div class="progress">
+      <div class="r"><b class="num">Πληρώθηκαν 8,50 € από 27,40 €</b><span class="num">Μένουν 18,90 €</span></div>
+      <div class="bar"><i style="width:31%;background:var(--ok)"></i><i style="width:34%;background:var(--action)"></i></div>
+      <div class="legend"><span><i style="background:var(--ok)"></i>Πληρώθηκαν</span><span><i style="background:var(--action)"></i>Αυτή η απόδειξη</span><span><i style="background:var(--raised)"></i>Μένουν</span></div>
+    </div>
+
+    <div class="lines">
+      <div class="ln paid" style="--c:var(--c2)"><span class="tag"><i data-lucide="check"></i>Απόδειξη 1043</span><div class="nm"><b>Χωνάκι 2 μπάλες</b><small>2× Φιστίκι Αιγίνης, Σαντιγί</small></div><div class="pr num">5,70 €</div></div>
+      <div class="ln paid" style="--c:var(--c6)"><span class="tag"><i data-lucide="check"></i>Απόδειξη 1043</span><div class="nm"><b>Espresso</b><small>Σκέτος</small></div><div class="pr num">2,80 €</div></div>
+
+      <div class="ln on" style="--c:var(--c2)"><div class="chk"><i data-lucide="check"></i></div><div class="nm"><b>Κύπελλο 3 μπάλες</b><small>Βανίλια, Σοκολάτα bitter, Φράουλα</small></div><div class="pr num">6,00 €</div></div>
+      <div class="ln on" style="--c:var(--c6)"><div class="step"><span>−</span><b class="num">1 <em>από 3</em></b><span>+</span></div><div class="nm"><b>Freddo espresso</b><small>Μέτριος · 3,20 € το ένα</small></div><div class="pr num">3,20 €</div></div>
+      <div class="ln" style="--c:var(--c2)"><div class="chk"></div><div class="nm"><b>Χωνάκι 1 μπάλα</b><small>Λεμόνι σορμπέ</small></div><div class="pr num">2,80 €</div></div>
+      <div class="ln" style="--c:var(--c5)"><div class="chk"></div><div class="nm"><b>Νερό 500 ml</b><small>&nbsp;</small></div><div class="pr num">0,50 €</div></div>
+    </div>
+  </section>
+
+  <aside>
+    <h2>Απόδειξη 2 <small>ποιος πληρώνει</small></h2>
+    <div class="who"><div class="done num">1 · Κάρτα ✓</div><div class="on num">2</div></div>
+    <div class="sel">
+      <div class="r"><span>Κύπελλο 3 μπάλες</span><span class="num">6,00 €</span></div>
+      <div class="r"><span>Freddo espresso × 1</span><span class="num">3,20 €</span></div>
+    </div>
+    <div class="receipts">
+      <div class="rc"><span class="ic"><i data-lucide="circle-check"></i></span><b class="num">Απόδειξη 1043</b><span class="m">Κάρτα · 2 είδη</span><b class="num">8,50 €</b></div>
+    </div>
+    <div class="sum">
+      <div class="r"><span>Καθαρή αξία · ΦΠΑ</span><span class="num">8,14 € · 1,06 €</span></div>
+      <div class="r t"><span>Απόδειξη 2</span><span class="num">9,20 €</span></div>
+    </div>
+    <div class="pays">
+      <div class="ph"><b>Πώς πληρώνει</b><span class="eq">Ίσα σε <i>2</i><i>3</i><i>4</i></span></div>
+      <div class="pr2"><i data-lucide="banknote"></i><span>Μετρητά</span><b class="amt num">5,00 €</b><span class="x"><i data-lucide="x"></i></span></div>
+      <div class="pr2 rest"><i data-lucide="credit-card"></i><span>Κάρτα <small>το υπόλοιπο</small></span><b class="amt num">4,20 €</b><span class="x"><i data-lucide="x"></i></span></div>
+      <div class="add"><span><i data-lucide="plus"></i>Μετρητά</span><span><i data-lucide="plus"></i>Κάρτα</span></div>
+    </div>
+    <div class="go"><span>Είσπραξη απόδειξης 2</span><b class="num">9,20 €</b></div>
+  </aside>
+</div>
+
+<p class="note"><b>Όταν πληρωθούν όλα</b>Σύνοψη: πόσες αποδείξεις, πόσα με κάρτα και πόσα με μετρητά. Αν μια πληρωμή αποτύχει, μόνο εκείνη η απόδειξη ξαναγίνεται· όσες πληρώθηκαν δεν αγγίζονται.</p>
+
+<!-- 2. Τέλος -->
+<div class="tablet">
+  <div class="done-wrap">
+    <div class="done-card">
+      <span class="tag" style="justify-self:start"><i data-lucide="check"></i>Ολοκληρώθηκε</span>
+      <h2 class="num">Πληρώθηκαν 27,40 € σε 3 αποδείξεις</h2>
+      <div class="split">
+        <div><span><i data-lucide="credit-card"></i>Κάρτα · 2 πληρωμές</span><b class="num">12,70 €</b></div>
+        <div><span><i data-lucide="banknote"></i>Μετρητά · 2 πληρωμές</span><b class="num">14,70 €</b></div>
+      </div>
+      <div class="receipts">
+        <div class="rc"><span class="ic"><i data-lucide="circle-check"></i></span><b class="num">Απόδειξη 1043</b><span class="m">Κάρτα · 2 είδη</span><b class="num">8,50 €</b></div>
+        <div class="rc"><span class="ic"><i data-lucide="circle-check"></i></span><b class="num">Απόδειξη 1044</b><span class="m">Μετρητά 5,00 + Κάρτα 4,20 · 2 είδη</span><b class="num">9,20 €</b></div>
+        <div class="rc"><span class="ic"><i data-lucide="circle-check"></i></span><b class="num">Απόδειξη 1045</b><span class="m">Μετρητά · 4 είδη</span><b class="num">9,70 €</b></div>
+      </div>
+      <div class="actions"><span class="btn p">Νέα πώληση</span></div>
+    </div>
+  </div>
+</div>
+
+<script>lucide.createIcons();</script>
+</body>
+</html>

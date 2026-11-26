@@ -35,5 +35,43 @@ export function amountCents(text: string): number {
 }
 export const amountText = (cents: number) => `${Math.floor(cents / 100)}${cents % 100 ? `,${String(cents % 100).padStart(2, "0")}` : ""}`;
 
+/** «Ίσα σε N»: μερίδια που αθροίζουν ακριβώς στο ποσό· τα πρώτα παίρνουν το λεπτό που περισσεύει. */
+export const equalSplit = (cents: number, n: number) => Array.from({ length: n }, (_, i) => Math.floor(cents / n) + (i < cents % n ? 1 : 0));
+
 /** Αναμονή πριν από τον επόμενο αυτόματο έλεγχο μιας άγνωστης πληρωμής: 5, 10, 20, 40 και μετά ανά 60 δευτ. */
 export const retryDelayMs = (attempt: number) => Math.min(5000 * 2 ** attempt, 60_000);
+
+// ---- Επιλογές προϊόντος (γεύσεις, έξτρα, «χωρίς») ----
+// Ίδιοι κανόνες με τον server (web/lib/pos-modifiers.ts)· ο server ξαναελέγχει και τιμολογεί πάντα μόνος του.
+
+export type Group = { id: string; name: string; kind: "REQUIRED" | "EXTRA" | "REMOVE"; pick: number; options: { id: string; name: string; priceCents: number }[] };
+
+/** Πάτημα επιλογής. chosen = όλες οι επιλογές της γραμμής με τη σειρά που πατήθηκαν (η ίδια γεύση μπορεί δύο φορές).
+ *  Υποχρεωτική ομάδα: προσθέτει· όταν είναι γεμάτη, βγαίνει η παλαιότερη. Έξτρα / «χωρίς»: ανάβει ή σβήνει. */
+export function tapOption(chosen: readonly string[], group: Group, id: string): string[] {
+  if (group.kind !== "REQUIRED") return chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id];
+  const mine = new Set(group.options.map((o) => o.id));
+  const oldest = chosen.findIndex((x) => mine.has(x));
+  const full = chosen.filter((x) => mine.has(x)).length >= group.pick;
+  return full ? [...chosen.slice(0, oldest), ...chosen.slice(oldest + 1), id] : [...chosen, id];
+}
+
+/** Βγάζει μία φορά την επιλογή (την τελευταία που μπήκε). */
+export function dropOption(chosen: readonly string[], id: string): string[] {
+  const i = chosen.lastIndexOf(id);
+  return i < 0 ? [...chosen] : [...chosen.slice(0, i), ...chosen.slice(i + 1)];
+}
+
+/** Πόσες λείπουν από κάθε υποχρεωτική ομάδα (0 = έτοιμη). */
+export const missingIn = (group: Group, chosen: readonly string[]) =>
+  group.kind === "REQUIRED" ? Math.max(0, group.pick - chosen.filter((x) => group.options.some((o) => o.id === x)).length) : 0;
+
+/** Τιμή μονάδας με τις επιλογές· το «χωρίς» δεν χρεώνεται ποτέ. */
+export function unitPrice(baseCents: number, groups: readonly Group[], chosen: readonly string[]) {
+  let cents = baseCents;
+  for (const id of chosen) for (const g of groups) {
+    const o = g.options.find((x) => x.id === id);
+    if (o && g.kind !== "REMOVE") cents += o.priceCents;
+  }
+  return cents;
+}

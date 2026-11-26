@@ -180,13 +180,16 @@ async function cashSummary(tx: Tx, ctx: StockContext, input: { storeId: string; 
   assertNonNegativeInt(input.commissionCents, "Προμήθεια");
   validDate(input.businessDate, "ημερομηνία ταμείου");
   const range = athensBusinessRange(input.businessDate);
-  const sales = await tx.sale.findMany({ where: { orgId: ctx.orgId, storeId: input.storeId, status: "COMPLETED", issuedAt: { gte: range.fromAt, lt: range.toAt }, payment: { is: { success: true } } }, select: { id: true, payment: { select: { amountCents: true, method: { select: { code: true, ledgerKind: true } } } } } });
+  const sales = await tx.sale.findMany({ where: { orgId: ctx.orgId, storeId: input.storeId, status: "COMPLETED", issuedAt: { gte: range.fromAt, lt: range.toAt }, payment: { is: { success: true } } }, select: { id: true, payment: { select: { amountCents: true, method: { select: { code: true, ledgerKind: true } } } }, shares: { where: { status: "PAID" }, select: { amountCents: true, method: { select: { code: true, ledgerKind: true } } } } } });
   const buckets = { cash: 0, card: 0, platform: 0, credit: 0 };
   for (const sale of sales) {
     if (!sale.payment) continue;
-    const bucket = paymentBucket(sale.payment.method);
-    buckets[bucket] += sale.payment.amountCents;
-    if (!Number.isSafeInteger(buckets[bucket])) throw new WorkflowError("Το άθροισμα πωλήσεων υπερβαίνει το επιτρεπτό όριο");
+    // μοίρασμα κατά ποσό: τα μερίδια που εισπράχθηκαν πριν από την απόδειξη, το καθένα στον τρόπο του
+    for (const p of [sale.payment, ...sale.shares]) {
+      const bucket = paymentBucket(p.method);
+      buckets[bucket] += p.amountCents;
+      if (!Number.isSafeInteger(buckets[bucket])) throw new WorkflowError("Το άθροισμα πωλήσεων υπερβαίνει το επιτρεπτό όριο");
+    }
   }
   let payoutsCents = 0;
   if (input.cashAccountId) {

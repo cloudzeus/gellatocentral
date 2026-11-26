@@ -96,7 +96,7 @@ export async function startSale(input: {
       tipAmount: 0,
       showTransactionResult: true,
       showReceipt: false, // την απόδειξη την τυπώνουμε εμείς, με τα στοιχεία σήμανσης
-      isvDetails: { terminalMerchantId: input.terminalMerchantId },
+      isvDetails: { amount: 0, terminalMerchantId: input.terminalMerchantId }, // amount = προμήθεια ISV· η Viva δεν δέχεται null εκτός από preauth
       fiscalisationData: input.fiscalisationData,
     }));
 }
@@ -110,6 +110,19 @@ export async function getSession(sessionId: string): Promise<Record<string, unkn
   if (res.status === 202) return null;
   if (!res.ok) throw new Error(`Viva session: HTTP ${res.status}`);
   return (await res.json()) as Record<string, unknown>;
+}
+
+/**
+ * Abort Session: σταματά το αίτημα στο τερματικό, μόνο πριν διαβαστεί η κάρτα.
+ * "accepted" (200, ή 409 = ήδη σε ακύρωση) δεν σημαίνει ότι δεν χρεώθηκε: ο καλών ρωτά ξανά τη συνεδρία.
+ * "not_found" (404) = η Viva δεν έχει τη συνεδρία, άρα δεν μπορεί να χρεώσει.
+ */
+export async function abortSession(sessionId: string, cashRegisterId: string, send: typeof fetch = fetch): Promise<"accepted" | "not_found"> {
+  const url = `${(await isv()).api}/ecr/isv/v1/sessions/${encodeURIComponent(sessionId)}?cashRegisterId=${encodeURIComponent(cashRegisterId)}`;
+  const res = await send(url, { method: "DELETE", headers: { Authorization: `Bearer ${await isvBearer()}` }, cache: "no-store", signal: AbortSignal.timeout(VIVA_TIMEOUT_MS) });
+  if (res.ok || res.status === 409) return "accepted";
+  if (res.status === 404) return "not_found";
+  throw new Error(`Viva abort: HTTP ${res.status}`);
 }
 
 export type VivaSaleForVerification = {
@@ -194,7 +207,7 @@ export async function startRefund(input: {
       currencyCode: "978",
       merchantReference: input.merchantReference,
       showTransactionResult: true,
-      isvDetails: { terminalMerchantId: input.terminalMerchantId },
+      isvDetails: { amount: 0, terminalMerchantId: input.terminalMerchantId }, // amount = προμήθεια ISV· η Viva δεν δέχεται null εκτός από preauth
       fiscalisationData: input.fiscalisationData,
     }));
 }

@@ -1,5 +1,5 @@
 // Persisted, scoped statement reviews· δεν υπάρχει create/update σε FinanceTransaction.
-import type { Prisma } from "./generated/prisma/client";
+import type { PaymentProvider, Prisma } from "./generated/prisma/client";
 import { db } from "./db";
 import {
   parseBankStatement,
@@ -15,6 +15,8 @@ import { reportPeriod } from "./reports";
 import { stockTransaction } from "./stock-transaction";
 import { assertGlobalStockScope, assertStockScope, type StockContext } from "./stock-scope";
 import { auditWorkflow, cleanText, WorkflowError } from "./workflow-db";
+
+const VIVA: PaymentProvider[] = ["VIVA_TERMINAL", "VIVA_CHECKOUT"];
 
 const DAY = 86_400_000;
 type Tx = Prisma.TransactionClient;
@@ -122,9 +124,13 @@ export async function reviewAccountStatement(ctx: StockContext, input: { account
         ...storeWhere,
         status: "COMPLETED",
         issuedAt: { gte: new Date(period.fromAt.getTime() - 5 * DAY), lt: period.toAt },
-        payment: { is: { success: true, method: { is: { provider: { in: ["VIVA_TERMINAL", "VIVA_CHECKOUT"] } } } } },
+        payment: { is: { success: true } },
+        OR: [{ payment: { is: { method: { is: { provider: { in: VIVA } } } } } }, { shares: { some: { status: "PAID", method: { is: { provider: { in: VIVA } } } } } }],
       },
-      select: { orgId: true, storeId: true, issuedAt: true, payment: { select: { amountCents: true } } },
+      select: {
+        orgId: true, storeId: true, issuedAt: true, payment: { select: { amountCents: true, method: { select: { provider: true } } } },
+        shares: { where: { status: "PAID", method: { is: { provider: { in: VIVA } } } }, select: { amountCents: true } }, // μοίρασμα κατά ποσό
+      },
     }),
     db.cashClosing.findMany({
       where: { orgId: ctx.orgId, ...storeWhere, status: "CLOSED", businessDate: { gte: new Date(new Date(`${input.from}T00:00:00.000Z`).getTime() - 5 * DAY), lt: new Date(new Date(`${input.to}T00:00:00.000Z`).getTime() + DAY) } },
@@ -139,7 +145,11 @@ export async function reviewAccountStatement(ctx: StockContext, input: { account
     to: input.to,
     statement,
     ledger,
-    vivaPayments: sales.flatMap((sale) => sale.payment && sale.issuedAt ? [{ orgId: sale.orgId, storeId: sale.storeId, issuedAt: sale.issuedAt, amountCents: sale.payment.amountCents }] : []),
+    vivaPayments: sales.flatMap((sale) => {
+      if (!sale.payment || !sale.issuedAt) return [];
+      const at = { orgId: sale.orgId, storeId: sale.storeId, issuedAt: sale.issuedAt };
+      return [...(VIVA.includes(sale.payment.method.provider) ? [sale.payment] : []), ...sale.shares].map((p) => ({ ...at, amountCents: p.amountCents }));
+    }),
     vivaCommissions: closings.map((row) => ({ orgId: row.orgId, storeId: row.storeId, businessDate: row.businessDate.toISOString().slice(0, 10), commissionCents: row.commissionCents })),
   });
   return stockTransaction(async (tx) => {

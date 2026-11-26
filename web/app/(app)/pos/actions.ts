@@ -3,12 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { db } from "@/lib/db";
+import { flashFail } from "@/lib/flash-server";
 import { tenantWriteTransaction } from "@/lib/migration-cutover";
 import { completeSale, failSale, issueSale } from "@/lib/pos";
 import { currentContext, POS_DEVICE_COOKIE } from "@/lib/tenant";
-import { startSale, vivaConfigured, VivaUnknownOutcomeError } from "@/lib/viva/cloud-terminal";
-import { syncBrowserPayment } from "@/lib/viva/browser-payment";
+import { redirect } from "next/navigation";
+import { abortSession, startSale, vivaConfigured, VivaUnknownOutcomeError } from "@/lib/viva/cloud-terminal";
+import { cancelBrowserPayment, syncBrowserPayment } from "@/lib/viva/browser-payment";
 
 const id = z.string().cuid();
 
@@ -17,14 +20,16 @@ export async function addLine(productId: string) {
   // το προϊόν πρέπει να ανήκει στην επιχείρηση του χρήστη
   const product = await db.product.findFirst({ where: { id: id.parse(productId), orgId: ctx.org.id, active: true }, include: { vatRate: true } });
   if (!product) return;
+  // shortcut: το ταμείο του browser δεν έχει φύλλο επιλογών· προϊόν με υποχρεωτικές επιλογές πουλιέται από το ταμείο Android
+  if (await db.productModifierGroup.findFirst({ where: { productId: product.id, group: { kind: "REQUIRED" } } }))
+    return flashFail(`Το «${product.name}» θέλει επιλογές (π.χ. γεύσεις)`, "Πούλησέ το από το ταμείο της tablet.");
   await tenantWriteTransaction(ctx.org.id, async (tx) => {
     const where = { deviceId: ctx.device.id, status: "DRAFT" as const };
     const sale = (await tx.sale.findFirst({ where })) ?? (await tx.sale.create({ data: { orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id } }));
-    await tx.saleLine.upsert({
-      where: { saleId_productId: { saleId: sale.id, productId: product.id } },
-      update: { quantity: { increment: 1 } },
-      create: { saleId: sale.id, productId: product.id, name: product.name, quantity: 1, unitPriceCents: product.priceCents, vatRate: product.vatRate.rate },
-    });
+    // η γραμμή χωρίς επιλογές του προϊόντος· με επιλογές θα ήταν άλλη γραμμή
+    const line = await tx.saleLine.findFirst({ where: { saleId: sale.id, productId: product.id, options: { equals: Prisma.DbNull }, note: null } });
+    if (line) await tx.saleLine.update({ where: { id: line.id }, data: { quantity: { increment: 1 } } });
+    else await tx.saleLine.create({ data: { saleId: sale.id, productId: product.id, name: product.name, quantity: 1, unitPriceCents: product.priceCents, vatRate: product.vatRate.rate } });
   });
   revalidatePath("/pos");
 }
@@ -111,10 +116,30 @@ export async function syncPayment(saleId: string) {
   });
 }
 
+const CANCEL_ERROR: Record<string, string> = {
+  aborting: "Η ακύρωση στάλθηκε στο τερματικό. Αν ο πελάτης έχει ήδη βάλει την κάρτα, ακύρωσε στο τερματικό",
+  error: "Η Viva δεν απαντά. Η πληρωμή μένει σε αναμονή, δοκίμασε ξανά σε λίγο",
+  rejected: "Η απάντηση της Viva δεν ταιριάζει με την πώληση. Επικοινώνησε με την υποστήριξη",
+};
+
 export async function cancelPending(saleId: string) {
   const ctx = await currentContext();
-  await failSale(ctx.device.id, id.parse(saleId), "Ακυρώθηκε από τον ταμία", undefined, ctx.org.id);
+  const sale = await db.sale.findFirst({
+    where: { id: id.parse(saleId), orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id, status: "AWAITING_PAYMENT" },
+    select: { id: true, orgId: true, storeId: true, deviceId: true, totalCents: true, payment: { select: { amountCents: true, vivaSessionId: true } } },
+  });
+  if (!sale) return revalidatePath("/pos");
+  // Πρώτα σταματά το τερματικό: αλλιώς ο πελάτης θα μπορούσε να πληρώσει μια πώληση που γύρισε σε πρόχειρο.
+  const result = await cancelBrowserPayment({ ...sale, status: "AWAITING_PAYMENT" }, {
+    orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id, terminalId: ctx.device.vivaTerminalId,
+  }, {
+    complete: (raw, transactionId) => completeSale(ctx.device.id, sale.id, raw, transactionId, ctx.org.id),
+    fail: (reason, raw) => failSale(ctx.device.id, sale.id, reason, raw, ctx.org.id),
+  }, abortSession);
   revalidatePath("/pos");
+  if (result.status === "completed") redirect(`/pos?saved=${encodeURIComponent("Ο πελάτης είχε ήδη πληρώσει: η απόδειξη εκδόθηκε")}`);
+  const error = CANCEL_ERROR[result.status];
+  if (error) redirect(`/pos?error=${encodeURIComponent(error)}`);
 }
 
 /** Ποιο ταμείο του καταστήματος χρησιμοποιεί αυτός ο browser. Μόνο ταμεία στα οποία έχει πρόσβαση ο χρήστης. */
