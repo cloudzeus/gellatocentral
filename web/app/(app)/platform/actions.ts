@@ -171,8 +171,18 @@ export async function markChargePaid(chargeId: string) {
 export async function saveViva(form: FormData) {
   await requirePlatform("setup.edit");
   const orgId = id.parse(form.get("orgId"));
-  const d = read(z.object({ vivaMerchantId: optional(60).refine((v) => !v || /^[0-9a-f-]{36}$/i.test(v), "Ο κωδικός εμπόρου Viva είναι UUID (36 χαρακτήρες)") }), form, `/platform/${orgId}`);
-  await db.organization.update({ where: { id: orgId }, data: d });
+  const { legalEntityId, aadeSubKey, ...d } = read(z.object({
+    legalEntityId: optional(40),
+    vivaMerchantId: optional(60).refine((v) => !v || /^[0-9a-f-]{36}$/i.test(v), "Ο κωδικός εμπόρου Viva είναι UUID (36 χαρακτήρες)"),
+    aadeUserId: optional(100),
+    aadeSubKey: optional(100),
+  }), form, `/platform/${orgId}`);
+  // κενό κλειδί = μένει το αποθηκευμένο (δεν το ξαναδείχνουμε)· χωρίς χρήστη ΑΑΔΕ σβήνουν και τα δύο
+  const data = { ...d, ...(d.aadeUserId ? (aadeSubKey ? { aadeSubKey } : {}) : { aadeSubKey: null }) };
+  if (legalEntityId) {
+    const updated = await db.legalEntity.updateMany({ where: { id: legalEntityId, orgId }, data });
+    if (!updated.count) redirect(`/platform/${orgId}?error=${encodeURIComponent("Ο εκδότης δεν βρέθηκε")}#viva`);
+  } else await db.organization.update({ where: { id: orgId }, data });
   done(orgId, "viva");
 }
 
