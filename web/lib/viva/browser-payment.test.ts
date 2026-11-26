@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import {
+  cancelBrowserPayment,
   syncBrowserPayment,
   type BrowserPaymentSale,
 } from "./browser-payment.ts";
@@ -132,4 +133,48 @@ test("browser unsuccessful ή mismatched replay/failure: δεν γυρίζει �
     assert.equal(log.completed.length, 0);
     assert.equal(log.failed.length, 0);
   });
+});
+
+// «Ακύρωση» από τον ταμία: Abort στη Viva πριν αποδεσμευτεί η πώληση.
+const awaiting = () => sale("AWAITING_PAYMENT") as BrowserPaymentSale & { status: "AWAITING_PAYMENT" };
+const recorder = () => {
+  const calls: string[] = [];
+  return { calls, mutations: { complete: async () => { calls.push("complete"); }, fail: async () => { calls.push("fail"); } } };
+};
+
+test("ακύρωση: η Viva δεν έχει τη συνεδρία → η πώληση αποδεσμεύεται χωρίς να ρωτηθεί η συνεδρία", async () => {
+  const r = recorder();
+  const result = await cancelBrowserPayment(awaiting(), terminal, r.mutations, async (sid, ecr) => {
+    assert.equal(sid, "session-1"); assert.equal(ecr, "device-1"); return "not_found";
+  }, async () => { throw new Error("δεν έπρεπε να κληθεί"); });
+  assert.deepEqual(result, { status: "cancelled" });
+  assert.deepEqual(r.calls, ["fail"]);
+});
+
+test("ακύρωση: ο πελάτης πρόλαβε να πληρώσει → ολοκληρώνεται, δεν αποδεσμεύεται", async () => {
+  const r = recorder();
+  const result = await cancelBrowserPayment(awaiting(), terminal, r.mutations, async () => "accepted", async () => successfulSession());
+  assert.deepEqual(result, { status: "completed" });
+  assert.deepEqual(r.calls, ["complete"]);
+});
+
+test("ακύρωση: η συνεδρία δεν έκλεισε ακόμα → μένει σε αναμονή", async () => {
+  const r = recorder();
+  const result = await cancelBrowserPayment(awaiting(), terminal, r.mutations, async () => "accepted", async () => null);
+  assert.deepEqual(result, { status: "aborting" });
+  assert.deepEqual(r.calls, []);
+});
+
+test("ακύρωση: η Viva επιβεβαιώνει αποτυχία → αποδεσμεύεται", async () => {
+  const r = recorder();
+  const result = await cancelBrowserPayment(awaiting(), terminal, r.mutations, async () => "accepted", async () => ({ ...successfulSession(), success: false, eventId: 1016 }));
+  assert.deepEqual(result, { status: "cancelled" });
+  assert.deepEqual(r.calls, ["fail"]);
+});
+
+test("ακύρωση: η Viva δεν απαντά στο abort → τίποτα δεν αλλάζει", async () => {
+  const r = recorder();
+  const result = await cancelBrowserPayment(awaiting(), terminal, r.mutations, async () => { throw new Error("timeout"); });
+  assert.deepEqual(result, { status: "error", error: "viva_unavailable" });
+  assert.deepEqual(r.calls, []);
 });

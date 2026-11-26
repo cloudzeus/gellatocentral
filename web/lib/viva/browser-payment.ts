@@ -24,6 +24,46 @@ type Mutations = {
 
 type SessionLoader = (sessionId: string) => Promise<Record<string, unknown> | null>;
 
+export type BrowserPaymentCancelResult =
+  | { status: "cancelled" }
+  | { status: "completed" }
+  | { status: "aborting" }
+  | BrowserPaymentSyncResult;
+
+/**
+ * «Ακύρωση» από τον ταμία: πρώτα Abort στη Viva, μετά η πώληση αποδεσμεύεται μόνο αν βεβαιωθεί ότι δεν χρεώθηκε.
+ * Αν ο πελάτης πρόλαβε να πληρώσει, η πώληση ολοκληρώνεται. Αν η Viva δεν έχει κλείσει ακόμα τη συνεδρία, μένει σε
+ * αναμονή και το επόμενο sync τη γυρίζει σε πρόχειρο όταν η Viva τη δηλώσει αποτυχημένη.
+ */
+export async function cancelBrowserPayment(
+  sale: BrowserPaymentSale & { status: "AWAITING_PAYMENT" },
+  terminal: VivaTerminalForVerification,
+  mutations: Mutations,
+  abort: (sessionId: string, cashRegisterId: string) => Promise<"accepted" | "not_found">,
+  loadSession?: SessionLoader,
+): Promise<BrowserPaymentCancelResult> {
+  const sessionId = sale.payment?.vivaSessionId;
+  // δοκιμαστική λειτουργία: δεν έφυγε τίποτα προς τη Viva
+  if (!sessionId) {
+    await mutations.fail("Ακυρώθηκε από τον ταμία", {});
+    return { status: "cancelled" };
+  }
+  let aborted: "accepted" | "not_found";
+  try {
+    aborted = await abort(sessionId, terminal.deviceId);
+  } catch {
+    return { status: "error", error: "viva_unavailable" };
+  }
+  if (aborted === "not_found") {
+    await mutations.fail("Ακυρώθηκε από τον ταμία (η Viva δεν είχε λάβει τη χρέωση)", { abort: "not_found" });
+    return { status: "cancelled" };
+  }
+  const synced = await syncBrowserPayment(sale, terminal, mutations, loadSession);
+  if (synced.status === "failed") return { status: "cancelled" };
+  if (synced.status === "pending") return { status: "aborting" };
+  return synced;
+}
+
 /** Κοινή απόδειξη Viva για το browser· μόνο η τελική, δεμένη αποτυχία γυρίζει την πώληση σε πρόχειρο. */
 export async function syncBrowserPayment(
   sale: BrowserPaymentSale,
