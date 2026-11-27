@@ -28,5 +28,5 @@ export async function POST(req: Request, { params }: RouteContext<"/api/pos/sale
     orgId: ctx.org.id, actor: { id: null, name: ctx.device.name }, action: "sale.refund", entityType: "sale", entityId: sale.id,
     storeId: sale.storeId, reason: parsed.data.reason, metadata: { creditId: r.creditId, amountCents: r.amountCents },
   }));
-  return Response.json({ creditId: r.creditId, amountCents: r.amountCents, state: r.live ? "pending" : "completed" });
+  return Response.json({ creditId: r.creditId, amountCents: r.amountCents, alreadyReturned: r.alreadyReturned, state: r.live && !r.signed ? "pending" : "completed" });
 }

@@ -7,7 +7,9 @@ import { ArrowLeft, Banknote, Bike, CakeSlice, CalendarClock, Check, Clock, Divi
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, FlatList, Linking, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
-import { ApiError, type Bill, type BillLine, type BillPick, type BillSummary, cancelBill, type Catalog, checkResult, clearPending, clearSession, createSale, type DiningTable, getBill, getBills, getCatalog, loadPending, loadSession, openBill, type Outcome, pair, type PaymentMethod, type Pending, type Product, reportResult, savePending, saveSession, sendRound, type Session, settleBill, shareBill, voidBillLine } from "./api";
+import { ApiError, type Bill, type BillLine, type BillPick, type BillSummary, cancelBill, type Catalog, checkResult, clearPending, clearSession, createSale, type DiningTable, getBill, getBills, getCatalog, loadPending, loadSession, openBill, type Outcome, pair, type PaymentMethod, type Pending, type Product, reportResult, savePending, saveSession, sendRound, type Session, settleBill, shareBill, syncOffline, voidBillLine } from "./api";
+import { enqueue, offlineSale, type Outbox } from "./offline";
+import { loadCachedCatalog, loadOutbox, saveCachedCatalog, saveOutbox } from "./offline-store";
 import { ReservationsView } from "./ReservationsScreen";
 import { TransactionsView } from "./TransactionsScreen";
 import { CallWatcher, CustomerSheet, OrderSendSheet, OrdersView } from "./OrdersScreen";
@@ -789,6 +791,9 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
   const [busy, setBusy] = useState(false);
   const [pending, setPendingState] = useState<Pending | null>(null);
   const pendingRef = useRef<Pending | null>(null);
+  // πωλήσεις χωρίς σύνδεση που δεν ανέβηκαν ακόμα στον server (offline.ts)
+  const [outbox, setOutboxState] = useState<Outbox>({ lastAa: 0, sales: [] });
+  const outboxRef = useRef(outbox);
   const [now, setNow] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30_000); return () => clearInterval(id); }, []);
   const [view, setView] = useState<"sale" | "tables" | "bill" | "reservations" | "transactions" | "orders" | "drawer" | "day">("sale");
@@ -813,12 +818,45 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
     await (p ? savePending(p) : clearPending());
   }, []);
 
+  const setOutbox = useCallback(async (o: Outbox) => {
+    outboxRef.current = o;
+    setOutboxState(o);
+    await saveOutbox(o);
+  }, []);
+
+  /** Ανεβάζει την ουρά με τη σειρά. Ό,τι η Viva δεν βεβαίωσε ακόμα μένει για την επόμενη φορά· ό,τι αρνήθηκε ο server μένει για τον υπεύθυνο. */
+  const syncOutbox = useCallback(async () => {
+    for (const sale of outboxRef.current.sales.filter((x) => !x.rejected)) {
+      let r: Awaited<ReturnType<typeof syncOffline>>;
+      try { r = await syncOffline(session, sale); setOnline(true); } catch { setOnline(false); return; }
+      if (r === "pending") continue;
+      const o = outboxRef.current;
+      await setOutbox({ ...o, sales: r === "done" ? o.sales.filter((x) => x.saleId !== sale.saleId) : o.sales.map((x) => (x.saleId === sale.saleId ? { ...x, rejected: r.rejected } : x)) });
+    }
+  }, [session, setOutbox]);
+
   const loadCatalog = useCallback(() => {
     getCatalog(session).then(
-      (c) => { setCatalog(c); setOnline(true); },
-      (e) => { if (e instanceof ApiError && e.status === 401) setStatus({ kind: "unpaired" }); else { setOnline(false); setStatus((s) => s ?? { kind: "offline" }); } },
+      (c) => { setCatalog(c); setOnline(true); void saveCachedCatalog(c); void syncOutbox(); },
+      (e) => {
+        if (e instanceof ApiError && e.status === 401) return setStatus({ kind: "unpaired" });
+        setOnline(false);
+        // χωρίς σύνδεση: το ταμείο δουλεύει με τον τελευταίο κατάλογο, αν η συσκευή μπορεί να βγάλει απόδειξη μόνη της
+        void loadCachedCatalog().then((cached) => {
+          if (cached?.offline) setCatalog((c) => c ?? cached);
+          else setStatus((s) => s ?? { kind: "offline" });
+        });
+      },
     );
-  }, [session]);
+  }, [session, syncOutbox]);
+  useEffect(() => { void loadOutbox().then((o) => { outboxRef.current = o; setOutboxState(o); }); }, []);
+  // όσο υπάρχουν πωλήσεις στην ουρά, δοκιμάζουμε κάθε λεπτό
+  const unsynced = outbox.sales.filter((x) => !x.rejected).length;
+  useEffect(() => {
+    if (!unsynced) return;
+    const id = setInterval(() => void syncOutbox(), 60_000);
+    return () => clearInterval(id);
+  }, [unsynced, syncOutbox]);
   useEffect(loadCatalog, [loadCatalog]);
   const loadShift = useCallback(() => {
     getShift(session).then(setShift, (e) => { if (e instanceof ApiError && e.status === 401) setStatus({ kind: "unpaired" }); });
@@ -901,9 +939,28 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
   const check = useCallback((attempt = 0) => {
     const p = pendingRef.current;
     if (!p) return;
+    const off = p.offline;
+    if (off) {
+      if (p.callback) {
+        const r = parseResult(p.callback);
+        // πληρώθηκε στο Viva Terminal: η απόδειξη είναι έγκυρη, ο server τη μαθαίνει από την ουρά
+        if (r.success) void (async () => { await setOutbox(enqueue(outboxRef.current, { ...off, transactionId: r.transactionId })); await setPending(null); setStatus({ kind: "paid", series: catalog?.offline?.series ?? null, aa: off.aa }); void syncOutbox(); })();
+        else void (async () => { await setPending(null); setStatus({ kind: "failed" }); })(); // ο ΑΑ μένει ελεύθερος
+      } else {
+        // χωρίς callback (έκλεισε η εφαρμογή): ρωτάμε τον server, που ρωτά τη Viva
+        void settle(async () => {
+          const r = await syncOffline(session, off);
+          if (r === "pending") return { state: "unknown", noPaymentYet: true };
+          if (r !== "done") return { state: "failed" };
+          await setOutbox({ ...outboxRef.current, lastAa: Math.max(outboxRef.current.lastAa, off.aa) });
+          return { state: "paid", series: catalog?.offline?.series ?? null, aa: off.aa };
+        }, attempt);
+      }
+      return;
+    }
     if (p.callback) { const r = parseResult(p.callback); void settle(() => reportResult(session, p.saleId, { success: r.success, transactionId: r.transactionId, callback: p.callback! }), attempt); }
     else void settle(() => checkResult(session, p.saleId), attempt);
-  }, [session, settle]);
+  }, [session, settle, catalog, setOutbox, setPending, syncOutbox]);
 
   // Επιστροφή από το Viva Terminal: το callback γράφεται πρώτα στη συσκευή, μετά πηγαίνει στον server.
   const onUrl = useCallback(async (url: string) => {
@@ -978,7 +1035,7 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
     } catch (e) {
       const err = e instanceof ApiError ? e : new ApiError(0, "network", "");
       const left = err.body.pending as (Pending & { issuedAt?: string }) | null | undefined;
-      if (err.status === 0) { setOnline(false); setStatus({ kind: "offline" }); }
+      if (err.status === 0) { setOnline(false); if (!bill && (await startOffline(withMethod))) return; setStatus({ kind: "offline" }); }
       else if (err.status === 401) setStatus({ kind: "unpaired" });
       else if (err.status === 403) setStatus({ kind: "blocked", message: err.message || "Το ταμείο είναι κλειστό αυτή τη στιγμή." });
       // υπάρχει ήδη πληρωμή σε εξέλιξη σε αυτό το ταμείο: τη συνεχίζουμε, δεν ξεκινάμε δεύτερη
@@ -991,6 +1048,23 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
     } finally {
       setBusy(false);
     }
+  };
+
+  /** Πώληση χωρίς σύνδεση: η απόδειξη χτίζεται στη συσκευή (offline.ts). Όχι για λογαριασμούς τραπεζιών: θέλουν τον server. */
+  const startOffline = async (m: PaymentMethod) => {
+    const ctx = catalog?.offline;
+    if (!ctx || m.payItemCase == null || !lines.length) return false;
+    const out = lines.map((l) => ({
+      productId: l.productId, name: l.product.name, quantity: l.quantity, unitPriceCents: l.unitCents, vatRate: l.product.vatRate,
+      options: l.options.map((id) => { const o = l.product.groups.flatMap((g) => g.options).find((x) => x.id === id); return { name: o?.name ?? "", priceCents: o?.priceCents ?? 0 }; }),
+      ...(l.note ? { note: l.note } : {}),
+    }));
+    const { sale, fiscalisationData } = offlineSale(ctx, outboxRef.current, { id: m.id, name: m.name, payItemCase: m.payItemCase }, out);
+    const p: Pending = { saleId: sale.saleId, amountCents: sale.amountCents, fiscalisationData, offline: sale, methodName: m.name, startedAt: new Date().toISOString(), items: lines.reduce((n, l) => n + l.quantity, 0) };
+    await setPending(p); // πριν ανοίξει το Viva Terminal, όπως και με σύνδεση
+    setStatus({ kind: "waiting" });
+    await openViva(p);
+    return true;
   };
 
   // Έξοδος από πληρωμή που κόλλησε: η συσκευή δηλώνει «δεν πληρώθηκε». Ο server ρωτά πρώτα τη Viva· αν βρει
@@ -1175,7 +1249,9 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }} accessibilityLiveRegion="polite">
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: online ? t.ok : t.bad }} />
-            <Text style={ty(13, "m", online ? t.muted : t.bad)}>{online ? "Συνδεδεμένο" : "! Χωρίς σύνδεση"}</Text>
+            <Text style={ty(13, "m", online ? t.muted : t.bad)}>{online ? "Συνδεδεμένο" : catalog?.offline ? "! Χωρίς σύνδεση · αποδείξεις από τη συσκευή" : "! Χωρίς σύνδεση"}</Text>
+            {unsynced ? <Text style={ty(13, "m", t.muted)}>· {unsynced} για ανέβασμα</Text> : null}
+            {outbox.sales.length > unsynced ? <Text style={ty(13, "m", t.bad)}>· {outbox.sales.length - unsynced} θέλουν τον υπεύθυνο</Text> : null}
           </View>
           <Text style={[ty(13, "s", t.muted), num]}>{time(now)}</Text>
           <Pressable onPress={() => setStatus({ kind: "unpair" })} accessibilityRole="button" accessibilityLabel="Αποσύνδεση ταμείου" style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: pressed ? t.panel : "transparent" })}>

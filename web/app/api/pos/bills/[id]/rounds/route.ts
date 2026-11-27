@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { after } from "next/server";
+import { signOrderSlips } from "@/lib/order-slips";
 import { addRound } from "@/lib/bills";
 import { tillFromRequest } from "@/lib/device-auth";
 import { cartLines, priceCart } from "@/lib/pos-cart";
@@ -17,7 +19,9 @@ export async function POST(req: Request, { params }: RouteContext<"/api/pos/bill
   try {
     const priced = await priceCart(ctx.org.id, parsed.data.lines);
     if (!priced) return Response.json({ error: "unknown_product" }, { status: 400 });
-    return Response.json(await addRound(ctx, (await params).id, priced, parsed.data.byName));
+    const round = await addRound(ctx, (await params).id, priced, parsed.data.byName);
+    after(() => signOrderSlips(ctx.org.id, ctx.issuer.vivaMerchantId ?? null, round.slipIds)); // 8.6: η κουζίνα δεν περιμένει τη Viva
+    return Response.json(round);
   } catch (e) {
     return tillErrorResponse(e, ctx, "pos/bills/rounds");
   }

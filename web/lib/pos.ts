@@ -1,5 +1,5 @@
 // Έκδοση απόδειξης: κοινή λογική για το ταμείο του browser (server actions) και την εφαρμογή Android (API).
-import { terminalFiscal } from "./viva/sign";
+import { terminalFiscal, transmissionNote } from "./viva/sign";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "./generated/prisma/client";
 import { remaining } from "./bill";
@@ -73,6 +73,11 @@ export async function issueSale(ctx: Ctx, saleId: string, methodId: string, live
     const method = await tx.paymentMethod.findFirst({ where: { id: methodId, active: true, posEnabled: true } });
     if (!method?.payItemCase) throw new PosError("method_unavailable", "Ο τρόπος πληρωμής δεν είναι διαθέσιμος στο ταμείο.");
 
+    // 8.6 των αποστολών που εξοφλεί η απόδειξη· τα NOT_SENT (δοκιμαστική λειτουργία) δεν υπάρχουν στη Viva
+    const orderSlips = sale.billId ? (await tx.fiscalDocument.findMany({
+      where: { docType: "8.6", status: { not: "NOT_SENT" }, billRound: { lines: { some: { id: { in: sale.lines.map((l) => l.billLineId).filter((x): x is string => !!x) } } } } },
+      orderBy: { createdAt: "asc" }, select: { receiptReference: true },
+    })).map((d) => d.receiptReference) : [];
     const reference = randomUUID(); // νέο σε κάθε προσπάθεια: η Viva επιστρέφει το παλιό αποτέλεσμα σε ίδιο sessionId
     const issuedAt = new Date();
     const receipt = buildReceipt({
@@ -84,6 +89,7 @@ export async function issueSale(ctx: Ctx, saleId: string, methodId: string, live
       payItem: { description: method.name, payItemCase: method.payItemCase },
       lines: fiscalLines(sale.lines),
       prior: priorOf(held),
+      orderSlips,
     });
     const chargeCents = receipt.totalCents - held.reduce((t, h) => t + h.amountCents, 0);
 
@@ -157,7 +163,7 @@ export async function failShare(deviceId: string, shareId: string, raw: Prisma.I
 export async function pendingSale(db: Pick<Prisma.TransactionClient, "sale" | "billShare">, ctx: Ctx) {
   const sale = await db.sale.findFirst({
     where: { orgId: ctx.org.id, deviceId: ctx.device.id, status: "AWAITING_PAYMENT" },
-    include: { lines: { orderBy: { id: "asc" } }, payment: { include: { method: true } }, shares: { include: heldInclude, orderBy: [{ createdAt: "asc" }, { id: "asc" }] } },
+    include: { lines: { orderBy: { id: "asc" } }, payment: { include: { method: true } }, shares: { include: heldInclude, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }, fiscal: { select: { request: true } } },
   });
   if (!sale) {
     // ή ένα μερίδιο λογαριασμού που έμεινε στο τερματικό
@@ -169,6 +175,7 @@ export async function pendingSale(db: Pick<Prisma.TransactionClient, "sale" | "b
   const receipt = buildReceipt({
     merchantVat: ctx.issuer.vatNumber, series: sale.series ?? ctx.device.series, aa: sale.aa, reference: sale.payment.vivaSessionId, moment: sale.issuedAt,
     payItem: { description: method.name, payItemCase: method.payItemCase }, lines: fiscalLines(sale.lines), prior: priorOf(sale.shares),
+    orderSlips: [(sale.fiscal?.request as { cbPreviousReceiptReference?: string | string[] } | null)?.cbPreviousReceiptReference ?? []].flat(), // κείμενα: δεν χάνουν ακρίβεια
   });
   return { saleId: sale.id, reference: sale.payment.vivaSessionId, receipt, chargeCents: sale.payment.amountCents, methodId: method.id, methodName: method.name, issuedAt: sale.issuedAt };
 }
@@ -180,7 +187,7 @@ export async function completeSale(deviceId: string, saleId: string, raw: Prisma
     if (count === 0) return;
     await tx.payment.update({ where: { saleId }, data: { success: true, vivaTransactionId: transactionId, raw } });
     // όλη η απάντηση φυλάσσεται· το MARK και σε στήλη, για τα πιστωτικά και την αναζήτηση (QR/σύνδεσμος: terminalFiscal)
-    await tx.fiscalDocument.update({ where: { saleId }, data: { status: "SIGNED", response: raw, mark: terminalFiscal(raw).mark ?? null } });
+    await tx.fiscalDocument.update({ where: { saleId }, data: { status: "SIGNED", response: raw, mark: terminalFiscal(raw).mark ?? null, error: transmissionNote(raw) } });
     await tx.device.update({ where: { id: deviceId }, data: { nextAa: { increment: 1 } } });
     // πληρωμή λογαριασμού τραπεζιού: κλείνει όταν εξοφληθεί όλος
     const { billId } = await tx.sale.findUniqueOrThrow({ where: { id: saleId }, select: { billId: true } });

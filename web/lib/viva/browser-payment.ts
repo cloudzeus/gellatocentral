@@ -18,7 +18,7 @@ export type BrowserPaymentSyncResult =
   | { status: "error"; error: "viva_unavailable" };
 
 type Mutations = {
-  complete: (raw: Prisma.InputJsonObject, transactionId: string) => Promise<void>;
+  complete: (raw: Prisma.InputJsonObject, transactionId: string | undefined) => Promise<void>;
   fail: (reason: string, raw: Prisma.InputJsonObject) => Promise<void>;
 };
 

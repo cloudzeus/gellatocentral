@@ -30,3 +30,10 @@ test("κάρτα της πληρωμής: είδος και 4 τελευταία
   assert.equal(cardLabel({ success: true }), null);
   assert.equal(cardLabel(null), null);
 });
+
+test("τερματικό χωρίς MARK: σημείωση TRANSMISSION_FAILURE με την ένδειξη της Viva", async () => {
+  const { transmissionNote } = await import("./sign.ts");
+  assert.match(transmissionNote({ fiscalisationDetails: { transmissionIndicator: 1 } }) ?? "", /^TRANSMISSION_FAILURE_1/);
+  assert.match(transmissionNote({}) ?? "", /^TRANSMISSION_FAILURE_2/);
+  assert.equal(transmissionNote({ x: "<invoiceMark>400001</invoiceMark>" }), null);
+});

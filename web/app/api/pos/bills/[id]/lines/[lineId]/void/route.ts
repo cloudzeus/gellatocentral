@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { after } from "next/server";
+import { signOrderSlips } from "@/lib/order-slips";
 import { voidLine } from "@/lib/bills";
 import { tillFromRequest } from "@/lib/device-auth";
 import { tillErrorResponse } from "@/lib/pos-till";
@@ -13,7 +15,8 @@ export async function POST(req: Request, { params }: RouteContext<"/api/pos/bill
   if (!parsed.success) return Response.json({ error: "invalid" }, { status: 400 });
   const { id, lineId } = await params;
   try {
-    await voidLine(ctx, id, lineId, parsed.data.reason);
+    const slips = await voidLine(ctx, id, lineId, parsed.data.reason);
+    after(() => signOrderSlips(ctx.org.id, ctx.issuer.vivaMerchantId ?? null, slips)); // ακυρωτικό 8.6
     return Response.json({ ok: true });
   } catch (e) {
     return tillErrorResponse(e, ctx, "pos/bills/void");

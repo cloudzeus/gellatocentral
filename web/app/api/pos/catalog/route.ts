@@ -40,8 +40,10 @@ export async function GET(req: Request) {
   });
   const frequent = top.map((t) => t.productId).filter((id) => flat.some((c) => c.products.some((p) => p.id === id)));
   // Οι τρόποι πληρωμής του ταμείου, με τη σειρά της κονσόλας: η εφαρμογή στέλνει το id στην πώληση.
-  const paymentMethods = await db.paymentMethod.findMany({ where: { active: true, posEnabled: true, payItemCase: { not: null } }, orderBy: { sort: "asc" }, select: { id: true, code: true, name: true } });
+  const paymentMethods = await db.paymentMethod.findMany({ where: { active: true, posEnabled: true, payItemCase: { not: null } }, orderBy: { sort: "asc" }, select: { id: true, code: true, name: true, payItemCase: true } });
   // Τραπέζια και κρατήσεις φαίνονται στο ταμείο μόνο όταν το κατάστημα έχει τραπέζια.
   const hasTables = (await db.diningTable.count({ where: { orgId: ctx.org.id, storeId: ctx.store.id, active: true } })) > 0;
-  return Response.json({ device: { name: ctx.device.name, series: ctx.device.series }, store: ctx.store.name, hasTables, categories: flat, frequent, paymentMethods });
+  // Ό,τι χρειάζεται η εφαρμογή για να βγάλει απόδειξη χωρίς σύνδεση (lib/pos-offline.ts). Όχι με τερματικό Cloud: θέλει internet.
+  const offline = ctx.device.vivaCloud ? null : { merchantVat: ctx.issuer.vatNumber, series: ctx.device.series, nextAa: ctx.device.nextAa };
+  return Response.json({ device: { name: ctx.device.name, series: ctx.device.series }, store: ctx.store.name, hasTables, categories: flat, frequent, paymentMethods, offline });
 }

@@ -77,7 +77,7 @@ export async function transmitSalesDocument(ctx: StockContext, documentId: strin
     const mark = cleanText(receipt.mark, "MARK", 100, true)!;
     return await db.$transaction(async (tx) => {
       const updated = await tx.fiscalDocument.update({ where: { id: prepared.fiscal.id, orgId: ctx.orgId }, data: { status: "SIGNED", error: null, mark, aa: prepared.document.aa, totalCents: prepared.document.totalCents, response: JSON.parse(JSON.stringify({ ...receipt, mark })) } });
-      await auditWorkflow(tx, { orgId: ctx.orgId, actor: { id: ctx.userId, name: ctx.userName }, action: "mydata.sent", entityType: "sales_document", entityId: prepared.document.id, storeId: prepared.document.storeId, warehouseId: prepared.document.warehouseId, metadata: { mark } });
+      await auditWorkflow(tx, { orgId: ctx.orgId, actor: { id: ctx.userId || null, name: ctx.userName }, action: "mydata.sent", entityType: "sales_document", entityId: prepared.document.id, storeId: prepared.document.storeId, warehouseId: prepared.document.warehouseId, metadata: { mark } });
       return updated;
     });
   } catch (error) {

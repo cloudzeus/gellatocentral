@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { after } from "next/server";
+import { signOrderSlips } from "@/lib/order-slips";
 import { cancelBill } from "@/lib/bills";
 import { tillFromRequest } from "@/lib/device-auth";
 import { tillErrorResponse } from "@/lib/pos-till";
@@ -12,7 +14,8 @@ export async function POST(req: Request, { params }: RouteContext<"/api/pos/bill
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "invalid" }, { status: 400 });
   try {
-    await cancelBill(ctx, (await params).id, parsed.data.reason);
+    const slips = await cancelBill(ctx, (await params).id, parsed.data.reason);
+    after(() => signOrderSlips(ctx.org.id, ctx.issuer.vivaMerchantId ?? null, slips)); // ακυρωτικά 8.6
     return Response.json({ ok: true });
   } catch (e) {
     return tillErrorResponse(e, ctx, "pos/bills/cancel");

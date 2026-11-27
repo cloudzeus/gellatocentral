@@ -1,7 +1,7 @@
 import {
   BarChart3, BellRing, BookOpen, Boxes, Building2, CalendarDays, ChefHat, ClipboardCheck, ClipboardList, Contact, CreditCard,
   ArrowRightLeft, Coins, Database, Factory, FileText, Gauge, Inbox, Landmark, LayoutDashboard, ListOrdered, Plug, MonitorSmartphone, Package, Percent, ReceiptText, ScanSearch, Server, Settings, ShieldCheck, LifeBuoy,
-  ShoppingCart, Store, TabletSmartphone, ThermometerSnowflake, Truck, Users, Warehouse, type LucideIcon,
+  Send, ShoppingCart, Store, TabletSmartphone, ThermometerSnowflake, Truck, Users, Warehouse, type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = { to: string; label: string; icon: LucideIcon; ready?: boolean };
@@ -53,6 +53,7 @@ export const NAV: { title: string; icon: LucideIcon; group?: boolean; items: Nav
       { to: "/parties", label: "Συναλλασσόμενοι", icon: Contact, ready: true },
       { to: "/wholesale-orders", label: "Παραγγελίες", icon: ShoppingCart, ready: true },
       { to: "/invoices", label: "Παραστατικά", icon: FileText, ready: true },
+      { to: "/transmissions", label: "Διαβιβάσεις myDATA", icon: Send, ready: true },
       { to: "/vitrine", label: "Βιτρίνα", icon: MonitorSmartphone, ready: true },
     ],
   },

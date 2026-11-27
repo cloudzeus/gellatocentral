@@ -59,7 +59,7 @@ export async function pay(methodId: string) {
   const ctx = await currentContext();
   const live = await vivaConfigured();
   if (live && !(ctx.issuer.vivaMerchantId && ctx.device.vivaTerminalId))
-    throw new Error("Λείπει ο κωδικός εμπόρου Viva ή το τερματικό της συσκευής.");
+    return flashFail("Αυτό το ταμείο δεν έχει τερματικό Viva", "Διάλεξε ταμείο με τερματικό ή όρισέ του τερματικό στο Συσκευές.");
   const draft = await db.sale.findFirst({ where: { deviceId: ctx.device.id, status: "DRAFT" }, select: { id: true } });
   const started = draft && (await issueSale(ctx, draft.id, methodId, live));
   if (!started) return;

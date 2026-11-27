@@ -7,6 +7,7 @@
     "expo": "~58.0.25",
     "expo-application": "~58.1.2",
     "expo-camera": "~58.0.14",
+    "expo-file-system": "~58.0.15",
     "expo-font": "~58.0.12",
     "expo-secure-store": "~58.0.3",
     "expo-status-bar": "~58.0.5",
@@ -28,7 +29,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "node --test till.test.ts reservations.test.ts pair-qr.test.ts transactions.test.ts drawer.test.ts orders.test.ts",
+    "test": "node --test till.test.ts reservations.test.ts pair-qr.test.ts transactions.test.ts drawer.test.ts orders.test.ts offline.test.ts",
     "lint": "expo lint"
   },
   "private": true

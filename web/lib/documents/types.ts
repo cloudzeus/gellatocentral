@@ -23,8 +23,9 @@ export const DOC_TYPES: Record<string, DocTypeInfo> = {
   "11.1": { code: "11.1", title: "Απόδειξη Λιανικής Πώλησης", sign: 1, retail: true, needsParty: false, needsRelated: false, receiptCase: GR + 0x1n },
   "11.2": { code: "11.2", title: "Απόδειξη Παροχής Υπηρεσιών", sign: 1, retail: true, needsParty: false, needsRelated: false, receiptCase: null },
   "11.3": { code: "11.3", title: "Απλοποιημένο Τιμολόγιο", sign: 1, retail: true, needsParty: true, needsRelated: false, receiptCase: null },
-  // Δείγμα «11.4 / INVOICE_RETURN_RELATED»: 5139205309239132161 = GR + 0x5000001, αρνητικά ποσά + cbPreviousReceiptReference.
-  "11.4": { code: "11.4", title: "Πιστωτικό Στοιχείο Λιανικής", sign: -1, retail: true, needsParty: false, needsRelated: true, receiptCase: GR + 0x5000001n },
+  // 11.4 συσχετιζόμενο: μόνο η σημαία επιστροφής 0x0100 (αρνητικά ποσά + cbPreviousReceiptReference). Όχι 0x0400: αυτό είναι
+  // το «11.4 ως δελτίο αποστολής» και η ΑΑΔΕ ζητά τότε σκοπό διακίνησης (απορρίφθηκε στο demo, 27/11).
+  "11.4": { code: "11.4", title: "Πιστωτικό Στοιχείο Λιανικής", sign: -1, retail: true, needsParty: false, needsRelated: true, receiptCase: GR + 0x1000001n },
   // Τιμολόγια: 0x0008_1002 (Invoice + δική μας αρίθμηση)· ο τύπος myDATA δηλώνεται στο mydataoverride.
   // Το 2.1 επαληθεύτηκε στο demo της Viva στις 2026-11-25.
   "1.1": { code: "1.1", title: "Τιμολόγιο Πώλησης", sign: 1, retail: false, needsParty: true, needsRelated: false, receiptCase: GR + 0x0008_1002n },
@@ -34,6 +35,9 @@ export const DOC_TYPES: Record<string, DocTypeInfo> = {
   "5.1": { code: "5.1", title: "Πιστωτικό Τιμολόγιο / Συσχετιζόμενο", sign: -1, retail: false, needsParty: true, needsRelated: true, receiptCase: GR + 0x0108_1002n },
   "5.2": { code: "5.2", title: "Πιστωτικό Τιμολόγιο / Μη Συσχετιζόμενο", sign: -1, retail: false, needsParty: true, needsRelated: false, receiptCase: null },
   // 9.3 αυτόνομο: τύπος 0x0005 + στοιχεία μεταφοράς (0x0400) + δική μας αρίθμηση· γραμμές μηδενικής αξίας
+  // 8.6 δελτίο παραγγελίας εστίασης: «Order» 0x3004 + δική μας αρίθμηση (0x0008), χωρίς πληρωμές (greece-samples «8.6 CATERING_DELIVERY_NOTE»).
+  // Ένα ανά αποστολή στο τραπέζι· η ακύρωση γραμμής είναι νέο 8.6 με αρνητικές γραμμές που δείχνει το αρχικό.
+  "8.6": { code: "8.6", title: "Δελτίο Παραγγελίας Εστίασης", sign: 1, retail: true, needsParty: false, needsRelated: false, receiptCase: GR + 0x0008_3004n },
   "9.3": { code: "9.3", title: "Δελτίο Αποστολής", sign: 1, retail: false, needsParty: true, needsRelated: false, receiptCase: GR + 0x0408_0005n },
 };
 

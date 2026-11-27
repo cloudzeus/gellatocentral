@@ -31,6 +31,16 @@ export function terminalFiscal(raw: unknown): { mark?: string; uid?: string; qrU
   return { mark: tag(text, "invoiceMark"), uid: tag(text, "invoiceUid"), qrUrl: tag(text, "qrUrl")?.replaceAll("&amp;", "&"), pdfUrl: tag(text, "downloadingInvoiceUrl") };
 }
 
+/**
+ * Χωρίς MARK η Viva υπέγραψε αλλά δεν έφτασε στην ΑΑΔΕ (transmissionIndicator 1/2): η Viva το ξαναστέλνει μόνη της και
+ * τυπώνει TRANSMISSION_FAILURE στην απόδειξή της. Το κείμενο μένει στο error, ώστε να φαίνεται στο ημερολόγιο διαβιβάσεων.
+ */
+export function transmissionNote(raw: unknown): string | null {
+  if (terminalFiscal(raw).mark) return null;
+  const indicator = /"transmissionIndicator"\s*:\s*(\d)/.exec(JSON.stringify(raw ?? null))?.[1] ?? "2";
+  return `TRANSMISSION_FAILURE_${indicator}: χωρίς MARK ακόμη, η Viva το ξαναστέλνει στην ΑΑΔΕ`;
+}
+
 /** body: το fiscalisationData σε JSON με τα Int64 ως γυμνούς αριθμούς (toVivaJson). merchantId κενό = λογαριασμός της πλατφόρμας. */
 export async function signReceipt(body: string, merchantId: string | null): Promise<SignedReceipt> {
   // φόρτωση μόνο σε πραγματική κλήση: οι ρυθμίσεις ζουν στη βάση (το parseSignResponse ελέγχεται χωρίς αυτήν)

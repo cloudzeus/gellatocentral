@@ -234,7 +234,7 @@ function RefundDialog({ t, r, flow, busy, setFlow, onStart, onCancel, onCheck, o
             <>
               {icon(SmartphoneNfc, t.wait)}
               <Text accessibilityRole="header" style={ty(20, "s", t.text)}>Ακούμπησε την κάρτα στο POS</Text>
-              <Text style={[ty(13.5, "r", t.muted), num, { lineHeight: 20 }]}>Επιστροφή {euro(r.cents)} {where}. Το POS δείχνει ήδη το ποσό.</Text>
+              <Text style={[ty(13.5, "r", t.muted), num, { lineHeight: 20 }]}>Επιστροφή {euro(Math.abs(r.cents))} {where}. Το POS δείχνει ήδη το ποσό.</Text>
               <View style={{ gap: 10, paddingTop: 12, borderTopWidth: 1, borderTopColor: t.divider }} accessibilityLiveRegion="polite">
                 {step(true, false, "Το πιστωτικό ετοιμάστηκε")}
                 {step(false, true, "Περιμένει την κάρτα στο POS")}
@@ -278,9 +278,9 @@ export function TransactionsView({ t, session, now, width, onUnpaired }: { t: Th
   const counts = useMemo(() => Object.fromEntries((["all", "card", "cash", "refunds"] as Filter[]).map((f) => [f, (rows ?? []).filter((r) => matches(r, f)).length])), [rows]);
   const current = rows?.find((r) => r.id === selected) ?? (wide ? shown[0] : undefined);
 
-  const settle = useCallback((s: CreditState, r: Tx) => {
+  const settle = useCallback((s: CreditState, r: Tx, alreadyReturned = false) => {
     if (s === "pending") return false;
-    setFlow({ step: "done", ok: s === "completed", text: s === "completed" ? `Εκδόθηκε πιστωτικό για την ${r.label}${r.cash ? `. Δώσε ${euro(r.cents)} από το συρτάρι.` : ` και ${euro(r.cents)} επέστρεψαν στην κάρτα.`}` : "Το POS δεν ολοκλήρωσε την επιστροφή και δεν εκδόθηκε πιστωτικό. Μπορείς να δοκιμάσεις ξανά." });
+    setFlow({ step: "done", ok: s === "completed", text: s === "completed" ? `Εκδόθηκε πιστωτικό για την ${r.label}${r.cash ? `. Δώσε ${euro(r.cents)} από το συρτάρι.` : alreadyReturned ? `. Η πληρωμή με κάρτα είχε ήδη ακυρωθεί στη Viva: δεν κινήθηκαν χρήματα τώρα.` : ` και ${euro(r.cents)} επέστρεψαν στην κάρτα.`}` : "Το POS δεν ολοκλήρωσε την επιστροφή και δεν εκδόθηκε πιστωτικό. Μπορείς να δοκιμάσεις ξανά." });
     void load();
     return true;
   }, [load]);
@@ -315,7 +315,7 @@ export function TransactionsView({ t, session, now, width, onUnpaired }: { t: Th
   };
   const start = (reason: string) => r && void run(async () => {
     const res = await refund(session, r.id, reason);
-    if (res.state === "pending") setFlow({ step: "pos", creditId: res.creditId }); else settle(res.state, r);
+    if (res.state === "pending") setFlow({ step: "pos", creditId: res.creditId }); else settle(res.state, r, res.alreadyReturned);
   });
 
   const header = (

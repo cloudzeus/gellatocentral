@@ -46,13 +46,13 @@ const unsuccessfulSession = (): Record<string, unknown> => ({
 });
 
 function mutationLog() {
-  const completed: { raw: Prisma.InputJsonObject; transactionId: string }[] = [];
+  const completed: { raw: Prisma.InputJsonObject; transactionId: string | undefined }[] = [];
   const failed: { reason: string; raw: Prisma.InputJsonObject }[] = [];
   return {
     completed,
     failed,
     mutations: {
-      complete: async (raw: Prisma.InputJsonObject, transactionId: string) => { completed.push({ raw, transactionId }); },
+      complete: async (raw: Prisma.InputJsonObject, transactionId: string | undefined) => { completed.push({ raw, transactionId }); },
       fail: async (reason: string, raw: Prisma.InputJsonObject) => { failed.push({ reason, raw }); },
     },
   };

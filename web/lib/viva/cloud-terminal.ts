@@ -142,7 +142,7 @@ export type VivaTerminalForVerification = {
 };
 
 export type VivaSaleVerification =
-  | { status: "verified"; transactionId: string; raw: Record<string, unknown> }
+  | { status: "verified"; transactionId: string | undefined; raw: Record<string, unknown> }
   | { status: "pending" }
   | { status: "rejected"; reason: "unsuccessful"; raw: Record<string, unknown> }
   | { status: "rejected"; reason: "binding" | "session" | "transaction" | "amount" };
@@ -178,8 +178,10 @@ export async function verifySaleSession(
     return { status: "rejected", reason: "amount" };
   if (session.success !== true) return { status: "rejected", reason: "unsuccessful", raw: session };
 
-  const transactionId = session.transactionId;
-  if (typeof transactionId !== "string" || !transactionId || (clientTransactionId !== undefined && clientTransactionId !== transactionId))
+  // Μετρητά στο τερματικό: η Viva δεν δίνει transactionId (δεν υπάρχει κάρτα). Δεκτό μόνο χωρίς κανένα στοιχείο κάρτας.
+  const cashOnly = session.transactionId == null && clientTransactionId === undefined && session.cardType == null && session.aid == null && session.primaryAccountNumberMasked == null;
+  const transactionId = cashOnly ? undefined : (session.transactionId as string | undefined);
+  if (!cashOnly && (typeof transactionId !== "string" || !transactionId || (clientTransactionId !== undefined && clientTransactionId !== transactionId)))
     return { status: "rejected", reason: "transaction" };
   if (session.amount !== payment.amountCents) return { status: "rejected", reason: "amount" };
   return { status: "verified", transactionId, raw: session };
@@ -187,10 +189,12 @@ export async function verifySaleSession(
 
 /**
  * Επιστροφή χρημάτων στο τερματικό (refund). Το fiscalisationData είναι το πιστωτικό (11.4)
- * με αρνητικά ποσά· στο αίτημα το ποσό πηγαίνει θετικό. ΔΕΝ έχει δοκιμαστεί ακόμα στο demo.
+ * με αρνητικά ποσά· στο αίτημα το ποσό πηγαίνει θετικό. Δοκιμάστηκε στο demo (cloud terminal).
  */
 export async function startRefund(input: {
   sessionId: string;
+  /** Η συνεδρία της αρχικής πώλησης: η Viva τη ζητά υποχρεωτικά (HTTP 400 χωρίς αυτήν). */
+  parentSessionId: string;
   terminalId: string;
   cashRegisterId: string;
   amountCents: number;
@@ -201,6 +205,7 @@ export async function startRefund(input: {
   const api = (await isv()).api;
   await sendTransaction("refund", `${api}/ecr/isv/v1/transactions:refund`, await isvBearer(), toVivaJson({
       sessionId: input.sessionId,
+      parentSessionId: input.parentSessionId,
       terminalId: input.terminalId,
       cashRegisterId: input.cashRegisterId,
       amount: Math.abs(input.amountCents),
@@ -210,6 +215,14 @@ export async function startRefund(input: {
       isvDetails: { amount: 0, terminalMerchantId: input.terminalMerchantId }, // amount = προμήθεια ISV· η Viva δεν δέχεται null εκτός από preauth
       fiscalisationData: input.fiscalisationData,
     }));
+}
+
+/** Κατάσταση συναλλαγής κάρτας στη Viva (statusId): "F" ολοκληρωμένη, "X" ακυρωμένη (π.χ. από το site της Viva), "R" επιστροφή. */
+export async function cardTransactionStatus(transactionId: string, merchantId: string): Promise<string | null> {
+  const url = `${(await isv()).api}/checkout/v2/isv/transactions/${encodeURIComponent(transactionId)}?merchantId=${encodeURIComponent(merchantId)}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${await isvBearer()}` }, cache: "no-store", signal: AbortSignal.timeout(VIVA_TIMEOUT_MS) });
+  if (!res.ok) return null;
+  return ((await res.json()) as { statusId?: string }).statusId ?? null;
 }
 
 /** Δοκιμή των κλειδιών ISV: ζητά token από τη Viva. Επιστρέφει null αν όλα καλά, αλλιώς το σφάλμα. */

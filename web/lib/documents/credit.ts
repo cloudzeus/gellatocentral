@@ -10,6 +10,7 @@ import { toVivaJson } from "../viva/fiscal.ts";
 import { buildDocument } from "./build.ts";
 import { getDocType } from "./registry.ts";
 import { advanceSeries, ensureSeries } from "./series.ts";
+import { terminalFiscal, transmissionNote } from "../viva/sign.ts";
 
 /**
  * Ετοιμάζει το πιστωτικό της πώλησης. Επιστρέφει null όταν η πώληση δεν πιστώνεται
@@ -51,14 +52,14 @@ export async function issueCredit(input: { orgId: string; saleId: string; live: 
       data: { orgId: input.orgId, docType: "11.4", seriesId: s.id, relatedId: sale.fiscal.id, receiptReference: reference, status: input.live ? "PENDING" : "NOT_SENT", request: JSON.parse(toVivaJson(doc.data)) },
     });
     if (!input.live) await advanceSeries(tx, s.id);
-    return { documentId: fiscal.id, reference, doc, device: sale.device, merchantId: issuer.vivaMerchantId };
+    return { documentId: fiscal.id, reference, parentReference: sale.fiscal.receiptReference, cardTransactionId: sale.payment?.vivaTransactionId ?? null, doc, device: sale.device, merchantId: issuer.vivaMerchantId };
   });
 }
 
 /** Η Viva ολοκλήρωσε την επιστροφή και υπέγραψε το πιστωτικό. Μόνο η πρώτη κλήση μετράει. */
 export async function completeCredit(documentId: string, raw: Prisma.InputJsonValue, orgId: string) {
   await tenantWriteTransaction(orgId, async (tx) => {
-    const { count } = await tx.fiscalDocument.updateMany({ where: { id: documentId, orgId, status: "PENDING" }, data: { status: "SIGNED", response: raw } });
+    const { count } = await tx.fiscalDocument.updateMany({ where: { id: documentId, orgId, status: "PENDING" }, data: { status: "SIGNED", response: raw, mark: terminalFiscal(raw).mark ?? null, error: transmissionNote(raw) } });
     if (count === 0) return;
     const d = await tx.fiscalDocument.findUniqueOrThrow({ where: { id: documentId }, select: { seriesId: true } });
     if (d.seriesId) await advanceSeries(tx, d.seriesId);

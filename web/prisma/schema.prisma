@@ -214,6 +214,7 @@ model Organization {
   tickets              Ticket[]
   documentSeries       DocumentSeries[]
   fiscalDocuments      FiscalDocument[]
+  fiscalAttempts       FiscalAttempt[]
   legalEntities        LegalEntity[]
   compositions         Composition[]
   recipes              Recipe[]
@@ -1223,6 +1224,7 @@ model BillRound {
   sentAt     DateTime   @default(now())
   bill       Bill       @relation(fields: [billId], references: [id], onDelete: Cascade)
   lines      BillLine[]
+  orderSlip  FiscalDocument? // 8.6 της αποστολής
 
   @@unique([billId, number])
 }
@@ -1315,6 +1317,7 @@ model FiscalDocument {
   partyId          String? // ο συναλλασσόμενος για αντικριζόμενα (1.x, 2.x, 5.x) και απλοποιημένο (11.3)
   seriesId         String? // κενή για αποδείξεις POS: η σειρά τους είναι της συσκευής
   docType          String              @default("11.1") // κωδικός myDATA
+  billRoundId      String?             @unique // 8.6: η αποστολή στο τραπέζι που παραγγέλνει (τα ακυρωτικά 8.6 τη βρίσκουν μέσω relatedId)
   relatedId        String? // 5.1/11.4: το αρχικό παραστατικό που πιστώνεται (συσχετιζόμενο)
   receiptReference String              @unique // cbReceiptReference: με αυτό συσχετίζονται τα πιστωτικά
   status           FiscalStatus
@@ -1322,15 +1325,34 @@ model FiscalDocument {
   response         Json? // ftState, ftSignatures, QR κ.λπ.
   error            String?
   createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @default(now()) @updatedAt // η επανάληψη διαβιβάσεων μετρά από εδώ την αναμονή
   org              Organization?       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   charge           SubscriptionCharge? @relation(fields: [chargeId], references: [id], onDelete: Restrict)
   sale             Sale?               @relation(fields: [saleId], references: [id], onDelete: Cascade)
   party            Party?              @relation(fields: [partyId], references: [id], onDelete: SetNull)
   series           DocumentSeries?     @relation(fields: [seriesId], references: [id], onDelete: SetNull)
   related          FiscalDocument?     @relation("DocumentCredit", fields: [relatedId], references: [id], onDelete: SetNull)
+  billRound        BillRound?          @relation(fields: [billRoundId], references: [id], onDelete: SetNull)
   creditedBy       FiscalDocument[]    @relation("DocumentCredit")
 
   @@index([orgId, docType, createdAt])
+}
+
+/// Ημερολόγιο διαβιβάσεων: το γράφει trigger σε κάθε αλλαγή κατάστασης FiscalDocument (migration fiscal_attempt_log). Μόνο ανάγνωση από τον κώδικα.
+model FiscalAttempt {
+  id               BigInt        @id @default(autoincrement())
+  orgId            String?
+  fiscalDocumentId String // χωρίς FK: το ίχνος μένει κι αν σβηστεί το παραστατικό
+  docType          String
+  fromStatus       FiscalStatus?
+  toStatus         FiscalStatus
+  mark             String?
+  error            String?
+  at               DateTime      @default(now())
+  org              Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, at])
+  @@index([fiscalDocumentId])
 }
 
 model Subscription {

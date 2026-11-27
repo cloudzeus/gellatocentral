@@ -1,9 +1,10 @@
 import * as SecureStore from "expo-secure-store";
 import type { Group } from "./till";
+import type { OfflineCtx, OfflineSale } from "./offline";
 
 export type Product = { id: string; name: string; code: string | null; priceCents: number; vatRate: number; groups: Group[] };
-export type PaymentMethod = { id: string; code: string; name: string };
-export type Catalog = { device: { name: string; series: string }; store: string; hasTables?: boolean; categories: { id: string; name: string; color: number | null; products: Product[] }[]; frequent?: string[]; paymentMethods?: PaymentMethod[] };
+export type PaymentMethod = { id: string; code: string; name: string; payItemCase?: number | null };
+export type Catalog = { device: { name: string; series: string }; store: string; hasTables?: boolean; categories: { id: string; name: string; color: number | null; products: Product[] }[]; frequent?: string[]; paymentMethods?: PaymentMethod[] ; offline?: OfflineCtx | null };
 /** Γραμμή προς τον server: μόνο ids επιλογών· τιμές και κανόνες τα βγάζει εκείνος από τον κατάλογο. */
 export type SaleLine = { productId: string; quantity: number; options: string[]; note?: string };
 export type Session = { baseUrl: string; token: string };
@@ -11,7 +12,7 @@ export type Session = { baseUrl: string; token: string };
 /** external: η χρέωση πάει σε POS άλλης συσκευής (ο server τη στέλνει)· η εφαρμογή δεν ανοίγει τη Viva, περιμένει. */
 export type StartedSale = { saleId: string; amountCents: number; fiscalisationData: string; external?: boolean };
 /** Πληρωμή που ξεκίνησε και δεν ξέρουμε ακόμα πώς τελείωσε. Μένει στη συσκευή μέχρι να μάθουμε. */
-export type Pending = StartedSale & { methodName: string; startedAt: string; items: number; callback?: string };
+export type Pending = StartedSale & { offline?: OfflineSale; methodName: string; startedAt: string; items: number; callback?: string };
 
 const KEY = "session";
 const PENDING = "pending";
@@ -55,6 +56,19 @@ export async function pair(baseUrl: string, code: string, androidId?: string | n
   const res = await fetch(`${baseUrl}/api/pos/pair`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, ...(androidId ? { androidId } : {}) }) });
   if (!res.ok) throw new Error(res.status === 401 ? "Ο κωδικός είναι λάθος, έληξε ή η συσκευή δεν είναι στο σωστό δίκτυο." : `Σφάλμα ${res.status}`);
   return { baseUrl, token: (await res.json()).token };
+}
+
+/** Πώληση που έγινε χωρίς σύνδεση (offline.ts). done = καταγράφηκε, pending = η Viva δεν απάντησε ακόμα, rejected = θέλει τον υπεύθυνο. */
+export async function syncOffline(s: Session, sale: OfflineSale): Promise<"done" | "pending" | { rejected: string }> {
+  try {
+    const { status } = await call(s, "/sales/offline", sale);
+    return status === 202 ? "pending" : "done";
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 409) return { rejected: String(e.body.reason ?? "rejected") };
+    // 502: η Viva δεν έχει ακόμα τη συναλλαγή (το τερματικό ήταν κι αυτό χωρίς internet)· ξανά αργότερα
+    if (e instanceof ApiError && e.status >= 500) return "pending";
+    throw e;
+  }
 }
 
 export const getCatalog = async (s: Session) => (await call<Catalog>(s, "/catalog")).data;

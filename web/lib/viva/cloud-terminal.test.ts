@@ -43,6 +43,13 @@ test("επιτυχία: χρησιμοποιεί το αποθηκευμένο s
   assert.deepEqual(result, { status: "verified", transactionId: "transaction-1", raw });
 });
 
+test("μετρητά στο τερματικό: χωρίς transactionId και χωρίς κάρτα, δεκτό· με στοιχεία κάρτας, όχι", async () => {
+  const cash = { ...successfulSession(), transactionId: null, cardType: null, aid: null, primaryAccountNumberMasked: null };
+  assert.deepEqual(await verifySaleSession(sale(), terminal(), undefined, async () => cash), { status: "verified", transactionId: undefined, raw: cash });
+  const card = { ...cash, cardType: 1 };
+  assert.deepEqual(await verifySaleSession(sale(), terminal(), undefined, async () => card), { status: "rejected", reason: "transaction" });
+});
+
 test("pending Viva session: ξεκάθαρη αναμονή χωρίς απόδειξη ολοκλήρωσης", async () => {
   const result = await verifySaleSession(sale(), terminal(), undefined, async () => null);
   assert.deepEqual(result, { status: "pending" });

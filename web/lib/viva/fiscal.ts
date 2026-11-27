@@ -44,6 +44,8 @@ export function buildReceipt(input: {
   lines: FiscalLine[];
   /** Μοίρασμα κατά ποσό: ό,τι εισπράχθηκε πριν (πρωτόκολλα πληρωμής). Το payItem παίρνει το υπόλοιπο. */
   prior?: Prior[];
+  /** Τα 8.6 του λογαριασμού που εξοφλεί η απόδειξη (cbPreviousReceiptReference). */
+  orderSlips?: string[];
 }) {
   if (input.lines.length === 0) throw new RangeError("Απόδειξη χωρίς γραμμές");
   const moment = input.moment.toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -77,11 +79,49 @@ export function buildReceipt(input: {
         },
       },
       cbReceiptReference: input.reference,
+      ...(input.orderSlips?.length ? { cbPreviousReceiptReference: input.orderSlips.length === 1 ? input.orderSlips[0] : input.orderSlips } : {}),
       cbReceiptMoment: moment,
       cbReceiptAmount: total,
       currencyCode: "978",
       cbChargeItems,
       cbPayItems: payItems(input.prior ?? [], input.payItem, total, moment),
+    },
+  };
+}
+
+const ORDER_SLIP = GR + 0x0008_3004n; // 8.6: «Order» + δική μας αρίθμηση
+const VOID_LINE = 0x0002_0000n; // γραμμή επιστροφής/ακύρωσης (greece-samples «Partially return/cancel Initial Order Note»)
+
+/**
+ * 8.6 Δελτίο Παραγγελίας Εστίασης: μία αποστολή στο τραπέζι, χωρίς πληρωμές. Με `cancels` είναι ακυρωτικό 8.6:
+ * δείχνει το αρχικό (cbPreviousReceiptReference) και οι γραμμές του είναι αρνητικές.
+ */
+export function buildOrderSlip(input: { merchantVat: string; series: string; aa: number; reference: string; moment: Date; area?: string | null; lines: FiscalLine[]; cancels?: string }) {
+  if (input.lines.length === 0) throw new RangeError("Δελτίο παραγγελίας χωρίς γραμμές");
+  const moment = iso(input.moment);
+  const sign = input.cancels ? -1 : 1;
+  const cbChargeItems = input.lines.map((l, i) => {
+    if (!Number.isInteger(l.quantity) || l.quantity <= 0) throw new RangeError("Μη έγκυρη ποσότητα");
+    const amount = sign * l.quantity * l.unitPriceCents;
+    return {
+      position: i + 1, description: l.name, quantity: sign * l.quantity * 100, amount, vatRate: l.vatRate * 100,
+      vatAmount: Math.round((amount * l.vatRate) / (100 + l.vatRate)),
+      ftChargeItemCase: chargeCase(l.vatRate) + (input.cancels ? VOID_LINE : 0n), currencyCode: "978", moment,
+    };
+  });
+  const total = cbChargeItems.reduce((t, c) => t + c.amount, 0);
+  return {
+    totalCents: total,
+    data: {
+      ftReceiptCase: ORDER_SLIP,
+      ftReceiptCaseData: { GR: { MerchantVATID: input.merchantVat, Series: input.series, AA: input.aa, HashAlg: "sha256", HashPayload: [input.merchantVat, input.series, input.aa, input.reference, moment, hashAmount(0)].join("-") } }, // ποσό 0: χωρίς πληρωμές (η Viva το ελέγχει· το δείγμα της γράφει άλλο)
+      cbReceiptReference: input.reference,
+      ...(input.cancels ? { cbPreviousReceiptReference: input.cancels } : {}),
+      cbReceiptMoment: moment,
+      currencyCode: "978",
+      ...(input.area ? { cbArea: input.area.slice(0, 40) } : {}),
+      cbChargeItems,
+      cbPayItems: [],
     },
   };
 }
@@ -121,3 +161,12 @@ export function buildPaymentProtocol(input: { reference: string; moment: Date; a
 const rawJSON = (JSON as unknown as { rawJSON: (text: string) => unknown }).rawJSON; // λείπει ακόμα από τους τύπους της TypeScript
 export const toVivaJson = (value: unknown) =>
   JSON.stringify(value, (_k, v) => (typeof v === "bigint" ? rawJSON(v.toString()) : v));
+
+// Αποθήκευση αιτήματος για επανάληψη: τα Int64 (ft…Case) γίνονται κείμενο, γιατί ως αριθμοί στο Json χάνουν ακρίβεια.
+export const toStoredJson = (value: unknown): unknown => JSON.parse(JSON.stringify(value, (_k, v) => (typeof v === "bigint" ? v.toString() : v)));
+/** Αντίστροφο του toStoredJson: τα ft…Case ξαναγίνονται BigInt, για να φύγουν με toVivaJson ως γυμνοί αριθμοί. */
+export function fromStoredJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(fromStoredJson);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, /^ft\w*Case$/.test(k) && typeof v === "string" ? BigInt(v) : fromStoredJson(v)]));
+  return value;
+}

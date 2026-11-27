@@ -65,3 +65,41 @@ test("μοίρασμα κατά ποσό: πρωτόκολλο πληρωμής 
   assert.throws(() => buildReceipt({ merchantVat: "1", series: "A", aa: 1, reference: "r", moment: new Date(), payItem: { description: "x", payItemCase: 1 },
     lines: [{ name: "a", quantity: 1, unitPriceCents: 500, vatRate: 24 }], prior: [{ description: "k", payItemCase: 2, amountCents: 500 }] }), RangeError);
 });
+
+import { buildOrderSlip, fromStoredJson, toStoredJson } from "./fiscal.ts";
+const slipInput = { merchantVat: "803164419", series: "ΔΠA1", aa: 3, reference: "r-86", moment: new Date("2026-11-27T18:00:00Z"), area: "Τ5", lines: [{ name: "Χωνάκι", quantity: 2, unitPriceCents: 350, vatRate: 13 }] };
+
+test("8.6: «Order» με δική μας αρίθμηση, χωρίς πληρωμές, όπως το δείγμα της Viva", () => {
+  const s = buildOrderSlip(slipInput);
+  assert.equal(s.data.ftReceiptCase, 5139205309155782660n);
+  assert.deepEqual(s.data.cbPayItems, []);
+  assert.equal(s.data.cbArea, "Τ5");
+  assert.equal(s.totalCents, 700);
+  assert.equal(s.data.cbChargeItems[0].quantity, 200);
+  assert.equal("cbPreviousReceiptReference" in s.data, false);
+  assert.match(s.data.ftReceiptCaseData.GR.HashPayload, /^803164419-ΔΠA1-3-r-86-2026-11-27T18:00:00Z-0\.0$/);
+});
+
+test("ακυρωτικό 8.6: δείχνει το αρχικό, αρνητικές γραμμές με σήμανση επιστροφής", () => {
+  const s = buildOrderSlip({ ...slipInput, reference: "r-86-void", cancels: "r-86" });
+  assert.equal(s.data.cbPreviousReceiptReference, "r-86");
+  const line = s.data.cbChargeItems[0];
+  assert.equal(line.amount, -700);
+  assert.equal(line.quantity, -200);
+  assert.equal((line.ftChargeItemCase >> 16n) & 0xffffn, 0x0002n);
+  assert.equal(s.totalCents, -700);
+});
+
+test("η απόδειξη του λογαριασμού αναφέρει τα 8.6 που εξοφλεί", () => {
+  const base = { merchantVat: "1", series: "A", aa: 1, reference: "x", moment: new Date(), payItem: { description: "Μετρητά", payItemCase: 1 }, lines: [{ name: "a", quantity: 1, unitPriceCents: 100, vatRate: 24 }] };
+  assert.equal(buildReceipt({ ...base, orderSlips: ["r1"] }).data.cbPreviousReceiptReference, "r1");
+  assert.deepEqual(buildReceipt({ ...base, orderSlips: ["r1", "r2"] }).data.cbPreviousReceiptReference, ["r1", "r2"]);
+  assert.equal("cbPreviousReceiptReference" in buildReceipt(base).data, false);
+});
+
+test("αποθηκευμένο αίτημα: τα Int64 κρατούν όλα τα ψηφία στην επανάληψη", () => {
+  const s = buildOrderSlip(slipInput);
+  const again = toVivaJson(fromStoredJson(toStoredJson(s.data)));
+  assert.equal(again, toVivaJson(s.data));
+  assert.match(again, /"ftReceiptCase":5139205309155782660/);
+});

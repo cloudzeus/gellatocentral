@@ -4,6 +4,7 @@ import { type BillLineState, type BillPick, billTotals, canVoid, paidQuantity, p
 import { db } from "./db";
 import type { Prisma } from "./generated/prisma/client";
 import { tenantWriteTransaction } from "./migration-cutover";
+import { issueRoundSlip, issueVoidSlips, type SlipCtx } from "./order-slips";
 import type { PricedLine } from "./pos-cart";
 
 type Ctx = { org: { id: string }; store: { id: string }; device: { id: string } };
@@ -98,18 +99,20 @@ async function lockOpenBill(tx: Prisma.TransactionClient, ctx: Ctx, billId: stri
 }
 
 /** Νέα αποστολή: οι γραμμές μπαίνουν στον λογαριασμό με τις τιμές του καταλόγου εκείνη τη στιγμή. */
-export async function addRound(ctx: Ctx, billId: string, lines: PricedLine[], byName?: string) {
+/** Νέα αποστολή: γραμμές + 8.6 (lib/order-slips.ts). Επιστρέφει και το 8.6, για υπογραφή μετά τη συναλλαγή (signOrderSlips). */
+export async function addRound(ctx: SlipCtx, billId: string, lines: PricedLine[], byName?: string) {
   return tenantWriteTransaction(ctx.org.id, async (tx) => {
     await lockOpenBill(tx, ctx, billId);
     const last = await tx.billRound.findFirst({ where: { billId }, orderBy: { number: "desc" }, select: { number: true } });
     const round = await tx.billRound.create({ data: { billId, number: (last?.number ?? 0) + 1, deviceId: ctx.device.id, sentByName: byName }, select: { id: true, number: true } });
     await tx.billLine.createMany({ data: lines.map((l) => ({ ...l, options: l.options ?? undefined, billId, roundId: round.id })) });
-    return round;
+    const slip = await issueRoundSlip(tx, ctx, round.id);
+    return { ...round, slipIds: [slip.id] };
   });
 }
 
 /** Ακύρωση γραμμής πριν πληρωθεί (λάθος παραγγελία, ο πελάτης το άλλαξε). Η γραμμή μένει, σημειωμένη. */
-export async function voidLine(ctx: Ctx, billId: string, lineId: string, reason: string) {
+export async function voidLine(ctx: SlipCtx, billId: string, lineId: string, reason: string) {
   return tenantWriteTransaction(ctx.org.id, async (tx) => {
     await lockOpenBill(tx, ctx, billId);
     const line = await tx.billLine.findFirst({ where: { id: lineId, billId }, select: lineSelect });
@@ -121,11 +124,13 @@ export async function voidLine(ctx: Ctx, billId: string, lineId: string, reason:
       throw new BillError("paid_line", "Έχουν εισπραχθεί μερίδια του λογαριασμού: χωρίς αυτή τη γραμμή δεν καλύπτονται. Κλείσε πρώτα το μοίρασμα.");
     // ο λογαριασμός μένει ανοιχτός ακόμη κι αν άδειασε: συνήθως ακολουθεί η σωστή παραγγελία
     await tx.billLine.update({ where: { id: lineId }, data: { voidedAt: new Date(), voidReason: reason } });
+    // ακυρωτικό 8.6 για ό,τι δεν πληρώθηκε από τη γραμμή
+    return (await issueVoidSlips(tx, ctx, [{ ...line, quantity: remaining(line) }])).map((d) => d.id);
   });
 }
 
 /** Κλείνει λογαριασμό χωρίς πληρωμή (ο πελάτης έφυγε πριν παραγγείλει, ανοίχτηκε κατά λάθος). Μόνο αν δεν έχει πληρωθεί τίποτα. */
-export async function cancelBill(ctx: Ctx, billId: string, reason: string) {
+export async function cancelBill(ctx: SlipCtx, billId: string, reason: string) {
   return tenantWriteTransaction(ctx.org.id, async (tx) => {
     await lockOpenBill(tx, ctx, billId);
     const lines = await tx.billLine.findMany({ where: { billId }, select: lineSelect });
@@ -135,6 +140,7 @@ export async function cancelBill(ctx: Ctx, billId: string, reason: string) {
     const now = new Date();
     await tx.billLine.updateMany({ where: { billId, voidedAt: null }, data: { voidedAt: now, voidReason: reason } });
     await tx.bill.update({ where: { id: billId }, data: { status: "CANCELLED", closedAt: now } });
+    return (await issueVoidSlips(tx, ctx, lines.filter((l) => !l.voidedAt).map((l) => ({ ...l, quantity: remaining(l) })))).map((d) => d.id);
   });
 }
 
