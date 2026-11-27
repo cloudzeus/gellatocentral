@@ -1,5 +1,8 @@
 // Διαβίβαση παραστατικών χονδρικής μέσω Viva Fiscalisation (πάροχος ηλεκτρονικής τιμολόγησης),
 // για επιχειρήσεις με merchant κάτω από τον ISV λογαριασμό μας (Organization.vivaMerchantId).
+// Χωρίς τερματικό: POST receipts:sign με sessionId στο σώμα. Χωρίς sessionId η Viva απαντά 409 PaymentMethodsRequestFailed
+// σε ό,τι δεν έχει transactionId (επί πιστώσει, μετρητά, μεταφορά)· με sessionId περνούν όλα. Ίδιο sessionId και σώμα
+// → το ίδιο MARK (επανάληψη χωρίς διπλή διαβίβαση). Επαληθευμένο στο demo 2026-11-27.
 // Ίδιο συμβόλαιο με τον πάροχο ΑΑΔΕ (MyDataProvider), ώστε η transmitSalesDocument να μένει μία.
 import { buildDocument, type Dispatch, type DocLine } from "./documents/build.ts";
 import { myDataUnit } from "./documents/mydata.ts";
@@ -38,6 +41,11 @@ export function vivaWholesaleData(document: MyDataSubmission, issuerVat: string,
   });
 }
 
+/** Pure: το σώμα του receipts:sign· sessionId = idempotencyKey (UUID), ώστε η επανάληψη να δίνει το ίδιο MARK. */
+export function vivaSignBody(document: MyDataSubmission, issuerVat: string, items: ReadonlyMap<string, VivaItem>): string {
+  return toVivaJson({ sessionId: document.idempotencyKey, ...vivaWholesaleData(document, issuerVat, items).data });
+}
+
 export class VivaMyDataProvider implements MyDataProvider {
   private readonly config: { orgId: string; issuerVat: string; merchantId: string };
   private readonly loadItems: (ids: readonly string[]) => Promise<ReadonlyMap<string, VivaItem>>;
@@ -49,9 +57,8 @@ export class VivaMyDataProvider implements MyDataProvider {
 
   async submit(document: MyDataSubmission): Promise<MyDataReceipt> {
     const items = await this.loadItems([...new Set(document.lines.map((l) => l.genericItemId))]);
-    const { data } = vivaWholesaleData(document, this.config.issuerVat, items);
     const { signReceipt } = await import("./viva/sign.ts");
-    const signed = await signReceipt(toVivaJson(data), this.config.merchantId);
+    const signed = await signReceipt(vivaSignBody(document, this.config.issuerVat, items), this.config.merchantId);
     return { mark: signed.mark, uid: signed.uid, qrUrl: signed.qrUrl, raw: { pdfUrl: signed.pdfUrl, authCode: signed.authCode, response: signed.raw } };
   }
 }

@@ -85,7 +85,8 @@ export function buildDocument(input: {
       ftChargeItemCase,
       currencyCode: "978",
       moment,
-      ...(exactQuantity ? { ftChargeItemCaseData: { GR: { mydataoverride: { invoiceDetails: { quantity: Number((l.quantity * (returnLines ? -1 : 1)).toFixed(3)), measurementUnit: l.measurementUnit } } } } } : {}),
+      // το override πάει αυτούσιο στην ΑΑΔΕ, που θέλει πάντα θετική ποσότητα (και στο 5.1)· το πρόσημο μένει στο quantity της Viva
+      ...(exactQuantity ? { ftChargeItemCaseData: { GR: { mydataoverride: { invoiceDetails: { quantity: Number(l.quantity.toFixed(3)), measurementUnit: l.measurementUnit } } } } } : {}),
     };
   });
   const total = cbChargeItems.reduce((s, c) => s + c.amount, 0);
