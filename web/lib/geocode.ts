@@ -74,5 +74,12 @@ export async function suggestAddresses(q: string, regions: readonly string[] = [
   // προτίμηση σε αποτελέσματα κοντά στην Ελλάδα (ή κοντά στην επιλεγμένη πόλη), χωρίς αποκλεισμό άλλων χωρών
   url.search = new URLSearchParams({ q: cityName ? `${q} ${cityName}` : q, limit: "8", lat: String(near?.latitude ?? 38.5), lon: String(near?.longitude ?? 23.8) }).toString();
   const res = await fetch(url, { headers: { "User-Agent": "GelatoSystem/1.0 (address lookup)" }, cache: "no-store", signal: AbortSignal.timeout(5000) }).catch(() => null);
-  return res?.ok ? parseSuggestions(await res.json().catch(() => null), regions).slice(0, 5) : [];
+  const rows = res?.ok ? parseSuggestions(await res.json().catch(() => null), regions).slice(0, 5) : [];
+  return keepHouseNumber(rows, q);
+}
+/** Ο χάρτης συχνά έχει την οδό χωρίς αριθμούς (π.χ. «Κάστορος»): κρατάμε τον αριθμό που έγραψε ο χρήστης, αλλιώς θα χανόταν με την επιλογή. */
+export function keepHouseNumber(rows: AddressSuggestion[], q: string): AddressSuggestion[] {
+  const n = /\s(\d+\p{L}?)(?=[\s,]|$)/u.exec(q.trim())?.[1];
+  if (!n) return rows;
+  return rows.map((r) => (/\d/.test(r.street) ? r : { ...r, street: `${r.street} ${n}`, label: r.label.replace(r.street, `${r.street} ${n}`) }));
 }

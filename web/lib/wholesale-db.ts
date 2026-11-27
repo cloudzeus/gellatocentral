@@ -1,6 +1,7 @@
 // Χονδρική: ειδικές τιμές, FEFO παράδοση, παραστατικά, εισπράξεις και B2B σε κοινό tenant context.
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { Prisma } from "./generated/prisma/client";
+import { addressGaps } from "./documents/build";
 import { docTypeInfo } from "./documents/types";
 import { advanceSeries, lockSeries, SeriesError } from "./documents/series";
 import { sumDocumentTotals } from "./procurement";
@@ -267,14 +268,28 @@ async function allocateOrder(tx: Tx, order: { id: string; orgId: string; warehou
   return result;
 }
 
-function snapshot(customer: { id: string; name: string; vatNumber: string | null; countryCode: string; address: string | null; city: string | null; postalCode: string | null }) {
-  return { id: customer.id, name: customer.name, vatNumber: customer.vatNumber, countryCode: customer.countryCode, address: customer.address, city: customer.city, postalCode: customer.postalCode };
+function snapshot(customer: { id: string; name: string; vatNumber: string | null; countryCode: string; address: string | null; city: string | null; postalCode: string | null; geoCity?: { name: string } | null }) {
+  // η πόλη από τη λίστα περιοχών (cityId) όταν το ελεύθερο πεδίο είναι κενό
+  return { id: customer.id, name: customer.name, vatNumber: customer.vatNumber, countryCode: customer.countryCode, address: customer.address, city: customer.city || customer.geoCity?.name || null, postalCode: customer.postalCode };
+}
+
+/** 9.3: διευθύνσεις φόρτωσης (κατάστημα) και παράδοσης (πελάτης) πλήρεις, πριν καεί αριθμός σειράς και φύγει απόθεμα. */
+async function assertDispatchAddresses(tx: Tx, orgId: string, storeId: string, customer: Parameters<typeof snapshot>[0]) {
+  const store = await tx.store.findFirstOrThrow({ where: { id: storeId, orgId }, select: { name: true, address: true, city: true, postalCode: true, geoCity: { select: { name: true } } } });
+  const c = snapshot(customer);
+  const gaps = [
+    [`κατάστημα «${store.name}»`, addressGaps({ street: store.address, city: store.city || store.geoCity?.name, postalCode: store.postalCode })],
+    [`πελάτης «${customer.name}»`, addressGaps({ street: c.address, city: c.city, postalCode: c.postalCode })],
+  ] as const;
+  const missing = gaps.filter(([, g]) => g.length).map(([who, g]) => `${who}: ${g.join(", ")}`);
+  if (missing.length) throw new WorkflowError(`Το δελτίο αποστολής θέλει πλήρεις διευθύνσεις φόρτωσης και παράδοσης. Λείπουν — ${missing.join(" · ")}. Συμπλήρωσέ τα και ξαναδοκίμασε`);
 }
 
 async function issueDocument(tx: Tx, ctx: StockContext, order: { id: string; orgId: string; customerId: string; storeId: string; warehouseId: string; netCents: number; vatCents: number; totalCents: number }, input: { docType: "1.1" | "5.1" | "9.3"; seriesId: string; issuedAt: Date; dueAt?: Date | null; allocations: Allocation[]; relatedFiscalId?: string | null }) {
   docTypeInfo(input.docType);
-  const customer = await tx.party.findFirst({ where: { id: order.customerId, orgId: ctx.orgId } });
+  const customer = await tx.party.findFirst({ where: { id: order.customerId, orgId: ctx.orgId }, include: { geoCity: { select: { name: true } } } });
   if (!customer?.vatNumber) throw new WorkflowError("Το παραστατικό απαιτεί πελάτη με ΑΦΜ");
+  if (input.docType === "9.3") await assertDispatchAddresses(tx, ctx.orgId, order.storeId, customer);
   const locked = await lockSeries(tx, ctx.orgId, input.seriesId, input.docType).catch((error) => { throw error instanceof SeriesError ? new WorkflowError(error.message) : error; });
   if (locked.storeId && locked.storeId !== order.storeId) throw new WorkflowError("Η σειρά ανήκει σε άλλο κατάστημα");
   const code = locked.code;

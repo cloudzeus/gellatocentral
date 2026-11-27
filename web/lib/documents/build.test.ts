@@ -112,3 +112,19 @@ test("1.1 χονδρικής: δεκαδική ποσότητα σε κιλά μ
   assert.equal(data.cbPayItems[0].ftPayItemCase, 5139205309155246089n);
   assert.throws(() => buildDocument({ ...base, docType: "1.1", party, lines: [{ name: "x", quantity: 1.5, unitPriceCents: 100, vatRate: 24 }] }), /ποσότητα/);
 });
+
+test("splitStreet: ο αριθμός χωριστά από την οδό (9.3)", async () => {
+  const { splitStreet } = await import("./build.ts");
+  assert.deepEqual(splitStreet("ΚΥΝΗΓΩΝ 14"), { street: "ΚΥΝΗΓΩΝ", number: "14" });
+  assert.deepEqual(splitStreet("Λεωφ. Συγγρού 100Α"), { street: "Λεωφ. Συγγρού", number: "100Α" });
+  assert.deepEqual(splitStreet("Αγίου Νικολάου, 5"), { street: "Αγίου Νικολάου", number: "5" });
+  assert.deepEqual(splitStreet("Ακτή Μουτσοπούλου 1, Πειραιάς"), { street: "Ακτή Μουτσοπούλου 1, Πειραιάς", number: "0" });
+  assert.deepEqual(splitStreet("Πλατεία"), { street: "Πλατεία", number: "0" });
+});
+
+test("addressGaps: ό,τι λείπει για το 9.3", async () => {
+  const { addressGaps } = await import("./build.ts");
+  assert.deepEqual(addressGaps({ street: "Κυνηγών 14", city: null, postalCode: "14564" }), ["πόλη"]);
+  assert.deepEqual(addressGaps({ street: " ", city: "Αθήνα", postalCode: "" }), ["οδός", "ΤΚ"]);
+  assert.deepEqual(addressGaps({ street: "Α 1", city: "Β", postalCode: "1" }), []);
+});

@@ -2,14 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import QRCode from "qrcode";
-import { CircleAlert, CircleCheck, Clock, LayoutGrid, ReceiptText, ThermometerSnowflake, type LucideIcon } from "lucide-react";
+import { CircleAlert, CircleCheck, Clock, LayoutGrid, MapPin, ReceiptText, ThermometerSnowflake, type LucideIcon } from "lucide-react";
+import { AddressField } from "@/components/address-field";
 import { Submit } from "@/components/submit";
 import { btn, Card, Page } from "@/components/ui";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { issuerOf } from "@/lib/documents/issuer";
 import { readiness, type Check, type Tone } from "@/lib/store-setup";
-import { issuePairQr, setPrinter, setTerminal } from "../actions";
+import { addressGaps } from "@/lib/documents/build";
+import { issuePairQr, setPrinter, setStoreAddress, setTerminal } from "../actions";
 
 const TONE: Record<Tone, { icon: LucideIcon; cls: string; bar: string; label: string }> = {
   ok: { icon: CircleCheck, cls: "text-emerald-600", bar: "bg-emerald-600", label: "έτοιμο" },
@@ -54,6 +56,8 @@ export default async function StoreReadinessPage({ params }: PageProps<"/devices
   const printers = new Map(store.printers.map((p) => [p.id, p]));
   const tillById = new Map(tills.map((d) => [d.id, d]));
   const left = r.total - r.ok;
+  const city = store.city || (store.cityId ? (await db.geoCity.findUnique({ where: { id: store.cityId }, select: { name: true } }))?.name : null) || "";
+  const addressMissing = addressGaps({ street: store.address, city, postalCode: store.postalCode });
   const circ = 2 * Math.PI * 52;
 
   const action = (c: Check) => {
@@ -109,6 +113,21 @@ export default async function StoreReadinessPage({ params }: PageProps<"/devices
         </Card>
 
         <div className="space-y-4">
+          <Card>
+            <h2 className="flex items-center gap-2 border-b border-border/70 px-5 py-3 font-semibold"><MapPin className="size-4" aria-hidden />Διεύθυνση σημείου</h2>
+            <div className="space-y-3 px-5 py-3">
+              <p className={`flex items-start gap-2 text-sm ${addressMissing.length ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>
+                {addressMissing.length ? <Clock className="mt-0.5 size-4 shrink-0" aria-hidden /> : <CircleCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden />}
+                {addressMissing.length ? `Λείπει ${addressMissing.join(", ")}. Χωρίς αυτά δεν βγαίνει δελτίο αποστολής από εδώ (τόπος φόρτωσης)` : "Πλήρης· μπαίνει ως τόπος φόρτωσης στα δελτία αποστολής"}
+              </p>
+              <form action={setStoreAddress.bind(null, store.id)} className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_8rem_auto] sm:items-end">
+                <AddressField label="Οδός και αριθμός" name="address" defaultValue={store.address ?? ""} maxLength={120} placeholder="π.χ. Κάστορος 24" disabled={!can("devices.edit")} />
+                <label className="space-y-1 text-sm font-medium">Πόλη<input name="city" defaultValue={city} maxLength={80} disabled={!can("devices.edit")} className={`${field} mt-1 w-full`} /></label>
+                <label className="space-y-1 text-sm font-medium">ΤΚ<input name="postalCode" defaultValue={store.postalCode ?? ""} inputMode="numeric" pattern="\d{5}" maxLength={5} disabled={!can("devices.edit")} className={`${field} mt-1 w-full`} /></label>
+                {can("devices.edit") ? <Submit className={btn("outline")}>Αποθήκευση</Submit> : null}
+              </form>
+            </div>
+          </Card>
           {r.groups.map((g) => {
             const GIcon = GROUP_ICON[g.key];
             return (

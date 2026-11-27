@@ -74,3 +74,17 @@ export async function setPrinter(storeId: string, printerId: string, form: FormD
   revalidatePath(`/devices/setup/${storeId}`);
   await flashOk("Ο εκτυπωτής αποθηκεύτηκε");
 }
+
+const opt = (max: number) => z.string().trim().max(max).transform((v) => v || null);
+const storeAddress = z.object({ address: opt(120), city: opt(80), postalCode: z.string().trim().regex(/^(\d{5})?$/).transform((v) => v || null) });
+
+/** Διεύθυνση του σημείου: είναι ο τόπος φόρτωσης στα δελτία αποστολής (9.3), που η ΑΑΔΕ θέλει πλήρη (οδός, αριθμός, πόλη, ΤΚ). */
+export async function setStoreAddress(storeId: string, form: FormData) {
+  const { org } = await currentOrg("devices.edit");
+  const parsed = storeAddress.safeParse(Object.fromEntries(form));
+  if (!parsed.success) { await flashFail("Δεν αποθηκεύτηκε: ο ΤΚ θέλει 5 ψηφία", "π.χ. 18531"); return; }
+  const { count } = await db.store.updateMany({ where: { id: storeId, orgId: org.id }, data: parsed.data });
+  if (!count) { await flashFail("Δεν αποθηκεύτηκε: το σημείο δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
+  revalidatePath(`/devices/setup/${storeId}`);
+  await flashOk("Η διεύθυνση του σημείου αποθηκεύτηκε");
+}

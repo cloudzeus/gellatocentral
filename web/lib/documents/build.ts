@@ -34,6 +34,17 @@ export type Dispatch = {
 };
 export type Address = { street: string; postalCode: string; city: string };
 
+/** «Κυνηγών 14» → οδός «Κυνηγών», αριθμός «14»· η ΑΑΔΕ θέλει χωριστό αριθμό στο 9.3 (χωρίς αριθμό: «0»). */
+export function splitStreet(street: string): { street: string; number: string } {
+  const m = /^(.*?\S),?\s+(\d+[\p{L}\d/-]*)$/u.exec(street.trim());
+  return m ? { street: m[1], number: m[2] } : { street: street.trim(), number: "0" };
+}
+
+/** Ό,τι λείπει από μια διεύθυνση για το 9.3 (η ΑΑΔΕ απορρίπτει με 274 οδό, πόλη ή ΤΚ που λείπουν). */
+export function addressGaps(a: { street?: string | null; city?: string | null; postalCode?: string | null }): string[] {
+  return [["οδός", a.street], ["πόλη", a.city], ["ΤΚ", a.postalCode]].filter(([, v]) => !v?.trim()).map(([label]) => label!);
+}
+
 const iso = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
 
 export function buildDocument(input: {
@@ -92,7 +103,7 @@ export function buildDocument(input: {
   const total = cbChargeItems.reduce((s, c) => s + c.amount, 0);
   const p = input.party;
   const d = input.dispatch;
-  const address = (a: Address) => ({ street: a.street, number: "0", postalCode: a.postalCode, city: a.city });
+  const address = (a: Address) => ({ ...splitStreet(a.street), postalCode: a.postalCode, city: a.city });
   // Η ΑΛΠ είναι ο εξ ορισμού τύπος της Viva· οι υπόλοιποι δηλώνονται ρητά (το 9.3 το βγάζει ο ftReceiptCase).
   const header = {
     ...(info.code !== "11.1" && !delivery ? { invoiceType: info.code } : {}),

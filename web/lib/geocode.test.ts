@@ -28,3 +28,12 @@ test("προτάσεις διεύθυνσης: μόνο όσες έχουν οδ
   assert.deepEqual(got.map((x) => x.street), ["Ερμού 15", "Τσιμισκή"]);
   assert.deepEqual(parseSuggestions(null), []);
 });
+
+import { keepHouseNumber } from "./geocode.ts";
+test("ο αριθμός που γράφτηκε μένει όταν ο χάρτης έχει την οδό χωρίς αριθμούς", () => {
+  const row = { label: "Κάστορος, 18545 Πειραιάς", street: "Κάστορος", postalCode: "18545", city: "Πειραιάς", region: null, countryCode: "GR", latitude: 0, longitude: 0 };
+  assert.deepEqual(keepHouseNumber([row], "Κάστορος 24").map((r) => [r.street, r.label]), [["Κάστορος 24", "Κάστορος 24, 18545 Πειραιάς"]]);
+  assert.equal(keepHouseNumber([{ ...row, street: "Κάστορος 10" }], "Κάστορος 24")[0].street, "Κάστορος 10");
+  assert.equal(keepHouseNumber([row], "Κάστορος 24 Πειραιάς")[0].street, "Κάστορος 24");
+  assert.equal(keepHouseNumber([row], "Κάστορος")[0].street, "Κάστορος");
+});

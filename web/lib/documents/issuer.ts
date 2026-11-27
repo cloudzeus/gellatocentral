@@ -33,9 +33,9 @@ export async function issuerForStore(orgId: string, storeId: string | null): Pro
   const { db } = await import("../db.ts"); // lazy: το issuerOf ελέγχεται χωρίς βάση
   const [org, store] = await Promise.all([
     db.organization.findUniqueOrThrow({ where: { id: orgId } }),
-    storeId ? db.store.findFirst({ where: { id: storeId, orgId }, include: { legalEntity: true } }) : null,
+    storeId ? db.store.findFirst({ where: { id: storeId, orgId }, include: { legalEntity: true, geoCity: { select: { name: true } } } }) : null,
   ]);
   if (store?.legalEntity && store.legalEntity.orgId !== orgId) throw new IssuerError("Ο εκδότης του καταστήματος ανήκει σε άλλη επιχείρηση");
   const issuer = issuerOf(org, store?.legalEntity);
-  return { ...issuer, storeAddress: store ? { street: store.address ?? "", city: store.city ?? "", postalCode: store.postalCode ?? "" } : null };
+  return { ...issuer, storeAddress: store ? { street: store.address ?? "", city: store.city || store.geoCity?.name || "", postalCode: store.postalCode ?? "" } : null };
 }
