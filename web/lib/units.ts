@@ -61,7 +61,8 @@ export function gramsToBaseQty(grams: number, baseUnit: UnitLike, gramsPerPiece?
  *  που δίνει τιμή ≥ 1, π.χ. 1_500_000 mg → «1,5 kg». Περνάμε τις μονάδες της διάστασης. */
 export function formatBaseQty(baseQty: number, dimensionUnits: readonly UnitLike[], locale = "el-GR"): string {
   const sorted = [...dimensionUnits].sort((a, b) => b.toBase - a.toBase); // μεγαλύτερη πρώτη
-  const unit = sorted.find((u) => baseQty >= u.toBase) ?? sorted[sorted.length - 1];
+  // Math.abs: και οι αρνητικές διαφορές (απογραφή) σε kg, όχι σε mg
+  const unit = sorted.find((u) => Math.abs(baseQty) >= u.toBase) ?? sorted[sorted.length - 1];
   if (!unit) return String(baseQty);
   const qty = baseQty / unit.toBase;
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 3 }).format(qty)} ${unit.code}`;

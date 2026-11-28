@@ -31,6 +31,7 @@ export const NAV: { title: string; icon: LucideIcon; group?: boolean; items: Nav
     title: "Παραγωγή", icon: Factory,
     items: [
       { to: "/production", label: "Παραγωγή", icon: Factory, ready: true },
+      { to: "/production/planning", label: "Σχεδιασμός", icon: CalendarDays, ready: true },
       { to: "/haccp", label: "HACCP", icon: ThermometerSnowflake, ready: true },
       { to: "/traceability", label: "Ιχνηλασιμότητα", icon: ScanSearch, ready: true },
     ],

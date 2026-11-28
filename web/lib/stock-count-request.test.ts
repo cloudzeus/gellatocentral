@@ -88,3 +88,14 @@ test("count finalize validation: missing actual, reason και persisted mismatc
   assert.deepEqual(assertFinalizableStockCountLine({ expectedQty: 10, actualQty: 8, differenceQty: -2, reason: " σπασίματα " }), { differenceQty: -2, reason: "σπασίματα" });
   assert.deepEqual(assertFinalizableStockCountLine({ expectedQty: 10, actualQty: 10, differenceQty: 0, reason: null }), { differenceQty: 0, reason: null });
 });
+
+test("πεδίο απογραφής σε kg/l/τεμ: «1,80» kg = 1.800.000 mg, κενό = null, άκυρο = NaN", async () => {
+  const { countInputToBase, baseToCountInput } = await import("./count-input.ts");
+  assert.equal(countInputToBase("1,80", 1_000_000), 1_800_000);
+  assert.equal(countInputToBase("0.2", 1_000_000), 200_000);
+  assert.equal(countInputToBase("12", 1), 12);
+  assert.equal(countInputToBase("  ", 1_000_000), null);
+  for (const [raw, scale] of [["-1", 1], ["1e3", 1], ["abc", 1], ["1", 7]] as const) assert.ok(Number.isNaN(countInputToBase(raw, scale)));
+  assert.equal(baseToCountInput(1_800_000, 1_000_000), "1,8");
+  assert.equal(baseToCountInput(null, 1), "");
+});

@@ -9,6 +9,7 @@ import { firmDemandWithWholesale, wholesaleShortfall, type PlannedBatch } from "
 import { mrpV2Suggestion, resolveLeadDays, type ReceiptSample } from "./mrp-v2.ts";
 import { addDays, breakdownLine, censoredDemand, coverageDays, productionWeekdays, suggestProduction, weekdayUtc, type DemandEstimate, type Dimension, type Suggestion } from "./production-suggest.ts";
 import { coord4, fitSeries, forecastDay, mergeDay, metNoUrl, parseMetNoDaily, type HistorySample, type WeatherDay } from "./weather-forecast.ts";
+import { backtestAccuracy, storeWeek, sumHistory } from "./store-week.ts";
 
 type Tx = Prisma.TransactionClient;
 const HISTORY_WEEKS = 8;
@@ -66,7 +67,7 @@ export type ProductionSuggestionRow = {
  * Για την ημέρα παραγωγής `day` (YYYY-MM-DD): τι να φτιάξει το εργαστήριο `labWarehouseId` για τη βιτρίνα
  * `shopWarehouseId`. Ζήτηση = μέσος όρος ίδιας ημέρας εβδομάδας (8 εβδομάδες, λογοκριμένες εξαντλήσεις).
  */
-export async function productionSuggestions(tx: Tx, ctx: StockContext, input: { shopWarehouseId: string; labWarehouseId: string; day: string; fmt?: (base: number, dimension: Dimension) => string }): Promise<ProductionSuggestionRow[]> {
+export async function productionSuggestions(tx: Tx, ctx: StockContext, input: { shopWarehouseId: string; labWarehouseId: string; day: string; fmt?: (base: number, dimension: Dimension) => string; assumeRefilled?: boolean }): Promise<ProductionSuggestionRow[]> {
   await assertStockScope(tx, ctx, { warehouseIds: [input.shopWarehouseId, input.labWarehouseId] });
   const recipeRows = await tx.recipe.findMany({ where: { orgId: ctx.orgId, active: true, outputGenericItemId: { not: null } }, select: { id: true, outputGenericItemId: true, machineCapacityGrams: true, normalWastePct: true } });
   const outputs = await tx.genericItem.findMany({ where: { orgId: ctx.orgId, active: true, trackStock: true, id: { in: recipeRows.map((recipe) => recipe.outputGenericItemId!) } }, select: { id: true, name: true, gramsPerPiece: true, minDisplayBase: true, baseUnit: { select: { dimension: true, toBase: true, code: true } } } });
@@ -107,7 +108,10 @@ export async function productionSuggestions(tx: Tx, ctx: StockContext, input: { 
     // Η χονδρική παραδίδεται την ημέρα της: πρέπει να είναι έτοιμη από την παραγωγή που την καλύπτει.
     const wholesaleRows = wholesale.filter((line) => line.genericItemId === generic.id && line.order.neededAt && coverage.includes(athens(line.order.neededAt))).map((line) => ({ day: athens(line.order.neededAt!), qty: line.quantityBase }));
     const planned = plans.filter((plan) => plan.recipeId === recipe.id && athens(plan.plannedFor) === input.day).reduce((total, plan) => total + gramsToBaseQty(plan.quantityGrams, generic.baseUnit, generic.gramsPerPiece), 0);
-    const base = { dimension, shopStock: shopById.get(generic.id) ?? 0, minShowcase: generic.minDisplayBase ?? 0, wholesale: wholesaleRows, labStock: labById.get(generic.id) ?? 0, alreadyPlanned: planned, lossPct: recipe.normalWastePct ?? 0, containerCap: toBase(recipe.machineCapacityGrams) };
+    // assumeRefilled (επόμενες ημέρες της εβδομάδας): η προηγούμενη παραγωγή έγινε όπως προτάθηκε, άρα στη
+    // βιτρίνα μένει περίπου το ελάχιστο και το έτοιμο του εργαστηρίου έχει μοιραστεί· όχι το σημερινό απόθεμα δύο φορές.
+    const refilled = input.assumeRefilled;
+    const base = { dimension, shopStock: refilled ? (generic.minDisplayBase ?? 0) : (shopById.get(generic.id) ?? 0), minShowcase: generic.minDisplayBase ?? 0, wholesale: wholesaleRows, labStock: refilled ? 0 : (labById.get(generic.id) ?? 0), alreadyPlanned: planned, lossPct: recipe.normalWastePct ?? 0, containerCap: toBase(recipe.machineCapacityGrams) };
     const suggestion = suggestProduction({ ...base, shopDays });
     if (!samples.length && !wholesaleRows.length && !base.minShowcase && suggestion.output === 0) return [];
 
@@ -276,6 +280,27 @@ export async function weatherDemandForecast(tx: Tx, ctx: StockContext, input: { 
     return { day, withWeatherBase: Math.round(withWeather.qty), withoutWeatherBase: Math.round(withWeather.qty / withWeather.weather.total), weather: weather.get(day) ?? null, factor: withWeather.weather };
   });
   return { model: { base: model.base, lowData: model.lowData, elasticity: model.elasticity, weekday: model.weekday }, days };
+}
+
+/**
+ * Συνολική ζήτηση της βιτρίνας για τα είδη που παράγονται (σε μάζα): επόμενες 7 ημέρες με/χωρίς καιρό,
+ * ο καιρός ανά ημέρα και η ακρίβεια της πρόβλεψης στις τελευταίες 4 εβδομάδες.
+ */
+export async function storeDemandWeek(tx: Tx, ctx: StockContext, input: { warehouseId: string; today: string; days?: number }) {
+  await assertStockScope(tx, ctx, { warehouseId: input.warehouseId });
+  const recipes = await tx.recipe.findMany({ where: { orgId: ctx.orgId, active: true, outputGenericItemId: { not: null } }, select: { outputGenericItemId: true } });
+  const massItems = await tx.genericItem.findMany({ where: { orgId: ctx.orgId, id: { in: recipes.map((r) => r.outputGenericItemId!) }, baseUnit: { dimension: "mass" } }, select: { id: true } });
+  const ids = massItems.map((g) => g.id);
+  const days = input.days ?? 7;
+  const [byItem, location] = await Promise.all([
+    ids.length ? demandHistory(tx, { orgId: ctx.orgId, warehouseId: input.warehouseId, from: addDays(input.today, -400), to: addDays(input.today, -1), genericItemIds: ids }) : Promise.resolve(new Map<string, HistorySample[]>()),
+    warehouseLocation(tx, ctx.orgId, input.warehouseId),
+  ]);
+  const weather = location ? await weatherFor(tx, { orgId: ctx.orgId, locationKey: location, from: addDays(input.today, -400), to: addDays(input.today, days) }) : new Map<string, WeatherDay>();
+  const history = sumHistory(byItem.values());
+  if (!history.length) return { hasWeather: weather.size > 0, hasHistory: false, lowData: true, days: [], accuracy: { mape: null, mapeBaseline: null, days: 0 } };
+  const week = storeWeek(history, weather, input.today, days);
+  return { hasWeather: weather.size > 0, hasHistory: true, lowData: week.lowData, days: week.days, accuracy: backtestAccuracy(history, weather, input.today) };
 }
 
 export { addDaysUtc };

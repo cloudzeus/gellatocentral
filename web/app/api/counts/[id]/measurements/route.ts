@@ -10,6 +10,7 @@ const editSchema = z.object({
     lineId: z.string().cuid(),
     actualQty: z.number().int().min(0).max(2_147_483_647).nullable(),
     reason: z.string().max(200).nullable().optional(),
+    wasteQty: z.number().int().min(0).max(2_147_483_647).optional(),
   })).min(1).max(1000),
 });
 

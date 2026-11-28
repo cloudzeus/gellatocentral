@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { btn } from "@/components/ui";
+import { baseToCountInput, countInputToBase } from "@/lib/count-input";
 import {
   clearOfflineCounts,
   deleteOfflineCount,
@@ -107,8 +108,11 @@ export function OfflineCountMeasurements({ identity, formId, countId, expectedUp
       if (!draft || draft.payload.kind !== "measurements") return;
       for (const line of draft.payload.measurements) {
         const actual = document.querySelector<HTMLInputElement>(`input[name="actual_${line.lineId}"]`);
+        const waste = document.querySelector<HTMLInputElement>(`input[name="waste_${line.lineId}"]`);
         const reason = document.querySelector<HTMLTextAreaElement>(`textarea[name="reason_${line.lineId}"]`);
-        if (actual) actual.value = line.actualQty === null ? "" : String(line.actualQty);
+        const scale = Number(document.querySelector<HTMLInputElement>(`input[name="scale_${line.lineId}"]`)?.value ?? 1);
+        if (actual) actual.value = baseToCountInput(line.actualQty, scale);
+        if (waste) waste.value = line.wasteQty ? baseToCountInput(line.wasteQty, scale) : "";
         if (reason) reason.value = line.reason ?? "";
       }
       setStatus({ kind: "queued", text: "Επαναφέρθηκαν οι μη συγχρονισμένες τοπικές μετρήσεις. Έλεγξέ τις πριν από νέα αποθήκευση." });
@@ -128,13 +132,21 @@ export function OfflineCountMeasurements({ identity, formId, countId, expectedUp
       const data = new FormData(form);
       const measurements = data.getAll("lineIds").map((value) => {
         const lineId = String(value);
-        const raw = String(data.get(`actual_${lineId}`) ?? "").trim();
+        // τα πεδία είναι σε kg / l / τεμ· η ουρά και το API κρατούν βασική μονάδα
+        const scale = Number(data.get(`scale_${lineId}`) ?? 1);
+        const wasteQty = countInputToBase(String(data.get(`waste_${lineId}`) ?? ""), scale) ?? 0;
         return {
           lineId,
-          actualQty: raw === "" ? null : Number(raw),
+          actualQty: countInputToBase(String(data.get(`actual_${lineId}`) ?? ""), scale),
           reason: String(data.get(`reason_${lineId}`) ?? "") || null,
+          ...(wasteQty ? { wasteQty } : {}),
         };
       });
+      // το JSON γράφει το NaN ως null: χωρίς αυτόν τον έλεγχο μια λάθος τιμή θα έσβηνε σιωπηλά τη μέτρηση
+      if (measurements.some((line) => Number.isNaN(line.actualQty) || Number.isNaN(line.wasteQty))) {
+        setStatus({ kind: "error", text: "Μια ποσότητα δεν είναι αριθμός. Γράψε π.χ. 1,80 και ξαναπάτα αποθήκευση." });
+        return;
+      }
       try {
         const entry = await enqueueOfflineCount(identity, crypto.randomUUID(), {
           kind: "measurements",
