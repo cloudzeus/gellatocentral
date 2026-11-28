@@ -18,7 +18,7 @@ export default async function TransmissionsPage({ searchParams }: PageProps<"/tr
   const ctx = await requireStockContext("invoices.read");
   const query = await searchParams;
   // καρτέλα «Έλεγχος με την ΑΑΔΕ» μόνο όταν κάποιος εκδότης έχει κλειδιά myDATA (mockup mydata-reconcile.html Β)
-  const keyed = (await issuers(ctx.orgId)).some((i) => i.userId && i.subKey);
+  const keyed = (await issuers(ctx.orgId)).some((i) => i.keys.length);
   const aadeView = keyed && query.view === "aade";
   const aadeCount = keyed ? (await db.mydataDayCheck.count({ where: { orgId: ctx.orgId, status: "DIFF" } })) + (await unmarkedReceipts(ctx.orgId)).length : 0;
   const tab = (href: string, label: string, active: boolean, n?: number) => (

@@ -357,6 +357,30 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               </li>
             ))}
           </ul>
+          <p className="border-t border-border/70 px-5 pt-3 pb-1 text-xs font-semibold text-muted-foreground">Καταστήματα · myDATA</p>
+          <ul className="divide-y divide-border/70">
+            {stores.map((st) => {
+              const own = !!(st.aadeUserId && st.aadeSubKey);
+              const issuer = org.legalEntities.find((e) => e.id === st.legalEntityId)?.name ?? (org.legalName || org.name);
+              return (
+                <li key={st.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                  <div className="min-w-48 flex-1">
+                    <p className="font-semibold">{st.name}</p>
+                    <p className="text-xs text-muted-foreground">Εκδότης: {issuer} · {own ? "δικά του κλειδιά myDATA" : "κλειδιά του εκδότη"}</p>
+                  </div>
+                  <Badge tone={own ? "success" : "neutral"} icon={own ? CheckCircle2 : null}>{own ? "myDATA: δικός του χρήστης" : "myDATA: του εκδότη"}</Badge>
+                  {me.can("setup.edit") && <Modal label={edit} size="sm" title={`myDATA ${st.name}`} description="Κενός χρήστης = το κατάστημα χρησιμοποιεί τα κλειδιά του εκδότη">
+                    <form key={[st.aadeUserId, !!st.aadeSubKey].join()} action={saveViva} className="grid gap-4 [&>button]:justify-self-end">
+                      {hidden}<input type="hidden" name="storeId" value={st.id} />
+                      <Field label="Όνομα χρήστη myDATA" name="aadeUserId" defaultValue={st.aadeUserId ?? ""} maxLength={100} autoComplete="off" hint="Αν το σβήσεις, σβήνει και το κλειδί και το κατάστημα παίρνει τα κλειδιά του εκδότη" />
+                      <Field label="Κλειδί συνδρομής myDATA" name="aadeSubKey" type="password" maxLength={100} autoComplete="new-password" placeholder={st.aadeSubKey ? "Έχει οριστεί · άφησέ το κενό για να μείνει" : ""} hint="Δεν εμφανίζεται ξανά μετά την αποθήκευση" />
+                      {save}
+                    </form>
+                  </Modal>}
+                </li>
+              );
+            })}
+          </ul>
         </Section>
 
         <Section

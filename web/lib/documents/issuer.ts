@@ -37,5 +37,7 @@ export async function issuerForStore(orgId: string, storeId: string | null): Pro
   ]);
   if (store?.legalEntity && store.legalEntity.orgId !== orgId) throw new IssuerError("Ο εκδότης του καταστήματος ανήκει σε άλλη επιχείρηση");
   const issuer = issuerOf(org, store?.legalEntity);
+  // κατάστημα με δικό του χρήστη myDATA: τα κλειδιά του αντί του εκδότη, πάντα ως ζεύγος
+  if (store?.aadeUserId && store.aadeSubKey) Object.assign(issuer, { aadeUserId: store.aadeUserId, aadeSubKey: store.aadeSubKey });
   return { ...issuer, storeAddress: store ? { street: store.address ?? "", city: store.city || store.geoCity?.name || "", postalCode: store.postalCode ?? "" } : null };
 }

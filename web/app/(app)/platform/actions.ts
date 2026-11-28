@@ -180,7 +180,12 @@ export async function saveViva(form: FormData) {
   }), form, `/platform/${orgId}`);
   // κενό κλειδί = μένει το αποθηκευμένο (δεν το ξαναδείχνουμε)· χωρίς χρήστη ΑΑΔΕ σβήνουν και τα δύο
   const data = { ...d, ...(d.aadeUserId ? (aadeSubKey ? { aadeSubKey } : {}) : { aadeSubKey: null }) };
-  if (legalEntityId) {
+  const storeId = String(form.get("storeId") ?? "");
+  if (storeId) {
+    // κατάστημα: μόνο κλειδιά myDATA (ο έμπορος Viva είναι του εκδότη)
+    const updated = await db.store.updateMany({ where: { id: storeId, orgId }, data: { aadeUserId: data.aadeUserId ?? null, ...("aadeSubKey" in data ? { aadeSubKey: data.aadeSubKey } : {}) } });
+    if (!updated.count) redirect(`/platform/${orgId}?error=${encodeURIComponent("Το κατάστημα δεν βρέθηκε")}#viva`);
+  } else if (legalEntityId) {
     const updated = await db.legalEntity.updateMany({ where: { id: legalEntityId, orgId }, data });
     if (!updated.count) redirect(`/platform/${orgId}?error=${encodeURIComponent("Ο εκδότης δεν βρέθηκε")}#viva`);
   } else await db.organization.update({ where: { id: orgId }, data });

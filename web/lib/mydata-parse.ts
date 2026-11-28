@@ -118,23 +118,3 @@ export function diffWithMydata(scanned: ScannedHeader, doc: MyIncomeDoc): Mydata
     if (a != null && b != null && Math.abs(a - b) > 1) out.push({ field, label, scanned: euro(a), mydata: euro(b) });
   return out;
 }
-
-export type BookDay = { day: string; invType: string; count: number; grossCents: number };
-
-/**
- * RequestMyIncome (RequestedBookInfo) → σύνολα ανά ημέρα και τύπο. Η ΑΑΔΕ γράφει μία γραμμή ανά αντισυμβαλλόμενο,
- * ημέρα, τύπο και αυτοτιμολόγηση· τις αθροίζουμε ώστε να μένει μία ανά ημέρα και τύπο.
- */
-export function parseBookInfo(xml: string): BookDay[] {
-  const out = new Map<string, BookDay>();
-  for (const b of blocks(xml, "bookInfo")) {
-    const day = tag(b, "issueDate")?.slice(0, 10), invType = tag(b, "invType");
-    if (!day || !invType) continue;
-    const key = `${day}|${invType}`;
-    const row = out.get(key) ?? { day, invType, count: 0, grossCents: 0 };
-    row.count += Number(tag(b, "count") ?? 0) || 0;
-    row.grossCents += Math.abs(cents(tag(b, "grossValue")) ?? 0);
-    out.set(key, row);
-  }
-  return [...out.values()];
-}

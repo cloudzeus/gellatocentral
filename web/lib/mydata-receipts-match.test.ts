@@ -1,26 +1,23 @@
-// Δοκιμές του ελέγχου αποδείξεων με την ΑΑΔΕ: σύγκριση ημέρας με περιθώριο βραδιών, ημέρες του παραθύρου, σύνολα της ΑΑΔΕ.
+// Δοκιμές του ελέγχου αποδείξεων με την ΑΑΔΕ: αντιστοίχιση ανά MARK, ημέρες του παραθύρου, απόδειξη από το RequestTransmittedDocs.
 import assert from "node:assert/strict";
 import test from "node:test";
-import { athensDay, checkDays, dayStatus, GRACE_NIGHTS, WINDOW_DAYS } from "./mydata-receipts-match.ts";
-import { parseBookInfo } from "./mydata-parse.ts";
+import { athensDay, checkDays, matchReceipts, WINDOW_DAYS, type Receipt } from "./mydata-receipts-match.ts";
+import { parseMyIncomeXml } from "./mydata-parse.ts";
 
 const now = new Date("2026-11-28T01:10:00Z");
-const D = 86_400_000;
+const r = (mark: string, cents: number, day = "2026-11-27", invType = "11.1"): Receipt => ({ mark, day, invType, cents, label: `A1-${mark}` });
 
-test("ίδιο πλήθος και σύνολο (ανοχή 1 λεπτό) = συμφωνεί και μηδενίζει την αρχή διαφοράς", () => {
-  assert.deepEqual(dayStatus({ count: 3, cents: 1250 }, { count: 3, cents: 1251 }, new Date(0), now), { status: "MATCH", firstDiffAt: null });
+test("ίδια MARK και ποσά (ανοχή 1 λεπτό) = καμία διαφορά", () => {
+  assert.deepEqual(matchReceipts([r("1", 1250), r("2", 300)], [r("2", 300), r("1", 1251)]), []);
 });
 
-test("διαφορά: περιμένει ως το τρίτο βράδυ και μετά γίνεται κόκκινη", () => {
-  const first = dayStatus({ count: 3, cents: 1250 }, { count: 2, cents: 1000 }, null, now);
-  assert.equal(first.status, "WAITING");
-  assert.equal(first.firstDiffAt?.getTime(), now.getTime());
-  assert.equal(dayStatus({ count: 3, cents: 1250 }, null, first.firstDiffAt, new Date(now.getTime() + D)).status, "WAITING");
-  assert.equal(dayStatus({ count: 3, cents: 1250 }, null, first.firstDiffAt, new Date(now.getTime() + (GRACE_NIGHTS - 1) * D)).status, "DIFF");
+test("λείπει από την ΑΑΔΕ, υπάρχει μόνο στην ΑΑΔΕ, άλλο ποσό", () => {
+  const gaps = matchReceipts([r("1", 1250), r("2", 300)], [r("2", 450), r("9", 1000)]);
+  assert.deepEqual(gaps.map((g) => [g.kind, g.mark, g.cents, g.aadeCents]), [["OURS_ONLY", "1", 1250, undefined], ["AMOUNT", "2", 300, 450], ["AADE_ONLY", "9", 1000, undefined]]);
 });
 
-test("καμία γραμμή στην ΑΑΔΕ και καμία δική μας = συμφωνεί", () => {
-  assert.equal(dayStatus({ count: 0, cents: 0 }, null, null, now).status, "MATCH");
+test("άλλη ημερομηνία στην ΑΑΔΕ γύρω στα μεσάνυχτα δεν είναι διαφορά", () => {
+  assert.deepEqual(matchReceipts([r("1", 500, "2026-11-27")], [r("1", 500, "2026-11-28")]), []);
 });
 
 test("ημέρες ως χθες σε ώρα Ελλάδας", () => {
@@ -30,14 +27,14 @@ test("ημέρες ως χθες σε ώρα Ελλάδας", () => {
   assert.equal(athensDay(new Date("2026-11-27T22:30:00Z")), "2026-11-28"); // 00:30 στην Αθήνα
 });
 
-test("RequestMyIncome: αθροίζει γραμμές της ίδιας ημέρας και τύπου", () => {
-  const xml = `<RequestedBookInfo xmlns="http://www.aade.gr/myDATA/invoice/v1.0">
-    <bookInfo><issueDate>2026-11-19</issueDate><invType>11.1</invType><grossValue>1899.90</grossValue><count>180</count></bookInfo>
-    <bookInfo><issueDate>2026-11-19</issueDate><invType>11.1</invType><selfpricing>true</selfpricing><grossValue>10.00</grossValue><count>3</count></bookInfo>
-    <bookInfo><issueDate>2026-11-19</issueDate><invType>11.4</invType><grossValue>-4.50</grossValue><count>1</count></bookInfo>
-  </RequestedBookInfo>`;
-  assert.deepEqual(parseBookInfo(xml), [
-    { day: "2026-11-19", invType: "11.1", count: 183, grossCents: 190990 },
-    { day: "2026-11-19", invType: "11.4", count: 1, grossCents: 450 },
-  ]);
+test("RequestTransmittedDocs: απόδειξη της Viva διαβάζεται με MARK, τύπο, σειρά και σύνολο", () => {
+  const xml = `<RequestedDoc xmlns="http://www.aade.gr/myDATA/invoice/v1.0"><invoicesDoc><invoice>
+    <mark>400001977235425</mark>
+    <issuer><vatNumber>803164419</vatNumber><country>GR</country><branch>0</branch></issuer>
+    <invoiceHeader><series>Viva-Fiscal-Sandbox1-22</series><aa>5</aa><issueDate>2026-11-27</issueDate><invoiceType>11.1</invoiceType><currency>EUR</currency></invoiceHeader>
+    <invoiceDetails><lineNumber>1</lineNumber><netValue>3.23</netValue><vatCategory>2</vatCategory><vatAmount>0.42</vatAmount></invoiceDetails>
+    <invoiceSummary><totalNetValue>3.23</totalNetValue><totalVatAmount>0.42</totalVatAmount><totalGrossValue>3.65</totalGrossValue></invoiceSummary>
+  </invoice></invoicesDoc></RequestedDoc>`;
+  const [d] = parseMyIncomeXml(xml);
+  assert.deepEqual([d.mark, d.type, d.series, d.number, d.grossCents, d.issuedAt?.toISOString().slice(0, 10)], ["400001977235425", "11.1", "Viva-Fiscal-Sandbox1-22", "5", 365, "2026-11-27"]);
 });

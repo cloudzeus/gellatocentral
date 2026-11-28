@@ -518,6 +518,9 @@ model Store {
   // Εκδότης των παραστατικών του καταστήματος: κενό = η ίδια η επιχείρηση (Organization.vatNumber)
   legalEntityId    String?
   legalEntity      LegalEntity?       @relation(fields: [legalEntityId], references: [id], onDelete: Restrict)
+  // Δικά του κλειδιά myDATA (ένας ΑΦΜ μπορεί να έχει χρήστη ανά κατάστημα). Κενά = του εκδότη (LegalEntity ή επιχείρηση).
+  aadeUserId       String?
+  aadeSubKey       String?
   active           Boolean            @default(true)
   org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   devices          Device[]
@@ -4143,10 +4146,11 @@ model MydataDayCheck {
   invType     String // 11.1, 11.4 …
   oursCount   Int
   oursCents   Int
-  aadeCount   Int? // κενό = η ΑΑΔΕ δεν έχει ακόμα γραμμή για την ημέρα
+  aadeCount   Int? // κενό = δεν ελέγχθηκε ακόμα
   aadeCents   Int?
-  status      String // MATCH | WAITING | DIFF
-  firstDiffAt DateTime? // από πότε διαφέρει· γίνεται DIFF μόνο αν μείνει 3 βράδια
+  status      String // MATCH | DIFF
+  gaps        Json? // Gap[] (lib/mydata-receipts-match.ts): οι αποδείξεις της ημέρας που δεν ταιριάζουν με την ΑΑΔΕ
+  firstDiffAt DateTime? // από πότε διαφέρει
   notifiedAt  DateTime?
   checkedAt   DateTime     @default(now())
   org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)

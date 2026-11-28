@@ -49,7 +49,7 @@ export async function issueCredit(input: { orgId: string; saleId: string; live: 
       type,
     );
     const fiscal = await tx.fiscalDocument.create({
-      data: { orgId: input.orgId, docType: "11.4", seriesId: s.id, relatedId: sale.fiscal.id, receiptReference: reference, status: input.live ? "PENDING" : "NOT_SENT", request: JSON.parse(toVivaJson(doc.data)) },
+      data: { orgId: input.orgId, docType: "11.4", seriesId: s.id, aa: s.nextAa, totalCents: doc.totalCents, relatedId: sale.fiscal.id, receiptReference: reference, status: input.live ? "PENDING" : "NOT_SENT", request: JSON.parse(toVivaJson(doc.data)) },
     });
     if (!input.live) await advanceSeries(tx, s.id);
     return { documentId: fiscal.id, reference, parentReference: sale.fiscal.receiptReference, cardTransactionId: sale.payment?.vivaTransactionId ?? null, doc, device: sale.device, merchantId: issuer.vivaMerchantId };

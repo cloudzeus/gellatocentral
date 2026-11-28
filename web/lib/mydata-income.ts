@@ -20,10 +20,10 @@ const ddmmyyyy = (d: Date) =>
   `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
 
 /** RequestDocs με όλες τις σελίδες (ως MAX_PAGES). Η ΑΑΔΕ γυρίζει σφάλματα και με HTTP 200, γι' αυτό ελέγχεται το σώμα. */
-async function requestDocs(userId: string, subKey: string, params: Record<string, string>, method = "RequestDocs"): Promise<string[]> {
+async function requestDocs(userId: string, subKey: string, params: Record<string, string>, method = "RequestDocs", maxPages = MAX_PAGES): Promise<string[]> {
   const pages: string[] = [];
   let next: Record<string, string> = {};
-  for (let page = 0; page < MAX_PAGES; page++) {
+  for (let page = 0; page < maxPages; page++) {
     const res = await fetch(`${BASE()}/${method}?${new URLSearchParams({ ...params, ...next })}`, {
       headers: { "aade-user-id": userId, "Ocp-Apim-Subscription-Key": subKey },
       cache: "no-store",
@@ -40,12 +40,16 @@ async function requestDocs(userId: string, subKey: string, params: Record<string
     if (!c) return pages;
     next = c;
   }
-  throw new MydataError(`Πάνω από ${MAX_PAGES} σελίδες παραστατικών — διάλεξε μικρότερο διάστημα`);
+  throw new MydataError(`Πάνω από ${maxPages} σελίδες παραστατικών — διάλεξε μικρότερο διάστημα`);
 }
 
-/** RequestMyIncome: τα έσοδα του ΑΦΜ ανά ημέρα και τύπο (πλήθος, σύνολο), μαζί και όσα διαβίβασε η Viva για εμάς. */
-export async function fetchBookIncome(userId: string, subKey: string, entityVat: string, from: Date, to: Date): Promise<string> {
-  return (await requestDocs(userId, subKey, { entityVatNumber: entityVat, dateFrom: ddmmyyyy(from), dateTo: ddmmyyyy(to) }, "RequestMyIncome")).join("\n");
+/**
+ * RequestTransmittedDocs: τα παραστατικά που εξέδωσε ο ΑΦΜ του χρήστη, ένα-ένα με το MARK τους, μαζί και οι αποδείξεις
+ * που διαβίβασε η Viva (επιβεβαιωμένο στο sandbox, 2026-11-28). Το RequestMyIncome δεν περιέχει καθόλου 11.x.
+ * Ένα κατάστημα κόβει εκατοντάδες αποδείξεις τη μέρα, γι' αυτό οι σελίδες εδώ είναι περισσότερες.
+ */
+export async function fetchTransmitted(userId: string, subKey: string, from: Date, to: Date): Promise<string> {
+  return (await requestDocs(userId, subKey, { mark: "0", dateFrom: ddmmyyyy(from), dateTo: ddmmyyyy(to) }, "RequestTransmittedDocs", 300)).join("\n");
 }
 
 /** Τα παραστατικά προς εμάς για διάστημα ημερομηνιών. Επιστρέφει το ακατέργαστο XML όλων των σελίδων. */

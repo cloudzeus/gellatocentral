@@ -5,8 +5,6 @@
 export const RECEIPT_TYPES = ["11.1", "11.2", "11.3", "11.4", "11.5"] as const;
 /** Πόσες ημέρες πίσω ελέγχουμε κάθε βράδυ. */
 export const WINDOW_DAYS = 14;
-/** Πόσα βράδια μπορεί να διαφέρει μια ημέρα πριν γίνει κόκκινη: η ΑΑΔΕ ενημερώνει τα σύνολα με καθυστέρηση. */
-export const GRACE_NIGHTS = 3;
 const DAY = 86_400_000;
 
 const athens = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Athens", year: "numeric", month: "2-digit", day: "2-digit" });
@@ -18,16 +16,24 @@ export function checkDays(now: Date): string[] {
   return Array.from({ length: WINDOW_DAYS }, (_, i) => athensDay(new Date(now.getTime() - (WINDOW_DAYS - i) * DAY)));
 }
 
-export type DaySide = { count: number; cents: number };
-export type DayStatus = "MATCH" | "WAITING" | "DIFF";
+/** Μία απόδειξη, δική μας ή της ΑΑΔΕ. */
+export type Receipt = { mark: string; day: string; invType: string; cents: number; label: string };
+/** Απόδειξη που δεν ταιριάζει. `aadeCents` μόνο όταν βρέθηκε και στις δύο πλευρές με άλλο ποσό. */
+export type Gap = { kind: "OURS_ONLY" | "AADE_ONLY" | "AMOUNT"; mark: string; day: string; invType: string; label: string; cents: number; aadeCents?: number };
 
 /**
- * Συμφωνεί η ημέρα; Ίδιο πλήθος και σύνολο με ανοχή 1 λεπτού. Αν διαφέρει, μένει WAITING ως GRACE_NIGHTS βράδια από την
- * πρώτη φορά που τη βρήκαμε διαφορετική, και μετά γίνεται DIFF.
+ * Αντιστοιχίζει τις αποδείξεις μία-μία με το MARK, σε όλο το παράθυρο μαζί: η ΑΑΔΕ μπορεί να γράψει άλλη ημερομηνία
+ * από τη δική μας γύρω στα μεσάνυχτα, οπότε η ημέρα δεν μπαίνει στο κλειδί. Ποσό με ανοχή 1 λεπτού.
  */
-export function dayStatus(ours: DaySide, aade: DaySide | null, firstDiffAt: Date | null, now: Date): { status: DayStatus; firstDiffAt: Date | null } {
-  const same = (aade?.count ?? 0) === ours.count && Math.abs((aade?.cents ?? 0) - ours.cents) <= 1;
-  if (same) return { status: "MATCH", firstDiffAt: null };
-  const since = firstDiffAt ?? now;
-  return { status: now.getTime() - since.getTime() >= (GRACE_NIGHTS - 1) * DAY ? "DIFF" : "WAITING", firstDiffAt: since };
+export function matchReceipts(ours: Receipt[], aade: Receipt[]): Gap[] {
+  const theirs = new Map(aade.map((r) => [r.mark, r]));
+  const mine = new Set(ours.map((r) => r.mark));
+  const gaps: Gap[] = [];
+  for (const r of ours) {
+    const a = theirs.get(r.mark);
+    if (!a) gaps.push({ kind: "OURS_ONLY", ...r });
+    else if (Math.abs(a.cents - r.cents) > 1) gaps.push({ kind: "AMOUNT", ...r, aadeCents: a.cents });
+  }
+  for (const a of aade) if (!mine.has(a.mark)) gaps.push({ kind: "AADE_ONLY", ...a });
+  return gaps;
 }

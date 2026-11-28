@@ -1,4 +1,4 @@
-// Καρτέλα «Έλεγχος με την ΑΑΔΕ»: οι αποδείξεις μας ανά ημέρα απέναντι στα σύνολα της ΑΑΔΕ, και όσες δεν πήραν MARK.
+// Καρτέλα «Έλεγχος με την ΑΑΔΕ»: οι αποδείξεις μας μία-μία απέναντι σε όσες έχει η ΑΑΔΕ (με το MARK), και όσες δεν πήραν MARK.
 // Mockup: docs/analysis/mockups/mydata-reconcile.html, ενότητα Β. Λογική: lib/mydata-receipts.ts.
 import { BadgeCheck, CalendarX2, CircleAlert, RefreshCw } from "lucide-react";
 import { DataTable } from "@/components/data-table";
@@ -6,27 +6,26 @@ import { Submit } from "@/components/submit";
 import { Badge, btn, Card, Kpi } from "@/components/ui";
 import { db } from "@/lib/db";
 import { euro } from "@/lib/money";
-import { issuers, unmarkedReceipts } from "@/lib/mydata-receipts";
-import { athensDay, checkDays, GRACE_NIGHTS } from "@/lib/mydata-receipts-match";
+import { gapSummary, issuers, unmarkedReceipts } from "@/lib/mydata-receipts";
+import { athensDay, checkDays, type Gap } from "@/lib/mydata-receipts-match";
 import { recheckReceipts } from "./actions";
 
 const DAY = 86_400_000;
 const time = new Intl.DateTimeFormat("el-GR", { timeZone: "Europe/Athens", dateStyle: "short", timeStyle: "short" });
 const short = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}`;
 const TYPE = (t: string) => (t === "11.4" ? "Πιστωτικά" : "Αποδείξεις");
-const STATUS = { MATCH: ["success", "Συμφωνεί"], WAITING: ["neutral", "Περιμένουμε την ΑΑΔΕ"], DIFF: ["danger", "Δεν συμφωνεί"] } as const;
-const COLOR = { MATCH: "var(--success)", WAITING: "var(--muted-foreground)", DIFF: "var(--destructive)" } as const;
+const STATUS = { MATCH: ["success", "Συμφωνεί"], DIFF: ["danger", "Δεν συμφωνεί"] } as const;
+const COLOR = { MATCH: "var(--success)", DIFF: "var(--destructive)" } as const;
 type Status = keyof typeof STATUS;
 
-/** Τι λέει μια ημέρα με λόγια: πόσες λιγότερες ή περισσότερες στην ΑΑΔΕ και με τι ποσό. */
-function finding(r: { status: string; oursCount: number; oursCents: number; aadeCount: number | null; aadeCents: number | null }) {
-  if (r.status === "MATCH") return null;
-  if (r.aadeCount == null) return "Η ΑΑΔΕ δεν έχει ακόμα στοιχεία για την ημέρα";
-  const n = r.oursCount - r.aadeCount, cents = r.oursCents - (r.aadeCents ?? 0);
-  if (n > 0) return `${n} ${n === 1 ? "λιγότερη" : "λιγότερες"} στην ΑΑΔΕ · ${euro(Math.abs(cents))}. Όλες οι δικές μας έχουν MARK: στείλε την ημέρα στην υποστήριξη της Viva`;
-  if (n < 0) return `${-n} ${n === -1 ? "περισσότερη" : "περισσότερες"} στην ΑΑΔΕ · ${euro(Math.abs(cents))}. Ίσως απόδειξη κομμένη έξω από το σύστημα`;
-  return `Ίδιο πλήθος, άλλο σύνολο κατά ${euro(Math.abs(cents))}`;
-}
+const gapsOf = (r: { gaps: unknown }) => (r.gaps as Gap[] | null) ?? [];
+
+/** Τι σημαίνει μια απόδειξη που δεν ταιριάζει και τι κάνει ο χρήστης. */
+const GAP = {
+  OURS_ONLY: ["Λείπει από την ΑΑΔΕ", "Έχει MARK στο ταμείο, αλλά η ΑΑΔΕ δεν τη βρίσκει: στείλε την στην υποστήριξη της Viva"],
+  AADE_ONLY: ["Μόνο στην ΑΑΔΕ", "Η ΑΑΔΕ την έχει, το ταμείο όχι: ίσως πληρωμή που δεν ολοκληρώθηκε στο ταμείο ή απόδειξη κομμένη έξω από το σύστημα"],
+  AMOUNT: ["Άλλο ποσό", ""],
+} as const;
 
 export async function AadeView({ orgId, now = new Date() }: { orgId: string; now?: Date }) {
   const days = checkDays(now);
@@ -36,27 +35,28 @@ export async function AadeView({ orgId, now = new Date() }: { orgId: string; now
     issuers(orgId),
     db.mydataDayCheck.findFirst({ where: { orgId }, orderBy: { checkedAt: "desc" }, select: { checkedAt: true } }),
   ]);
-  const skipped = list.filter((i) => !i.userId || !i.subKey);
+  const skipped = list.filter((i) => !i.keys.length);
   const dayOf = (r: (typeof rows)[number]) => athensDay(r.day);
   // μία στήλη ανά ημέρα: το χειρότερο από όλους τους εκδότες και τύπους
   const perDay = days.map((day) => {
     const rs = rows.filter((r) => dayOf(r) === day);
-    const status: Status | null = !rs.length ? null : rs.some((r) => r.status === "DIFF") ? "DIFF" : rs.some((r) => r.status === "WAITING") ? "WAITING" : "MATCH";
+    const status: Status | null = !rs.length ? null : rs.some((r) => r.status === "DIFF") ? "DIFF" : "MATCH";
     return { day, status, count: rs.reduce((s, r) => s + r.oursCount, 0), gap: rs.reduce((s, r) => s + (r.aadeCount == null ? 0 : r.aadeCount - r.oursCount), 0) };
   });
   const max = Math.max(1, ...perDay.map((d) => d.count));
   const checked = perDay.filter((d) => d.status);
   const diffs = rows.filter((r) => r.status === "DIFF");
   const diffDays = new Set(diffs.map(dayOf)).size;
-  const diffCents = diffs.reduce((s, r) => s + Math.abs(r.oursCents - (r.aadeCents ?? 0)), 0);
+  const gaps = diffs.flatMap((r) => gapsOf(r).map((g) => ({ ...g, issuer: r.issuerName })));
+  const diffCents = gaps.reduce((s, g) => s + Math.abs(g.cents - (g.aadeCents ?? 0)), 0);
   const unmarkedCents = unmarked.reduce((s, r) => s + r.cents, 0);
-  const order = { DIFF: 0, WAITING: 1, MATCH: 2 } as Record<string, number>;
+  const order = { DIFF: 0, MATCH: 1 } as Record<string, number>;
   const sorted = [...rows].sort((a, b) => order[a.status] - order[b.status] || b.day.getTime() - a.day.getTime());
 
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-        <span>Η ΑΑΔΕ δίνει για κάθε ημέρα πόσες αποδείξεις έχει και με τι σύνολο· τα συγκρίνουμε με τις δικές μας. {last ? <>Τελευταίος έλεγχος: {time.format(last.checkedAt)} · ως χθες {short(days.at(-1)!)}</> : "Δεν έχει γίνει ακόμα έλεγχος."}</span>
+        <span>Η ΑΑΔΕ δίνει κάθε απόδειξη με το MARK της· τις αντιστοιχίζουμε μία-μία με τις δικές μας. {last ? <>Τελευταίος έλεγχος: {time.format(last.checkedAt)} · ως χθες {short(days.at(-1)!)}</> : "Δεν έχει γίνει ακόμα έλεγχος."}</span>
         <form action={recheckReceipts}><Submit pendingText="Έλεγχος…" className={btn("outline", "sm")}><RefreshCw /> Ξαναέλεγξε τώρα</Submit></form>
       </div>
       {skipped.length ? <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm text-warning-ink">Δεν ελέγχονται, γιατί δεν έχουν κλειδιά myDATA: {skipped.map((s) => `${s.name} (ΑΦΜ ${s.vat})`).join(", ")}. Τα ορίζει η πλατφόρμα στην καρτέλα της επιχείρησης.</p> : null}
@@ -64,10 +64,10 @@ export async function AadeView({ orgId, now = new Date() }: { orgId: string; now
       <div className="grid gap-4 sm:grid-cols-3">
         <Kpi icon={BadgeCheck} label="Ημέρες που συμφωνούν" tone={checked.length && !diffDays ? "success" : "neutral"}
           value={<>{checked.filter((d) => d.status === "MATCH").length} <span className="text-lg text-muted-foreground">από {checked.length}</span></>}
-          hint={checked.length ? "Ίδιο πλήθος και ίδιο σύνολο με την ΑΑΔΕ" : "Πάτα «Ξαναέλεγξε τώρα» για τον πρώτο έλεγχο"} />
+          hint={checked.length ? "Κάθε απόδειξη βρέθηκε στην ΑΑΔΕ με το ίδιο ποσό" : "Πάτα «Ξαναέλεγξε τώρα» για τον πρώτο έλεγχο"} />
         <Kpi icon={CalendarX2} label="Ημέρες με διαφορά" tone={diffDays ? "danger" : "success"}
           value={<>{diffDays}{diffDays ? <span className="text-lg text-muted-foreground"> · {euro(diffCents)}</span> : null}</>}
-          hint={diffDays ? "Δες τι βρήκαμε στον πίνακα παρακάτω" : `Μια ημέρα γίνεται κόκκινη μόνο αν διαφέρει ${GRACE_NIGHTS} βράδια`} />
+          hint={diffDays ? `${gaps.length} ${gaps.length === 1 ? "απόδειξη δεν ταιριάζει" : "αποδείξεις δεν ταιριάζουν"}· δες τη λίστα παρακάτω` : "Καμία απόδειξη που να λείπει ή να διαφέρει"} />
         <Kpi icon={CircleAlert} label="Αποδείξεις χωρίς MARK" tone={unmarked.length ? "danger" : "success"}
           value={<>{unmarked.length}{unmarked.length ? <span className="text-lg text-muted-foreground"> · {euro(unmarkedCents)}</span> : null}</>}
           hint={unmarked.length ? "Η Viva τις ξαναστέλνει μόνη της· δες τη λίστα" : "Όλες οι αποδείξεις του μήνα έχουν MARK"} />
@@ -84,7 +84,7 @@ export async function AadeView({ orgId, now = new Date() }: { orgId: string; now
           {perDay.map((d) => (
             <span key={d.day} className="relative flex h-full flex-col justify-end" title={`${short(d.day)} · ${d.count} αποδείξεις${d.status ? ` · ${STATUS[d.status][1]}` : ""}`}>
               {d.status === "DIFF" && d.gap ? <b className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs text-destructive tabular-nums">{d.gap > 0 ? `+${d.gap}` : d.gap}</b> : null}
-              <span className="rounded-t-sm" style={{ height: `${d.status ? Math.max(4, (d.count / max) * 100) : 4}%`, background: d.status ? COLOR[d.status] : "var(--muted)", opacity: d.status === "WAITING" ? 0.45 : 1 }} />
+              <span className="rounded-t-sm" style={{ height: `${d.status ? Math.max(4, (d.count / max) * 100) : 4}%`, background: d.status ? COLOR[d.status] : "var(--muted)" }} />
             </span>
           ))}
         </div>
@@ -92,6 +92,34 @@ export async function AadeView({ orgId, now = new Date() }: { orgId: string; now
           {perDay.map((d) => <span key={d.day}>{d.day.slice(8, 10)}</span>)}
         </div>
       </Card>
+
+      {gaps.length ? (
+        <Card>
+          <h2 className="px-4 pt-4 pb-2 text-sm font-semibold sm:px-5">Αποδείξεις που δεν ταιριάζουν <span className="font-normal text-muted-foreground">· {gaps.length}</span></h2>
+          <DataTable
+            id="aade-gaps"
+            empty="Όλες οι αποδείξεις ταιριάζουν"
+            columns={[
+              { key: "doc", label: "Απόδειξη", required: true },
+              { key: "issuer", label: "Εκδότης", wrap: true },
+              { key: "amount", label: "Ποσό", numeric: true },
+              { key: "finding", label: "Τι βρήκαμε", wrap: true },
+            ]}
+            rows={gaps.map((g) => ({
+              id: `${g.mark}-${g.kind}`,
+              cells: {
+                doc: <span className="grid"><b>{g.label || "—"}</b><span className="text-xs text-muted-foreground tabular-nums">{short(g.day)} · {TYPE(g.invType)} · MARK {g.mark}</span></span>,
+                issuer: g.issuer,
+                amount: <span className="whitespace-nowrap font-semibold tabular-nums">{euro(g.cents)}</span>,
+                finding: <span className="grid justify-items-start gap-1">
+                  <Badge tone="danger">{GAP[g.kind][0]}</Badge>
+                  <span className="text-xs text-muted-foreground">{g.kind === "AMOUNT" ? `Στο ταμείο ${euro(g.cents)}, στην ΑΑΔΕ ${euro(g.aadeCents ?? 0)}: στείλε την στην υποστήριξη της Viva` : GAP[g.kind][1]}</span>
+                </span>,
+              },
+            }))}
+          />
+        </Card>
+      ) : null}
 
       <Card>
         <h2 className="px-4 pt-4 pb-2 text-sm font-semibold sm:px-5">Ανά ημέρα και εκδότη</h2>
@@ -106,7 +134,7 @@ export async function AadeView({ orgId, now = new Date() }: { orgId: string; now
             { key: "finding", label: "Τι βρήκαμε", wrap: true },
           ]}
           rows={sorted.map((r) => {
-            const f = finding(r);
+            const f = r.status === "DIFF" ? gapSummary(gapsOf(r)) : null;
             return {
               id: r.id,
               cells: {
@@ -114,7 +142,7 @@ export async function AadeView({ orgId, now = new Date() }: { orgId: string; now
                 issuer: r.issuerName,
                 ours: <span className="whitespace-nowrap tabular-nums">{r.oursCount} · {euro(r.oursCents)}</span>,
                 aade: <span className="whitespace-nowrap tabular-nums">{r.aadeCount == null ? "—" : `${r.aadeCount} · ${euro(r.aadeCents ?? 0)}`}</span>,
-                finding: <span className="grid justify-items-start gap-1"><Badge tone={STATUS[r.status as Status][0]}>{STATUS[r.status as Status][1]}</Badge>{f ? <span className="text-xs text-muted-foreground">{f}{r.status === "WAITING" ? ` · ξαναελέγχεται απόψε` : ""}</span> : null}</span>,
+                finding: <span className="grid justify-items-start gap-1"><Badge tone={STATUS[r.status as Status][0]}>{STATUS[r.status as Status][1]}</Badge>{f ? <span className="text-xs text-muted-foreground">{f}</span> : null}</span>,
               },
             };
           })}
@@ -149,7 +177,7 @@ export async function AadeView({ orgId, now = new Date() }: { orgId: string; now
           })}
         />
       </Card>
-      <p className="text-xs text-muted-foreground">Ο έλεγχος τρέχει κάθε βράδυ για τις τελευταίες {days.length} ημέρες, για κάθε εκδότη με κλειδιά myDATA. Η ΑΑΔΕ δεν δίνει τις αποδείξεις της Viva μία-μία, γι’ αυτό συγκρίνουμε σύνολα. Η εφαρμογή μόνο διαβάζει από το myDATA.</p>
+      <p className="text-xs text-muted-foreground">Ο έλεγχος τρέχει κάθε βράδυ για τις τελευταίες {days.length} ημέρες, για κάθε εκδότη με κλειδιά myDATA. Οι αποδείξεις αντιστοιχίζονται με το MARK που έδωσε η ΑΑΔΕ. Η εφαρμογή μόνο διαβάζει από το myDATA.</p>
     </div>
   );
 }
