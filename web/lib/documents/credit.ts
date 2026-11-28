@@ -11,6 +11,7 @@ import { buildDocument } from "./build.ts";
 import { getDocType } from "./registry.ts";
 import { advanceSeries, ensureSeries } from "./series.ts";
 import { terminalFiscal, transmissionNote } from "../viva/sign.ts";
+import { reverseSaleSafely } from "../consumption.ts";
 
 /**
  * Ετοιμάζει το πιστωτικό της πώλησης. Επιστρέφει null όταν η πώληση δεν πιστώνεται
@@ -51,7 +52,10 @@ export async function issueCredit(input: { orgId: string; saleId: string; live: 
     const fiscal = await tx.fiscalDocument.create({
       data: { orgId: input.orgId, docType: "11.4", seriesId: s.id, aa: s.nextAa, totalCents: doc.totalCents, relatedId: sale.fiscal.id, receiptReference: reference, status: input.live ? "PENDING" : "NOT_SENT", request: JSON.parse(toVivaJson(doc.data)) },
     });
-    if (!input.live) await advanceSeries(tx, s.id);
+    if (!input.live) {
+      await advanceSeries(tx, s.id);
+      await reverseSaleSafely(tx, { orgId: input.orgId, saleId: sale.id }); // 11.4: αντίστροφη κίνηση με το ίδιο κόστος
+    }
     return { documentId: fiscal.id, reference, parentReference: sale.fiscal.receiptReference, cardTransactionId: sale.payment?.vivaTransactionId ?? null, doc, device: sale.device, merchantId: issuer.vivaMerchantId };
   });
 }
@@ -61,8 +65,9 @@ export async function completeCredit(documentId: string, raw: Prisma.InputJsonVa
   await tenantWriteTransaction(orgId, async (tx) => {
     const { count } = await tx.fiscalDocument.updateMany({ where: { id: documentId, orgId, status: "PENDING" }, data: { status: "SIGNED", response: raw, mark: terminalFiscal(raw).mark ?? null, error: transmissionNote(raw) } });
     if (count === 0) return;
-    const d = await tx.fiscalDocument.findUniqueOrThrow({ where: { id: documentId }, select: { seriesId: true } });
+    const d = await tx.fiscalDocument.findUniqueOrThrow({ where: { id: documentId }, select: { seriesId: true, related: { select: { saleId: true } } } });
     if (d.seriesId) await advanceSeries(tx, d.seriesId);
+    if (d.related?.saleId) await reverseSaleSafely(tx, { orgId, saleId: d.related.saleId }); // 11.4: αντίστροφη κίνηση με το ίδιο κόστος
   }, { purpose: "SETTLEMENT" });
 }
 

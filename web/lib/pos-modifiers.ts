@@ -3,7 +3,8 @@
 
 export type ModifierKind = "REQUIRED" | "EXTRA" | "REMOVE";
 export type CatalogGroup = { id: string; name: string; kind: ModifierKind; pick: number; options: { id: string; name: string; priceCents: number }[] };
-export type ChosenOption = { name: string; priceCents: number };
+// id: για τη συνταγή πώλησης της επιλογής (κατανάλωση)· οι παλιές γραμμές δεν το έχουν
+export type ChosenOption = { id?: string; name: string; priceCents: number };
 
 export class ModifierError extends Error {
   constructor(message: string) {
@@ -30,7 +31,7 @@ export function resolveLine(basePriceCents: number, groups: CatalogGroup[], chos
     const n = (count.get(id) ?? 0) + 1;
     if (hit.group.kind !== "REQUIRED" && n > 1) throw new ModifierError(`Το «${hit.option.name}» μπαίνει μία φορά`);
     count.set(id, n);
-    chosen.push({ name: hit.option.name, priceCents: hit.group.kind === "REMOVE" ? 0 : hit.option.priceCents, rank: rank.get(id)! });
+    chosen.push({ id, name: hit.option.name, priceCents: hit.group.kind === "REMOVE" ? 0 : hit.option.priceCents, rank: rank.get(id)! });
   }
   for (const group of groups) {
     if (group.kind !== "REQUIRED") continue;
@@ -39,7 +40,7 @@ export function resolveLine(basePriceCents: number, groups: CatalogGroup[], chos
   }
   // σειρά της απόδειξης: όπως οι ομάδες στον κατάλογο, όχι όπως πατήθηκαν
   chosen.sort((a, b) => a.rank - b.rank);
-  const options: ChosenOption[] = chosen.map(({ name, priceCents }) => ({ name, priceCents }));
+  const options: ChosenOption[] = chosen.map(({ id, name, priceCents }) => ({ id, name, priceCents }));
   return { unitPriceCents: basePriceCents + options.reduce((s, o) => s + o.priceCents, 0), options };
 }
 

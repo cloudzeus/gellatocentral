@@ -162,6 +162,7 @@ export type PostStockMovementInput = StockKey & {
   transferLineId?: string | null;
   countId?: string | null;
   countLineId?: string | null;
+  consumptionEventId?: string | null;
   note?: string | null;
   occurredAt?: Date;
   actor: StockActor;
@@ -218,6 +219,7 @@ export async function postStockMovement(tx: StockDb, input: PostStockMovementInp
       transferLineId: input.transferLineId ?? null,
       countId: input.countId ?? null,
       countLineId: input.countLineId ?? null,
+      consumptionEventId: input.consumptionEventId ?? null,
       note: input.note ?? null,
       occurredAt: input.occurredAt,
       createdById: input.actor.id || null, // συσκευή ή αυτόματη εργασία: χωρίς χρήστη, μένει το όνομα
@@ -254,9 +256,10 @@ export async function postLegacyStockMovement(
   });
 }
 
-export async function assertNoMovementAfterSnapshot(tx: Pick<StockDb, "stockMovement">, input: { orgId: string; warehouseId: string; snapshotAt: Date }) {
+/** genericItemIds: μόνο τα μετρημένα είδη· οι πωλήσεις άλλων ειδών (κύπελλα) δεν ακυρώνουν την απογραφή βιτρίνας. */
+export async function assertNoMovementAfterSnapshot(tx: Pick<StockDb, "stockMovement">, input: { orgId: string; warehouseId: string; snapshotAt: Date; genericItemIds?: readonly string[] }) {
   const changed = await tx.stockMovement.findFirst({
-    where: { orgId: input.orgId, warehouseId: input.warehouseId, recordedAt: { gt: input.snapshotAt } },
+    where: { orgId: input.orgId, warehouseId: input.warehouseId, recordedAt: { gt: input.snapshotAt }, ...(input.genericItemIds ? { genericItemId: { in: [...input.genericItemIds] } } : {}) },
     select: { id: true },
   });
   if (changed) throw new StockError("STOCK_CHANGED_SINCE_SNAPSHOT");

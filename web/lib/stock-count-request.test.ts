@@ -63,8 +63,9 @@ test("count date: δέχεται μόνο πραγματικά ISO calendar date
 });
 
 test("count measurement: κενό actual επιτρέπεται στο draft· άκυροι αριθμοί απορρίπτονται", () => {
-  assert.deepEqual(canonicalStockCountMeasurement({ actualQty: null, reason: "  " }), { actualQty: null, reason: null });
-  assert.deepEqual(canonicalStockCountMeasurement({ actualQty: 0, reason: "  λόγος  " }), { actualQty: 0, reason: "λόγος" });
+  assert.deepEqual(canonicalStockCountMeasurement({ actualQty: null, reason: "  " }), { actualQty: null, reason: null, wasteQty: 0 });
+  assert.deepEqual(canonicalStockCountMeasurement({ actualQty: 0, reason: "  λόγος  ", wasteQty: 3 }), { actualQty: 0, reason: "λόγος", wasteQty: 3 });
+  expectCode(() => canonicalStockCountMeasurement({ actualQty: 1, wasteQty: -1 }), "INVALID_COUNT_LINE");
   for (const actualQty of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 2_147_483_648]) {
     expectCode(() => canonicalStockCountMeasurement({ actualQty }), "INVALID_COUNT_LINE");
   }
@@ -86,4 +87,15 @@ test("count finalize validation: missing actual, reason και persisted mismatc
   expectCode(() => assertFinalizableStockCountLine({ expectedQty: 10, actualQty: 8, differenceQty: -1, reason: "σπασίματα" }), "INVALID_COUNT_LINE");
   assert.deepEqual(assertFinalizableStockCountLine({ expectedQty: 10, actualQty: 8, differenceQty: -2, reason: " σπασίματα " }), { differenceQty: -2, reason: "σπασίματα" });
   assert.deepEqual(assertFinalizableStockCountLine({ expectedQty: 10, actualQty: 10, differenceQty: 0, reason: null }), { differenceQty: 0, reason: null });
+});
+
+test("πεδίο απογραφής σε kg/l/τεμ: «1,80» kg = 1.800.000 mg, κενό = null, άκυρο = NaN", async () => {
+  const { countInputToBase, baseToCountInput } = await import("./count-input.ts");
+  assert.equal(countInputToBase("1,80", 1_000_000), 1_800_000);
+  assert.equal(countInputToBase("0.2", 1_000_000), 200_000);
+  assert.equal(countInputToBase("12", 1), 12);
+  assert.equal(countInputToBase("  ", 1_000_000), null);
+  for (const [raw, scale] of [["-1", 1], ["1e3", 1], ["abc", 1], ["1", 7]] as const) assert.ok(Number.isNaN(countInputToBase(raw, scale)));
+  assert.equal(baseToCountInput(1_800_000, 1_000_000), "1,8");
+  assert.equal(baseToCountInput(null, 1), "");
 });

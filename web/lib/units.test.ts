@@ -48,6 +48,7 @@ test("packToBase: σπάσιμο συσκευασίας σε βασικές μο
 test("formatBaseQty: διαλέγει την πιο αναγνώσιμη μονάδα", () => {
   const mass = [mg, g, kg];
   assert.equal(formatBaseQty(1_500_000, mass, "en-US"), "1.5 kg");
+  assert.equal(formatBaseQty(-600_000, mass, "en-US"), "-600 g");
   assert.equal(formatBaseQty(2_500, mass, "en-US"), "2.5 g");
   assert.equal(formatBaseQty(500, mass, "en-US"), "500 mg");
 });

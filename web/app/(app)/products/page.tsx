@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FolderPlus, ListChecks, Pencil, Plus, Trash2 } from "lucide-react";
+import { CookingPot, FolderPlus, ListChecks, Pencil, Plus, Trash2 } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { FormPending } from "@/components/form-pending";
 import { Modal } from "@/components/modal";
@@ -115,11 +115,13 @@ export default async function ProductsPage({ searchParams }: PageProps<"/product
                   <div><dt className="text-xs text-muted-foreground">Τιμή με ΦΠΑ</dt><dd className="font-medium tabular-nums">{euro(p.priceCents)}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Συντελεστής</dt><dd className="font-medium">{p.vatRate.name} {p.vatRate.rate}%</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Εμφάνιση στο ταμείο</dt><dd className="font-medium">{p.active ? "Ενεργό" : "Κρυφό"}{p.code ? ` · κωδικός ${p.code}` : ""}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Υλικά και κόστος</dt><dd><Link href={`/products/${p.id}/recipe`} className="font-medium text-primary underline-offset-4 hover:underline">Συνταγή πώλησης</Link></dd></div>
                 </DetailGrid>,
                 edit: can("products.edit") ? productForm(p) : undefined,
               },
               menu: can("products.edit") ? (
                 <>
+                  <Link href={`/products/${p.id}/recipe`} className={menuItem}><CookingPot /> Συνταγή πώλησης</Link>
                   <form action={toggleProduct.bind(null, p.id)}><Submit className={menuItem}>{p.active ? "Απόκρυψη από το ταμείο" : "Εμφάνιση ξανά"}</Submit></form>
                   <Modal menuItem label={<><Trash2 /> Διαγραφή</>} title={`Διαγραφή: ${p.name}`} description="Αν υπάρχουν πωλήσεις, το προϊόν θα αποκρυφτεί αντί να διαγραφεί.">
                     <form action={deleteProduct.bind(null, p.id)} className="grid gap-4 [&>button]:justify-self-end">

@@ -1,4 +1,6 @@
 // Χονδρική: ειδικές τιμές, FEFO παράδοση, παραστατικά, εισπράξεις και B2B σε κοινό tenant context.
+import { addDemand } from "./consumption.ts";
+import { businessDay } from "./consumption-rules.ts";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { Prisma } from "./generated/prisma/client";
 import { addressGaps } from "./documents/build";
@@ -330,6 +332,8 @@ export async function deliverWholesaleOrder(ctx: StockContext, input: { orderId:
         genericItemId: line.genericItemId, lotId: line.lotId, quantity: -line.quantityBase,
         source: "wholesale", occurredAt: deliveredAt, actor: actor(ctx),
       });
+      // Η χονδρική κινεί ήδη απόθεμα· στη ζήτηση γράφεται χωριστά, ώστε η πρόβλεψη να μην τη μετρά δύο φορές.
+      for (const line of document.lines) await addDemand(tx, { orgId: ctx.orgId, warehouseId: order.warehouseId, genericItemId: line.genericItemId, day: businessDay(deliveredAt), field: "wholesaleBase", quantity: line.quantityBase });
       await tx.wholesaleOrder.update({ where: { id: order.id }, data: { status: "DELIVERED", deliveredAt } });
       if (input.stopId) {
         await tx.deliveryStop.update({ where: { id: input.stopId }, data: { deliveredAt, recipientName: cleanText(input.recipientName, "Παραλήπτης", 120), proofNote: cleanText(input.proofNote, "Απόδειξη", 500) } });

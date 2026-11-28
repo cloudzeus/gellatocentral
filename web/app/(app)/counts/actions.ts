@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { countInputToBase } from "@/lib/count-input";
 import { requireStockContext } from "@/lib/stock-context";
 import { addStockCountLine, addStockCountLotLine, createStockCount, finalizeStockCount, updateStockCountMeasurements } from "@/lib/stock-counts";
 import { stockCountedOnDate, STOCK_COUNT_ERROR_MESSAGE, StockCountError } from "@/lib/stock-count-request";
@@ -57,12 +58,14 @@ export async function saveCountMeasurements(countId: string, form: FormData) {
   const lineIds = z.array(id).min(1).max(1000).safeParse(form.getAll("lineIds").map(String));
   if (!lineIds.success || new Set(lineIds.data).size !== lineIds.data.length) fail(new StockCountError("INVALID_COUNT_REQUEST"), validId);
   const measurements = lineIds.data.map((lineId) => {
-    const raw = String(form.get(`actual_${lineId}`) ?? "").trim();
-    const actualQty = raw === "" ? null : Number(raw);
-    if (actualQty !== null && (!Number.isInteger(actualQty) || actualQty < 0 || actualQty > 2_147_483_647)) {
-      fail(new StockCountError("INVALID_COUNT_LINE"), validId);
+    // τα πεδία είναι σε μονάδα εμφάνισης (kg / l / τεμ)· η κλίμακα έρχεται μαζί με τη γραμμή
+    const scale = Number(form.get(`scale_${lineId}`) ?? 1);
+    const actualQty = countInputToBase(String(form.get(`actual_${lineId}`) ?? ""), scale);
+    const wasteQty = countInputToBase(String(form.get(`waste_${lineId}`) ?? ""), scale) ?? 0;
+    for (const qty of [actualQty ?? 0, wasteQty]) {
+      if (!Number.isSafeInteger(qty) || qty < 0 || qty > 2_147_483_647) fail(new StockCountError("INVALID_COUNT_LINE"), validId);
     }
-    return { lineId, actualQty, reason: String(form.get(`reason_${lineId}`) ?? "") };
+    return { lineId, actualQty, wasteQty, reason: String(form.get(`reason_${lineId}`) ?? "") };
   });
   const ctx = await requireStockContext("counts.edit");
   try {

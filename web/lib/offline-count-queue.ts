@@ -11,7 +11,7 @@ export type OfflineCountMeasurementsPayload = {
   kind: "measurements";
   countId: string;
   expectedUpdatedAt: string;
-  measurements: { lineId: string; actualQty: number | null; reason: string | null }[];
+  measurements: { lineId: string; actualQty: number | null; reason: string | null; wasteQty?: number }[];
 };
 export type OfflineCountPayload = OfflineCountCreatePayload | OfflineCountMeasurementsPayload;
 export type OfflineCountStatus = "queued" | "syncing" | "conflict";
@@ -64,7 +64,7 @@ export function canonicalOfflineCountPayload(payload: OfflineCountPayload): stri
     countId: payload.countId,
     expectedUpdatedAt: payload.expectedUpdatedAt,
     measurements: payload.measurements
-      .map((line) => ({ lineId: line.lineId, actualQty: line.actualQty, reason: line.reason?.trim() || null }))
+      .map((line) => ({ lineId: line.lineId, actualQty: line.actualQty, reason: line.reason?.trim() || null, ...(line.wasteQty ? { wasteQty: line.wasteQty } : {}) }))
       .sort((a, b) => a.lineId.localeCompare(b.lineId)),
   });
 }
