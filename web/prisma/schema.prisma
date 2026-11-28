@@ -162,25 +162,26 @@ enum MigrationCutoverStatus {
 }
 
 model Organization {
-  id              String     @id @default(cuid())
-  name            String
-  vatNumber       String     @unique // ΑΦΜ
+  id                   String     @id @default(cuid())
+  expenseApprovalCents Int? // δαπάνη με σύνολο πάνω από αυτό περιμένει έγκριση· κενό = χωρίς έγκριση
+  name                 String
+  vatNumber            String     @unique // ΑΦΜ
   // Viva: merchant κάτω από τον ISV λογαριασμό μας (isvDetails.terminalMerchantId)
-  vivaMerchantId  String?
+  vivaMerchantId       String?
   // Κλειδίδια myDATA (ΑΑΔΕ) για λήψη εισερχόμενων τιμολογίων (RequestMyIncome) — τα ορίζει η πλατφόρμα
-  aadeUserId      String?
-  aadeSubKey      String?
+  aadeUserId           String?
+  aadeSubKey           String?
   // Υποτομέας του πελάτη: <slug>.<baseDomain> για την εφαρμογή και <slug>@<mail domain> ως αποστολέας
-  slug            String?    @unique
-  contactEmail    String? // εδώ απαντούν οι παραλήπτες (Reply-To) και εδώ πάνε οι ειδοποιήσεις συνδρομής
-  emailFromName   String? // όνομα αποστολέα· κενό = η επωνυμία
+  slug                 String?    @unique
+  contactEmail         String? // εδώ απαντούν οι παραλήπτες (Reply-To) και εδώ πάνε οι ειδοποιήσεις συνδρομής
+  emailFromName        String? // όνομα αποστολέα· κενό = η επωνυμία
   // Αναστολή από την πλατφόρμα και κλείσιμο επιχείρησης (lib/org-state.ts)
-  suspendedAt     DateTime?
-  suspendedReason String?
-  closingAt       DateTime? // ξεκίνησε το κλείσιμο: περιορισμένη λειτουργία και εξαγωγή δεδομένων
-  deleteAfter     DateTime? // από αυτή την ημέρα επιτρέπεται η οριστική διαγραφή
-  createdAt       DateTime   @default(now())
-  emails          EmailLog[]
+  suspendedAt          DateTime?
+  suspendedReason      String?
+  closingAt            DateTime? // ξεκίνησε το κλείσιμο: περιορισμένη λειτουργία και εξαγωγή δεδομένων
+  deleteAfter          DateTime? // από αυτή την ημέρα επιτρέπεται η οριστική διαγραφή
+  createdAt            DateTime   @default(now())
+  emails               EmailLog[]
 
   stores               Store[]
   warehouses           Warehouse[]
@@ -280,6 +281,7 @@ model Organization {
   budgetTargets          BudgetTarget[]
   costCenters            CostCenter[]
   costAllocationRules    CostAllocationRule[]
+  expenseCategories      ExpenseCategory[]
   vitrineSettings        VitrineSetting[]
   vitrineViews           VitrineDailyView[]
   migrationRuns          MigrationRun[]
@@ -3595,28 +3597,46 @@ model PayrollPaymentExecution {
 }
 
 model Expense {
-  id             String       @id @default(cuid())
-  orgId          String
-  storeId        String?
-  supplierId     String?
-  category       String
-  documentNumber String?
-  netCents       Int
-  vatRate        Int
-  vatCents       Int
-  totalCents     Int
-  informal       Boolean      @default(false)
-  occurredAt     DateTime
-  note           String?
-  createdByName  String
-  createdAt      DateTime     @default(now())
-  costCenterId   String? // κέντρο κόστους (διοικητικό, δεν πάει στο myDATA)· κενό μόνο σε εγγραφές πριν από τα κέντρα
-  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  costCenter     CostCenter?  @relation(fields: [costCenterId], references: [id], onDelete: NoAction) // όχι Restrict: μπλοκάρει το cascade της επιχείρησης
+  id                   String           @id @default(cuid())
+  orgId                String
+  storeId              String?
+  supplierId           String?
+  category             String
+  documentNumber       String?
+  netCents             Int
+  vatRate              Int
+  vatCents             Int
+  totalCents           Int
+  informal             Boolean          @default(false)
+  occurredAt           DateTime
+  note                 String?
+  createdByName        String
+  createdAt            DateTime         @default(now())
+  costCenterId         String? // κέντρο κόστους (διοικητικό, δεν πάει στο myDATA)· κενό μόνο σε εγγραφές πριν από τα κέντρα
+  categoryId           String? // τύπος εξόδου· κενό μόνο σε εγγραφές πριν από τους τύπους (μένει το category)
+  // χαρακτηρισμός myDATA: στιγμιότυπο από τον τύπο εξόδου, αλλάζει ανά δαπάνη· η αλλαγή του τύπου δεν αγγίζει τα SENT/ACCEPTED
+  mydataDocType        String? // τύπος παραστατικού του προμηθευτή: 1.1, 2.1, 13.1, 14.30 …
+  mydataCategory       String?
+  mydataType           String?
+  mydataVatType        String?
+  classificationStatus String           @default("NONE") // NONE | SUGGESTED | SENT | ACCEPTED | FAILED
+  periodFrom           DateTime?        @db.Date // περίοδος που αφορά (π.χ. ασφάλιστρο τριμήνου): μοιράζεται ανά ημέρα στους μήνες
+  periodTo             DateTime?        @db.Date
+  dueAt                DateTime?        @db.Date
+  status               String           @default("APPROVED") // PENDING | APPROVED | REJECTED
+  createdById          String? // ποιος την έγραψε: δεν εγκρίνει τη δική του
+  approvedByName       String?
+  approvedAt           DateTime?
+  fileId               String? // το παραστατικό ως αρχείο (StoredFile)
+  org                  Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  costCenter           CostCenter?      @relation(fields: [costCenterId], references: [id], onDelete: NoAction) // όχι Restrict: μπλοκάρει το cascade της επιχείρησης
+  categoryRef          ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: NoAction)
+  mydataIncoming       MydataIncoming?
 
   @@unique([orgId, supplierId, documentNumber])
   @@index([orgId, category, occurredAt])
   @@index([orgId, occurredAt]) // αναφορές ανά περίοδο, χωρίς κατηγορία
+  @@index([orgId, status])
 }
 
 model SupplierPayment {
@@ -3695,24 +3715,25 @@ model BudgetTarget {
 // Κέντρο κόστους: διοικητικό, δικό μας. Το myDATA δεν έχει κέντρα κόστους. Η δομή ακολουθεί το PRSCOSTCNTR της SoftOne
 // (κωδικός, ιεραρχία, λογαριασμός), ώστε να εξάγεται χωρίς μετάφραση. Οι προεπιλογές είναι στο lib/cost-centers-db.ts.
 model CostCenter {
-  id            String               @id @default(cuid())
-  orgId         String
-  code          String // όπως PRSCOSTCNTR.CODE, π.χ. «10.2»
-  name          String
-  kind          String // STORE | PRODUCTION | HQ | DELIVERY | OTHER
-  parentId      String? // ιεραρχία (SOHCODE στη SoftOne)
-  storeId       String?              @unique // ένα κέντρο ανά κατάστημα, αυτόματα
-  accountCode   String? // λογαριασμός του λογιστή, προαιρετικός
-  source        String               @default("USER") // SEED | ACCOUNTANT | USER
-  createdByName String?
-  active        Boolean              @default(true)
-  createdAt     DateTime             @default(now())
-  org           Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  parent        CostCenter?          @relation("CostCenterTree", fields: [parentId], references: [id], onDelete: NoAction)
-  children      CostCenter[]         @relation("CostCenterTree")
-  store         Store?               @relation(fields: [storeId], references: [id], onDelete: SetNull) // το κέντρο μένει με το ιστορικό του
-  expenses      Expense[]
-  rules         CostAllocationRule[]
+  id                String               @id @default(cuid())
+  orgId             String
+  code              String // όπως PRSCOSTCNTR.CODE, π.χ. «10.2»
+  name              String
+  kind              String // STORE | PRODUCTION | HQ | DELIVERY | OTHER
+  parentId          String? // ιεραρχία (SOHCODE στη SoftOne)
+  storeId           String?              @unique // ένα κέντρο ανά κατάστημα, αυτόματα
+  accountCode       String? // λογαριασμός του λογιστή, προαιρετικός
+  source            String               @default("USER") // SEED | ACCOUNTANT | USER
+  createdByName     String?
+  active            Boolean              @default(true)
+  createdAt         DateTime             @default(now())
+  org               Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parent            CostCenter?          @relation("CostCenterTree", fields: [parentId], references: [id], onDelete: NoAction)
+  children          CostCenter[]         @relation("CostCenterTree")
+  store             Store?               @relation(fields: [storeId], references: [id], onDelete: SetNull) // το κέντρο μένει με το ιστορικό του
+  expenses          Expense[]
+  expenseCategories ExpenseCategory[]
+  rules             CostAllocationRule[]
 
   @@unique([orgId, code])
   @@index([orgId, parentId])
@@ -4173,6 +4194,7 @@ model MydataIncoming {
   doc            Json // MyIncomeDoc με τις γραμμές: από αυτό φτιάχνεται το πρόχειρο στο «Πέρασέ το»
   status         String       @default("MISSING")
   purchaseDocId  String?      @unique
+  expenseId      String?      @unique // ή αγορά ή δαπάνη, ποτέ και τα δύο
   ignoredReason  String?
   resolvedByName String?
   resolvedAt     DateTime?
@@ -4181,6 +4203,7 @@ model MydataIncoming {
   checkedAt      DateTime     @default(now())
   org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   purchaseDoc    PurchaseDoc? @relation(fields: [purchaseDocId], references: [id], onDelete: SetNull)
+  expense        Expense?     @relation(fields: [expenseId], references: [id], onDelete: SetNull)
 
   @@unique([orgId, mark])
   @@index([orgId, status])
@@ -4208,4 +4231,28 @@ model MydataDayCheck {
 
   @@unique([orgId, issuerVat, day, invType])
   @@index([orgId, status])
+}
+
+// Τύπος εξόδου (ενότητα 6), αντίστοιχο του EXPN της SoftOne: φέρνει χαρακτηρισμό myDATA, λογαριασμό λογιστή και
+// προτεινόμενο κέντρο. Τους ανοίγει ο λογιστής ή εμείς· οι προεπιλογές demo (source SEED) είναι προτάσεις.
+model ExpenseCategory {
+  id             String       @id @default(cuid())
+  orgId          String
+  code           String
+  name           String
+  kind           String // COGS | OPEX | PAYROLL_COST | ASSET | FINANCE | TAX_FEE | OTHER (για το αποτέλεσμα)
+  mydataCategory String? // category2_x
+  mydataType     String? // E3_xxx
+  mydataVatType  String? // VAT_361…366· κενό σε απαλλαγή ΦΠΑ
+  accountCode    String?
+  vatAccountCode String?
+  costCenterId   String? // προτεινόμενο κέντρο· κενό = του καταστήματος
+  source         String       @default("USER") // SEED | ACCOUNTANT | USER
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  costCenter     CostCenter?  @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+  expenses       Expense[]
+
+  @@unique([orgId, code])
 }

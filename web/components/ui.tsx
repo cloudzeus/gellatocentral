@@ -1,7 +1,7 @@
 // Κοινά στοιχεία, ίδια εμφάνιση με το Gelato System. Παραμένουν Server Components·
 // μόνο τα shadcn primitives με πραγματική αλληλεπίδραση μπαίνουν στο client bundle.
 import { Info, type LucideIcon } from "lucide-react";
-import { useId, type ComponentProps, type ReactNode } from "react";
+import { useId, type ChangeEvent, type ComponentProps, type ReactNode } from "react";
 import type { SelectOption } from "@/lib/select-options";
 import { MultiSelect } from "./multi-select";
 import { SearchSelect } from "./search-select";
@@ -149,7 +149,7 @@ export function Select({ label, options, hint, id: suppliedId, onValueChange, ..
       {options.length > 15 ? (
         <SearchSelect id={id} name={p.name} options={options} defaultValue={singleValue(p.defaultValue)} value={singleValue(p.value)} required={p.required} disabled={p.disabled} onChange={p.onChange} onValueChange={onValueChange} ariaLabel={label} ariaDescribedBy={hint ? hintId : undefined} className={cn(FIELD, p.className)} />
       ) : (
-        <select id={id} aria-describedby={hint ? hintId : undefined} className={cn(FIELD, p.className)} {...p}>{options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
+        <select id={id} aria-describedby={hint ? hintId : undefined} className={cn(FIELD, p.className)} {...p} {...(onValueChange ? { onChange: (e: ChangeEvent<HTMLSelectElement>) => { p.onChange?.(e); onValueChange(e.target.value); } } : {})}>{options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
       )}
     </div>
   );

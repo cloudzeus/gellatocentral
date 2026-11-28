@@ -17,6 +17,7 @@ export const CATEGORIES = {
   document: { label: "Έγγραφα", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "users.edit", platform: false },
   customer_document: { label: "Έγγραφα πελάτη", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "parties.edit", platform: false },
   purchase_document: { label: "Παραστατικά αγοράς", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "purchases.edit", read: "purchases.read", platform: false },
+  expense_document: { label: "Παραστατικά εξόδων", public: false, types: [...IMAGES, "application/pdf"], maxBytes: 20 * MB, needs: "finance.edit", read: "finance.read", platform: false },
   generated_purchase_order: { label: "PDF παραγγελίας", public: false, types: ["application/pdf"], maxBytes: 20 * MB, needs: "orders.read", platform: false },
   generated_production: { label: "PDF παρτίδας", public: false, types: ["application/pdf"], maxBytes: 20 * MB, needs: "production.read", platform: false },
   generated_recipe: { label: "PDF συνταγής", public: false, types: ["application/pdf"], maxBytes: 20 * MB, needs: "recipes.read", platform: false },

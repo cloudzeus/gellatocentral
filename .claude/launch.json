@@ -1,7 +1,37 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "web", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "web", "run", "dev", "--", "--port", "3210"], "port": 3210 },
-    { "name": "web-build", "runtimeExecutable": "sh", "runtimeArgs": ["-c", "cd web && npx next build && npx next start --port 3212"], "port": 3212 }
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "web",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3210"
+      ],
+      "port": 3210
+    },
+    {
+      "name": "web-build",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd web && npx next build && npx next start --port 3212"
+      ],
+      "port": 3212
+    },
+    {
+      "name": "web-test",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd web && export DATABASE_URL=postgresql://postgres:ci@localhost:55432/gelato_test?schema=public DIRECT_URL=postgresql://postgres:ci@localhost:55432/gelato_test?schema=public && npx next build && npx next start --port 3213"
+      ],
+      "port": 3213
+    }
   ]
 }

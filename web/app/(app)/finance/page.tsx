@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { moveLabel } from "@/lib/status";
-import { ArrowRightLeft, Banknote, Landmark, LockKeyhole, ReceiptText, Target, WalletCards } from "lucide-react";
+import { ArrowRightLeft, Banknote, Check, Clock, Landmark, LockKeyhole, ReceiptText, Target, WalletCards, X } from "lucide-react";
+import Link from "next/link";
 import { DataTable } from "@/components/data-table";
 import { Modal } from "@/components/modal";
 import { StatusBadge } from "@/components/status-badge";
@@ -10,6 +11,7 @@ import { STORES_CODE } from "@/lib/cost-centers-rules";
 import { db } from "@/lib/db";
 import { purchaseTotals } from "@/lib/finance";
 import { listAccountStatementReviews } from "@/lib/finance-reconciliation-db";
+import { listExpenseCategories } from "@/lib/expense-categories-db";
 import { partyIdsByName } from "@/lib/list-search";
 import { euro } from "@/lib/money";
 import { filterParam, listParams } from "@/lib/paging";
@@ -17,7 +19,8 @@ import { listPayrollPaymentBatches } from "@/lib/payroll-payments-db";
 import { payrollProviderAvailability } from "@/lib/payroll-payment-providers";
 import { paymentStatus, statusOptions, statusValues } from "@/lib/status";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
-import { closeCash, newAccount, newExpense, newSupplierPayment, newTransfer, reopenCash, saveBudget } from "./actions";
+import { closeCash, decideExpenseAction, newAccount, newExpense, newSupplierPayment, newTransfer, reopenCash, saveBudget } from "./actions";
+import { ExpenseFields } from "./expense-fields";
 import { FinanceTools } from "./finance-tools";
 
 const money = (value: number | null | undefined) => euro(value ?? 0);
@@ -118,16 +121,82 @@ export default async function FinancePage({ searchParams }: PageProps<"/finance"
   const monthFrom = `${today.slice(0, 8)}01`;
   const monthTo = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0)).toISOString().slice(0, 10);
   const now = new Date();
+  // ενότητα 6: τύποι εξόδων, όριο έγκρισης, δαπάνες που περιμένουν, λήξεις 7 ημερών και σύγκριση μήνα ανά τύπο
+  // shortcut: ο μήνας του γραφήματος μετρά με την ημερομηνία της δαπάνης, όχι με τη μοιρασιά περιόδου· αλλάζει όταν μπει η μοιρασιά στις αναφορές
+  const monthStart = new Date(`${monthFrom}T00:00:00Z`);
+  const prevStart = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() - 1, 1));
+  const nextStart = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 1));
+  const todayStart = new Date(`${today}T00:00:00Z`);
+  const weekEnd = new Date(todayStart.getTime() + 7 * 86_400_000);
+  const [expenseTypes, org, pendingExpenses, dueSoon, byType] = await Promise.all([
+    listExpenseCategories(ctx.orgId),
+    db.organization.findUniqueOrThrow({ where: { id: ctx.orgId }, select: { expenseApprovalCents: true } }),
+    db.expense.findMany({ where: { orgId: ctx.orgId, ...storeScope, status: "PENDING" }, orderBy: { createdAt: "asc" }, take: 20 }),
+    db.expense.findMany({ where: { orgId: ctx.orgId, ...storeScope, status: "APPROVED", dueAt: { gte: todayStart, lte: weekEnd } }, orderBy: { dueAt: "asc" }, take: 50 }),
+    db.expense.groupBy({ by: ["categoryId", "category"], where: { orgId: ctx.orgId, ...storeScope, status: { not: "REJECTED" }, occurredAt: { gte: prevStart, lt: nextStart } }, _sum: { netCents: true }, _min: { occurredAt: true }, _max: { occurredAt: true } }),
+  ]);
+  // πληρωμένη = υπάρχει κίνηση λογαριασμού για τη δαπάνη· στις λήξεις μένουν μόνο οι απλήρωτες
+  const paidIds = new Set((await db.financeTransaction.findMany({ where: { orgId: ctx.orgId, referenceType: "expense", referenceId: { in: dueSoon.map((e) => e.id) } }, select: { referenceId: true } })).map((t) => t.referenceId));
+  const unpaidDue = dueSoon.filter((e) => !paidIds.has(e.id));
+  const monthOf = await db.expense.groupBy({ by: ["categoryId", "category"], where: { orgId: ctx.orgId, ...storeScope, status: { not: "REJECTED" }, occurredAt: { gte: monthStart, lt: nextStart } }, _sum: { netCents: true } });
+  const keyOf = (row: { categoryId: string | null; category: string }) => row.categoryId ?? `name:${row.category}`;
+  const current = new Map(monthOf.map((row) => [keyOf(row), row._sum.netCents ?? 0]));
+  const totalByKey = new Map<string, { name: string; all: number }>();
+  for (const row of byType) { const k = keyOf(row); const prev = totalByKey.get(k); totalByKey.set(k, { name: row.category, all: (prev?.all ?? 0) + (row._sum.netCents ?? 0) }); }
+  const rank = [...totalByKey].map(([k, v]) => ({ name: v.name, now: current.get(k) ?? 0, before: v.all - (current.get(k) ?? 0) })).sort((a, b) => b.now - a.now || b.before - a.before);
+  const top = rank.slice(0, 6);
+  if (rank.length > 6) top.push(rank.slice(6).reduce((acc, r) => ({ name: "Λοιποί τύποι", now: acc.now + r.now, before: acc.before + r.before }), { name: "Λοιποί τύποι", now: 0, before: 0 }));
+  const rankMax = Math.max(1, ...top.flatMap((r) => [r.now, r.before]));
+  const monthBefore = rank.reduce((sum, r) => sum + r.before, 0);
+  const monthAll = rank.reduce((sum, r) => sum + r.now, 0);
+  const monthLabel = new Intl.DateTimeFormat("el-GR", { month: "long", timeZone: "UTC" });
+  const change = (now: number, before: number) => (before ? Math.round(((now - before) / before) * 100) : null);
+  const canApprove = ctx.can("finance.approve");
+  const typeOptions = expenseTypes.filter((t) => t.active).map((t) => ({ id: t.id, code: t.code, name: t.name, category: t.mydataCategory, type: t.mydataType, vat: t.mydataVatType, account: t.accountCode, center: t.costCenter ? `${t.costCenter.code} · ${t.costCenter.name}` : null }));
   const canReopen = ctx.can("finance.reopen");
   const accountModal = canEdit ? <Modal label={<><Landmark /> Λογαριασμός</>} title="Νέος χρηματοοικονομικός λογαριασμός"><form action={newAccount} className="grid gap-3"><Field label="Όνομα" name="name" required maxLength={100} /><Select label="Είδος" name="kind" options={[["bank", "Τράπεζα"], ["cash", "Μετρητά"], ["card_clearing", "Διακανονισμός κάρτας"], ["platform", "Πλατφόρμα"], ["other", "Λοιπός"]]} /><Select label="Κατάστημα" name="storeId" options={storeOptions} /><Field label="Αρχικό υπόλοιπο €" name="openingBalance" inputMode="decimal" defaultValue="0.00" required /><Field label="Ημερομηνία αρχικού" name="openingAt" type="date" defaultValue={today} required /><Submit className={btn("default")}>Δημιουργία</Submit></form></Modal> : null;
   const transferModal = canEdit ? <Modal label={<><ArrowRightLeft /> Μεταφορά</>} title="Εσωτερική μεταφορά"><form action={newTransfer} className="grid gap-3"><Select label="Από" name="sourceAccountId" required options={accountOptions} /><Select label="Προς" name="destinationAccountId" required options={accountOptions} /><Field label="Ποσό €" name="amount" inputMode="decimal" required /><Field label="Ημερομηνία" name="occurredAt" type="datetime-local" required /><TextareaField label="Σημείωση" name="note" maxLength={500} /><Submit className={btn("default")}>Καταχώριση μεταφοράς</Submit></form></Modal> : null;
-  const expenseModal = canEdit ? <Modal label={<><ReceiptText /> Έξοδο</>} title="Νέο έξοδο"><form action={newExpense} className="grid gap-3 sm:grid-cols-2"><Select label="Κατάστημα" name="storeId" options={storeOptions} /><Select label="Κέντρο κόστους" name="costCenterId" options={[["", "Από το κατάστημα (αυτόματα)"], ...costCenters.map((c): [string, string] => [c.id, `${c.code} · ${c.name}`])]} hint="Μπαίνει μόνο του από το κατάστημα· άλλαξέ το αν το έξοδο ανήκει αλλού" /><Select label="Προμηθευτής" name="supplierId" options={[["", "Χωρίς προμηθευτή"], ...supplierOptions]} /><Select label="Λογαριασμός πληρωμής" name="accountId" options={[["", "Χωρίς ταμειακή κίνηση"], ...accountOptions]} /><Field label="Κατηγορία" name="category" required maxLength={80} /><Field label="Παραστατικό" name="documentNumber" maxLength={100} /><Field label="Καθαρή αξία €" name="netAmount" inputMode="decimal" required /><Select label="ΦΠΑ" name="vatRate" options={[["0", "0%"], ["6", "6%"], ["13", "13%"], ["24", "24%"]]} /><Field label="Ημερομηνία" name="occurredAt" type="datetime-local" required /><label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" name="informal" /> Ανεπίσημο / εκτός παραστατικού</label><div className="sm:col-span-2"><TextareaField label="Σημείωση" name="note" maxLength={500} /></div><Submit className={btn("default", "default", "sm:col-span-2")}>Καταχώριση εξόδου</Submit></form></Modal> : null;
+  const expenseModal = canEdit ? <Modal label={<><ReceiptText /> Έξοδο</>} title="Νέα δαπάνη" wide><form action={newExpense} className="grid gap-3 sm:grid-cols-2"><Select label="Κατάστημα" name="storeId" options={storeOptions} /><Select label="Κέντρο κόστους" name="costCenterId" options={[["", "Από το κατάστημα (αυτόματα)"], ...costCenters.map((c): [string, string] => [c.id, `${c.code} · ${c.name}`])]} hint="Μπαίνει μόνο του από το κατάστημα· άλλαξέ το αν το έξοδο ανήκει αλλού" /><Select label="Προμηθευτής" name="supplierId" options={[["", "Χωρίς προμηθευτή"], ...supplierOptions]} /><Select label="Λογαριασμός πληρωμής" name="accountId" options={[["", "Χωρίς ταμειακή κίνηση"], ...accountOptions]} /><Field label="Αριθμός παραστατικού" name="documentNumber" maxLength={100} /><Field label="Ημερομηνία" name="occurredAt" type="datetime-local" required /><ExpenseFields types={typeOptions} limitCents={org.expenseApprovalCents} /><div className="sm:col-span-2"><TextareaField label="Σημείωση" name="note" maxLength={500} /></div><Submit className={btn("default", "default", "sm:col-span-2")}>Καταχώριση εξόδου</Submit></form></Modal> : null;
   const paymentModal = canEdit ? <Modal label={<><WalletCards /> Πληρωμή</>} title="Πληρωμή προμηθευτή"><form action={newSupplierPayment} className="grid gap-3 sm:grid-cols-2"><input type="hidden" name="clientKey" value={crypto.randomUUID()} /><Select label="Προμηθευτής" name="supplierId" required options={supplierOptions} /><Select label="Λογαριασμός" name="accountId" options={[["", "Χωρίς ταμειακή κίνηση"], ...accountOptions]} /><Field label="Ποσό πληρωμής €" name="amount" inputMode="decimal" required /><Field label="Ημερομηνία" name="paidAt" type="datetime-local" required /><Select label="Τιμολόγιο αντιστοίχισης" name="purchaseDocId" options={[["", "Χωρίς αντιστοίχιση"], ...purchaseOptions]} /><Field label="Ποσό αντιστοίχισης €" name="allocation" inputMode="decimal" defaultValue="0.00" /><Field label="Αναφορά" name="reference" maxLength={100} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" name="informal" /> Ανεπίσημη πληρωμή</label><div className="sm:col-span-2"><TextareaField label="Σημείωση" name="note" maxLength={500} /></div><Submit className={btn("default", "default", "sm:col-span-2")}>Καταχώριση πληρωμής</Submit></form></Modal> : null;
   const closingModal = canEdit ? <Modal label={<><LockKeyhole /> Κλείσιμο</>} title="Ημερήσιο κλείσιμο ταμείου"><form action={closeCash} className="grid gap-3 sm:grid-cols-2"><Select label="Κατάστημα" name="storeId" required options={stores.map((store): [string, string] => [store.id, store.name])} /><Select label="Ταμειακός λογαριασμός" name="cashAccountId" options={[["", "Χωρίς υπολογισμό εκταμιεύσεων"], ...accounts.filter((account) => account.active && account.kind === "cash").map((account): [string, string] => [account.id, account.name])]} /><Field label="Επιχειρησιακή ημέρα" name="businessDate" type="date" defaultValue={today} required /><Select label="Βάρδια" name="shift" options={[["DAY", "Ημερήσια"], ["MORNING", "Πρωινή"], ["EVENING", "Βραδινή"]]} /><Field label="Αρχικό ταμείο €" name="openingCash" inputMode="decimal" defaultValue="0.00" required /><Field label="Καταμέτρηση €" name="actualCash" inputMode="decimal" required /><Field label="Προμήθεια €" name="commission" inputMode="decimal" defaultValue="0.00" required /><Submit className={btn("default", "default", "sm:col-span-2")}>Κλείσιμο ταμείου</Submit></form></Modal> : null;
   const budgetModal = canEdit ? <Modal label={<><Target /> Στόχος</>} title="Μηνιαίος στόχος"><form action={saveBudget} className="grid gap-3 sm:grid-cols-2"><Select label="Κατάστημα" name="storeId" options={storeOptions} /><Field label="Έτος" name="year" type="number" min={2000} max={2200} defaultValue={now.getFullYear()} required /><Select label="Μήνας" name="month" options={Array.from({ length: 12 }, (_, index): [string, string] => [String(index + 1), String(index + 1).padStart(2, "0")])} defaultValue={String(now.getMonth() + 1)} /><Field label="Πωλήσεις €" name="sales" inputMode="decimal" defaultValue="0.00" required /><Field label="Κόστος πωληθέντων €" name="cogs" inputMode="decimal" defaultValue="0.00" required /><Field label="Προσωπικό €" name="payroll" inputMode="decimal" defaultValue="0.00" required /><Field label="Έξοδα €" name="expenses" inputMode="decimal" defaultValue="0.00" required /><Submit className={btn("default", "default", "sm:col-span-2")}>Αποθήκευση στόχου</Submit></form></Modal> : null;
   return <Page section="Οικονομικά" title="Οικονομικά & ταμείο" description="Λογαριασμοί, έξοδα, πληρωμές, ημερήσια κλεισίματα και στόχοι, ανά κατάστημα" actions={canEdit ? <span className="flex flex-wrap gap-2">{accountModal}{transferModal}{expenseModal}{paymentModal}{closingModal}{budgetModal}</span> : null}>
     <div className="grid gap-5">
       {typeof query.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{query.error}</p> : null}
+      <section className="grid gap-3 sm:grid-cols-3" aria-label="Δαπάνες με μια ματιά">
+        <Card className="p-4"><p className="text-sm text-muted-foreground first-letter:uppercase">Δαπάνες {monthLabel.format(monthStart)} · καθαρά</p><p className="mt-1 text-2xl font-semibold tabular-nums">{money(monthAll)}</p>{(() => { const c = change(monthAll, monthBefore); return <p className={`text-xs ${c == null ? "text-muted-foreground" : c > 0 ? "text-destructive" : "text-success-ink"}`}>{c == null ? "Δεν υπάρχουν δαπάνες τον προηγούμενο μήνα" : `${c > 0 ? "+" : ""}${c}% από τον ${monthLabel.format(prevStart)}`}</p>; })()}</Card>
+        <Card className="p-4"><p className="text-sm text-muted-foreground">Περιμένουν έγκριση</p><p className="mt-1 text-2xl font-semibold tabular-nums">{pendingExpenses.length} · {money(pendingExpenses.reduce((sum, e) => sum + e.totalCents, 0))}</p><p className="text-xs text-muted-foreground">{org.expenseApprovalCents != null ? `Όριο έγκρισης ${money(org.expenseApprovalCents)}` : <>Χωρίς όριο έγκρισης · <Link href="/finance/expense-types" className="underline">όρισέ το</Link></>}</p></Card>
+        <Card className="p-4"><p className="text-sm text-muted-foreground">Λήγουν σε 7 ημέρες, απλήρωτες</p><p className="mt-1 text-2xl font-semibold tabular-nums">{unpaidDue.length} · {money(unpaidDue.reduce((sum, e) => sum + e.totalCents, 0))}</p><p className="text-xs text-muted-foreground">{unpaidDue[0]?.dueAt ? `Η πρώτη στις ${day(unpaidDue[0].dueAt)}` : "Καμία πληρωμή δεν λήγει αυτή την εβδομάδα"}</p></Card>
+      </section>
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]">
+        <Card className="min-w-0 p-5">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3"><h2 className="font-semibold">Δαπάνες ανά τύπο</h2><span className="flex gap-4 text-xs text-muted-foreground"><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-primary" aria-hidden /><span className="first-letter:uppercase">{monthLabel.format(monthStart)}</span></span><span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-primary/25" aria-hidden /><span className="first-letter:uppercase">{monthLabel.format(prevStart)}</span></span></span></div>
+          {top.length ? <ul className="grid gap-3">{top.map((r) => { const c = change(r.now, r.before); return (
+            <li key={r.name} className="grid grid-cols-[minmax(0,1fr)_6rem] items-center gap-x-3 gap-y-1 sm:grid-cols-[11rem_minmax(0,1fr)_6rem]">
+              <span className="min-w-0"><span className="block truncate text-sm">{r.name}</span><small className="text-xs text-muted-foreground">{c == null ? (r.now ? "νέο αυτόν τον μήνα" : "μόνο τον προηγούμενο") : c === 0 ? "ίδιο με πριν" : `${c > 0 ? "+" : ""}${c}% από πριν`}</small></span>
+              <span className="col-span-2 row-start-2 grid gap-1 sm:col-span-1 sm:row-start-auto" aria-hidden><span className="h-3 overflow-hidden rounded bg-primary/5"><span className="block h-full rounded bg-primary" style={{ width: `${(r.now / rankMax) * 100}%` }} /></span><span className="h-2 overflow-hidden rounded bg-primary/5"><span className="block h-full rounded bg-primary/25" style={{ width: `${(r.before / rankMax) * 100}%` }} /></span></span>
+              <span className="text-right text-sm font-semibold tabular-nums sm:col-start-3 sm:row-start-1">{money(r.now)}</span>
+            </li>); })}</ul> : <p className="text-sm text-muted-foreground">Δεν υπάρχουν δαπάνες αυτόν και τον προηγούμενο μήνα.</p>}
+        </Card>
+        <div className="grid min-w-0 gap-4">
+          <Card className="p-5">
+            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2"><h2 className="font-semibold">Περιμένουν έγκριση</h2><span className="text-xs text-muted-foreground">δεν εγκρίνεις δική σου</span></div>
+            {pendingExpenses.length ? <ul className="divide-y">{pendingExpenses.map((e) => (
+              <li key={e.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <span className="min-w-0"><b className="block font-medium">{e.category}{e.documentNumber ? ` · ${e.documentNumber}` : ""}</b><small className="text-xs text-muted-foreground">{e.storeId ? storeNames.get(e.storeId) ?? "Κατάστημα" : "Κεντρικό"} · {e.createdByName ?? "—"}, {day(e.createdAt)}</small></span>
+                <span className="flex items-center gap-2"><b className="font-semibold tabular-nums">{money(e.totalCents)}</b>{canApprove && (e.createdById !== ctx.userId || ctx.can("users.edit")) ? <form action={decideExpenseAction} className="flex gap-2"><input type="hidden" name="id" value={e.id} /><Submit name="decision" value="approve" className={btn("outline", "sm", "text-success-ink")}><Check aria-hidden />Έγκριση</Submit><Submit name="decision" value="reject" className={btn("outline", "sm", "text-destructive")}><X aria-hidden />Απόρριψη</Submit></form> : <small className="text-xs text-muted-foreground">{canApprove ? "δική σου" : "θέλει δικαίωμα έγκρισης"}</small>}</span>
+              </li>))}</ul> : <p className="text-sm text-muted-foreground">Καμία δαπάνη δεν περιμένει έγκριση.</p>}
+          </Card>
+          <Card className="p-5">
+            <h2 className="mb-2 font-semibold">Λήγουν σε 7 ημέρες</h2>
+            {unpaidDue.length ? <ul className="divide-y">{unpaidDue.map((e) => { const days = Math.round((e.dueAt!.getTime() - todayStart.getTime()) / 86_400_000); return (
+              <li key={e.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <span className="min-w-0"><b className="block font-medium">{supplierNames.get(e.supplierId ?? "") ?? e.category}{e.documentNumber ? ` · ${e.documentNumber}` : ""}</b><small className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"><span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold ${days <= 2 ? "bg-warning/20 text-warning-ink" : "bg-secondary"}`}><Clock className="size-3" aria-hidden />{days === 0 ? "σήμερα" : days === 1 ? "αύριο" : `σε ${days} ημέρες`}</span>{e.category} · {e.storeId ? storeNames.get(e.storeId) ?? "Κατάστημα" : "Κεντρικό"}</small></span>
+                <b className="font-semibold tabular-nums">{money(e.totalCents)}</b>
+              </li>); })}</ul> : <p className="text-sm text-muted-foreground">Καμία απλήρωτη δαπάνη δεν λήγει αυτή την εβδομάδα.</p>}
+          </Card>
+        </div>
+      </div>
       <FinanceTools accounts={accounts.map((account) => ({ id: account.id, name: account.name, kind: account.kind }))} stores={stores} from={monthFrom} to={monthTo} canExport={ctx.can("finance.export")} canPay={ctx.can("staff.pay")} initialStatementHistory={statementHistory.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() }))} initialPayrollHistory={payrollHistory.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() }))} initialProvider={payrollProviderAvailability()} />
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{accounts.map((account) => <Card key={account.id} className="p-4"><div className="flex items-start justify-between gap-2"><div><p className="text-sm text-muted-foreground">{KIND[account.kind] ?? account.kind} · {account.storeId ? storeNames.get(account.storeId) : "Κεντρικός"}</p><h2 className="font-semibold">{account.name}</h2></div><Banknote className="size-5 text-muted-foreground" /></div><p className="mt-3 text-2xl font-bold">{money(account.openingBalanceCents + (balances.get(account.id) ?? 0))}</p><p className="text-xs text-muted-foreground">Αρχικό {money(account.openingBalanceCents)} · κινήσεις {money(balances.get(account.id))}</p></Card>)}{!accounts.length ? <Card className="p-6 text-sm text-muted-foreground sm:col-span-2 xl:col-span-4">Δεν υπάρχουν διαθέσιμοι λογαριασμοί στο δικαίωμά σου.</Card> : null}</section>
       <Section title="Τιμολόγια αγοράς και απλήρωτα υπόλοιπα">
@@ -223,14 +292,15 @@ export default async function FinancePage({ searchParams }: PageProps<"/finance"
           listing={{ ...exp, total: expTotal, placeholder: "Κατηγορία, παραστατικό ή προμηθευτής" }}
           empty={emptyWith("Εδώ φαίνονται τα έξοδα της επιχείρησης (ενοίκιο, ρεύμα, υπηρεσίες). Δεν έχει καταχωρηθεί κανένα ακόμα.", expenseModal)}
           columns={[
-            { key: "category", label: "Κατηγορία", required: true },
+            { key: "category", label: "Τύπος", required: true },
+            { key: "status", label: "Έγκριση" },
             { key: "date", label: "Ημερομηνία", sortable: true },
             { key: "store", label: "Κατάστημα" },
             { key: "supplier", label: "Προμηθευτής" },
             { key: "document", label: "Παραστατικό" },
             { key: "total", label: "Ποσό", numeric: true, sortable: true },
           ]}
-          rows={expenses.map((expense) => ({ id: expense.id, cells: { category: expense.category, date: day(expense.occurredAt), store: expense.storeId ? storeNames.get(expense.storeId) ?? "—" : "Κεντρικό", supplier: supplierNames.get(expense.supplierId ?? "") ?? "Χωρίς προμηθευτή", document: expense.documentNumber ?? "—", total: <strong>{money(expense.totalCents)}</strong> } }))}
+          rows={expenses.map((expense) => ({ id: expense.id, cells: { category: expense.category, status: <StatusBadge kind="expense" value={expense.status} />, date: day(expense.occurredAt), store: expense.storeId ? storeNames.get(expense.storeId) ?? "—" : "Κεντρικό", supplier: supplierNames.get(expense.supplierId ?? "") ?? "Χωρίς προμηθευτή", document: expense.documentNumber ?? "—", total: <strong>{money(expense.totalCents)}</strong> } }))}
         />
       </Section>
       <Section title="Κινήσεις λογαριασμών">

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { decideExpense } from "@/lib/expense-categories-db";
 import { closeCashRegister, createExpense, createFinanceAccount, recordSupplierPayment, reopenCashRegister, saveBudgetTarget, transferFinanceFunds } from "@/lib/finance-db";
 import { requireStockContext } from "@/lib/stock-context";
 import { workflowMessage } from "@/lib/workflow-db";
@@ -32,7 +33,9 @@ export async function newTransfer(form: FormData) {
 export async function newExpense(form: FormData) {
   const ctx = await requireStockContext("finance.edit");
   try {
-    await createExpense(ctx, { storeId: text(form, "storeId"), costCenterId: text(form, "costCenterId"), supplierId: text(form, "supplierId"), accountId: text(form, "accountId"), category: String(form.get("category") ?? ""), documentNumber: text(form, "documentNumber"), netCents: cents(form.get("netAmount")), vatRate: Number(form.get("vatRate") ?? 24), informal: form.get("informal") === "on", occurredAt: date(form.get("occurredAt")), note: text(form, "note") });
+    const day = (key: string) => (text(form, key) ? new Date(`${text(form, key)}T00:00:00Z`) : null);
+    const expense = await createExpense(ctx, { storeId: text(form, "storeId"), costCenterId: text(form, "costCenterId"), supplierId: text(form, "supplierId"), accountId: text(form, "accountId"), categoryId: text(form, "categoryId"), mydataDocType: text(form, "mydataDocType"), documentNumber: text(form, "documentNumber"), netCents: cents(form.get("netAmount")), vatRate: Number(form.get("vatRate") ?? 24), informal: form.get("informal") === "on", occurredAt: date(form.get("occurredAt")), periodFrom: day("periodFrom"), periodTo: day("periodTo"), dueAt: day("dueAt"), fileId: text(form, "fileId"), note: text(form, "note") });
+    if (expense.status === "PENDING") back("?saved=Η δαπάνη καταχωρήθηκε και περιμένει έγκριση");
     back("?saved=Το έξοδο καταχωρήθηκε");
   } catch (error) { fail(error); }
 }
@@ -68,5 +71,14 @@ export async function saveBudget(form: FormData) {
   try {
     await saveBudgetTarget(ctx, { storeId: text(form, "storeId"), year: Number(form.get("year")), month: Number(form.get("month")), salesCents: cents(form.get("sales")), cogsCents: cents(form.get("cogs")), payrollCents: cents(form.get("payroll")), expenseCents: cents(form.get("expenses")) });
     back("?saved=Ο στόχος αποθηκεύτηκε");
+  } catch (error) { fail(error); }
+}
+
+export async function decideExpenseAction(form: FormData) {
+  const ctx = await requireStockContext("finance.read");
+  try {
+    const approve = form.get("decision") === "approve";
+    await decideExpense(ctx, String(form.get("id") ?? ""), approve);
+    back(approve ? "?saved=Η δαπάνη εγκρίθηκε" : "?saved=Η δαπάνη απορρίφθηκε");
   } catch (error) { fail(error); }
 }

@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup · Τύποι εξόδων και δαπάνες</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: oklch(0.962 0.008 85); --card: #fff; --fg: oklch(0.32 0 0); --fg2: oklch(0.45 0.01 264); --muted: oklch(0.52 0.01 264);
+    --primary: oklch(0.245 0.055 264); --primary-soft: oklch(0.245 0.055 264 / 7%); --border: oklch(0.245 0.055 264 / 12%);
+    --ok: oklch(0.42 0.11 155); --ok-soft: oklch(0.52 0.12 155 / 10%); --warn: oklch(0.45 0.1 70); --warn-soft: oklch(0.75 0.13 80 / 16%);
+    --bad: oklch(0.5 0.17 25); --bad-soft: oklch(0.6 0.17 25 / 10%);
+    --ease: cubic-bezier(.2,.7,.2,1);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 400 12.5px/1.5 Nunito, system-ui, sans-serif; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .num { font-variant-numeric: tabular-nums; }
+  .shell { max-width: 1440px; margin: 0 auto; padding: 24px 32px 48px; display: grid; gap: 28px; }
+  .note { background: #fff8e6; border: 1px solid #f0d99a; border-radius: 10px; padding: 8px 12px; color: #6b5511; }
+  .screen-title { font-size: 11.5px; font-weight: 600; color: var(--muted); margin: 0 0 8px; display: flex; gap: 8px; align-items: center; }
+  .screen-title .mono { color: var(--fg2); font-weight: 400; }
+  header.page { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; color: var(--primary); }
+  .sub { color: var(--fg2); margin: 0; max-width: 720px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--fg); font: inherit; font-weight: 500; cursor: pointer; transition: background-color .15s var(--ease); white-space: nowrap; }
+  .btn:hover { background: var(--primary-soft); }
+  .btn.primary { background: var(--primary); color: #fff; border-color: transparent; }
+  .btn.ok { color: var(--ok); } .btn.bad { color: var(--bad); }
+  .btn.sm { min-height: 32px; padding: 0 10px; }
+  :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
+  .card > .head { padding: 16px 20px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .card h2 { font-size: 14px; font-weight: 600; margin: 0; }
+  .card .body { padding: 0 20px 20px; }
+  .hint { color: var(--muted); }
+  .tag { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; height: 20px; border-radius: 6px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
+  .tag.ok { background: var(--ok-soft); color: var(--ok); } .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.plain { background: var(--primary-soft); color: var(--fg2); } .tag.acc { background: oklch(0.55 0.1 250 / 12%); color: oklch(0.4 0.1 250); }
+
+  /* οθόνη 1: λίστα τύπων */
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 20px; align-items: start; }
+  table.list { width: 100%; border-collapse: collapse; }
+  .list th { text-align: left; font-weight: 500; color: var(--muted); padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .list td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .list tr[aria-selected="true"] td { background: var(--primary-soft); }
+  .list tr { cursor: pointer; } .list tr:hover td { background: var(--primary-soft); }
+  .list .name b { font-weight: 500; display: block; } .list .name small { color: var(--muted); }
+  .md b { font-weight: 500; display: block; } .md small { color: var(--muted); }
+  .missing { color: var(--warn); display: inline-flex; gap: 4px; align-items: center; }
+
+  .editor label { display: grid; gap: 4px; color: var(--fg2); }
+  .editor .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .editor { display: grid; gap: 12px; }
+  input, select { height: 40px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font: inherit; background: #fff; color: var(--fg); width: 100%; }
+  .say { display: flex; gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--primary-soft); color: var(--fg2); }
+  .say b { color: var(--fg); font-weight: 600; }
+  .say.bad { background: var(--bad-soft); color: var(--bad); } .say.bad b { color: var(--bad); }
+  .say.warn { background: var(--warn-soft); color: var(--warn); }
+  .allowed { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; background: #fff; cursor: pointer; font: inherit; font-size: 11.5px; color: var(--fg2); min-height: 28px; }
+  .chip[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); color: var(--fg); font-weight: 600; }
+
+  /* οθόνη 2: φόρμα δαπάνης */
+  .form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
+  .form label { display: grid; gap: 4px; color: var(--fg2); align-content: start; }
+  .form .wide { grid-column: 1 / -1; }
+  .form .help { color: var(--muted); font-size: 11.5px; }
+  .toggle { display: flex; gap: 8px; align-items: center; color: var(--fg); }
+  .toggle input { width: 16px; height: 16px; }
+  .months { display: grid; gap: 8px; }
+  .month { display: grid; grid-template-columns: 90px 1fr 100px; gap: 12px; align-items: center; }
+  .track { height: 22px; background: oklch(0.245 0.055 264 / 5%); border-radius: 6px; overflow: hidden; }
+  .fill { height: 100%; background: var(--primary); border-radius: 6px; transition: width .35s var(--ease); }
+  .month .val { text-align: right; font-weight: 600; }
+  .drop { border: 1px dashed var(--border); border-radius: 10px; padding: 14px; display: flex; gap: 10px; align-items: center; color: var(--fg2); }
+
+  /* οθόνη 3: έγκριση και λήξεις */
+  .three { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); align-items: center; }
+  .item:first-child { border-top: 0; }
+  .item b { font-weight: 500; } .item small { color: var(--muted); display: block; }
+  .item .acts { display: flex; gap: 8px; align-items: center; }
+  .amt { font-weight: 600; text-align: right; }
+  .kpis { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 4px; }
+  .kpi { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: #fff; }
+  .kpi small { color: var(--muted); display: block; } .kpi b { font-size: 18px; font-weight: 600; }
+  .kpi .d { font-size: 11.5px; } .kpi .d.up { color: var(--bad); } .kpi .d.down { color: var(--ok); }
+  .rank { display: grid; gap: 10px; }
+  .rank .r { display: grid; grid-template-columns: 170px 1fr 90px; gap: 12px; align-items: center; }
+  .rank .r .fill.prev { background: oklch(0.245 0.055 264 / 22%); }
+  .rank .bars2 { display: grid; gap: 3px; }
+  .legend { display: flex; gap: 14px; color: var(--muted); font-size: 11.5px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: var(--primary); margin-right: 6px; vertical-align: -1px; }
+  .legend i.prev { background: oklch(0.245 0.055 264 / 22%); }
+
+  @media (max-width: 1100px) { .split, .three { grid-template-columns: 1fr; } }
+  @media (max-width: 767px) {
+    .shell { padding: 16px; }
+    header.page { flex-direction: column; }
+    .form, .editor .row2, .kpis { grid-template-columns: 1fr; }
+    .list .hide-m { display: none; }
+    .month { grid-template-columns: 70px 1fr 80px; }
+    .rank .r { grid-template-columns: 1fr 80px; } .rank .r .bars2 { grid-column: 1 / -1; order: 3; }
+    .item { grid-template-columns: 1fr; } .item .acts { justify-content: space-between; }
+    input, select { font-size: max(1rem, 1em); min-height: 44px; }
+    .btn { min-height: 44px; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></symbol>
+<symbol id="alert" viewBox="0 0 24 24"><path d="M12 3l9.5 17h-19L12 3zM12 10v4M12 17v.01"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+<symbol id="x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="clip" viewBox="0 0 24 24"><path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="scan" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></symbol>
+</svg>
+
+<div class="shell">
+<div class="note">Mockup για έγκριση · δεδομένα παράδειγμα, οι κανόνες της ΑΑΔΕ είναι οι πραγματικοί (πίνακες συνδυασμών v2.0.2) · τρεις οθόνες: τύποι εξόδων, νέα δαπάνη, έγκριση και λήξεις</div>
+
+<!-- ============ 1. Τύποι εξόδων ============ -->
+<section>
+<p class="screen-title">Οθόνη 1 <span class="mono">Οικονομικά → Τύποι εξόδων</span></p>
+<header class="page">
+<div>
+<h1>Τύποι εξόδων</h1>
+<p class="sub">Κάθε δαπάνη έχει τύπο. Ο τύπος λέει πώς δηλώνεται στο myDATA, σε ποιον λογαριασμό του λογιστή πάει και σε ποιο κέντρο κόστους. Οι προεπιλογές είναι προτάσεις: ο λογιστής τις αλλάζει και η αλλαγή του μετρά πρώτη.</p>
+</div>
+<button class="btn primary"><svg class="i"><use href="#plus"/></svg>Νέος τύπος</button>
+</header>
+<div class="split">
+<section class="card">
+<div class="head"><h2>18 τύποι</h2><span class="hint"><span class="missing"><svg class="i" style="width:14px;height:14px"><use href="#alert"/></svg>5 χωρίς λογαριασμό</span> · ο λογιστής τους συμπληρώνει πριν από την εξαγωγή</span></div>
+<table class="list" id="typesTable"></table>
+</section>
+
+<section class="card">
+<div class="head"><h2 id="edTitle">E04 · Ενέργεια</h2><span class="tag acc">από λογιστή</span></div>
+<div class="body editor">
+<div class="row2">
+<label>Κωδικός<input value="E04" class="mono" id="edCode"></label>
+<label>Είδος στο αποτέλεσμα<select><option>Λειτουργικά</option><option>Κόστος πωληθέντων</option><option>Κόστος προσωπικού</option><option>Πάγια</option><option>Χρηματοοικονομικά</option></select></label>
+</div>
+<label>Όνομα<input value="Ενέργεια (ρεύμα, φυσικό αέριο)" id="edName"></label>
+<label>Κατηγορία myDATA<select id="edCat"></select></label>
+<div><div class="hint" style="margin-bottom:6px">Τύπος Ε3 · μόνο όσοι επιτρέπονται από την ΑΑΔΕ για αυτή την κατηγορία</div><div class="allowed" id="edTypes"></div></div>
+<div class="row2">
+<label>Τύπος ΦΠΑ<select id="edVat"><option value="VAT_361">Αγορές και δαπάνες εσωτερικού</option><option value="VAT_362">Επενδυτικά αγαθά (πάγια)</option><option value="VAT_365">Λήψεις υπηρεσιών ΕΕ</option><option value="">Χωρίς (απαλλαγή)</option></select></label>
+<label>Κέντρο κόστους<select><option>Του καταστήματος</option><option>20 · Εργαστήριο</option><option>30 · Διοίκηση</option><option>50 · Μάρκετινγκ</option></select></label>
+</div>
+<div class="row2">
+<label>Λογαριασμός<input value="62.00.01" class="mono"></label>
+<label>Λογαριασμός ΦΠΑ<input value="54.00.24" class="mono"></label>
+</div>
+<div class="say" id="edSay"></div>
+<div style="display:flex;justify-content:flex-end"><button class="btn primary">Αποθήκευση</button></div>
+</div>
+</section>
+</div>
+</section>
+
+<!-- ============ 2. Νέα δαπάνη ============ -->
+<section>
+<p class="screen-title">Οθόνη 2 <span class="mono">Οικονομικά → Έξοδο (το υπάρχον παράθυρο, με τα νέα πεδία)</span></p>
+<section class="card" style="max-width:980px">
+<div class="head"><h2>Νέα δαπάνη</h2><button class="btn sm"><svg class="i"><use href="#scan"/></svg>Σκάναρε παραστατικό</button></div>
+<div class="body form">
+<label>Τύπος εξόδου<select id="fType"></select></label>
+<label>Παραστατικό προμηθευτή<select id="fDoc">
+<option value="1.1">1.1 · Τιμολόγιο πώλησης</option><option value="2.1">2.1 · Τιμολόγιο παροχής</option><option value="13.1">13.1 · Αγορές λιανικής</option><option value="14.30">14.30 · Λογαριασμός χωρίς MARK</option><option value="16.1">16.1 · Ενοίκια</option><option value="">Χωρίς παραστατικό (ανεπίσημο)</option>
+</select><span class="help">Όπως γράφει πάνω το παραστατικό</span></label>
+<label>Κατάστημα<select><option>Κηφισιά</option><option>Γλυφάδα</option><option>Χωρίς κατάστημα (έδρα)</option></select></label>
+<label>Προμηθευτής<select><option>ΔΕΗ Α.Ε.</option></select></label>
+<label>Αριθμός παραστατικού<input value="Α 004512" class="mono"></label>
+<label>Ημερομηνία<input type="date" value="2026-11-05"></label>
+<label>Καθαρή αξία €<input id="fNet" value="483,87" inputmode="decimal" class="num"></label>
+<label>ΦΠΑ<select id="fVat"><option value="24">24%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option></select></label>
+<label>Πληρώνεται έως<input type="date" value="2026-11-25"><span class="help">Θα φανεί στα «Λήγουν σε 7 ημέρες»</span></label>
+<div class="wide say" id="fSay"></div>
+<label class="wide toggle"><input type="checkbox" id="fPeriodOn" checked> Αφορά περίοδο (π.χ. ασφάλιστρο τριμήνου) · μοιράζεται στους μήνες ανά ημέρα</label>
+<div class="wide" id="fPeriod" style="display:grid;gap:12px">
+<div style="display:flex;gap:12px;flex-wrap:wrap"><label>Από<input type="date" id="pFrom" value="2026-10-15"></label><label>Έως<input type="date" id="pTo" value="2027-01-14"></label></div>
+<div class="months" id="months" aria-label="Μοιρασιά ανά μήνα"></div>
+</div>
+<div class="wide drop"><svg class="i"><use href="#clip"/></svg><span>Σύρε εδώ το παραστατικό (PDF ή φωτογραφία) ή <u>διάλεξε αρχείο</u></span></div>
+<div class="wide say warn" id="fApprove"></div>
+<div class="wide" style="display:flex;justify-content:flex-end;gap:8px"><button class="btn">Άκυρο</button><button class="btn primary">Καταχώριση</button></div>
+</div>
+</section>
+</section>
+
+<!-- ============ 3. Έγκριση, λήξεις, εικόνα ============ -->
+<section>
+<p class="screen-title">Οθόνη 3 <span class="mono">Οικονομικά → πάνω από τους πίνακες</span></p>
+<div class="kpis">
+<div class="kpi"><small>Δαπάνες Νοεμβρίου</small><b class="num">8.412,30 €</b><div class="d up num">+6% από τον Οκτώβριο</div></div>
+<div class="kpi"><small>Περιμένουν έγκριση</small><b class="num">2 · 1.540,00 €</b><div class="d hint">Όριο έγκρισης 500 €</div></div>
+<div class="kpi"><small>Λήγουν σε 7 ημέρες</small><b class="num">3 · 912,45 €</b><div class="d hint">Η πρώτη στις 30/11</div></div>
+</div>
+<div class="three" style="margin-top:12px">
+<section class="card">
+<div class="head"><h2>Δαπάνες ανά τύπο</h2><div class="legend"><span><i></i>Νοέμβριος</span><span><i class="prev"></i>Οκτώβριος</span></div></div>
+<div class="body rank" id="rank"></div>
+</section>
+<div style="display:grid;gap:20px">
+<section class="card">
+<div class="head"><h2>Περιμένουν έγκριση</h2><span class="hint">δεν εγκρίνεις δική σου</span></div>
+<div class="body">
+<div class="item"><div><b>Επισκευή ψυγείου βιτρίνας</b><small>Συντηρήσεις · Κηφισιά · Ν. Αλεξίου, 26/11</small></div><div class="acts"><span class="amt num">1.120,00 €</span><button class="btn sm ok"><svg class="i"><use href="#check"/></svg>Έγκριση</button><button class="btn sm bad"><svg class="i"><use href="#x"/></svg>Απόρριψη</button></div></div>
+<div class="item"><div><b>Καμπάνια Instagram Δεκεμβρίου</b><small>Διαφήμιση · Μάρκετινγκ · Μ. Παππά, 27/11</small></div><div class="acts"><span class="amt num">420,00 € </span><button class="btn sm ok"><svg class="i"><use href="#check"/></svg>Έγκριση</button><button class="btn sm bad"><svg class="i"><use href="#x"/></svg>Απόρριψη</button></div></div>
+</div>
+</section>
+<section class="card">
+<div class="head"><h2>Λήγουν σε 7 ημέρες</h2></div>
+<div class="body">
+<div class="item"><div><b>ΔΕΗ · Α 004512</b><small><span class="tag warn"><svg class="i" style="width:12px;height:12px"><use href="#clock"/></svg>σε 2 ημέρες</span> Ενέργεια · Κηφισιά</small></div><div class="acts"><span class="amt num">600,00 €</span><button class="btn sm">Πληρωμή</button></div></div>
+<div class="item"><div><b>Cosmote · 88213</b><small><span class="tag plain">σε 5 ημέρες</span> Τηλεπικοινωνίες · Γλυφάδα</small></div><div class="acts"><span class="amt num">62,45 €</span><button class="btn sm">Πληρωμή</button></div></div>
+<div class="item"><div><b>Λογιστικό γραφείο · 1204</b><small><span class="tag plain">σε 6 ημέρες</span> Αμοιβή λογιστή · Διοίκηση</small></div><div class="acts"><span class="amt num">250,00 €</span><button class="btn sm">Πληρωμή</button></div></div>
+</div>
+</section>
+</div>
+</div>
+</section>
+</div>
+
+<script>
+const COMBOS = {"1.1":{"category2_1":["E3_102_001","E3_102_003","E3_102_006","E3_313_001","E3_313_005"],"category2_2":["E3_202_001","E3_202_005","E3_302_001","E3_302_005"],"category2_3":["E3_585_001","E3_585_002","E3_585_004","E3_585_005","E3_585_006","E3_585_008","E3_585_009","E3_585_011","E3_585_012","E3_585_013","E3_585_014","E3_585_015","E3_585_016","E3_586","E3_581_003"],"category2_4":["E3_585_001","E3_585_002","E3_585_004","E3_585_005","E3_585_006","E3_585_008","E3_585_009","E3_585_011","E3_585_012","E3_585_013","E3_585_014","E3_585_015","E3_585_016","E3_586","E3_882_001","E3_883_001","E3_102_001","E3_102_003","E3_102_004","E3_102_005","E3_202_001","E3_202_003","E3_202_004","E3_302_001","E3_302_003","E3_302_004","E3_313_001","E3_313_003","E3_313_004","E3_581_003"],"category2_5":["E3_585_001","E3_585_002","E3_585_004","E3_585_005","E3_585_006","E3_585_008","E3_585_009","E3_585_011","E3_585_012","E3_585_013","E3_585_014","E3_585_015","E3_585_016","E3_586","E3_882_001","E3_883_001","E3_102_001","E3_102_003","E3_102_004","E3_102_005","E3_202_001","E3_202_003","E3_202_004","E3_302_001","E3_302_003","E3_302_004","E3_313_001","E3_313_003","E3_313_004","E3_581_003"],"category2_7":["E3_882_001","E3_883_001"]},"2.1":{"category2_1":["E3_102_001","E3_102_003","E3_102_006","E3_313_001","E3_313_005"],"category2_2":["E3_202_001","E3_202_005","E3_302_001","E3_302_005"],"category2_3":["E3_585_001","E3_585_002","E3_585_004","E3_585_005","E3_585_006","E3_585_008","E3_585_009","E3_585_011","E3_585_012","E3_585_013","E3_585_014","E3_585_015","E3_585_016","E3_586","E3_581_003"],"category2_4":["E3_585_001","E3_585_002","E3_585_004","E3_585_005","E3_585_006","E3_585_008","E3_585_009","E3_585_011","E3_585_012","E3_585_013","E3_585_014","E3_585_015","E3_585_016","E3_586","E3_102_001","E3_102_003","E3_102_004","E3_102_005","E3_202_001","E3_202_003","E3_202_004","E3_302_001","E3_302_003","E3_302_004","E3_313_001","E3_313_003","E3_313_004","E3_581_003"],"category2_5":["E3_585_001","E3_585_002","E3_585_004","E3_585_005","E3_585_006","E3_585_008","E3_585_009","E3_585_011","E3_585_012","E3_585_013","E3_585_014","E3_585_015","E3_585_016","E3_586","E3_882_001","E3_883_001","E3_102_001","E3_102_003","E3_102_004","E3_102_005","E3_202_001","E3_202_003","E3_202_004","E3_302_001","E3_302_003","E3_302_004","E3_313_001","E3_313_003","E3_313_004","E3_581_003"],"category2_7":["E3_882_001","E3_882_003","E3_882_004","E3_883_001","E3_883_003","E3_883_004"]},"13.1":{"category2_1":["E3_102_001","E3_102_002","E3_102_003","E3_102_006","E3_313_001","E3_313_002","E3_313_005"],"category2_2":["E3_202_001","E3_202_002","E3_202_005","E3_302_001","E3_302_002","E3_302_005"],"category2_3":["E3_585_001","E3_585_002","E3_585_004","E3_585_005","E3_585_006","E3_585_008","E3_585_009","E3_585_011","E3_585_012","E3_585_013","E3_585_014","E3_585_015","E3_585_016","E3_586","E3_581_003"],"category2_4":["E3_585_001","E3_585_002","E3_585_004","E3_585_005","E3_585_006","E3_585_008","E3_585_009","E3_585_011","E3_585_012","E3_585_013","E3_585_014","E3_585_015","E3_585_016","E3_586","E3_882_001","E3_882_002","E3_883_001","E3_883_002","E3_102_001","E3_102_002","E3_102_003","E3_102_004","E3_102_005","E3_202_001","E3_202_003","E3_202_004","E3_302_001","E3_302_003","E3_302_004","E3_313_001","E3_313_003","E3_313_004","E3_581_003"],"category2_5":["E3_585_001","E3_585_002","E3_585_004","E3_585_005","E3_585_006","E3_585_008","E3_585_009","E3_585_011","E3_585_012","E3_585_013","E3_585_014","E3_585_015","E3_585_016","E3_586","E3_882_001","E3_882_002","E3_883_001","E3_883_002","E3_102_001","E3_102_002","E3_102_003","E3_102_004","E3_102_005","E3_202_001","E3_202_003","E3_202_004","E3_302_001","E3_302_003","E3_302_004","E3_313_001","E3_313_003","E3_313_004","E3_581_003"],"category2_7":["E3_882_001","E3_882_002","E3_883_001","E3_883_002"]},"14.30":{"category2_3":["E3_585_011","E3_585_012","E3_585_013","E3_585_016","E3_586"],"category2_4":["E3_585_011","E3_585_012","E3_585_013","E3_585_016","E3_586"],"category2_5":["E3_585_011","E3_585_012","E3_585_013","E3_585_014","E3_585_016","E3_586"]},"16.1":{"category2_5":["E3_585_014","E3_585_016"]},"17.1":{"category2_6":["E3_581_001","E3_581_002","E3_581_003"]}};
+const CAT = { category2_1: "Αγορές εμπορευμάτων", category2_2: "Αγορές πρώτων υλών και υλικών", category2_3: "Λήψη υπηρεσιών", category2_4: "Γενικά έξοδα με έκπτωση ΦΠΑ", category2_5: "Γενικά έξοδα χωρίς έκπτωση ΦΠΑ", category2_6: "Αμοιβές και παροχές προσωπικού", category2_7: "Αγορές παγίων" };
+const E3 = { E3_102_001: "Αγορές εμπορευμάτων, χονδρικές", E3_102_002: "Αγορές εμπορευμάτων, λιανικές", E3_102_003: "Αγορές εμπορευμάτων, άρθρο 39α", E3_102_006: "Αγορές εμπορευμάτων, λοιπά", E3_202_001: "Πρώτες ύλες, χονδρικές", E3_202_002: "Πρώτες ύλες, λιανικές", E3_202_005: "Πρώτες ύλες, λοιπά", E3_581_001: "Μικτές αποδοχές", E3_581_002: "Εργοδοτικές εισφορές", E3_581_003: "Λοιπές παροχές σε εργαζόμενους", E3_585_001: "Προμήθειες διαχείρισης", E3_585_002: "Δαπάνες από συνδεδεμένες", E3_585_004: "Ενημερωτικές ημερίδες", E3_585_005: "Υποδοχή και φιλοξενία", E3_585_006: "Έξοδα ταξιδιών", E3_585_008: "Παραγγελιοδόχος για αγρότες", E3_585_009: "Αμοιβές υπηρεσιών ημεδαπής", E3_585_011: "Ενέργεια", E3_585_012: "Ύδρευση", E3_585_013: "Τηλεπικοινωνίες", E3_585_014: "Ενοίκια", E3_585_015: "Διαφήμιση και προβολή", E3_585_016: "Λοιπά έξοδα", E3_586: "Χρεωστικοί τόκοι", E3_882_001: "Ενσώματα πάγια, χονδρικές", E3_882_002: "Ενσώματα πάγια, λιανικές", E3_883_001: "Άυλα πάγια, χονδρικές" };
+const VAT = { VAT_361: "Αγορές και δαπάνες εσωτερικού", VAT_362: "Επενδυτικά αγαθά (πάγια)", VAT_365: "Λήψεις υπηρεσιών ΕΕ" };
+const DOC = { "1.1": "Τιμολόγιο πώλησης 1.1", "2.1": "Τιμολόγιο παροχής 2.1", "13.1": "Αγορές λιανικής 13.1", "14.30": "Λογαριασμό χωρίς MARK 14.30", "16.1": "Ενοίκια 16.1" };
+const KIND = { COGS: "Κόστος πωληθέντων", OPEX: "Λειτουργικά", PAYROLL_COST: "Προσωπικό", ASSET: "Πάγια", FINANCE: "Χρηματοοικ." };
+const types = [
+  ["E01","Αγορές εμπορευμάτων","COGS","category2_1","E3_102_001","VAT_361","20.01","Του καταστήματος","SEED",14],
+  ["E02","Πρώτες ύλες","COGS","category2_2","E3_202_001","VAT_361","24.01","20 · Εργαστήριο","SEED",38],
+  ["E03","Υλικά συσκευασίας","COGS","category2_2","E3_202_001","VAT_361","25.00","Του καταστήματος","SEED",9],
+  ["E04","Ενέργεια (ρεύμα, φυσικό αέριο)","OPEX","category2_4","E3_585_011","VAT_361","62.00.01","Του καταστήματος","ACCOUNTANT",6],
+  ["E05","Ύδρευση","OPEX","category2_4","E3_585_012","VAT_361","62.02","Του καταστήματος","SEED",3],
+  ["E06","Τηλεπικοινωνίες και internet","OPEX","category2_4","E3_585_013","VAT_361","62.03","Του καταστήματος","SEED",4],
+  ["E07","Ενοίκια","OPEX","category2_4","E3_585_014","VAT_361","62.04","Του καταστήματος","SEED",3],
+  ["E08","Αμοιβή λογιστή","OPEX","category2_3","E3_585_009","VAT_361","61.00","30 · Διοίκηση","SEED",1],
+  ["E09","Διαφήμιση και προβολή","OPEX","category2_4","E3_585_015","VAT_361","64.02","50 · Μάρκετινγκ","SEED",2],
+  ["E10","Προμήθειες Viva και delivery","OPEX","category2_3","E3_585_016","VAT_361","","Του καταστήματος","SEED",11],
+  ["E11","Συντηρήσεις και επισκευές","OPEX","category2_3","E3_585_016","VAT_361","62.07","Του καταστήματος","SEED",2],
+  ["E12","Συνδρομές λογισμικού","OPEX","category2_3","E3_585_016","VAT_361","","30 · Διοίκηση","SEED",3],
+  ["E13","Υποδοχή και φιλοξενία","OPEX","category2_4","E3_585_005","VAT_361","","30 · Διοίκηση","SEED",0],
+  ["E14","Τραπεζικά έξοδα και τόκοι","FINANCE","category2_3","E3_586","","","30 · Διοίκηση","SEED",5],
+  ["E15","Εξοπλισμός (πάγια)","ASSET","category2_7","E3_882_001","VAT_362","","Του καταστήματος","SEED",0],
+  ["E16","Λοιπά έξοδα","OPEX","category2_4","E3_585_016","VAT_361","64.98","Του καταστήματος","USER",7],
+  ["P01","Μισθοδοσία: μικτές αποδοχές","PAYROLL_COST","category2_6","E3_581_001","","60.00","Του καταστήματος","SEED",2],
+  ["P02","Μισθοδοσία: εργοδοτικές εισφορές","PAYROLL_COST","category2_6","E3_581_002","","60.03","Του καταστήματος","SEED",2],
+].map(([code,name,kind,cat,e3,vat,acc,center,source,n]) => ({ code, name, kind, cat, e3, vat, acc, center, source, n }));
+const SRC = { SEED: '<span class="tag plain">προεπιλογή</span>', ACCOUNTANT: '<span class="tag acc">από λογιστή</span>', USER: '<span class="tag ok">από εμάς</span>' };
+const eur = (c) => (c / 100).toLocaleString("el-GR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+const allowed = (doc, cat) => (COMBOS[doc] || {})[cat] || [];
+const anyDocs = (cat, e3) => Object.keys(COMBOS).filter((d) => allowed(d, cat).includes(e3));
+let sel = "E04";
+
+function renderTable() {
+  document.getElementById("typesTable").innerHTML = `<tr><th>Κωδ.</th><th>Τύπος</th><th>Θα δηλωθεί ως (myDATA)</th><th class="hide-m">Λογαριασμός</th><th class="hide-m">Κέντρο</th><th class="hide-m">Από</th></tr>` +
+    types.map((t) => `<tr aria-selected="${t.code === sel}" data-c="${t.code}" tabindex="0">
+      <td class="mono hint">${t.code}</td>
+      <td class="name"><b>${t.name}</b><small>${KIND[t.kind]} · ${t.n ? t.n + " δαπάνες" : "καμία δαπάνη"}</small></td>
+      <td class="md"><b>${E3[t.e3] || t.e3}</b><small class="mono">${t.cat} · ${t.e3}${t.vat ? " · " + t.vat : ""}</small></td>
+      <td class="hide-m mono">${t.acc || '<span class="missing"><svg class="i" style="width:14px;height:14px"><use href="#alert"/></svg>λείπει</span>'}</td>
+      <td class="hide-m">${t.center}</td><td class="hide-m">${SRC[t.source]}</td></tr>`).join("");
+  document.querySelectorAll("#typesTable tr[data-c]").forEach((r) => r.onclick = () => { sel = r.dataset.c; const t = types.find((x) => x.code === sel); edCat = t.cat; edE3 = t.e3; renderAll(); });
+}
+let edCat = "category2_4", edE3 = "E3_585_011";
+function renderEditor() {
+  const t = types.find((x) => x.code === sel);
+  document.getElementById("edTitle").textContent = `${t.code} · ${t.name}`;
+  document.getElementById("edCode").value = t.code; document.getElementById("edName").value = t.name;
+  const cat = document.getElementById("edCat");
+  cat.innerHTML = Object.entries(CAT).map(([k, v]) => `<option value="${k}" ${k === edCat ? "selected" : ""}>${v} (${k})</option>`).join("");
+  cat.onchange = () => { edCat = cat.value; const list = [...new Set(Object.keys(COMBOS).flatMap((d) => allowed(d, edCat)))]; if (!list.includes(edE3)) edE3 = list[0]; renderEditor(); };
+  const list = [...new Set(Object.keys(COMBOS).flatMap((d) => allowed(d, edCat)))].filter((x) => E3[x]);
+  const box = document.getElementById("edTypes");
+  box.innerHTML = list.map((x) => `<button class="chip" aria-pressed="${x === edE3}" data-x="${x}" title="${x}">${E3[x]}</button>`).join("");
+  box.querySelectorAll(".chip").forEach((b) => b.onclick = () => { edE3 = b.dataset.x; renderEditor(); });
+  const docs = anyDocs(edCat, edE3).filter((d) => DOC[d]);
+  document.getElementById("edSay").innerHTML = `<svg class="i" style="margin-top:2px"><use href="#info"/></svg><span>Θα δηλωθεί ως <b>${E3[edE3]} (${edE3})</b>, κατηγορία «${CAT[edCat]}». Επιτρέπεται σε: ${docs.map((d) => DOC[d]).join(", ") || "κανένα από τα συνηθισμένα"}.</span>`;
+}
+
+function renderForm() {
+  const fType = document.getElementById("fType");
+  if (!fType.options.length) { fType.innerHTML = types.map((t) => `<option value="${t.code}" ${t.code === "E04" ? "selected" : ""}>${t.code} · ${t.name}</option>`).join(""); fType.onchange = renderForm; document.getElementById("fDoc").onchange = renderForm; }
+  const t = types.find((x) => x.code === fType.value);
+  const doc = document.getElementById("fDoc").value;
+  const say = document.getElementById("fSay");
+  if (!doc) { say.className = "wide say"; say.innerHTML = `<svg class="i" style="margin-top:2px"><use href="#info"/></svg><span>Ανεπίσημη δαπάνη: μετρά στο αποτέλεσμα, αλλά δεν δηλώνεται στο myDATA και δεν πάει στον λογιστή.</span>`; }
+  else if (allowed(doc, t.cat).includes(t.e3)) { say.className = "wide say"; say.innerHTML = `<svg class="i" style="margin-top:2px"><use href="#check"/></svg><span>Θα δηλωθεί ως: <b>${E3[t.e3]} (${t.e3})</b> · ${CAT[t.cat]}${t.vat ? " · ΦΠΑ: " + VAT[t.vat] : ""}. Λογαριασμός ${t.acc || "— (τον βάζει ο λογιστής)"} · κέντρο: ${t.center === "Του καταστήματος" ? "Κηφισιά" : t.center}.</span>`; }
+  else {
+    const list = allowed(doc, t.cat); const sib = list.find((x) => x.slice(0, 6) === t.e3.slice(0, 6)) || list[0];
+    say.className = "wide say bad";
+    say.innerHTML = `<svg class="i" style="margin-top:2px"><use href="#alert"/></svg><span><b>Το ${t.e3} δεν επιτρέπεται σε ${DOC[doc]}.</b> ${sib ? `Διάλεξε ${sib} (${E3[sib] || sib}) ή άλλο τύπο εξόδου.` : "Αυτός ο τύπος εξόδου δεν ταιριάζει σε αυτό το παραστατικό."}</span>`;
+  }
+  const net = Math.round(parseFloat(document.getElementById("fNet").value.replace(/\./g, "").replace(",", ".")) * 100) || 0;
+  const total = net + Math.round(net * Number(document.getElementById("fVat").value) / 100);
+  const ap = document.getElementById("fApprove");
+  ap.style.display = total > 50000 ? "flex" : "none";
+  ap.innerHTML = `<svg class="i" style="margin-top:2px"><use href="#clock"/></svg><span>Σύνολο ${eur(total)}, πάνω από το όριο των 500,00 €: θα περιμένει έγκριση. Η πληρωμή καταχωρίζεται μετά την έγκριση.</span>`;
+  renderMonths(total);
+}
+function renderMonths(total) {
+  const on = document.getElementById("fPeriodOn").checked;
+  document.getElementById("fPeriod").style.display = on ? "grid" : "none";
+  if (!on) return;
+  const from = new Date(document.getElementById("pFrom").value + "T00:00:00Z"), to = new Date(document.getElementById("pTo").value + "T00:00:00Z");
+  const days = new Map();
+  for (let t = from.getTime(); t <= to.getTime(); t += 864e5) { const m = new Date(t).toISOString().slice(0, 7); days.set(m, (days.get(m) || 0) + 1); }
+  const all = [...days.values()].reduce((a, b) => a + b, 0) || 1;
+  let parts = [...days].map(([m, d]) => ({ m, d, c: Math.floor(total * d / all), r: (total * d / all) % 1 }));
+  let rest = total - parts.reduce((a, p) => a + p.c, 0);
+  [...parts].sort((a, b) => b.r - a.r).slice(0, rest).forEach((p) => p.c++);
+  const max = Math.max(...parts.map((p) => p.c), 1);
+  const name = (m) => new Date(m + "-01T00:00:00Z").toLocaleDateString("el-GR", { month: "short", year: "numeric", timeZone: "UTC" });
+  document.getElementById("months").innerHTML = parts.map((p) => `<div class="month"><span>${name(p.m)}<small class="hint" style="display:block">${p.d} ημέρες</small></span><span class="track"><span class="fill" style="display:block;width:${p.c / max * 100}%"></span></span><span class="val num">${eur(p.c)}</span></div>`).join("") +
+    `<div class="hint">Στο αποτέλεσμα κάθε μήνα μετρά μόνο το μερίδιό του. Το άθροισμα είναι πάντα ακριβώς ${eur(total)}.</div>`;
+}
+["fNet", "fVat", "fPeriodOn", "pFrom", "pTo"].forEach((id) => document.getElementById(id).addEventListener("input", renderForm));
+
+const rank = [["Πρώτες ύλες", 312000, 288000], ["Ενοίκια", 210000, 210000], ["Ενέργεια", 96200, 81400], ["Προμήθειες Viva και delivery", 74300, 79900], ["Υλικά συσκευασίας", 58700, 49300], ["Λοιπά", 89930, 85600]];
+const rmax = Math.max(...rank.flatMap((r) => [r[1], r[2]]));
+document.getElementById("rank").innerHTML = rank.map(([n, c, p]) => { const d = Math.round((c - p) / p * 100); return `<div class="r"><span>${n}<small class="hint" style="display:block">${d === 0 ? "ίδιο με Οκτώβριο" : (d > 0 ? "+" : "") + d + "% από Οκτώβριο"}</small></span><span class="bars2"><span class="track" style="height:12px"><span class="fill" style="display:block;width:${c / rmax * 100}%"></span></span><span class="track" style="height:8px"><span class="fill prev" style="display:block;width:${p / rmax * 100}%"></span></span></span><span class="val num" style="text-align:right;font-weight:600">${eur(c)}</span></div>`; }).join("");
+
+function renderAll() { renderTable(); renderEditor(); }
+renderAll(); renderForm();
+</script>
+</body>
+</html>

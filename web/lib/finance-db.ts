@@ -1,5 +1,6 @@
 // Οικονομικά: κάθε εγγραφή είναι tenant-scoped, αιτιολογημένη και χωρίς έμμεση δεύτερη απόσυρση αποθέματος.
 import { assertCostCenter, defaultCostCenterId } from "./cost-centers-db";
+import { checkCombo, needsApproval, vatTypeFor } from "./expense-rules";
 import { createHash, randomUUID } from "node:crypto";
 import type { Prisma } from "./generated/prisma/client";
 import { athensBusinessRange, expectedCashCents, paymentBucket, purchaseTotals } from "./finance";
@@ -62,8 +63,22 @@ export async function transferFinanceFunds(ctx: StockContext, input: { sourceAcc
   });
 }
 
-export async function createExpense(ctx: StockContext, input: { storeId?: string | null; costCenterId?: string | null; supplierId?: string | null; accountId?: string | null; category: string; documentNumber?: string | null; netCents: number; vatRate: number; informal?: boolean; occurredAt: Date; note?: string | null }) {
-  const category = cleanText(input.category, "Κατηγορία", 80, true)!;
+export type ExpenseInput = {
+  storeId?: string | null; costCenterId?: string | null; supplierId?: string | null; accountId?: string | null;
+  /** τύπος εξόδου (ενότητα 6)· χωρίς αυτόν χρειάζεται κείμενο κατηγορίας, όπως πριν */
+  categoryId?: string | null; category?: string | null; mydataDocType?: string | null;
+  documentNumber?: string | null; netCents: number; vatRate: number; informal?: boolean; occurredAt: Date; note?: string | null;
+  periodFrom?: Date | null; periodTo?: Date | null; dueAt?: Date | null; fileId?: string | null;
+};
+
+export async function createExpense(ctx: StockContext, input: ExpenseInput) {
+  const mydataDocType = cleanText(input.mydataDocType, "Τύπος παραστατικού", 10);
+  if (mydataDocType && !/^\d{1,2}\.\d{1,2}$/.test(mydataDocType)) throw new WorkflowError("Ο τύπος παραστατικού γράφεται όπως στο myDATA, π.χ. 1.1 ή 14.30");
+  if (input.periodFrom) validDate(input.periodFrom, "έναρξη περιόδου");
+  if (input.periodTo) validDate(input.periodTo, "λήξη περιόδου");
+  if (!input.periodFrom !== !input.periodTo) throw new WorkflowError("Η περίοδος θέλει και αρχή και τέλος");
+  if (input.periodFrom && input.periodTo && input.periodTo < input.periodFrom) throw new WorkflowError("Η περίοδος τελειώνει πριν αρχίσει");
+  if (input.dueAt) validDate(input.dueAt, "ημερομηνία λήξης πληρωμής");
   const documentNumber = cleanText(input.documentNumber, "Αριθμός παραστατικού", 100);
   assertNonNegativeInt(input.netCents, "Καθαρή αξία");
   assertNonNegativeInt(input.vatRate, "ΦΠΑ", 100);
@@ -74,6 +89,17 @@ export async function createExpense(ctx: StockContext, input: { storeId?: string
   return stockTransaction(async (tx) => {
     if (!input.storeId) assertGlobalStockScope(ctx);
     await assertStockScope(tx, ctx, { storeId: input.storeId ?? undefined, forWrite: true });
+    // τύπος εξόδου → όνομα κατηγορίας, χαρακτηρισμός myDATA (στιγμιότυπο) και προτεινόμενο κέντρο
+    const type = input.categoryId ? await tx.expenseCategory.findFirst({ where: { id: input.categoryId, orgId: ctx.orgId, active: true } }) : null;
+    if (input.categoryId && !type) throw new WorkflowError("Ο τύπος εξόδου δεν βρέθηκε ή είναι ανενεργός");
+    const category = type?.name ?? cleanText(input.category, "Κατηγορία", 80, true)!;
+    const informal = input.informal ?? false;
+    // οι ανεπίσημες δεν χαρακτηρίζονται ούτε ελέγχονται απέναντι στην ΑΑΔΕ
+    if (type && !informal) try { checkCombo(mydataDocType, type.mydataCategory, type.mydataType); } catch (e) { throw new WorkflowError((e as Error).message); }
+    const org = await tx.organization.findUniqueOrThrow({ where: { id: ctx.orgId }, select: { expenseApprovalCents: true } });
+    const pending = needsApproval(totalCents, org.expenseApprovalCents);
+    if (pending && input.accountId) throw new WorkflowError("Η δαπάνη ξεπερνά το όριο έγκρισης: καταχώρισέ τη χωρίς πληρωμή και πλήρωσέ τη μετά την έγκριση");
+    if (input.fileId && !await tx.storedFile.findFirst({ where: { id: input.fileId, orgId: ctx.orgId }, select: { id: true } })) throw new WorkflowError("Το αρχείο του παραστατικού δεν βρέθηκε");
     if (input.supplierId) await assertParty(tx, ctx.orgId, input.supplierId, "supplier");
     if (input.supplierId && documentNumber && await tx.expense.findFirst({ where: { orgId: ctx.orgId, supplierId: input.supplierId, documentNumber }, select: { id: true } })) throw new WorkflowError("Το παραστατικό εξόδου έχει ήδη καταχωρηθεί για τον προμηθευτή");
     const account = input.accountId ? await ownedAccount(tx, ctx, input.accountId) : null;
@@ -81,8 +107,16 @@ export async function createExpense(ctx: StockContext, input: { storeId?: string
     if (account?.storeId && !input.storeId) throw new WorkflowError("Το έξοδο καταστήματος απαιτεί κατάστημα");
     // κέντρο κόστους: ρητό, αλλιώς του καταστήματος, αλλιώς η έδρα (lib/cost-centers-db.ts)
     if (input.costCenterId) await assertCostCenter(tx, ctx.orgId, input.costCenterId);
-    const costCenterId = input.costCenterId || await defaultCostCenterId(tx, ctx.orgId, input.storeId ?? null);
-    const expense = await tx.expense.create({ data: { orgId: ctx.orgId, storeId: input.storeId ?? null, costCenterId, supplierId: input.supplierId ?? null, category, documentNumber, netCents: input.netCents, vatRate: input.vatRate, vatCents, totalCents, informal: input.informal ?? false, occurredAt: input.occurredAt, note: cleanText(input.note, "Σημείωση", 500), createdByName: ctx.userName } });
+    // σειρά: ρητό → του καταστήματος → του τύπου (π.χ. αμοιβή λογιστή → Διοίκηση) → έδρα
+    const costCenterId = input.costCenterId || (input.storeId ? null : type?.costCenterId) || await defaultCostCenterId(tx, ctx.orgId, input.storeId ?? null);
+    const classified = type && !informal && type.mydataType;
+    const expense = await tx.expense.create({ data: {
+      orgId: ctx.orgId, storeId: input.storeId ?? null, costCenterId, supplierId: input.supplierId ?? null, category, categoryId: type?.id ?? null, documentNumber,
+      netCents: input.netCents, vatRate: input.vatRate, vatCents, totalCents, informal, occurredAt: input.occurredAt, note: cleanText(input.note, "Σημείωση", 500),
+      mydataDocType, mydataCategory: classified ? type.mydataCategory : null, mydataType: classified ? type.mydataType : null, mydataVatType: classified ? vatTypeFor(type.mydataVatType, vatCents) : null,
+      classificationStatus: classified ? "SUGGESTED" : "NONE", periodFrom: input.periodFrom ?? null, periodTo: input.periodTo ?? null, dueAt: input.dueAt ?? null, fileId: input.fileId ?? null,
+      status: pending ? "PENDING" : "APPROVED", createdById: ctx.userId, createdByName: ctx.userName,
+    } });
     if (account) await tx.financeTransaction.create({ data: { orgId: ctx.orgId, accountId: account.id, storeId: account.storeId ?? input.storeId ?? null, amountCents: -totalCents, kind: "expense", referenceType: "expense", referenceId: expense.id, occurredAt: input.occurredAt, note: cleanText(input.note, "Σημείωση", 500), createdByName: ctx.userName } });
     await auditWorkflow(tx, { orgId: ctx.orgId, actor: actor(ctx), action: "finance.expense.create", entityType: "expense", entityId: expense.id, storeId: expense.storeId, metadata: { supplierId: expense.supplierId, accountId: account?.id ?? null, totalCents } });
     return expense;

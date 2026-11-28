@@ -40,6 +40,7 @@ const STATUS = {
   haccpSeverity: { HIGH: ["danger", "Κρίσιμο"], MEDIUM: ["warning", "Προσοχή"], LOW: ["neutral", "Παρατήρηση"] },
   sourceCheck: { OK: ["success", "Χωρίς αλλαγή"], CHANGED: ["warning", "Άλλαξε — δες τι"], REVIEW: ["warning", "Πρώτος έλεγχος"], ERROR: ["danger", "Δεν ελέγχθηκε — σφάλμα"], NOT_CHECKED: ["neutral", "Δεν έχει ελεγχθεί"] },
   // Οικονομικά και μισθοδοσία
+  expense: { PENDING: ["warning", "Περιμένει έγκριση"], APPROVED: ["success", "Εγκρίθηκε"], REJECTED: ["danger", "Απορρίφθηκε"] },
   cashClosing: { CLOSED: ["success", "Κλειστό"], REOPENED: ["warning", "Άνοιξε ξανά για διόρθωση"] },
   statementRow: { MATCHED: ["success", "Ταίριαξε"], UNMATCHED: ["warning", "Χωρίς αντιστοίχιση"], AMBIGUOUS: ["warning", "Θέλει επιλογή"], CONFLICT: ["danger", "Σύγκρουση"] },
   payrollBatch: { PREPARED: ["warning", "Έτοιμη — περιμένει εκτέλεση"], PROCESSING: ["warning", "Σε εξέλιξη"], SUCCEEDED: ["success", "Πληρώθηκε"], FAILED: ["danger", "Απέτυχε οριστικά"], UNCERTAIN: ["danger", "Θέλει συμψηφισμό"] },

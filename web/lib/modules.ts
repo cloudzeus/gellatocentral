@@ -29,7 +29,7 @@ export const MODULES = {
   },
   wholesale: { label: "Χονδρική", hint: "Παραγγελίες πελατών, παραστατικά, βιτρίνα", permissions: ["wholesale.read", "wholesale.add", "wholesale.edit", "invoices.read", "invoices.add", "invoices.edit", "invoices.cancel", "vitrine.read", "vitrine.edit"], paths: ["/wholesale-orders", "/invoices", "/vitrine"] },
   team: { label: "Ομάδα και αναφορές", hint: "Προσωπικό, βάρδιες, αναφορές", permissions: ["staff.read", "staff.add", "staff.edit", "staff.delete", "staff.pay", "reports.read"], paths: ["/staff", "/reports"] },
-  finance: { label: "Οικονομικά", hint: "Έσοδα, έξοδα, ταμειακή εικόνα", permissions: ["finance.read", "finance.edit", "finance.reopen", "finance.export"], paths: ["/finance"] },
+  finance: { label: "Οικονομικά", hint: "Έσοδα, έξοδα, ταμειακή εικόνα", permissions: ["finance.read", "finance.edit", "finance.reopen", "finance.export", "finance.approve"], paths: ["/finance"] },
 } as const satisfies Record<string, { label: string; hint: string; permissions: readonly Permission[]; paths: readonly string[] }>;
 export type ModuleKey = keyof typeof MODULES;
 export const ALL_MODULES = Object.keys(MODULES) as ModuleKey[];
