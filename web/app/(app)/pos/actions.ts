@@ -3,86 +3,72 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { z } from "zod";
-import { Prisma } from "@/lib/generated/prisma/client";
 import { db } from "@/lib/db";
-import { flashFail } from "@/lib/flash-server";
 import { tenantWriteTransaction } from "@/lib/migration-cutover";
-import { completeSale, failSale, issueSale } from "@/lib/pos";
+import { setSoldOut } from "@/lib/bills";
+import { completeSale, failSale, issueSale, PosError } from "@/lib/pos";
+import { cartLines, priceCart } from "@/lib/pos-cart";
+import { ModifierError } from "@/lib/pos-modifiers";
+import { sendToTerminal } from "@/lib/pos-till";
 import { currentContext, POS_DEVICE_COOKIE } from "@/lib/tenant";
 import { redirect } from "next/navigation";
-import { abortSession, startSale, vivaConfigured, VivaUnknownOutcomeError } from "@/lib/viva/cloud-terminal";
+import { abortSession, vivaConfigured } from "@/lib/viva/cloud-terminal";
 import { cancelBrowserPayment, syncBrowserPayment } from "@/lib/viva/browser-payment";
 
 const id = z.string().cuid();
 
-export async function addLine(productId: string) {
-  const ctx = await currentContext();
-  // το προϊόν πρέπει να ανήκει στην επιχείρηση του χρήστη
-  const product = await db.product.findFirst({ where: { id: id.parse(productId), orgId: ctx.org.id, active: true }, include: { vatRate: true } });
-  if (!product) return;
-  // shortcut: το ταμείο του browser δεν έχει φύλλο επιλογών· προϊόν με υποχρεωτικές επιλογές πουλιέται από το ταμείο Android
-  if (await db.productModifierGroup.findFirst({ where: { productId: product.id, group: { kind: "REQUIRED" } } }))
-    return flashFail(`Το «${product.name}» θέλει επιλογές (π.χ. γεύσεις)`, "Πούλησέ το από το ταμείο της tablet.");
-  await tenantWriteTransaction(ctx.org.id, async (tx) => {
-    const where = { deviceId: ctx.device.id, status: "DRAFT" as const };
-    const sale = (await tx.sale.findFirst({ where })) ?? (await tx.sale.create({ data: { orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id } }));
-    // η γραμμή χωρίς επιλογές του προϊόντος· με επιλογές θα ήταν άλλη γραμμή
-    const line = await tx.saleLine.findFirst({ where: { saleId: sale.id, productId: product.id, options: { equals: Prisma.DbNull }, note: null } });
-    if (line) await tx.saleLine.update({ where: { id: line.id }, data: { quantity: { increment: 1 } } });
-    else await tx.saleLine.create({ data: { saleId: sale.id, productId: product.id, name: product.name, quantity: 1, unitPriceCents: product.priceCents, vatRate: product.vatRate.rate } });
-  });
-  revalidatePath("/pos");
-}
+export type ChargeResult = { error: string } | { pending: string } | { paid: { saleId: string; series: string; aa: number; totalCents: number } };
 
-export async function changeQuantity(lineId: string, delta: 1 | -1) {
-  const ctx = await currentContext();
-  await tenantWriteTransaction(ctx.org.id, async (tx) => {
-    const line = await tx.saleLine.findFirst({ where: { id: id.parse(lineId), sale: { orgId: ctx.org.id, deviceId: ctx.device.id, status: "DRAFT" } } });
-    if (!line) return;
-    if (line.quantity + delta <= 0) await tx.saleLine.delete({ where: { id: line.id } });
-    else await tx.saleLine.update({ where: { id: line.id }, data: { quantity: { increment: delta } } });
-  });
-  revalidatePath("/pos");
-}
-
-export async function clearSale() {
-  const ctx = await currentContext();
-  await tenantWriteTransaction(ctx.org.id, async (tx) => {
-    await tx.saleLine.deleteMany({ where: { sale: { orgId: ctx.org.id, deviceId: ctx.device.id, status: "DRAFT" } } });
-  });
-  revalidatePath("/pos");
-}
-
-export async function pay(methodId: string) {
+/**
+ * Είσπραξη του καλαθιού του browser. Ο browser στέλνει ΜΟΝΟ προϊόν, ποσότητα, επιλογές και σημείωση·
+ * τιμές και ΦΠΑ τα βγάζει ο server από τον κατάλογο (ίδια λογική με το /api/pos/sales του Android).
+ */
+export async function charge(lines: unknown, methodId: string): Promise<ChargeResult> {
   // τα id των seeded τρόπων είναι σταθερά («pm_cash»…), όχι cuid — γι' αυτό γενικός έλεγχος
   z.string().min(1).max(40).parse(methodId);
   const ctx = await currentContext();
   const live = await vivaConfigured();
   if (live && !(ctx.issuer.vivaMerchantId && ctx.device.vivaTerminalId))
-    return flashFail("Αυτό το ταμείο δεν έχει τερματικό Viva", "Διάλεξε ταμείο με τερματικό ή όρισέ του τερματικό στο Συσκευές.");
-  const draft = await db.sale.findFirst({ where: { deviceId: ctx.device.id, status: "DRAFT" }, select: { id: true } });
-  const started = draft && (await issueSale(ctx, draft.id, methodId, live));
-  if (!started) return;
-
-  if (live) {
-    try {
-      await startSale({
-        sessionId: started.reference,
-        terminalId: ctx.device.vivaTerminalId!,
-        cashRegisterId: ctx.device.id,
-        amountCents: started.receipt.totalCents,
-        merchantReference: started.saleId,
-        terminalMerchantId: ctx.issuer.vivaMerchantId!,
-        fiscalisationData: started.receipt.data,
-      });
-    } catch (e) {
-      // Άγνωστο αποτέλεσμα: η χρέωση μπορεί να έφτασε στο τερματικό. Η πώληση μένει «περιμένει πληρωμή» και το
-      // ταμείο ρωτά τη Viva (syncPayment)· αν γύριζε σε πρόχειρο, το επόμενο «Πληρωμή» θα χρέωνε δεύτερη φορά.
-      if (!(e instanceof VivaUnknownOutcomeError))
-        await failSale(ctx.device.id, started.saleId, e instanceof Error ? e.message : String(e), undefined, ctx.org.id);
-    }
+    return { error: "Αυτό το ταμείο δεν έχει τερματικό Viva. Διάλεξε άλλο ταμείο ή όρισέ του τερματικό στο Συσκευές" };
+  const parsed = cartLines.safeParse(lines);
+  if (!parsed.success) return { error: "Η πώληση δεν διαβάστηκε. Ανανέωσε τη σελίδα και δοκίμασε ξανά" };
+  let priced;
+  try {
+    priced = await priceCart(ctx.org.id, parsed.data);
+  } catch (e) {
+    if (e instanceof ModifierError) return { error: e.message };
+    throw e;
   }
+  if (!priced) return { error: "Κάποιο προϊόν δεν υπάρχει πια στον κατάλογο. Ανανέωσε τη σελίδα" };
+
+  let started;
+  try {
+    const sale = await tenantWriteTransaction(ctx.org.id, async (tx) => {
+      await tx.sale.deleteMany({ where: { orgId: ctx.org.id, deviceId: ctx.device.id, status: "DRAFT" } });
+      return tx.sale.create({ data: { orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id, lines: { create: priced.map(({ seat: _seat, ...l }) => l) } } });
+    });
+    started = await issueSale(ctx, sale.id, methodId, live);
+  } catch (e) {
+    if (e instanceof PosError) return { error: e.message };
+    throw e;
+  }
+  if (!started) return { error: "Η πώληση είναι άδεια" };
   revalidatePath("/pos");
+  if (!live) {
+    // δοκιμαστική λειτουργία: η πώληση ολοκληρώθηκε ήδη, χωρίς τερματικό
+    const done = await db.sale.findUniqueOrThrow({ where: { id: started.saleId }, select: { series: true, aa: true } });
+    return { paid: { saleId: started.saleId, series: done.series ?? "", aa: done.aa ?? 0, totalCents: started.receipt.totalCents } };
+  }
+  // Άγνωστο αποτέλεσμα στο τερματικό = μένει «περιμένει πληρωμή» (sendToTerminal)· αλλιώς ένα δεύτερο «Είσπραξη» θα χρέωνε δύο φορές.
+  const failed = await sendToTerminal(ctx, started);
+  if (failed) return { error: ((await failed.json()) as { message?: string }).message ?? "Η χρέωση δεν έφτασε στο τερματικό" };
+  return { pending: started.saleId };
+}
+
+/** «Τελείωσε» / «Υπάρχει ξανά» για ένα προϊόν του καταστήματος. Επιστρέφει όσα έχουν τελειώσει. */
+export async function toggleSoldOut(itemId: string, out: boolean) {
+  const ctx = await currentContext();
+  return setSoldOut(ctx, id.parse(itemId), out, ctx.user.name);
 }
 
 /** Ρωτά τη Viva για την πληρωμή που περιμένει. Ασφαλές να κληθεί ξανά και ξανά. */
