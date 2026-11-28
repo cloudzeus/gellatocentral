@@ -8,7 +8,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, FlatList, Linking, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { ApiError, setSoldOut, type Bill, type BillLine, type BillPick, type BillSummary, cancelBill, type Catalog, checkResult, clearPending, clearSession, createSale, type DiningTable, getBill, getBills, getCatalog, markServed, loadPending, loadSession, openBill, type Outcome, pair, type PaymentMethod, type Pending, type Product, reportResult, savePending, saveSession, sendRound, type Session, settleBill, shareBill, syncOffline, voidBillLine } from "./api";
-import { enqueue, offlineSale, type Outbox } from "./offline";
+import { enqueue, offlineSale, uuid, type Outbox } from "./offline";
 import { loadCachedCatalog, loadOutbox, saveCachedCatalog, saveOutbox } from "./offline-store";
 import { ReservationsView } from "./ReservationsScreen";
 import { TransactionsView } from "./TransactionsScreen";
@@ -897,6 +897,9 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
   const tab = cat ?? (frequent.length ? -1 : 0); // -1 = «Συχνά»
   const catTab = tab;
 
+  // ίδιο καλάθι → ίδιο κλειδί: αν χαθεί η απάντηση, η επανάληψη δεν χρεώνει δεύτερη φορά (POST /api/pos/sales)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- σκόπιμα: νέο κλειδί σε κάθε αλλαγή του καλαθιού
+  const cartRef = useMemo(() => uuid(), [cart]);
   const lines = cart.flatMap((l) => { const hit = byId.get(l.productId); return hit ? [{ ...l, ...hit, unitCents: unitPrice(hit.product.priceCents, hit.product.groups, l.options) }] : []; });
   const sums = totals(lines.map((l) => ({ priceCents: l.unitCents, vatRate: l.product.vatRate, quantity: l.quantity })));
   const inCart = (id: string) => lines.reduce((n, l) => n + (l.productId === id ? l.quantity : 0), 0);
@@ -1060,9 +1063,9 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
     setBusy(true);
     try {
       const sale = bill?.share ? await shareBill(session, bill.id, withMethod.id, bill.dueCents)
-        : bill ? await settleBill(session, bill.id, withMethod.id, bill.lines) : await createSale(session, withMethod.id, cartOut());
+        : bill ? await settleBill(session, bill.id, withMethod.id, bill.lines) : await createSale(session, withMethod.id, cartOut(), cartRef);
       setOnline(true);
-      if ("paid" in sale) { setStatus({ kind: "paid", series: null, aa: null }); return; } // μερίδιο σε μετρητά: καταγράφηκε, χωρίς τερματικό
+      if ("paid" in sale) { setStatus({ kind: "paid", series: "series" in sale ? sale.series ?? null : null, aa: "aa" in sale ? sale.aa ?? null : null }); return; } // μερίδιο σε μετρητά: καταγράφηκε, χωρίς τερματικό
       const p: Pending = { ...sale, methodName: withMethod.name, startedAt: new Date().toISOString(), items: bill ? bill.items : lines.reduce((n, l) => n + l.quantity, 0) };
       await setPending(p); // πριν ανοίξει το Viva Terminal: αν κλείσει η εφαρμογή, η πληρωμή δεν χάνεται
       setStatus({ kind: "waiting" });

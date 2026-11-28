@@ -1049,6 +1049,7 @@ model Sale {
   issuedAt   DateTime?
   // Πληρωμή ανοιχτού λογαριασμού (τραπέζι/κουβάς): ένας λογαριασμός κλείνει με μία ή περισσότερες αποδείξεις
   billId     String?
+  clientRef  String? // κλειδί του ταμείου για την ίδια πώληση: η επανάληψη μετά από χαμένη απάντηση δεν χρεώνει δεύτερη φορά
   createdAt  DateTime        @default(now())
   bill       Bill?           @relation(fields: [billId], references: [id], onDelete: SetNull)
   org        Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -1060,6 +1061,7 @@ model Sale {
   fiscal     FiscalDocument?
 
   @@unique([deviceId, series, aa])
+  @@unique([deviceId, clientRef])
   @@index([orgId, status, issuedAt])
   @@index([deviceId, status])
   @@index([orgId, storeId, issuedAt]) // αναφορές ανά κατάστημα
@@ -1384,7 +1386,7 @@ model FiscalDocument {
   response         Json? // ftState, ftSignatures, QR κ.λπ.
   error            String?
   createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @default(now()) @updatedAt // η επανάληψη διαβιβάσεων μετρά από εδώ την αναμονή
+  updatedAt        DateTime            @default(dbgenerated("(now() AT TIME ZONE 'UTC'::text)")) @updatedAt // η επανάληψη διαβιβάσεων μετρά από εδώ την αναμονή
   org              Organization?       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   charge           SubscriptionCharge? @relation(fields: [chargeId], references: [id], onDelete: Restrict)
   sale             Sale?               @relation(fields: [saleId], references: [id], onDelete: Cascade)
@@ -1408,7 +1410,7 @@ model FiscalAttempt {
   toStatus         FiscalStatus
   mark             String?
   error            String?
-  at               DateTime      @default(now())
+  at               DateTime      @default(dbgenerated("(now() AT TIME ZONE 'UTC'::text)")) // UTC, βλ. 20261127200100_fiscal_attempt_utc
   org              Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId, at])

@@ -41,7 +41,7 @@ test("PostgreSQL STF: pay privacy, overlap, publications, token isolation και
     await assert.rejects(createShift(noPay, { employeeId: employee.id, startsAt: new Date("2026-11-24T08:00:00.000Z"), endsAt: new Date("2026-11-24T12:00:00.000Z"), hourlyRateCents: 750 }), WorkflowError);
     const shift = await createShift(full, { employeeId: employee.id, startsAt: new Date("2026-11-24T08:00:00.000Z"), endsAt: new Date("2026-11-24T12:00:00.000Z"), breakMinutes: 30, hourlyRateCents: 750 });
     await createShift(full, { employeeId: other.id, startsAt: new Date("2026-11-24T08:00:00.000Z"), endsAt: new Date("2026-11-24T10:00:00.000Z") });
-    await assert.rejects(createShift(full, { employeeId: employee.id, startsAt: new Date("2026-11-24T11:00:00.000Z"), endsAt: new Date("2026-11-24T15:00:00.000Z") }), /επικαλυπτόμενη/);
+    await assert.rejects(createShift(full, { employeeId: employee.id, startsAt: new Date("2026-11-24T11:00:00.000Z"), endsAt: new Date("2026-11-24T15:00:00.000Z") }), /έχει ήδη βάρδια/);
     await assert.rejects(createLeave(full, { employeeId: employee.id, kind: "annual", fromAt: new Date("2026-11-24T00:00:00.000Z"), toAt: new Date("2026-11-25T00:00:00.000Z") }), /Μετακίνησε/);
     await createLeave(full, { employeeId: employee.id, kind: "annual", fromAt: new Date("2026-11-25T00:00:00.000Z"), toAt: new Date("2026-11-26T00:00:00.000Z") });
     const first = await publishSchedule(full, { fromAt: new Date("2026-11-24T00:00:00.000Z"), toAt: new Date("2026-11-25T00:00:00.000Z") });

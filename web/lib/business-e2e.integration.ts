@@ -48,7 +48,7 @@ async function fixture() {
     const membership = await tx.membership.create({ data: { orgId: org.id, userId: user.id, roleId: role.id } });
     const foreignRole = await tx.orgRole.create({ data: { orgId: foreign.id, name: "Ξένος E2E", permissions: allPermissions } });
     const foreignMembership = await tx.membership.create({ data: { orgId: foreign.id, userId: user.id, roleId: foreignRole.id } });
-    const store = await tx.store.create({ data: { orgId: org.id, name: "Κατάστημα E2E" } });
+    const store = await tx.store.create({ data: { orgId: org.id, name: "Κατάστημα E2E", address: "Ερμού 1", city: "Αθήνα", postalCode: "10563" } });
     const otherStore = await tx.store.create({ data: { orgId: org.id, name: "Υποκατάστημα E2E" } });
     const rawWarehouse = await tx.warehouse.create({ data: { orgId: org.id, name: "Πρώτες ύλες E2E" } });
     const warehouse = await tx.warehouse.create({ data: { orgId: org.id, name: "Έτοιμα E2E" } });
@@ -67,7 +67,7 @@ async function fixture() {
     const final = await tx.genericItem.create({ data: { orgId: org.id, name: "Παγωτό E2E", baseUnitId: unit.id } });
     const foreignGeneric = await tx.genericItem.create({ data: { orgId: foreign.id, name: "Ξένο είδος E2E", baseUnitId: unit.id } });
     const supplier = await tx.party.create({ data: { orgId: org.id, name: "Προμηθευτής E2E", roles: ["supplier"], vatNumber: `S-${suffix}` } });
-    const customer = await tx.party.create({ data: { orgId: org.id, name: "Πελάτης E2E", roles: ["customer"], vatNumber: `C-${suffix}` } });
+    const customer = await tx.party.create({ data: { orgId: org.id, name: "Πελάτης E2E", roles: ["customer"], vatNumber: `C-${suffix}`, address: "Πειραιώς 10", city: "Αθήνα", postalCode: "11853" } });
     const foreignCustomer = await tx.party.create({ data: { orgId: foreign.id, name: "Ξένος πελάτης E2E", roles: ["customer"], vatNumber: `FC-${suffix}` } });
     const baseRecipe = await tx.recipe.create({ data: {
       orgId: org.id, name: "Υποσυνταγή E2E", type: "cream", batchGrams: 1000, outputGenericItemId: base.id,

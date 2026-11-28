@@ -34,7 +34,7 @@ async function fixture(): Promise<Fixture> {
     const user = await tx.user.create({ data: { email: `wholesale-${suffix}@example.test`, name: "Υπεύθυνος χονδρικής integration" } });
     const role = await tx.orgRole.create({ data: { orgId: org.id, name: "Χονδρική integration", permissions: ["wholesale.read", "wholesale.add", "wholesale.edit", "invoices.read", "invoices.add", "invoices.edit", "invoices.cancel"] } });
     const membership = await tx.membership.create({ data: { orgId: org.id, userId: user.id, roleId: role.id } });
-    const store = await tx.store.create({ data: { orgId: org.id, name: "Κατάστημα χονδρικής integration" } });
+    const store = await tx.store.create({ data: { orgId: org.id, name: "Κατάστημα χονδρικής integration", address: "Ερμού 1", city: "Αθήνα", postalCode: "10563" } });
     const otherStore = await tx.store.create({ data: { orgId: org.id, name: "Άλλο κατάστημα integration" } });
     const warehouse = await tx.warehouse.create({ data: { orgId: org.id, name: "Αποθήκη χονδρικής integration" } });
     const otherWarehouse = await tx.warehouse.create({ data: { orgId: org.id, name: "Άλλη αποθήκη integration" } });
@@ -42,7 +42,7 @@ async function fixture(): Promise<Fixture> {
     const existingUnit = await tx.unit.findFirst({ where: { code: "mg", toBase: 1 } });
     const unit = existingUnit ?? await tx.unit.create({ data: { code: `test-mg-${suffix}`, nameEL: "χιλιοστόγραμμο δοκιμής", dimension: "mass", toBase: 1 } });
     const generic = await tx.genericItem.create({ data: { orgId: org.id, name: "Παγωτό χονδρικής integration", baseUnitId: unit.id, avgCostHundredths: 400_000 } });
-    const customer = await tx.party.create({ data: { orgId: org.id, name: "Πελάτης Α integration", roles: ["customer"], vatNumber: `C-${suffix}` } });
+    const customer = await tx.party.create({ data: { orgId: org.id, name: "Πελάτης Α integration", roles: ["customer"], vatNumber: `C-${suffix}`, address: "Πειραιώς 10", city: "Αθήνα", postalCode: "11853" } });
     const otherCustomer = await tx.party.create({ data: { orgId: org.id, name: "Πελάτης Β integration", roles: ["customer"], vatNumber: `D-${suffix}` } });
     const earlyLot = await tx.stockLot.create({ data: { orgId: org.id, warehouseId: warehouse.id, genericItemId: generic.id, batchNumber: `EARLY-${suffix}`, expiresAt: new Date("2026-12-01T00:00:00.000Z") } });
     const lateLot = await tx.stockLot.create({ data: { orgId: org.id, warehouseId: warehouse.id, genericItemId: generic.id, batchNumber: `LATE-${suffix}`, expiresAt: new Date("2027-01-01T00:00:00.000Z") } });

@@ -147,7 +147,7 @@ export type VivaSaleVerification =
   | { status: "rejected"; reason: "unsuccessful"; raw: Record<string, unknown> }
   | { status: "rejected"; reason: "binding" | "session" | "transaction" | "amount" };
 
-type SessionLoader = (sessionId: string) => Promise<Record<string, unknown> | null>;
+export type SessionLoader = (sessionId: string) => Promise<Record<string, unknown> | null>;
 
 /**
  * Η επιτυχία αποδεικνύεται μόνο από την απάντηση της Viva, δεμένη με την αποθηκευμένη πώληση και συσκευή.

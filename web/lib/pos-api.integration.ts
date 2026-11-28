@@ -7,6 +7,7 @@ import { POST as createSale } from "../app/api/pos/sales/route.ts";
 import { GET as checkResult, POST as reportResult } from "../app/api/pos/sales/[id]/result/route.ts";
 import { db } from "./db.ts";
 import { hashToken } from "./device-auth.ts";
+import { resolveStaleSales, STALE_SALE_MS } from "./sale-resolve.ts";
 
 const databaseOptions = { skip: !process.env.DATABASE_URL };
 
@@ -81,4 +82,69 @@ test("PostgreSQL POS API: η πώληση δέχεται method ή methodId κα
 test("PostgreSQL POS API: χωρίς έγκυρο κλειδί συσκευής 401", databaseOptions, async () => {
   const res = await catalog(new Request("http://till.test/api/pos/catalog", { headers: { Authorization: `Bearer ${"x".repeat(40)}` } }));
   assert.equal(res.status, 401);
+});
+
+test("PostgreSQL POS API: ίδιο clientRef δεν φτιάχνει δεύτερη πώληση, ούτε μετά την πληρωμή ούτε ταυτόχρονα", databaseOptions, async () => {
+  const f = await fixture();
+  try {
+    const sale = (ref: string, quantity = 1) => f.call(createSale, "/sales", { method: "CARD", clientRef: ref, lines: [{ productId: f.product.id, quantity }] });
+    const first = await sale("ref-aaaaaaaa", 2);
+    assert.equal(first.status, 200);
+    const started = await first.json();
+
+    // η απάντηση χάθηκε, το ταμείο ξαναστέλνει: η ίδια εκκρεμής πώληση
+    const retry = await sale("ref-aaaaaaaa", 2);
+    assert.equal(retry.status, 409);
+    assert.equal((await retry.json()).pending.saleId, started.saleId);
+
+    // πληρώθηκε στο μεταξύ (π.χ. τερματικό σε άλλη συσκευή): «πληρώθηκε», όχι νέα χρέωση
+    await db.sale.update({ where: { id: started.saleId }, data: { status: "COMPLETED", series: "T", aa: 7 } });
+    const paid = await sale("ref-aaaaaaaa", 2);
+    assert.equal(paid.status, 200);
+    assert.deepEqual(await paid.json(), { paid: true, saleId: started.saleId, series: "T", aa: 7 });
+    assert.equal(await db.sale.count({ where: { orgId: f.org.id } }), 1);
+
+    // δύο ταυτόχρονα με νέο κλειδί: μία πώληση
+    const both = await Promise.all([sale("ref-bbbbbbbb"), sale("ref-bbbbbbbb")]);
+    assert.deepEqual(both.map((r) => r.status).sort(), [200, 409]);
+    assert.equal(await db.sale.count({ where: { orgId: f.org.id, clientRef: "ref-bbbbbbbb" } }), 1);
+  } finally {
+    await db.sale.deleteMany({ where: { orgId: f.org.id } });
+    await db.organization.delete({ where: { id: f.org.id } });
+  }
+});
+
+test("PostgreSQL cron: πώληση που κόλλησε σε αναμονή λύνεται από τη Viva, και χωρίς απάντηση μένει όπως είναι", databaseOptions, async () => {
+  const f = await fixture();
+  try {
+    await db.device.update({ where: { id: f.device.id }, data: { vivaTerminalId: "TERM-1" } });
+    const start = async () => {
+      const r = await (await f.call(createSale, "/sales", { method: "CARD", lines: [{ productId: f.product.id, quantity: 1 }] })).json();
+      const sale = await db.sale.findUniqueOrThrow({ where: { id: r.saleId }, include: { payment: true } });
+      return sale;
+    };
+    const later = (sale: { issuedAt: Date | null }) => new Date(sale.issuedAt!.getTime() + STALE_SALE_MS + 1000);
+    const session = (sale: { id: string; payment: { vivaSessionId: string | null } | null }, success: boolean) => async (id: string) =>
+      id !== sale.payment!.vivaSessionId ? null
+        : { sessionId: id, merchantReference: sale.id, cashRegisterId: f.device.id, terminalId: "TERM-1", amount: 350, success, eventId: success ? 0 : 1100, ...(success ? { transactionId: "tx-1", cardType: "VISA" } : {}) };
+
+    // χωρίς απάντηση της Viva: μένει σε αναμονή, ποτέ «απέτυχε» από μόνο του
+    const a = await start();
+    assert.ok((await resolveStaleSales(later(a), async () => null)).unknown >= 1);
+    assert.equal((await db.sale.findUniqueOrThrow({ where: { id: a.id } })).status, "AWAITING_PAYMENT");
+    // πριν περάσουν τα λεπτά αναμονής δεν ρωτάμε καθόλου
+    assert.equal((await resolveStaleSales(a.issuedAt!, session(a, true))).checked, 0);
+
+    // η Viva λέει «πληρώθηκε»: απόδειξη
+    await resolveStaleSales(later(a), session(a, true));
+    assert.equal((await db.sale.findUniqueOrThrow({ where: { id: a.id } })).status, "COMPLETED");
+
+    // η Viva λέει «απέτυχε»: πρόχειρο, το ταμείο ελευθερώνεται
+    const b = await start();
+    await resolveStaleSales(later(b), session(b, false));
+    assert.equal((await db.sale.findUniqueOrThrow({ where: { id: b.id } })).status, "DRAFT");
+  } finally {
+    await db.sale.deleteMany({ where: { orgId: f.org.id } });
+    await db.organization.delete({ where: { id: f.org.id } });
+  }
 });

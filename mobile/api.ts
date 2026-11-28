@@ -74,8 +74,9 @@ export async function syncOffline(s: Session, sale: OfflineSale): Promise<"done"
 }
 
 export const getCatalog = async (s: Session) => (await call<Catalog>(s, "/catalog")).data;
-export const createSale = async (s: Session, methodId: string, lines: SaleLine[]) =>
-  (await call<StartedSale>(s, "/sales", { methodId, lines })).data;
+/** paid: η ίδια πώληση (ίδιο clientRef) είχε ήδη πληρωθεί και χάθηκε η απάντηση. */
+export const createSale = async (s: Session, methodId: string, lines: SaleLine[], clientRef?: string) =>
+  (await call<StartedSale | { paid: true; saleId: string; series: string | null; aa: number | null }>(s, "/sales", { methodId, lines, ...(clientRef ? { clientRef } : {}) })).data;
 
 /** unknown.noPaymentYet: ο server ρώτησε τη Viva και εκείνη απάντησε ότι δεν έχει (ακόμα) πληρωμή για την πώληση. */
 export type Outcome = { state: "paid"; series: string | null; aa: number | null } | { state: "failed" } | { state: "unknown"; noPaymentYet: boolean };
