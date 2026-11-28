@@ -31,6 +31,8 @@ export type OcrInvoice = {
   shippingCostCents: number;
   otherExpensesCents: number;
   expensesVatRate: number;
+  currency: string; // ISO 4217, π.χ. EUR, USD
+  category: string | null; // σύντομη κατηγορία εξόδου (για σάρωση ως έξοδο)
   lines: OcrLine[];
 };
 
@@ -99,8 +101,23 @@ export function parseInvoiceJson(raw: string): OcrInvoice {
     mydataMark: mark && mark.length >= 10 ? mark : null,
     paymentMethod: str(j.paymentMethod, 120), paymentTerms: str(j.paymentTerms, 120),
     shippingMethod: str(j.shippingMethod, 120), shippingAddress: str(j.shippingAddress, 300),
-    shippingCostCents: money(j.shippingCost), otherExpensesCents: money(j.otherExpenses), expensesVatRate: rate(j.expensesVatRate ?? 24), lines,
+    shippingCostCents: money(j.shippingCost), otherExpensesCents: money(j.otherExpenses), expensesVatRate: rate(j.expensesVatRate ?? 24),
+    currency: str(j.currency, 3)?.toUpperCase().match(/^[A-Z]{3}$/)?.[0] ?? "EUR", category: str(j.category, 80), lines,
   };
+}
+
+/**
+ * Το σκαναρισμένο τιμολόγιο ως ένα έξοδο: καθαρή αξία σε λεπτά EUR και ένας συντελεστής ΦΠΑ.
+ * USD μετατρέπεται με την ισοτιμία της πλατφόρμας· άλλο νόμισμα ή ανάμεικτος ΦΠΑ = σφάλμα (το Expense έχει έναν συντελεστή).
+ */
+export function expenseTotals(inv: OcrInvoice, usdEurRate: number): { netCents: number; vatRate: number; originalCents: number; rate: number } {
+  const originalCents = inv.lines.reduce((s, l) => s + Math.round(l.quantity * l.unitPriceCents * (1 - l.discountBps / 10_000)), 0) + inv.shippingCostCents + inv.otherExpensesCents;
+  const rates = new Set(inv.lines.map((l) => l.vatRate));
+  if (inv.shippingCostCents + inv.otherExpensesCents) rates.add(inv.expensesVatRate);
+  if (rates.size > 1) throw new OcrError(`Το τιμολόγιο έχει πολλούς συντελεστές ΦΠΑ (${[...rates].join("%, ")}%) — σκάναρέ το ως αγορά`);
+  const rate = inv.currency === "EUR" ? 1 : inv.currency === "USD" ? usdEurRate : NaN;
+  if (!rate) throw new OcrError(`Το τιμολόγιο είναι σε ${inv.currency}· δεκτά μόνο EUR και USD`);
+  return { netCents: Math.round(originalCents * rate), vatRate: [...rates][0] ?? 0, originalCents, rate };
 }
 
 /** Χρέωση συνδρομητή σε λεπτά EUR: κόστος USD × ισοτιμία × (1 + markup). */
@@ -112,13 +129,14 @@ export const chargeCents = (costUsd: number, usdEurRate: number, markupPercent: 
 export const OCR_SYSTEM =
   "Είσαι εξειδικευμένος αναγνώστης ελληνικών τιμολογίων αγοράς χονδρικής (Τιμολόγιο Αγοράς / Δελτίο Αποστολής-Τιμολόγιο). " +
   "Εξάγεις τα στοιχεία του παραστατικού σε αυστηρό JSON και τίποτα άλλο.";
-export const OCR_PROMPT = `Διάβασε το τιμολόγιο της φωτογραφίας και επέστρεψε ΜΟΝΟ JSON αυτής της μορφής:
-{"number": <αριθμός παραστατικού ή null>, "issuedAt": <"YYYY-MM-DD" ή null>, "vatNumber": <ΑΦΜ εκδότη, 9 ψηφία, ή null>,
+export const OCR_PROMPT = `Διάβασε το τιμολόγιο (φωτογραφία ή PDF) και επέστρεψε ΜΟΝΟ JSON αυτής της μορφής:
+{"number": <αριθμός παραστατικού ή null>, "issuedAt": <"YYYY-MM-DD" ή null>, "vatNumber": <ΑΦΜ εκδότη όπως τυπώνεται (ελληνικός 9 ψηφία ή ξένος με πρόθεμα χώρας) ή null>,
  "mydataMark": <ΜΑΡΚ αν τυπώνεται, αλλιώς null>, "paymentMethod": <τρόπος πληρωμής ή null>, "paymentTerms": <όροι πληρωμής ή null>,
  "shippingMethod": <τρόπος αποστολής/μεταφορέας ή null>, "shippingAddress": <διεύθυνση παράδοσης ή null>,
+ "currency": <νόμισμα ποσών ISO 4217, π.χ. "EUR" ή "USD">, "category": <σύντομη κατηγορία εξόδου στα ελληνικά, π.χ. "Λογισμικό", "Ενέργεια", "Τηλεπικοινωνίες">,
  "shippingCost": <καθαρά μεταφορικά προ ΦΠΑ ή 0>, "otherExpenses": <λοιπά καθαρά έξοδα προ ΦΠΑ ή 0>, "expensesVatRate": <ΦΠΑ εξόδων, π.χ. 24>,
  "lines": [{"description": <περιγραφή είδους όπως τυπώνεται>, "quantity": <ακέραιη ποσότητα στη μονάδα παραστατικού, π.χ. κιβώτια>,
- "unitPrice": <αρχική τιμή μονάδας ΠΡΟ εκπτώσεως και ΦΠΑ σε ευρώ>, "discountPercent": <ποσοστό έκπτωσης γραμμής, π.χ. 12.5 ή 0>, "vatRate": <ποσοστό ΦΠΑ γραμμής, π.χ. 13>,
+ "unitPrice": <αρχική τιμή μονάδας ΠΡΟ εκπτώσεως και ΦΠΑ, στο νόμισμα του τιμολογίου>, "discountPercent": <ποσοστό έκπτωσης γραμμής, π.χ. 12.5 ή 0>, "vatRate": <ποσοστό ΦΠΑ γραμμής, π.χ. 13>,
  "supplierCode": <κωδικός είδους του προμηθευτή ή null>, "ean": <barcode/EAN αν τυπώνεται, αλλιώς null>,
  "batchNumber": <παρτίδα αν τυπώνεται, αλλιώς null>, "expiresAt": <"YYYY-MM-DD" ημερομηνία λήξης αν τυπώνεται, αλλιώς null>}]}
 Κανόνες: η unitPrice είναι πριν από την έκπτωση και το ΦΠΑ. Η discountPercent και η vatRate γράφονται ως ποσοστά, όχι δεκαδικός συντελεστής.

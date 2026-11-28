@@ -65,7 +65,7 @@ export async function chatWithWeb(system: string, user: string): Promise<{ text:
   return { text: message.content, citations, model: typeof j.model === "string" ? j.model : c.chatModel, promptTokens: u.prompt_tokens ?? 0, completionTokens: u.completion_tokens ?? 0, costUsd: Number(u.cost) || 0 };
 }
 
-/** Μοντέλο όρασης: μια εικόνα (data URL) και οδηγία εξαγωγής. Η εικόνα δεν περνά από scrub — δεν είναι κείμενο. */
+/** Μοντέλο όρασης: μια εικόνα ή PDF (data URL) και οδηγία εξαγωγής. Το αρχείο δεν περνά από scrub — δεν είναι κείμενο. */
 export async function vision(system: string, prompt: string, imageDataUrl: string): Promise<{ text: string; model: string; promptTokens: number; completionTokens: number; costUsd: number }> {
   const c = await aiConfig();
   if (!c.chat) throw new AiError("Δεν έχει οριστεί κλειδί ή μοντέλο συνομιλίας");
@@ -73,7 +73,9 @@ export async function vision(system: string, prompt: string, imageDataUrl: strin
     model: c.chatModel,
     messages: [
       { role: "system", content: system },
-      { role: "user", content: [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: imageDataUrl } }] },
+      { role: "user", content: [{ type: "text", text: prompt }, imageDataUrl.startsWith("data:application/pdf")
+        ? { type: "file", file: { filename: "document.pdf", file_data: imageDataUrl } } // το OpenRouter διαβάζει PDF απευθείας
+        : { type: "image_url", image_url: { url: imageDataUrl } }] },
     ],
     temperature: 0.1,
     max_tokens: 4000,

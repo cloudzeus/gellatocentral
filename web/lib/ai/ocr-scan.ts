@@ -7,7 +7,9 @@ import { db } from "../db";
 import { matchLine } from "../purchases";
 import { partySnapshot } from "../purchase-document";
 import { AiError, vision } from "./openrouter";
-import { chargeCents, OCR_PROMPT, OCR_SYSTEM, parseInvoiceJson } from "./ocr";
+import { createExpense } from "../finance-db";
+import type { StockContext } from "../stock-scope";
+import { chargeCents, expenseTotals, OCR_PROMPT, OCR_SYSTEM, parseInvoiceJson } from "./ocr";
 
 /**
  * Σκανάρει φωτογραφία τιμολογίου και φτιάχνει πρόχειρο PurchaseDoc με γραμμές αντιστοιχισμένες
@@ -23,6 +25,8 @@ export async function scanPurchaseInvoice(orgId: string, userName: string, suppl
 
   const usdEur = Number(await setting("USD_EUR_RATE")) || 0.92;
   const charge = chargeCents(r.costUsd, usdEur, price.markupPercent);
+
+  if (inv.currency !== "EUR") throw new AiError(`Το τιμολόγιο είναι σε ${inv.currency} — σκάναρέ το ως έξοδο`);
 
   return db.$transaction(async (tx) => {
     const supplier = await tx.party.findFirst({ where: { id: supplierId, orgId, roles: { has: "supplier" } } });
@@ -87,4 +91,33 @@ export async function scanPurchaseInvoice(orgId: string, userName: string, suppl
     });
     return doc.id;
   });
+}
+
+/**
+ * Σκανάρει τιμολόγιο υπηρεσίας (λογισμικό, ενέργεια, συνδρομές) ως ένα Expense, χωρίς αποθήκη και γραμμές.
+ * Χωρίς επιλεγμένο προμηθευτή, δοκιμάζει τον ΑΦΜ του τιμολογίου. USD → EUR με την ισοτιμία πλατφόρμας, γραμμένη στη σημείωση.
+ */
+export async function scanExpense(ctx: StockContext, storeId: string | null, supplierId: string | null, mime: string, base64: string): Promise<string> {
+  const price = await db.usagePrice.findUnique({ where: { service: "ocr" } });
+  if (!price?.active) throw new AiError("Η υπηρεσία σάρωσης τιμολογίων δεν είναι ενεργή — ενεργοποιείται από την πλατφόρμα");
+
+  const r = await vision(OCR_SYSTEM, OCR_PROMPT, `data:${mime};base64,${base64}`);
+  const inv = parseInvoiceJson(r.text);
+  const usdEur = Number(await setting("USD_EUR_RATE")) || 0.92;
+  const t = expenseTotals(inv, usdEur);
+  supplierId ||= inv.vatNumber ? (await db.party.findFirst({ where: { orgId: ctx.orgId, vatNumber: inv.vatNumber, roles: { has: "supplier" } }, select: { id: true } }))?.id ?? null : null;
+
+  const fx = t.rate === 1 ? "" : ` · ${(t.originalCents / 100).toFixed(2)} ${inv.currency} × ${t.rate}`;
+  const expense = await createExpense(ctx, {
+    storeId, supplierId, category: inv.category ?? "Λοιπά έξοδα", documentNumber: inv.number, netCents: t.netCents, vatRate: t.vatRate,
+    occurredAt: inv.issuedAt ?? new Date(), note: `Από σάρωση OCR${fx} — έλεγξε τα ποσά`,
+  });
+  // shortcut: η χρέωση γράφεται μετά το έξοδο, όχι στην ίδια συναλλαγή (το createExpense ανοίγει δική του)
+  await db.usageEvent.create({
+    data: {
+      orgId: ctx.orgId, service: "ocr", units: 1, costUsd: r.costUsd, chargeCents: chargeCents(r.costUsd, usdEur, price.markupPercent),
+      detail: { model: r.model, expenseId: expense.id, promptTokens: r.promptTokens, completionTokens: r.completionTokens }, createdByName: ctx.userName,
+    },
+  });
+  return expense.id;
 }

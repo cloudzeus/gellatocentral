@@ -1,7 +1,7 @@
 // Δοκιμές των καθαρών συναρτήσεων του OCR: ανάλυση της απάντησης του μοντέλου και χρέωση.
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chargeCents, parseInvoiceJson } from "./ocr.ts";
+import { chargeCents, expenseTotals, parseInvoiceJson } from "./ocr.ts";
 
 test("καθαρό JSON με όλα τα πεδία", () => {
   const inv = parseInvoiceJson(JSON.stringify({
@@ -52,4 +52,17 @@ test("χρέωση: κόστος × ισοτιμία × (1 + markup), στρογ
   assert.equal(chargeCents(0.01, 0.92, 30), 1); // 0.01196 $ → 1,2 λεπτά → 1
   assert.equal(chargeCents(0.05, 1, 0), 5);
   assert.equal(chargeCents(0, 0.92, 30), 0);
+});
+
+test("έξοδο από σάρωση: USD → EUR με την ισοτιμία, ένας συντελεστής ΦΠΑ", () => {
+  const inv = parseInvoiceJson('{"currency": "usd", "category": "Λογισμικό", "lines": [{"description": "Credits", "quantity": 5000, "unitPrice": 0.01, "vatRate": 0}]}');
+  assert.equal(inv.currency, "USD");
+  assert.deepEqual(expenseTotals(inv, 0.92), { netCents: 4600, vatRate: 0, originalCents: 5000, rate: 0.92 });
+  assert.equal(parseInvoiceJson('{"lines": [{"description": "ΖΑΧΑΡΗ", "quantity": 1, "unitPrice": 1}]}').currency, "EUR");
+});
+
+test("έξοδο από σάρωση: ανάμεικτος ΦΠΑ ή άγνωστο νόμισμα = σφάλμα", () => {
+  const mixed = parseInvoiceJson('{"lines": [{"description": "Α1", "quantity": 1, "unitPrice": 1, "vatRate": 13}, {"description": "Β2", "quantity": 1, "unitPrice": 1, "vatRate": 24}]}');
+  assert.throws(() => expenseTotals(mixed, 0.92), /συντελεστές/);
+  assert.throws(() => expenseTotals(parseInvoiceJson('{"currency": "GBP", "lines": [{"description": "Α1", "quantity": 1, "unitPrice": 1}]}'), 0.92), /GBP/);
 });

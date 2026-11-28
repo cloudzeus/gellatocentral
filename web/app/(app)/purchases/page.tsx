@@ -73,10 +73,11 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
   const keyed = await hasMydataKeys(org.id);
   const missingView = q.view === "missing" && keyed;
   const list = listParams(q, 50, ["supplier", "number", "issuedAt", "warehouse", "lines", "status"]);
-  const [suppliers, warehouses, ocr] = await Promise.all([
+  const [suppliers, warehouses, ocr, stores] = await Promise.all([
     db.party.findMany({ where: { orgId: org.id, roles: { has: "supplier" }, active: true }, orderBy: { name: "asc" } }),
     db.warehouse.findMany({ where: { orgId: org.id, active: true }, orderBy: { name: "asc" } }),
     db.usagePrice.findUnique({ where: { service: "ocr" }, select: { active: true } }),
+    db.store.findMany({ where: { orgId: org.id }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   const supplier = filterParam(q, "supplier", suppliers.map((s) => s.id));
   const warehouse = filterParam(q, "warehouse", warehouses.map((w) => w.id));
@@ -124,13 +125,26 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
     </form>
   );
 
+  // Αγορά = πρόχειρο με γραμμές και απόθεμα· Έξοδο = υπηρεσία/λογαριασμός χωρίς απόθεμα (στα Οικονομικά)
+  const kindOption = (value: string, title: string, hint: string, checked = false) => (
+    <label className="flex min-h-11 cursor-pointer items-start gap-2 rounded-lg border p-3 has-checked:border-primary has-checked:bg-primary/5">
+      <input type="radio" name="kind" value={value} defaultChecked={checked} className="mt-1" />
+      <span className="grid gap-0.5"><span className="text-sm font-medium">{title}</span><span className="text-xs text-muted-foreground">{hint}</span></span>
+    </label>
+  );
   const scanForm = (
-    <form action={scanDoc} className="grid gap-4 [&>button]:justify-self-end">
-      <Select label="Προμηθευτής" name="supplierId" required options={suppliers.map((p): [string, string] => [p.id, p.name])} />
-      <Select label="Αποθήκη παραλαβής" name="warehouseId" required options={warehouses.map((w): [string, string] => [w.id, w.name])} />
-      <Field label="Φωτογραφία τιμολογίου" name="photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required hint="JPG, PNG ή WebP έως 8 MB — η υπηρεσία χρεώνεται ανά έγγραφο" />
-      <p className="text-xs text-muted-foreground">Το αρχείο αποθηκεύεται στο πρόχειρο. Τα αποτελέσματα ελέγχονται και διορθώνονται από εσένα πριν από οποιαδήποτε κίνηση αποθέματος.</p>
-      <FormPending label="Σάρωση και ανάλυση τιμολογίου…" />
+    <form action={scanDoc} className="group grid gap-4 [&>button]:justify-self-end">
+      <fieldset className="grid gap-2 sm:grid-cols-2">
+        <legend className="mb-2 text-sm font-medium">Τι είναι το τιμολόγιο</legend>
+        {kindOption("purchase", "Αγορά εμπορεύματος", "Γραμμές ειδών, μπαίνουν στην αποθήκη", true)}
+        {can("finance.edit") ? kindOption("expense", "Έξοδο", "Υπηρεσία, συνδρομή, λογαριασμός· χωρίς απόθεμα") : null}
+      </fieldset>
+      <Select label="Προμηθευτής" name="supplierId" options={[["", "Από τον ΑΦΜ του τιμολογίου (μόνο έξοδο)"], ...suppliers.map((p): [string, string] => [p.id, p.name])]} />
+      <div className="group-has-[input[value=expense]:checked]:hidden"><Select label="Αποθήκη παραλαβής" name="warehouseId" options={warehouses.map((w): [string, string] => [w.id, w.name])} /></div>
+      <div className="hidden group-has-[input[value=expense]:checked]:block"><Select label="Κατάστημα" name="storeId" options={[["", "Κεντρικό / όλα"], ...stores.map((st): [string, string] => [st.id, st.name])]} /></div>
+      <Field label="Τιμολόγιο (PDF ή φωτογραφία)" name="photo" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" required hint="PDF, JPG, PNG ή WebP έως 8 MB — η υπηρεσία χρεώνεται ανά έγγραφο" />
+      <p className="text-xs text-muted-foreground">Το αρχείο αποθηκεύεται μαζί με την εγγραφή. Τα ποσά ελέγχονται από εσένα· η αγορά μένει πρόχειρη μέχρι να την καταχωρίσεις.</p>
+      <FormPending label="Ανάγνωση τιμολογίου…" />
       <Submit pendingText="Σάρωση…" className={btn("default")}>Σάρωση</Submit>
     </form>
   );

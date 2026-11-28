@@ -7,7 +7,7 @@ import { z } from "zod";
 import { currentOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseGs1 } from "@/lib/gs1";
-import { scanPurchaseInvoice } from "@/lib/ai/ocr-scan";
+import { scanExpense, scanPurchaseInvoice } from "@/lib/ai/ocr-scan";
 import { importMyIncome } from "@/lib/mydata-income";
 import { checkQuietly, resolveCheck } from "@/lib/mydata-check";
 import { ignoreIncoming, importIncoming, linkIncoming, syncIncoming } from "@/lib/mydata-incoming";
@@ -263,18 +263,32 @@ export async function importDocs(form: FormData) {
   }
 }
 
-/** Σάρωση τιμολογίου (OCR, pay-per-use): η φωτογραφία γίνεται πρόχειρο με αντιστοιχισμένες γραμμές. */
+/** Σάρωση τιμολογίου (OCR, pay-per-use): φωτογραφία ή PDF → πρόχειρο αγοράς με αντιστοιχισμένες γραμμές, ή έξοδο. */
 export async function scanDoc(form: FormData) {
-  const { org, user } = await currentOrg("purchases.add");
+  const asExpense = form.get("kind") === "expense";
+  const { org, user } = await currentOrg(asExpense ? "finance.edit" : "purchases.add");
   const supplierId = String(form.get("supplierId") ?? "");
   const warehouseId = String(form.get("warehouseId") ?? "");
   const file = form.get("photo");
-  if (!(file instanceof File) || !file.size) return fail("Διάλεξε φωτογραφία του τιμολογίου");
-  if (file.size > 8 * 1024 * 1024) return fail("Η φωτογραφία είναι πολύ μεγάλη (έως 8 MB)");
-  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return fail("Δεκτές μορφές: JPG, PNG, WebP");
+  if (!(file instanceof File) || !file.size) return fail("Διάλεξε φωτογραφία ή PDF του τιμολογίου");
+  if (file.size > 8 * 1024 * 1024) return fail("Το αρχείο είναι πολύ μεγάλο (έως 8 MB)");
+  if (!/^(image\/(jpeg|png|webp)|application\/pdf)$/.test(file.type)) return fail("Δεκτές μορφές: PDF, JPG, PNG, WebP");
+  if (!asExpense && !supplierId) return fail("Διάλεξε προμηθευτή");
+  if (!asExpense && !warehouseId) return fail("Διάλεξε αποθήκη παραλαβής");
   const data = new Uint8Array(await file.arrayBuffer());
   const base64 = Buffer.from(data).toString("base64");
   try {
+    if (asExpense) {
+      const ctx = await requireStockContext("finance.edit");
+      const id = await runTask({ orgId: org.id, userId: user.id, userName: user.name }, { kind: "finance.scan", title: `Ανάγνωση εξόδου · ${file.name.slice(0, 60)}`, permission: "finance.read" }, async (task) => {
+        const expenseId = await scanExpense(ctx, String(form.get("storeId") ?? "") || null, supplierId || null, file.type, base64);
+        task.result("/finance");
+        return expenseId;
+      });
+      await saveFile({ orgId: org.id, category: "purchase_document", refType: "expense", refId: id, name: file.name, data, userId: user.id }).catch(() => null);
+      revalidatePath("/finance");
+      redirect(`/finance?saved=${encodeURIComponent("Το έξοδο καταχωρήθηκε από τη σάρωση — έλεγξε τα ποσά")}`);
+    }
     const docId = await runTask({ orgId: org.id, userId: user.id, userName: user.name }, { kind: "purchases.scan", title: `Ανάγνωση τιμολογίου αγοράς · ${file.name.slice(0, 60)}`, permission: "purchases.read" }, async (task) => {
       const id = await scanPurchaseInvoice(org.id, user.name, supplierId, warehouseId, file.type, base64);
       task.result(`/purchases/${id}`);
