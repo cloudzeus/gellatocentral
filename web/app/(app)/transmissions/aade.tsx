@@ -50,13 +50,17 @@ export async function AadeView({ orgId, now = new Date() }: { orgId: string; now
   const gaps = diffs.flatMap((r) => gapsOf(r).map((g) => ({ ...g, issuer: r.issuerName })));
   const diffCents = gaps.reduce((s, g) => s + Math.abs(g.cents - (g.aadeCents ?? 0)), 0);
   const unmarkedCents = unmarked.reduce((s, r) => s + r.cents, 0);
+  const staleUnmarked = unmarked.filter((r) => now.getTime() - r.at.getTime() >= 2 * DAY).length;
   const order = { DIFF: 0, MATCH: 1 } as Record<string, number>;
   const sorted = [...rows].sort((a, b) => order[a.status] - order[b.status] || b.day.getTime() - a.day.getTime());
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-        <span>Η ΑΑΔΕ δίνει κάθε απόδειξη με το MARK της· τις αντιστοιχίζουμε μία-μία με τις δικές μας. {last ? <>Τελευταίος έλεγχος: {time.format(last.checkedAt)} · ως χθες {short(days.at(-1)!)}</> : "Δεν έχει γίνει ακόμα έλεγχος."}</span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="min-w-72 flex-1">
+          <p className="text-sm">Κάθε απόδειξη του ταμείου αντιστοιχίζεται με το MARK της στην ΑΑΔΕ</p>
+          <p className="text-xs text-muted-foreground tabular-nums">{last ? `Τελευταίος έλεγχος ${time.format(last.checkedAt)} · ημέρες ${short(days[0])} – ${short(days.at(-1)!)}` : "Δεν έχει γίνει ακόμα έλεγχος"}</p>
+        </div>
         <form action={recheckReceipts}><Submit pendingText="Έλεγχος…" className={btn("outline", "sm")}><RefreshCw /> Ξαναέλεγξε τώρα</Submit></form>
       </div>
       {skipped.length ? <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm text-warning-ink">Δεν ελέγχονται, γιατί δεν έχουν κλειδιά myDATA: {skipped.map((s) => `${s.name} (ΑΦΜ ${s.vat})`).join(", ")}. Τα ορίζει η πλατφόρμα στην καρτέλα της επιχείρησης.</p> : null}
@@ -65,17 +69,15 @@ export async function AadeView({ orgId, now = new Date() }: { orgId: string; now
         <Kpi icon={BadgeCheck} label="Ημέρες που συμφωνούν" tone={checked.length && !diffDays ? "success" : "neutral"}
           value={<>{checked.filter((d) => d.status === "MATCH").length} <span className="text-lg text-muted-foreground">από {checked.length}</span></>}
           hint={checked.length ? "Κάθε απόδειξη βρέθηκε στην ΑΑΔΕ με το ίδιο ποσό" : "Πάτα «Ξαναέλεγξε τώρα» για τον πρώτο έλεγχο"} />
-        <Kpi icon={CalendarX2} label="Ημέρες με διαφορά" tone={diffDays ? "danger" : "success"}
-          value={<>{diffDays}{diffDays ? <span className="text-lg text-muted-foreground"> · {euro(diffCents)}</span> : null}</>}
-          hint={diffDays ? `${gaps.length} ${gaps.length === 1 ? "απόδειξη δεν ταιριάζει" : "αποδείξεις δεν ταιριάζουν"}· δες τη λίστα παρακάτω` : "Καμία απόδειξη που να λείπει ή να διαφέρει"} />
-        <Kpi icon={CircleAlert} label="Αποδείξεις χωρίς MARK" tone={unmarked.length ? "danger" : "success"}
-          value={<>{unmarked.length}{unmarked.length ? <span className="text-lg text-muted-foreground"> · {euro(unmarkedCents)}</span> : null}</>}
-          hint={unmarked.length ? "Η Viva τις ξαναστέλνει μόνη της· δες τη λίστα" : "Όλες οι αποδείξεις του μήνα έχουν MARK"} />
+        <Kpi icon={CalendarX2} label="Ημέρες με διαφορά" tone={diffDays ? "danger" : "success"} value={diffDays}
+          hint={diffDays ? `${gaps.length} ${gaps.length === 1 ? "απόδειξη" : "αποδείξεις"} · ${euro(diffCents)} δεν ταιριάζουν. Δες τη λίστα παρακάτω` : "Καμία απόδειξη που να λείπει ή να διαφέρει"} />
+        <Kpi icon={CircleAlert} label="Αποδείξεις χωρίς MARK" tone={staleUnmarked ? "danger" : unmarked.length ? "warning" : "success"} value={unmarked.length}
+          hint={staleUnmarked ? `${euro(unmarkedCents)} · ${staleUnmarked} πάνω από 2 ημέρες: στείλ’ τες στην υποστήριξη της Viva` : unmarked.length ? `${euro(unmarkedCents)} · η Viva τις ξαναστέλνει μόνη της` : "Όλες οι αποδείξεις του μήνα έχουν MARK"} />
       </div>
 
       <Card className="p-4 sm:p-5">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-semibold">Τελευταίες {days.length} ημέρες <span className="font-normal text-muted-foreground">· αποδείξεις με MARK ανά ημέρα</span></h2>
+          <h2 className="text-sm font-semibold">Αποδείξεις ανά ημέρα <span className="font-normal text-muted-foreground tabular-nums">· {short(days[0])} – {short(days.at(-1)!)}, το ύψος δείχνει πόσες κόπηκαν</span></h2>
           <span className="flex flex-wrap gap-4 text-xs text-muted-foreground">
             {(Object.keys(STATUS) as Status[]).map((s) => <span key={s} className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-sm" style={{ background: COLOR[s] }} />{STATUS[s][1]}</span>)}
           </span>

@@ -32,7 +32,8 @@ export async function MissingView({ orgId, canAdd, canEdit, now = new Date() }: 
     db.mydataIncoming.findMany({ where: { orgId, status: "MISSING" }, orderBy: [{ issuedAt: "asc" }, { firstSeenAt: "asc" }] }),
     db.mydataIncoming.findMany({ where: { orgId, issuedAt: { gte: from } }, select: { status: true, supplierVat: true, supplierName: true } }),
     db.warehouse.findMany({ where: { orgId, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
-    db.mydataIncoming.findFirst({ where: { orgId }, orderBy: { checkedAt: "desc" }, select: { checkedAt: true } }),
+    // ο τελευταίος έλεγχος από τις «Εργασίες»: με μηδέν παραστατικά δεν υπάρχει γραμμή να κρατήσει την ώρα
+    db.taskRun.findFirst({ where: { orgId, kind: "purchases.mydata-missing", status: { in: ["DONE", "PARTIAL"] } }, orderBy: { startedAt: "desc" }, select: { finishedAt: true, startedAt: true } }),
   ]);
   const vats = [...new Set(rows.map((r) => r.supplierVat))];
   const [usual, candidates] = await Promise.all([
@@ -64,16 +65,18 @@ export async function MissingView({ orgId, canAdd, canEdit, now = new Date() }: 
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-        <span>Οι προμηθευτές τα δήλωσαν στο myDATA για εμάς, αλλά δεν τα βρίσκουμε στις αγορές. {last ? <>Τελευταίος έλεγχος: {time(last.checkedAt)}</> : "Δεν έχει γίνει ακόμα έλεγχος."}</span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="min-w-72 flex-1">
+          <p className="text-sm">Τιμολόγια που δήλωσαν οι προμηθευτές στο myDATA για εμάς και δεν υπάρχουν στις αγορές</p>
+          <p className="text-xs text-muted-foreground tabular-nums">{last ? `Τελευταίος έλεγχος ${time(last.finishedAt ?? last.startedAt)} · από ${day(from)} ως σήμερα` : "Δεν έχει γίνει ακόμα έλεγχος"}</p>
+        </div>
         {recheck}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Kpi icon={FileWarning} label="Λείπουν από τις αγορές" tone={rows.length ? (oldestDays > OLD_DAYS ? "danger" : "warning") : "success"}
-          value={<>{rows.length}{rows.length ? <span className="text-lg text-muted-foreground"> · {euro(missingSum)}</span> : null}</>}
-          hint={rows.length ? `Το παλαιότερο ${oldestDays} ημερών. Βρες τα πριν κλείσει ο μήνας` : "Όλα όσα δηλώθηκαν υπάρχουν στις αγορές"} />
-        <Kpi icon={BadgeCheck} label="Στο myDATA και σε εμάς" tone={counted && found / counted >= 0.9 ? "success" : "warning"}
+        <Kpi icon={FileWarning} label="Λείπουν από τις αγορές" tone={rows.length ? (oldestDays > OLD_DAYS ? "danger" : "warning") : "success"} value={rows.length}
+          hint={rows.length ? `${euro(missingSum)} · το παλαιότερο ${oldestDays} ημερών. Πέρασέ τα πριν κλείσει ο μήνας` : "Όλα όσα δηλώθηκαν υπάρχουν στις αγορές"} />
+        <Kpi icon={BadgeCheck} label="Στο myDATA και σε εμάς" tone={!counted ? "neutral" : found / counted >= 0.9 ? "success" : "warning"}
           value={<>{found} <span className="text-lg text-muted-foreground">από {counted}</span></>}
           hint={counted ? `${Math.round((found / counted) * 100)}% από 1/${from.getUTCMonth() + 1} ως σήμερα` : "Κανένα παραστατικό στο διάστημα"} />
         <Kpi icon={CircleSlash} label="Δεν μας αφορούν" value={ignored} hint="Σημειωμένα, δεν ξαναεμφανίζονται" />
