@@ -3,7 +3,7 @@
 // Ίδιο reference (sessionId) σε κάθε προσπάθεια → ίδιο MARK, άρα η επανάληψη δεν διαβιβάζει δεύτερη φορά.
 import { db } from "./db";
 import { issuerForStore } from "./documents/issuer";
-import { transmitSalesDocument } from "./mydata-outgoing";
+import { transmitPurchaseReturn, transmitSalesDocument } from "./mydata-outgoing";
 import { signOrderSlips } from "./order-slips";
 import type { StockContext } from "./stock-scope";
 
@@ -38,6 +38,10 @@ export async function retryFiscal(now = new Date()) {
       } else {
         const sales = await db.salesDocument.findUnique({ where: { fiscalDocumentId: doc.id }, select: { id: true } });
         if (sales) await transmitSalesDocument(systemCtx(doc.orgId!), sales.id);
+        else {
+          const ret = await db.purchaseDoc.findUnique({ where: { fiscalDocumentId: doc.id }, select: { id: true } }); // 9.3 επιστροφής σε προμηθευτή
+          if (ret) await transmitPurchaseReturn(systemCtx(doc.orgId!), ret.id);
+        }
       }
     } catch { /* η αποτυχία γράφτηκε στο παραστατικό και στο ημερολόγιο */ }
     const after = await db.fiscalDocument.findUnique({ where: { id: doc.id }, select: { status: true } });

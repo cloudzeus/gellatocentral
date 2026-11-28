@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ListChecks, Plus, Store as StoreIcon } from "lucide-react";
+import { ChefHat, ListChecks, Plus, Store as StoreIcon } from "lucide-react";
 import { Modal } from "@/components/modal";
 import { btn, Card, Page, Select } from "@/components/ui";
 import { db } from "@/lib/db";
@@ -68,6 +68,7 @@ export default async function DevicesPage() {
                           </form>
                         </Modal>
                       ) : null}
+                      {d.kind === "KITCHEN_DISPLAY" ? <Link href={`/devices/kitchen/${d.id}`} className={btn("outline", "sm")}><ChefHat /> Οθόνη κουζίνας</Link> : null}
                       {can("devices.edit") ? <form action={toggleDevice.bind(null, d.id)}><Submit className={btn("outline", "sm")}>{d.active ? "Απενεργοποίηση" : "Ενεργοποίηση"}</Submit></form> : null}
                     </li>
                   );

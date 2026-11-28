@@ -28,7 +28,9 @@ export async function login(form: FormData) {
   }
   await db.user.update({ where: { id: user.id }, data: { failedLogins: 0, lockedUntil: null } });
   await startSession(user.id);
-  redirect(user.platformRole ? "/platform" : "/");
+  // εργαζόμενος με λογαριασμό μόνο για το portal (χωρίς μέλος επιχείρησης): στις βάρδιές του
+  const portal = !user.platformRole && !user.memberships.length && (await db.employee.count({ where: { userId: user.id, active: true } })) > 0;
+  redirect(user.platformRole ? "/platform" : portal ? "/me" : "/");
 }
 
 export async function logout() {

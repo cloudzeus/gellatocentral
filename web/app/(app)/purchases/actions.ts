@@ -12,6 +12,9 @@ import { importMyIncome } from "@/lib/mydata-income";
 import { matchLine } from "@/lib/purchases";
 import { purchaseSnapshots } from "@/lib/purchase-snapshots";
 import { postPurchase } from "@/lib/purchases-db";
+import { createCredit, createReturn, issueReturn, postImportedCredit } from "@/lib/purchase-returns";
+import { transmitPurchaseReturn } from "@/lib/mydata-outgoing";
+import { readableError } from "@/lib/fiscal-retry-rules";
 import { saveFile } from "@/lib/storage";
 import { requireStockContext } from "@/lib/stock-context";
 import { runTask } from "@/lib/tasks";
@@ -285,4 +288,82 @@ export async function scanDoc(form: FormData) {
     rethrowControlFlow(e); // το redirect της επιτυχίας δεν είναι σφάλμα
     return fail(e instanceof Error ? e.message : "Η σάρωση απέτυχε");
   }
+}
+
+// ---- Επιστροφές σε προμηθευτή και πιστωτικά προμηθευτή (lib/purchase-returns.ts) ----
+
+const quantitiesOf = (form: FormData) => [...form.entries()].filter(([k]) => k.startsWith("qty:")).map(([k, v]) => ({ lineId: k.slice(4), quantity: Number(String(v).trim() || "0") }));
+const cents = (v: FormDataEntryValue | null) => Math.round(Number(String(v ?? "").replace(",", ".")) * 100);
+
+/** Πρόχειρη επιστροφή από τιμολόγιο → η καρτέλα της, όπου εκδίδεται το 9.3. */
+export async function createReturnAction(invoiceId: string, form: FormData) {
+  const ctx = await requireStockContext("purchases.edit");
+  let id: string;
+  try {
+    id = (await createReturn(ctx, invoiceId, quantitiesOf(form), String(form.get("reason") ?? "").trim().slice(0, 300) || null)).id;
+  } catch (e) {
+    rethrowControlFlow(e);
+    return fail(e instanceof Error ? e.message : "Η επιστροφή δεν δημιουργήθηκε", `/purchases/${invoiceId}`);
+  }
+  back(`/purchases/${id}`);
+}
+
+/** Έκδοση 9.3 «Επιστροφή»: απόθεμα έξω και διαβίβαση· αν η διαβίβαση αποτύχει, μένει για επανάληψη. */
+export async function issueReturnAction(returnId: string, form: FormData) {
+  const ctx = await requireStockContext("purchases.edit");
+  try {
+    await issueReturn(ctx, returnId, String(form.get("seriesId") ?? ""));
+  } catch (e) {
+    rethrowControlFlow(e);
+    return fail(e instanceof Error ? e.message : "Η έκδοση απέτυχε", `/purchases/${returnId}`);
+  }
+  await sendReturn(ctx, returnId);
+}
+
+export async function retransmitReturnAction(returnId: string) {
+  await sendReturn(await requireStockContext("purchases.edit"), returnId);
+}
+
+async function sendReturn(ctx: Awaited<ReturnType<typeof requireStockContext>>, returnId: string) {
+  try {
+    await transmitPurchaseReturn(ctx, returnId);
+  } catch (e) {
+    rethrowControlFlow(e);
+    return fail(`Το απόθεμα βγήκε, αλλά το 9.3 δεν διαβιβάστηκε: ${readableError(e instanceof Error ? e.message : null) ?? "άγνωστο σφάλμα"}. Θα ξαναδοκιμαστεί αυτόματα.`, `/purchases/${returnId}`);
+  }
+  await flashOk("Η επιστροφή εκδόθηκε και το 9.3 στάλθηκε στην ΑΑΔΕ");
+  back(`/purchases/${returnId}`);
+}
+
+export async function createCreditAction(invoiceId: string, form: FormData) {
+  const ctx = await requireStockContext("purchases.edit");
+  const d = z.object({
+    mydataType: z.enum(["5.1", "5.2"]), number: z.string().trim().max(40), issuedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Δώσε ημερομηνία"),
+    mark: z.string().trim().max(40), stockMode: z.enum(["returned", "now", "value"]), returnId: z.string().max(40), vatRate: z.coerce.number().int().min(0).max(100), note: z.string().trim().max(200),
+  }).safeParse({ mydataType: form.get("mydataType"), number: form.get("number") ?? "", issuedAt: form.get("issuedAt"), mark: form.get("mark") ?? "", stockMode: form.get("stockMode"), returnId: form.get("returnId") ?? "", vatRate: form.get("vatRate") ?? 24, note: form.get("note") ?? "" });
+  if (!d.success) return fail(d.error.issues[0].message, `/purchases/${invoiceId}`);
+  try {
+    await createCredit(ctx, {
+      invoiceId, mydataType: d.data.mydataType, number: d.data.number, issuedAt: new Date(`${d.data.issuedAt}T00:00:00Z`), mark: d.data.mark || null, stockMode: d.data.stockMode,
+      returnId: d.data.returnId || null, quantities: quantitiesOf(form), amountCents: cents(form.get("amount")), vatRate: d.data.vatRate, note: d.data.note || null,
+    });
+  } catch (e) {
+    rethrowControlFlow(e);
+    return fail(e instanceof Error ? e.message : "Το πιστωτικό δεν καταχωρήθηκε", `/purchases/${invoiceId}`);
+  }
+  await flashOk("Το πιστωτικό καταχωρήθηκε και μείωσε το υπόλοιπο του τιμολογίου");
+  back(`/purchases/${invoiceId}`);
+}
+
+/** Πιστωτικό από το myDATA: σύνδεση με τιμολόγιο (και επιστροφή) και καταχώριση. */
+export async function postImportedCreditAction(creditId: string, form: FormData) {
+  const ctx = await requireStockContext("purchases.edit");
+  try {
+    await postImportedCredit(ctx, creditId, String(form.get("invoiceId") ?? ""), String(form.get("returnId") ?? "") || null);
+  } catch (e) {
+    rethrowControlFlow(e);
+    return fail(e instanceof Error ? e.message : "Το πιστωτικό δεν καταχωρήθηκε", `/purchases/${creditId}`);
+  }
+  await flashOk("Το πιστωτικό καταχωρήθηκε");
+  back(`/purchases/${creditId}`);
 }

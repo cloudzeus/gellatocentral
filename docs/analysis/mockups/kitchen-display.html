@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Οθόνη κουζίνας (KDS)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#111315; --panel:#1A1C1F; --card:#212428; --raised:#2A2D32; --line:rgba(255,255,255,.08); --div:rgba(255,255,255,.12);
+    --text:#FAFAFA; --muted:#B4B7BD; --faint:#787C84; --ink:#121417; --action:#F4F4F5;
+    --bad:#F28B8B; --wait:#F2C46D; --ok:#7FD1A1; --info:#C8DAEA; }
+  * { box-sizing:border-box; margin:0; padding:0 }
+  body { background:#0A0B0C; color:var(--text); font-family:"Inter Tight",system-ui,sans-serif; padding:32px 24px 64px }
+  .page { max-width:1560px; margin:0 auto }
+  h1 { font-size:26px; font-weight:600 }
+  h2 { font-size:18px; font-weight:600; margin:40px 0 4px }
+  .lead { color:var(--muted); font-size:15px; margin-top:6px; max-width:900px; line-height:1.5 }
+  .kpis { display:flex; gap:12px; margin:20px 0 28px; flex-wrap:wrap }
+  .kpi { background:var(--panel); border-radius:14px; padding:14px 16px; min-width:220px; max-width:300px }
+  .kpi b { font-size:16px; font-weight:600 }
+  .kpi span { display:block; color:var(--muted); font-size:13px; margin-top:4px; line-height:1.4 }
+  .cap { font-size:15px; font-weight:600; margin-bottom:10px }
+  .cap small { color:var(--faint); font-weight:500; font-size:13px }
+  .row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start }
+
+  /* KDS: tablet ή τηλεόραση οριζόντια */
+  .kds { width:1280px; height:800px; background:var(--bg); border-radius:20px; border:1px solid var(--div); overflow:hidden; display:flex; flex-direction:column; position:relative }
+  .top { height:64px; display:flex; align-items:center; gap:12px; padding:0 16px; border-bottom:1px solid var(--line); flex-shrink:0 }
+  .top .st { font-size:20px; font-weight:700 }
+  .seg { display:flex; background:var(--card); border-radius:12px; padding:4px; gap:2px }
+  .seg span { font-size:15px; font-weight:600; padding:9px 14px; border-radius:9px; color:var(--muted); font-variant-numeric:tabular-nums }
+  .seg .on { background:var(--action); color:var(--ink) }
+  .stat { font-size:14px; color:var(--muted); font-variant-numeric:tabular-nums; display:flex; align-items:center; gap:6px }
+  .stat b { color:var(--text); font-weight:600 }
+  .clock { margin-left:auto; font-size:22px; font-weight:600; font-variant-numeric:tabular-nums }
+  .body { flex:1; display:flex; min-height:0 }
+  .sum { width:220px; border-right:1px solid var(--line); padding:12px; flex-shrink:0; display:flex; flex-direction:column; gap:4px }
+  .sum .h { font-size:13px; font-weight:600; color:var(--muted); margin-bottom:4px }
+  .sum .it { display:flex; align-items:center; gap:10px; height:44px; padding:0 10px; border-radius:10px; background:var(--panel); font-size:15px }
+  .sum .it b { font-size:20px; font-weight:700; width:28px; font-variant-numeric:tabular-nums }
+  .sum .it.on { background:var(--action); color:var(--ink) }
+  .sum .hint { font-size:12px; color:var(--faint); margin-top:6px; line-height:1.4 }
+  .tix { flex:1; display:grid; grid-template-columns:repeat(4,1fr); gap:10px; padding:12px; align-content:start; overflow:hidden }
+  .t { background:var(--panel); border-radius:14px; display:flex; flex-direction:column; overflow:hidden; border-top:6px solid var(--faint) }
+  .t.ok { border-top-color:var(--ok) } .t.wait { border-top-color:var(--wait) } .t.bad { border-top-color:var(--bad) }
+  .t.new { box-shadow:0 0 0 2px var(--info) inset }
+  .th { display:flex; align-items:baseline; gap:8px; padding:10px 12px 6px }
+  .th .n { font-size:26px; font-weight:700; line-height:1 }
+  .th .el { margin-left:auto; font-size:22px; font-weight:700; font-variant-numeric:tabular-nums }
+  .t.bad .el { color:var(--bad) } .t.wait .el { color:var(--wait) } .t.ok .el { color:var(--ok) }
+  .tm { font-size:13px; color:var(--muted); padding:0 12px 8px; border-bottom:1px solid var(--line); display:flex; gap:6px; flex-wrap:wrap }
+  .tag { font-size:12px; font-weight:600; border-radius:6px; padding:2px 7px; background:var(--raised); color:var(--text) }
+  .tag.newt { background:var(--info); color:var(--ink) }
+  .tl { padding:4px 12px; flex:1 }
+  .l { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid var(--line); align-items:flex-start }
+  .l:last-child { border-bottom:0 }
+  .l .q { font-size:20px; font-weight:700; width:30px; font-variant-numeric:tabular-nums; line-height:1.15 }
+  .l .w { flex:1; min-width:0 }
+  .l .nm { font-size:17px; font-weight:600; line-height:1.2 }
+  .l .op { font-size:14px; color:var(--muted); margin-top:2px; line-height:1.35 }
+  .l .note { font-size:14px; color:var(--wait); margin-top:3px; font-weight:600 }
+  .l .se { font-size:12px; color:var(--muted); background:var(--card); border-radius:6px; padding:2px 6px; margin-top:3px; flex-shrink:0 }
+  .l.done .nm, .l.done .q, .l.done .op { color:var(--faint); text-decoration:line-through }
+  .l.void { background:#2a1e1f; margin:0 -12px; padding:8px 12px }
+  .l.void .nm, .l.void .q { color:var(--bad); text-decoration:line-through }
+  .l.void .op { color:var(--bad); text-decoration:none; font-weight:600 }
+  .l.hl { background:rgba(244,244,245,.09); margin:0 -12px; padding:8px 12px }
+  .chk { width:22px; height:22px; border-radius:11px; border:2px solid var(--div); flex-shrink:0; margin-top:2px; display:grid; place-items:center; font-size:13px; color:var(--ink) }
+  .l.done .chk { background:var(--ok); border-color:var(--ok) }
+  .tb { padding:10px 12px 12px }
+  .bump { height:52px; border-radius:12px; background:var(--action); color:var(--ink); font-size:17px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px }
+  .bump small { font-weight:500; font-size:14px; color:#4b4f56 }
+  .coming { height:60px; border-top:1px solid var(--line); background:var(--panel); display:flex; align-items:center; gap:10px; padding:0 16px; flex-shrink:0 }
+  .coming .h { font-size:13px; font-weight:600; color:var(--wait); white-space:nowrap }
+  .cm { background:#2b2618; border-radius:10px; padding:7px 12px; font-size:14px; white-space:nowrap }
+  .cm b { font-weight:700 } .cm span { color:var(--muted) }
+  .toast { position:absolute; left:50%; transform:translateX(-50%); bottom:76px; background:var(--action); color:var(--ink); border-radius:14px; padding:0 8px 0 18px; height:56px; display:flex; align-items:center; gap:14px; font-size:15px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.4) }
+  .toast .u { background:var(--ink); color:var(--text); border-radius:10px; padding:10px 14px; font-size:14px }
+
+  /* κινητό σερβιτόρου (από waiter-phone-rush) */
+  .phone { width:360px; height:760px; background:var(--bg); border-radius:28px; border:1px solid var(--div); overflow:hidden; display:flex; flex-direction:column }
+  .status { height:24px; display:flex; justify-content:space-between; padding:4px 16px 0; font-size:11px; color:var(--muted) }
+  .hdr { display:flex; align-items:center; gap:10px; height:52px; padding:0 12px; flex-shrink:0 }
+  .hdr .tt2 { font-size:18px; font-weight:600; line-height:1.1 } .hdr .s { font-size:12px; color:var(--muted) }
+  .scroll { flex:1; overflow:hidden; padding:0 12px }
+  .lbl { font-size:12px; font-weight:600; color:var(--muted); margin:10px 0 6px }
+  .urg { display:flex; align-items:center; gap:10px; background:var(--panel); border-radius:12px; padding:0 6px 0 10px; height:52px; margin-bottom:6px; border-left:3px solid var(--wait) }
+  .urg.ok { border-left-color:var(--ok); background:#1b2620 } .urg.bad { border-left-color:var(--bad) }
+  .urg .n { font-size:15px; font-weight:700; width:30px }
+  .urg .w { flex:1; min-width:0 } .urg .w b { font-size:13.5px; font-weight:600; display:block } .urg .w span { font-size:12px; color:var(--muted) }
+  .btn { height:40px; padding:0 12px; border-radius:10px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px; white-space:nowrap }
+  .btn.p { background:var(--action); color:var(--ink) } .btn.g { background:var(--raised); color:var(--text) }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:6px }
+  .tt { background:var(--panel); border-radius:12px; height:84px; padding:8px 9px; display:flex; flex-direction:column; border-top:3px solid var(--faint) }
+  .tt.ready { border-top-color:var(--ok); background:#1b2620 } .tt.ordered { border-top-color:var(--info) } .tt.eating { border-top-color:#9aa3ad }
+  .tt .num { font-size:20px; font-weight:700; line-height:1 } .tt .st2 { font-size:11.5px; color:var(--muted); margin-top:3px }
+  .tt.ready .st2 { color:var(--ok); font-weight:600 }
+  .tt .ft { margin-top:auto; display:flex; justify-content:space-between; font-size:12px } .tt .ft span { color:var(--faint) }
+  .nav { height:60px; border-top:1px solid var(--line); background:var(--panel); display:flex; flex-shrink:0 }
+  .nav div { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:11px; color:var(--faint) }
+  .nav .on { color:var(--text); font-weight:600 } .nav .ic { width:22px; height:22px; border-radius:6px; border:1.6px solid currentColor }
+
+  /* web: ρυθμίσεις + απόδοση */
+  .web { width:760px; background:#F7F7F8; color:#16181B; border-radius:16px; overflow:hidden; border:1px solid var(--div) }
+  .web .wh { padding:18px 22px 10px; border-bottom:1px solid #E4E5E8 }
+  .web .wh b { font-size:18px; font-weight:600 } .web .wh p { font-size:13.5px; color:#5B6068; margin-top:4px; line-height:1.45 }
+  .web .sec { padding:16px 22px; border-bottom:1px solid #E4E5E8 }
+  .web .sec h3 { font-size:14px; font-weight:600; margin-bottom:10px }
+  .web table { width:100%; border-collapse:collapse; font-size:14px }
+  .web td { padding:8px 0; border-bottom:1px solid #EDEEF0 }
+  .web td:last-child { text-align:right }
+  .pill { display:inline-flex; background:#ECEDEF; border-radius:9px; padding:3px; gap:2px }
+  .pill span { font-size:13px; font-weight:600; padding:5px 10px; border-radius:7px; color:#5B6068 }
+  .pill .on { background:#1E2A44; color:#fff }
+  .fld { display:flex; gap:16px; flex-wrap:wrap }
+  .fld div { flex:1; min-width:200px; font-size:13px; color:#5B6068 }
+  .fld .in { margin-top:6px; height:40px; border:1px solid #D7D9DD; border-radius:9px; background:#fff; display:flex; align-items:center; padding:0 12px; font-size:14px; color:#16181B }
+  .wk { display:flex; gap:12px; margin-bottom:14px }
+  .wk div { flex:1; background:#fff; border:1px solid #E4E5E8; border-radius:12px; padding:12px 14px }
+  .wk b { font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; display:block }
+  .wk span { font-size:12.5px; color:#5B6068 } .wk .g { color:#1E7A4C; font-weight:600 } .wk .r { color:#B4232C; font-weight:600 }
+  .notes { background:var(--panel); border-radius:14px; padding:18px 20px; margin-top:28px; max-width:1100px }
+  .notes h3 { font-size:15px; font-weight:600; margin-bottom:8px }
+  .notes li { font-size:14px; color:var(--muted); line-height:1.55; margin-left:18px }
+  .notes li b { color:var(--text); font-weight:600 }
+</style>
+</head>
+<body><div class="page">
+
+<h1>Οθόνη κουζίνας (KDS)</h1>
+<p class="lead">Ο γύρος που στέλνει ο σερβιτόρος εμφανίζεται εδώ αμέσως, χωρισμένος ανά σταθμό: τα κρέπες και βάφλες στην κουζίνα, οι καφέδες στο bar. Ο μάγειρας τσεκάρει ό,τι ετοίμασε, πατά «Έτοιμο» και το κινητό του σερβιτόρου δονείται: «Τ7 · Έτοιμο». Ό,τι είναι στο «Μετά» φαίνεται κάτω ως «Έρχονται», για να προλάβει η κουζίνα.</p>
+
+<div class="kpis">
+  <div class="kpi"><b>Χρώμα = πόσο περιμένει</b><span>Πράσινο ως 8′, κίτρινο 8–15′, κόκκινο μετά. Τα όρια αλλάζουν στις ρυθμίσεις.</span></div>
+  <div class="kpi"><b>Ένα πάτημα, ένας σερβιτόρος</b><span>«Έτοιμο» ειδοποιεί μόνο όποιον έχει το τραπέζι, όχι όλη τη σάλα.</span></div>
+  <div class="kpi"><b>Σύνολα αριστερά</b><span>«4 Κρέπα σοκολάτα» σε όλα τα δελτία μαζί: φτιάχνεις παρτίδα αντί για δελτίο-δελτίο.</span></div>
+  <div class="kpi"><b>Ακυρώσεις φαίνονται</b><span>Είδος που ακυρώθηκε μένει κόκκινο και διαγραμμένο ώσπου να το δει η κουζίνα.</span></div>
+</div>
+
+<div class="cap">1 · Η οθόνη της κουζίνας <small>tablet ή τηλεόραση οριζόντια, 1280×800 · ώρα αιχμής</small></div>
+<div class="kds">
+  <div class="top">
+    <span class="st">Κουζίνα</span>
+    <div class="seg"><span class="on">Κουζίνα · 5</span><span>Bar · 3</span><span>Όλα</span></div>
+    <span class="stat">Σε αναμονή <b>5</b> δελτία · <b>10</b> είδη</span>
+    <span class="stat">· Μέσος χρόνος σήμερα <b>7′</b></span>
+    <span class="clock">21:42</span>
+  </div>
+  <div class="body">
+    <div class="sum">
+      <div class="h">Να φτιαχτούν συνολικά</div>
+      <div class="it on"><b>4</b>Κρέπα σοκολάτα</div>
+      <div class="it"><b>3</b>Βάφλα με παγωτό</div>
+      <div class="it"><b>2</b>Affogato</div>
+      <div class="it"><b>2</b>Κρέπα αλμυρή</div>
+      <div class="it"><b>1</b>Τοστ</div>
+      <div class="hint">Πάτα ένα είδος: φωτίζεται σε όλα τα δελτία που το έχουν.</div>
+    </div>
+    <div class="tix">
+      <div class="t bad">
+        <div class="th"><span class="n">Τ7</span><span class="el">17′</span></div>
+        <div class="tm"><span>Γύρος 2 · Μαρία</span></div>
+        <div class="tl">
+          <div class="l done"><span class="chk">✓</span><span class="q">2</span><div class="w"><div class="nm">Κρέπα σοκολάτα</div><div class="op">μπανάνα · μπισκότο</div></div><span class="se">Θ1·2</span></div>
+          <div class="l"><span class="chk"></span><span class="q">1</span><div class="w"><div class="nm">Βάφλα με παγωτό</div><div class="op">βανίλια, φράουλα</div><div class="note">χωρίς σιρόπι</div></div><span class="se">Θ3</span></div>
+        </div>
+        <div class="tb"><div class="bump">Έτοιμο <small>1 από 3 έτοιμα</small></div></div>
+      </div>
+      <div class="t wait">
+        <div class="th"><span class="n">Τ12</span><span class="el">11′</span></div>
+        <div class="tm"><span>Γύρος 1 · Νίκος</span></div>
+        <div class="tl">
+          <div class="l"><span class="chk"></span><span class="q">2</span><div class="w"><div class="nm">Κρέπα αλμυρή</div><div class="op">γαλοπούλα · τυρί</div></div><span class="se">Θ1·2</span></div>
+          <div class="l void"><span class="chk"></span><span class="q">1</span><div class="w"><div class="nm">Τοστ</div><div class="op">Ακυρώθηκε 21:40</div></div></div>
+        </div>
+        <div class="tb"><div class="bump">Έτοιμο</div></div>
+      </div>
+      <div class="t ok">
+        <div class="th"><span class="n">Τ3</span><span class="el">5′</span></div>
+        <div class="tm"><span>Γύρος 1 · Μαρία</span></div>
+        <div class="tl">
+          <div class="l hl"><span class="chk"></span><span class="q">2</span><div class="w"><div class="nm">Κρέπα σοκολάτα</div><div class="op">φράουλα</div></div></div>
+          <div class="l"><span class="chk"></span><span class="q">2</span><div class="w"><div class="nm">Affogato</div></div></div>
+        </div>
+        <div class="tb"><div class="bump">Έτοιμο</div></div>
+      </div>
+      <div class="t ok new">
+        <div class="th"><span class="n">Τ15</span><span class="el">0′</span></div>
+        <div class="tm"><span class="tag newt">Νέο</span><span>Γύρος 3 · Νίκος</span></div>
+        <div class="tl">
+          <div class="l"><span class="chk"></span><span class="q">2</span><div class="w"><div class="nm">Βάφλα με παγωτό</div><div class="op">σοκολάτα · καραμέλα</div></div><span class="se">Θ2·4</span></div>
+          <div class="l"><span class="chk"></span><span class="q">1</span><div class="w"><div class="nm">Τοστ</div><div class="note">καλοψημένο</div></div></div>
+        </div>
+        <div class="tb"><div class="bump">Έτοιμο</div></div>
+      </div>
+      <div class="t ok">
+        <div class="th"><span class="n">Τ4</span><span class="el">2′</span></div>
+        <div class="tm"><span>Γύρος 1 · Μαρία</span></div>
+        <div class="tl">
+          <div class="l hl"><span class="chk"></span><span class="q">2</span><div class="w"><div class="nm">Κρέπα σοκολάτα</div><div class="op">μπανάνα</div></div><span class="se">Θ1·2</span></div>
+        </div>
+        <div class="tb"><div class="bump">Έτοιμο</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="coming">
+    <span class="h">Έρχονται · στο «Μετά»</span>
+    <span class="cm"><b>Τ2</b> <span>· 2 Κρέπα σοκολάτα, 1 Βάφλα · 27′</span></span>
+    <span class="cm"><b>Τ9</b> <span>· 3 Κρέπα σοκολάτα · 12′</span></span>
+  </div>
+  <div class="toast">Τ5 έτοιμο · ειδοποιήθηκε η Μαρία <span class="u">Αναίρεση · 8″</span></div>
+</div>
+
+<h2>Μετά το «Έτοιμο»</h2>
+<p class="lead">Το δελτίο φεύγει από την οθόνη. Για 10 δευτερόλεπτα μένει το «Αναίρεση» αν πατήθηκε κατά λάθος. Ο σερβιτόρος βλέπει το τραπέζι πρώτο στη λίστα του, πράσινο.</p>
+<div class="row" style="margin-top:16px">
+  <div>
+    <div class="cap">2 · Το κινητό του σερβιτόρου <small>δονείται μία φορά</small></div>
+    <div class="phone">
+      <div class="status"><span>21:42</span><span>●●● 82%</span></div>
+      <div class="hdr"><div><div class="tt2">Τραπέζια</div><div class="s">4 δικά μου · 86,50 € ανοιχτά</div></div></div>
+      <div class="scroll">
+        <div class="lbl">Σε περιμένουν · 2</div>
+        <div class="urg ok"><span class="n">5</span><div class="w"><b>Έτοιμο στην κουζίνα</b><span>3 είδη · πριν 0′</span></div><span class="btn p">Το πήρα</span></div>
+        <div class="urg bad"><span class="n">7</span><div class="w"><b>Λογαριασμός</b><span>24,00 €</span></div><span class="btn p">Είσπραξη</span></div>
+        <div class="lbl">Τα δικά μου · 4</div>
+        <div class="grid3">
+          <div class="tt ready"><span class="num">5</span><span class="st2">Έτοιμο · πάρ' το</span><div class="ft"><b>18,00 €</b><span>9′</span></div></div>
+          <div class="tt ordered"><span class="num">3</span><span class="st2">Στην κουζίνα · 5′</span><div class="ft"><b>21,00 €</b><span>6′</span></div></div>
+          <div class="tt eating"><span class="num">7</span><span class="st2">Τρώνε</span><div class="ft"><b>24,00 €</b><span>40′</span></div></div>
+          <div class="tt ordered"><span class="num">12</span><span class="st2">Στην κουζίνα · 11′</span><div class="ft"><b>23,50 €</b><span>12′</span></div></div>
+        </div>
+      </div>
+      <div class="nav"><div class="on"><span class="ic"></span>Τραπέζια</div><div><span class="ic"></span>Πώληση</div><div><span class="ic"></span>Κρατήσεις</div><div><span class="ic"></span>Περισσότερα</div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="cap">3 · Στήσιμο και απόδοση στη web εφαρμογή <small>Συσκευές → Οθόνη κουζίνας · Κατάλογος → Κατηγορίες</small></div>
+    <div class="web">
+      <div class="wh"><b>Οθόνη κουζίνας · Κουζίνα Πειραιά</b><p>Τι δείχνει αυτή η οθόνη και πότε ένα δελτίο αργεί. Η οθόνη δεν εκδίδει παραστατικά και δεν χρεώνεται.</p></div>
+      <div class="sec">
+        <h3>Σταθμός ανά κατηγορία</h3>
+        <table>
+          <tr><td>Γλυκά (κρέπες, βάφλες)</td><td><span class="pill"><span class="on">Κουζίνα</span><span>Bar</span><span>Πουθενά</span></span></td></tr>
+          <tr><td>Καφές</td><td><span class="pill"><span>Κουζίνα</span><span class="on">Bar</span><span>Πουθενά</span></span></td></tr>
+          <tr><td>Ποτά</td><td><span class="pill"><span>Κουζίνα</span><span class="on">Bar</span><span>Πουθενά</span></span></td></tr>
+          <tr><td>Παγωτό (σερβίρεται από τη βιτρίνα)</td><td><span class="pill"><span>Κουζίνα</span><span>Bar</span><span class="on">Πουθενά</span></span></td></tr>
+        </table>
+      </div>
+      <div class="sec">
+        <div class="fld">
+          <div>Η οθόνη δείχνει<div class="in">Κουζίνα</div></div>
+          <div>Κίτρινο μετά από<div class="in">8 λεπτά</div></div>
+          <div>Κόκκινο μετά από<div class="in">15 λεπτά</div></div>
+        </div>
+      </div>
+      <div class="sec">
+        <h3>Σήμερα στην κουζίνα</h3>
+        <div class="wk">
+          <div><b>62</b><span>δελτία βγήκαν</span></div>
+          <div><b>7′ 20″</b><span>μέσος χρόνος · <span class="g">εντός στόχου 8′</span></span></div>
+          <div><b>5</b><span>πάνω από 15′ · <span class="r">όλα 21:00–22:00</span></span></div>
+        </div>
+        <svg viewBox="0 0 716 190" width="716" height="190" font-family="Inter Tight" font-size="12">
+          <g stroke="#E4E5E8"><line x1="40" y1="20" x2="706" y2="20"/><line x1="40" y1="70" x2="706" y2="70"/><line x1="40" y1="120" x2="706" y2="120"/><line x1="40" y1="160" x2="706" y2="160"/></g>
+          <g fill="#8A8F97"><text x="32" y="24" text-anchor="end">15′</text><text x="32" y="74" text-anchor="end">10′</text><text x="32" y="124" text-anchor="end">5′</text><text x="32" y="164" text-anchor="end">0′</text></g>
+          <line x1="40" y1="80" x2="706" y2="80" stroke="#1E7A4C" stroke-dasharray="5 4"/><text x="704" y="94" text-anchor="end" fill="#1E7A4C">στόχος 8′</text>
+          <g fill="#C9CCD2">
+            <rect x="60" y="128" width="50" height="32" rx="4"/><rect x="140" y="112" width="50" height="48" rx="4"/><rect x="220" y="118" width="50" height="42" rx="4"/><rect x="300" y="100" width="50" height="60" rx="4"/><rect x="380" y="90" width="50" height="70" rx="4"/><rect x="540" y="96" width="50" height="64" rx="4"/><rect x="620" y="122" width="50" height="38" rx="4"/>
+          </g>
+          <rect x="460" y="34" width="50" height="126" rx="4" fill="#B4232C"/>
+          <text x="485" y="28" text-anchor="middle" fill="#B4232C" font-weight="600">12′ 40″</text>
+          <g fill="#5B6068" text-anchor="middle"><text x="85" y="180">16:00</text><text x="165" y="180">17:00</text><text x="245" y="180">18:00</text><text x="325" y="180">19:00</text><text x="405" y="180">20:00</text><text x="485" y="180">21:00</text><text x="565" y="180">22:00</text><text x="645" y="180">23:00</text></g>
+        </svg>
+        <p style="font-size:13px;color:#5B6068;margin-top:6px">Μέσος χρόνος από την αποστολή ως το «Έτοιμο», ανά ώρα. Στις 21:00 η κουζίνα ξεπέρασε τον στόχο: μια δεύτερη βάρδια εκεί θα βοηθούσε.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <h3>Τι χρειάζεται από κάτω</h3>
+  <ul>
+    <li><b>Κατηγορία → σταθμός</b> (Κουζίνα, Bar ή Πουθενά) και <b>συσκευή KITCHEN_DISPLAY → σταθμός</b>. Το είδος δηλώνεται της κουζίνας μέσω της κατηγορίας του.</li>
+    <li><b>Δελτίο οθόνης = γύρος × σταθμός.</b> Ο γύρος 3 του Τ15 με κρέπες και καφέδες γίνεται ένα δελτίο στην κουζίνα και ένα στο bar.</li>
+    <li><b>Νέο πεδίο «έτοιμο» στη γραμμή</b> (readyAt). Το τσεκ στο είδος γράφει την ώρα του, το «Έτοιμο» όλου του δελτίου γράφει όσα έλειπαν. Το «Το πήρα» του σερβιτόρου γράφει το υπάρχον «σερβιρίστηκε».</li>
+    <li><b>Οι γύροι στο «Μετά» δεν μπαίνουν σε δελτίο</b>, μόνο στη λωρίδα «Έρχονται». Με το «Βγάλ' το» γίνονται κανονικό δελτίο, με χρόνο από εκείνη τη στιγμή.</li>
+    <li><b>Ανανέωση κάθε 5″</b> με τον ίδιο τρόπο που ανανεώνονται τα τραπέζια σήμερα. Ήχος σε νέο δελτίο, ρυθμιζόμενος.</li>
+    <li><b>Ίδια εφαρμογή Android</b>: η συσκευή παίρνει ρόλο «Οθόνη κουζίνας» στη σύζευξη, όπως ταμείο και σερβιτόρος.</li>
+    <li>Δεν μπαίνουν τώρα: εκτυπωτής κουζίνας, παραγγελίες e-shop/delivery στην οθόνη, πολλές οθόνες ανά σταθμό με μοίρασμα.</li>
+  </ul>
+</div>
+
+</div></body>
+</html>

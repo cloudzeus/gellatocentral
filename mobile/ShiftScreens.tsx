@@ -1,13 +1,14 @@
 // Βάρδιες ταμία: είσοδος με PIN, κλείσιμο βάρδιας με μέτρηση συρταριού, κλείσιμο ημέρας ανά ταμία.
 // Εγκεκριμένο mockup: docs/mockups/central-till/shifts-till-close.html
-import { ArrowLeft, Banknote, Check, CircleCheck, Delete, Lock, LogIn, Minus, Plus, Receipt, RefreshCw, Scale, TrendingUp, TriangleAlert, Undo2, Wallet, type LucideIcon } from "lucide-react-native";
+import { ArrowLeft, Banknote, Check, ChevronRight, HandHelping, CircleCheck, Delete, Lock, LogIn, Minus, Plus, Receipt, RefreshCw, Scale, TrendingUp, TriangleAlert, Undo2, Wallet, type LucideIcon } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { ApiError, type Session } from "./api";
 import { countedCents, DENOMS, diffTone, duration, initials, parseEuro, type Tone } from "./drawer";
 import { isoDay } from "./reservations";
-import { closeDay, closeShift, type DayReport, type Figures, getDayReport, getShift, type ShiftState, startShift } from "./shift-api";
+import { closeDay, closeShift, type DayReport, type Figures, getDayReport, getShift, handOver, type OpenBill, type ShiftState, type Staff, startShift } from "./shift-api";
 import { euro, type Theme, tint, ty } from "./theme";
+import { groupLook, opens, RoleBadge } from "./roles";
 import { Btn } from "./TransactionsScreen";
 
 const num = { fontVariant: ["tabular-nums" as const] };
@@ -69,11 +70,16 @@ export function SignInView({ t, session, state, width, place, onStarted, onDay, 
   const [error, setError] = useState<string>();
   const openingCents = parseEuro(opening);
   const who = state.staff.find((e) => e.id === sel);
+  const [role, setRole] = useState<string | undefined>(() => { const e = state.staff.find((x) => x.id === sel); return e?.suggested ?? e?.roles[0]?.key; });
+  const roles = who?.roles ?? [];
+  const picked = roles.length === 1 ? roles[0] : roles.find((r) => r.key === role);
+  const cash = !roles.length || !!picked?.cash; // χωρίς ειδικότητες: όπως πριν, ταμίας με συρτάρι
+  const pick = (id: string) => { const e = state.staff.find((x) => x.id === id); setSel(id); setPin(""); setError(undefined); setRole(e?.suggested ?? e?.roles[0]?.key); };
 
   const start = (p = pin) => {
-    if (!sel || p.length !== 4 || openingCents == null || busy) return;
+    if (!sel || p.length !== 4 || (cash && openingCents == null) || (roles.length > 1 && !picked) || busy) return;
     setBusy(true); setError(undefined);
-    startShift(session, sel, p, openingCents).then(onStarted, (e) => { if (unpaired(e)) onUnpaired(); else { setError(fail(e)); setPin(""); } }).finally(() => setBusy(false));
+    startShift(session, sel, p, cash ? openingCents ?? 0 : 0, picked?.key).then(onStarted, (e) => { if (unpaired(e)) onUnpaired(); else { setError(fail(e)); setPin(""); } }).finally(() => setBusy(false));
   };
   const onKey = (k: string) => {
     setError(undefined);
@@ -96,13 +102,14 @@ export function SignInView({ t, session, state, width, place, onStarted, onDay, 
   const tiles = state.staff.map((e) => {
     const on = e.id === sel;
     return (
-      <Pressable key={e.id} disabled={e.onLeave} onPress={() => { setSel(e.id); setPin(""); setError(undefined); }} accessibilityRole="button" accessibilityState={{ selected: on, disabled: e.onLeave }} accessibilityLabel={e.name}
+      <Pressable key={e.id} disabled={e.onLeave} onPress={() => pick(e.id)} accessibilityRole="button" accessibilityState={{ selected: on, disabled: e.onLeave }} accessibilityLabel={e.name}
         style={({ pressed }) => ({ width: tileW, minHeight: 76, borderRadius: 14, padding: 14, flexDirection: "row", alignItems: "center", gap: 12, opacity: e.onLeave ? 0.5 : 1,
           backgroundColor: on ? t.raised : pressed ? t.raised : t.card, borderWidth: on ? 2 : 0, borderColor: "rgba(255,255,255,0.5)" })}>
         <Avatar t={t} name={e.name} />
         <View style={{ flex: 1, gap: 3 }}>
           <Text numberOfLines={1} style={ty(14, "s", t.text)}>{e.name}</Text>
           <Text numberOfLines={1} style={[ty(12, "m", t.muted), num]}>{e.onLeave ? "Σε άδεια" : e.scheduled ? `Στο πρόγραμμα ${e.scheduled}` : "Όχι στο πρόγραμμα σήμερα"}</Text>
+          {e.roles.length ? <View style={{ flexDirection: "row", gap: 4, flexWrap: "wrap" }}>{e.roles.slice(0, 2).map((r) => <RoleBadge key={r.key} t={t} name={r.name} group={r.group} size="s" />)}{e.roles.length > 2 ? <Text style={[ty(11.5, "s", t.muted), { alignSelf: "center" }]}>+{e.roles.length - 2}</Text> : null}</View> : null}
         </View>
       </Pressable>
     );
@@ -113,13 +120,29 @@ export function SignInView({ t, session, state, width, place, onStarted, onDay, 
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         {!wide ? <Pressable onPress={() => setSel(undefined)} accessibilityRole="button" accessibilityLabel="Πίσω στα ονόματα" style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><ArrowLeft size={20} strokeWidth={1.75} color={t.text} /></Pressable> : null}
         <Avatar t={t} name={who.name} />
-        <View style={{ gap: 2 }}><Text style={ty(15, "s", t.text)}>{who.name}</Text><Text style={ty(12.5, "m", t.muted)}>Γράψε το PIN σου</Text></View>
+        <View style={{ gap: 2 }}><Text style={ty(15, "s", t.text)}>{who.name}</Text><Text style={ty(12.5, "m", t.muted)}>{roles.length > 1 ? "Διάλεξε ρόλο και γράψε το PIN σου" : picked ? `${picked.name} · γράψε το PIN σου` : "Γράψε το PIN σου"}</Text></View>
       </View>
+      {roles.length > 1 ? <View style={{ gap: 8 }}>
+        <Text style={ty(12.5, "m", t.muted)}>Με ποιον ρόλο δουλεύεις τώρα; Ο ρόλος αποφασίζει τι μενού βλέπεις.</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {roles.map((r) => { const on = r.key === picked?.key; const look = groupLook(t, r.group); const Icon = look?.Icon; return (
+            <Pressable key={r.key} onPress={() => setRole(r.key)} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={r.name}
+              style={({ pressed }) => ({ minHeight: 48, paddingHorizontal: 14, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 2, borderColor: on ? look?.bg ?? t.text : "transparent", backgroundColor: on ? look?.bg ?? t.text : pressed ? t.raised : t.card })}>
+              {Icon ? <Icon size={16} strokeWidth={2} color={on ? t.ink : look!.bg} /> : null}
+              <Text style={ty(14, "s", on ? t.ink : t.text)}>{r.name}</Text>
+              {who.suggested === r.key ? <Text style={ty(11.5, "m", on ? t.ink : t.muted)}>· στο πρόγραμμα</Text> : null}
+            </Pressable>); })}
+        </View>
+      </View> : null}
+      {picked ? <View style={{ flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 12, backgroundColor: t.card }}>
+        <RoleBadge t={t} name={picked.name} group={picked.group} size="s" />
+        <Text style={[ty(12.5, "m", t.muted), { flex: 1 }]} numberOfLines={2}>Ανοίγει: {opens(picked.views, picked.cash)}</Text>
+      </View> : null}
       <View style={{ flexDirection: "row", gap: 14, justifyContent: "center", paddingVertical: 4 }} accessibilityLabel={`${pin.length} από 4 ψηφία`}>
         {[0, 1, 2, 3].map((i) => <View key={i} style={{ width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: i < pin.length ? t.text : t.muted, backgroundColor: i < pin.length ? t.text : "transparent" }} />)}
       </View>
       <PinPad t={t} onKey={onKey} tall={wide} />
-      <View style={{ backgroundColor: t.card, borderRadius: 14, padding: 14, gap: 8 }}>
+      {cash ? <View style={{ backgroundColor: t.card, borderRadius: 14, padding: 14, gap: 8 }}>
         <Text style={ty(12.5, "m", t.muted)}>Μετρητά στο συρτάρι τώρα</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <Pressable onPress={() => step(-500)} accessibilityLabel="5 ευρώ λιγότερα" style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: t.raised, alignItems: "center", justifyContent: "center" }}><Minus size={18} strokeWidth={1.75} color={t.text} /></Pressable>
@@ -133,9 +156,9 @@ export function SignInView({ t, session, state, width, place, onStarted, onDay, 
         <Text style={[ty(12, "m", t.faint), { lineHeight: 17 }]}>
           {state.suggested ? `Η προηγούμενη βάρδια (${state.suggested.by}, ${time(state.suggested.at)}) άφησε ${euro(state.suggested.cents)}. Άλλαξέ το μόνο αν μέτρησες κάτι άλλο.` : "Γράψε πόσα μετρητά έχει το συρτάρι πριν ξεκινήσεις."}
         </Text>
-      </View>
+      </View> : <Text style={[ty(12.5, "m", t.faint), { lineHeight: 18 }]}>Ο ρόλος {picked?.name} δεν κρατά συρτάρι, δεν χρειάζεται μέτρηση μετρητών.</Text>}
       {error ? <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}><TriangleAlert size={16} strokeWidth={1.75} color={t.bad} /><Text style={ty(13, "s", t.bad)}>{error}</Text></View> : null}
-      <Btn t={t} primary label={busy ? "Περίμενε…" : "Έναρξη βάρδιας"} Icon={LogIn} disabled={busy || pin.length !== 4 || openingCents == null} onPress={() => start()} />
+      <Btn t={t} primary label={busy ? "Περίμενε…" : "Έναρξη βάρδιας"} Icon={LogIn} disabled={busy || pin.length !== 4 || (cash && openingCents == null) || (roles.length > 1 && !picked)} onPress={() => start()} />
     </View>
   ) : null;
 
@@ -245,7 +268,7 @@ function Line({ t, k, v, strong, first }: { t: Theme; k: string; v: string; stro
 
 const REASONS = ["Ρέστα σε πελάτη", "Λάθος στη μέτρηση έναρξης", "Πληρωμή από το συρτάρι"];
 
-export function CloseShiftView({ t, session, width, now, onClosed, onDay, onUnpaired }: { t: Theme; session: Session; width: number; now: Date; onClosed: () => void; onDay: () => void; onUnpaired: () => void }) {
+export function CloseShiftView({ t, session, width, now, onClosed, onDay, onUnpaired, onOpenBill }: { t: Theme; session: Session; width: number; now: Date; onClosed: () => void; onDay: () => void; onUnpaired: () => void; onOpenBill: (id: string) => void }) {
   const wide = width >= 900;
   const [state, setState] = useState<ShiftState>();
   const [error, setError] = useState<string>();
@@ -262,6 +285,19 @@ export function CloseShiftView({ t, session, width, now, onClosed, onDay, onUnpa
   if (!state) return <Loading t={t} />;
   if (!state.on || !state.shift || !state.report) return <Problem t={t} text="Δεν υπάρχει ανοιχτή βάρδια σε αυτό το ταμείο" onRetry={onClosed} />;
   const { shift, report } = state;
+  if (report.openBills?.length) return <HandOverView t={t} session={session} me={shift.employee.id} bills={report.openBills} staff={state.staff} onOpenBill={onOpenBill} onDone={load} onUnpaired={onUnpaired} />;
+  // ρόλος χωρίς συρτάρι (π.χ. αποθηκάριος, λαντζέρης): απλή λήξη, χωρίς μέτρηση μετρητών
+  if (!shift.cash && report.expectedCents === 0) return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 14, padding: 32 }}>
+      <Avatar t={t} name={shift.employee.name} size={56} />
+      <Text style={[ty(20, "s", t.text), { textAlign: "center" }]}>{shift.employee.name}</Text>
+      {shift.roleName ? <View style={{ alignSelf: "center" }}><RoleBadge t={t} name={shift.roleName} group={shift.roleGroup} size="l" /></View> : null}
+      <Text style={[ty(14, "m", t.muted), num, { textAlign: "center" }]}>Σε βάρδια από τις {time(shift.startedAt)} · {duration(shift.startedAt, now)}</Text>
+      <Text style={[ty(13, "m", t.faint), { textAlign: "center", maxWidth: 420, lineHeight: 19 }]}>Ο ρόλος σου δεν κρατά συρτάρι, οπότε η βάρδια κλείνει χωρίς μέτρηση. Μετά μπορεί να μπει άλλος με το PIN του.</Text>
+      {sendError ? <Text style={ty(13, "s", t.bad)}>{sendError}</Text> : null}
+      <Btn t={t} primary label={busy ? "Περίμενε…" : "Λήξη βάρδιας"} Icon={LogIn} disabled={busy} onPress={() => { setBusy(true); setSendError(undefined); closeShift(session, 0, 0).then(onClosed, (e) => (unpaired(e) ? onUnpaired() : setSendError(fail(e)))).finally(() => setBusy(false)); }} />
+    </View>
+  );
   const f = report.figures;
   const counted = countedCents(counts, loose);
   const touched = loose.trim() !== "" || Object.values(counts).some((v) => v.trim() !== "");
@@ -400,6 +436,98 @@ function weekdayPhrase(day: string) {
   return w === "Σάββατο" ? "το προηγούμενο Σάββατο" : `την προηγούμενη ${w}`;
 }
 
+/** Λήξη βάρδιας με ανοιχτά τραπέζια: κάθε τραπέζι κλείνει (πληρωμή) ή παραδίδονται όλα μαζί σε συνάδελφο. */
+function HandOverView({ t, session, me, bills, staff, onOpenBill, onDone, onUnpaired }: { t: Theme; session: Session; me: string; bills: OpenBill[]; staff: Staff[]; onOpenBill: (id: string) => void; onDone: () => void; onUnpaired: () => void }) {
+  const [to, setTo] = useState<Staff>();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const [done, setDone] = useState<{ to: string; bills: OpenBill[] }>();
+  const total = bills.reduce((n, b) => n + b.dueCents, 0);
+  // πρώτα όσοι δουλεύουν στη σάλα, μετά όσοι είναι στο πρόγραμμα της ημέρας
+  const mates = staff.filter((s) => s.id !== me && !s.onLeave)
+    .sort((a, b) => Number(b.roles.some((r) => r.group === "service")) - Number(a.roles.some((r) => r.group === "service")) || Number(!!b.scheduled) - Number(!!a.scheduled));
+  const many = bills.length === 1 ? "το τραπέζι" : `τα ${bills.length} τραπέζια`;
+
+  if (done) return (
+    <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}>
+      <View style={{ alignItems: "center", gap: 8, paddingVertical: 8 }}>
+        <CircleCheck size={40} strokeWidth={1.75} color={t.ok} />
+        <Text style={[ty(20, "s", t.text), { textAlign: "center" }]}>Τα τραπέζια πέρασαν στον/στην {done.to}</Text>
+        <Text style={[ty(13.5, "m", t.muted), { textAlign: "center" }]}>Τα βλέπει πλέον στα «Δικά μου». Η βάρδια σου μπορεί να κλείσει.</Text>
+      </View>
+      <View style={[card(t), { gap: 0, paddingVertical: 4 }]}>
+        {done.bills.map((b, i) => (
+          <View key={b.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 48, borderTopWidth: i ? 1 : 0, borderColor: t.line }}>
+            <Check size={16} strokeWidth={2} color={t.ok} />
+            <Text style={[ty(14.5, "s", t.text), { flex: 1 }]}>{b.name}</Text>
+            <Text style={[ty(14, "s", t.text), num]}>{euro(b.dueCents)}</Text>
+          </View>
+        ))}
+      </View>
+      <Btn t={t} primary label="Συνέχεια στη λήξη βάρδιας" Icon={LogIn} onPress={onDone} />
+    </ScrollView>
+  );
+
+  const give = () => {
+    if (!to) return;
+    setBusy(true); setError(undefined);
+    handOver(session, to.id).then((r) => setDone({ to: r.to, bills }), (e) => (unpaired(e) ? onUnpaired() : setError(fail(e)))).finally(() => setBusy(false));
+  };
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}>
+      <View style={{ gap: 4 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <TriangleAlert size={20} strokeWidth={1.75} color={t.wait} />
+          <Text style={ty(20, "s", t.text)}>Πριν φύγεις</Text>
+        </View>
+        <Text style={[ty(14, "m", t.muted), num, { lineHeight: 20 }]}>
+          {bills.length === 1 ? "Έχεις ένα τραπέζι ανοιχτό" : `Έχεις ${bills.length} τραπέζια ανοιχτά`} με {euro(total)} να πληρωθούν. Η βάρδια κλείνει όταν δεν μείνει κανένα δικό σου.
+        </Text>
+      </View>
+
+      <Text style={ty(13, "s", t.muted)}>1 · Κλείσε όσα πληρώνουν τώρα</Text>
+      <View style={[card(t), { gap: 0, paddingVertical: 4 }]}>
+        {bills.map((b, i) => (
+          <Pressable key={b.id} accessibilityRole="button" accessibilityLabel={`Άνοιξε ${b.name}`} onPress={() => onOpenBill(b.id)}
+            style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 56, borderTopWidth: i ? 1 : 0, borderColor: t.line, opacity: pressed ? 0.6 : 1 })}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={ty(15, "s", t.text)}>{b.name}</Text>
+              <Text style={[ty(12.5, "m", t.muted), num]}>{b.items} {b.items === 1 ? "είδος" : "είδη"} · από τις {time(b.openedAt)}</Text>
+            </View>
+            <Text style={[ty(15, "s", b.dueCents ? t.text : t.ok), num]}>{b.dueCents ? euro(b.dueCents) : "Εξοφλημένο"}</Text>
+            <ChevronRight size={18} strokeWidth={1.75} color={t.faint} />
+          </Pressable>
+        ))}
+      </View>
+
+      <Text style={ty(13, "s", t.muted)}>2 · Ή παράδωσε {many} σε συνάδελφο</Text>
+      {mates.length ? (
+        <View style={[card(t), { gap: 0, paddingVertical: 4 }]}>
+          {mates.map((m, i) => {
+            const on = to?.id === m.id;
+            const role = m.roles.find((r) => r.key === m.suggested) ?? m.roles[0];
+            return (
+              <Pressable key={m.id} accessibilityRole="radio" accessibilityState={{ selected: on }} onPress={() => setTo(m)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 56, borderTopWidth: i ? 1 : 0, borderColor: t.line }}>
+                <Avatar t={t} name={m.name} size={36} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={ty(14.5, "s", t.text)}>{m.name}</Text>
+                  <Text style={[ty(12.5, "m", t.muted), num]}>{[role?.name, m.scheduled ? `πρόγραμμα ${m.scheduled}` : null].filter(Boolean).join(" · ") || "Χωρίς πρόγραμμα σήμερα"}</Text>
+                </View>
+                <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: on ? t.text : t.faint, alignItems: "center", justifyContent: "center" }}>
+                  {on ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: t.text }} /> : null}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : <Text style={[ty(13.5, "m", t.faint), { lineHeight: 19 }]}>Δεν υπάρχει άλλος συνάδελφος με PIN σε αυτό το κατάστημα. Κλείσε τα τραπέζια ή ζήτα από τον υπεύθυνο να προσθέσει προσωπικό.</Text>}
+      {error ? <Text style={ty(13, "s", t.bad)}>{error}</Text> : null}
+      {mates.length ? <Btn t={t} primary label={busy ? "Περίμενε…" : to ? `Παράδωσέ ${many} στον/στην ${to.name}` : "Διάλεξε συνάδελφο"} Icon={HandHelping} disabled={!to || busy} onPress={give} /> : null}
+    </ScrollView>
+  );
+}
+
 export function DayCloseView({ t, session, width, onBack, onClosed, onUnpaired }: { t: Theme; session: Session; width: number; onBack: () => void; onClosed: () => void; onUnpaired: () => void }) {
   const wide = width >= 900;
   const [day] = useState(() => isoDay(new Date()));
@@ -524,10 +652,13 @@ export function DayCloseView({ t, session, width, onBack, onClosed, onUnpaired }
 }
 
 /** Κάτω μέρος του μενού: ποιος είναι στη βάρδια. */
-export function WhoIsOn({ t, name, since, onSwitch, compact }: { t: Theme; name: string; since: string; onSwitch: () => void; compact?: boolean }) {
+export function WhoIsOn({ t, name, since, onSwitch, compact, role, group, cash = true }: { t: Theme; name: string; since: string; onSwitch: () => void; compact?: boolean; role?: string | null; group?: string | null; cash?: boolean }) {
+  const look = groupLook(t, group);
+  const Icon = look?.Icon;
   if (compact) return (
-    <Pressable onPress={onSwitch} accessibilityRole="button" accessibilityLabel={`Βάρδια: ${name}. Αλλαγή βάρδιας`} style={{ alignItems: "center", paddingVertical: 6 }}>
-      <Avatar t={t} name={name} size={36} />
+    <Pressable onPress={onSwitch} accessibilityRole="button" accessibilityLabel={`Βάρδια: ${name}${role ? `, ${role}` : ""}. Αλλαγή βάρδιας`} style={{ alignItems: "center", paddingVertical: 6, gap: 4 }}>
+      <View style={{ padding: 2, borderRadius: 22, borderWidth: 2, borderColor: look?.bg ?? "transparent" }}><Avatar t={t} name={name} size={34} /></View>
+      {Icon ? <View style={{ width: 24, height: 24, borderRadius: 12, marginTop: -14, backgroundColor: look.bg, alignItems: "center", justifyContent: "center" }}><Icon size={13} strokeWidth={2} color={t.ink} /></View> : null}
     </Pressable>
   );
   return (
@@ -536,8 +667,9 @@ export function WhoIsOn({ t, name, since, onSwitch, compact }: { t: Theme; name:
         <Avatar t={t} name={name} size={36} />
         <View style={{ flex: 1 }}><Text numberOfLines={1} style={ty(13, "s", t.text)}>{name}</Text><Text style={[ty(12, "m", t.muted), num]}>Βάρδια από {time(since)}</Text></View>
       </View>
+      {role ? <RoleBadge t={t} name={role} group={group} size="s" /> : null}
       <Pressable onPress={onSwitch} accessibilityRole="button" style={({ pressed }) => ({ height: 40, borderRadius: 12, borderWidth: 1, borderColor: t.line, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: pressed ? t.raised : t.card })}>
-        <Wallet size={16} strokeWidth={1.75} color={t.text} /><Text style={ty(12.5, "s", t.text)}>Αλλαγή βάρδιας</Text>
+        <Wallet size={16} strokeWidth={1.75} color={t.text} /><Text style={ty(12.5, "s", t.text)}>{cash ? "Αλλαγή βάρδιας" : "Λήξη βάρδιας"}</Text>
       </Pressable>
     </View>
   );

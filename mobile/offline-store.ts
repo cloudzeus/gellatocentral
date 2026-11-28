@@ -19,3 +19,6 @@ export const loadCachedCatalog = () => read<Catalog | null>("catalog.json", null
 export const saveCachedCatalog = (c: Catalog) => write("catalog.json", c);
 export const loadOutbox = () => read<Outbox>("outbox.json", { lastAa: 0, sales: [] });
 export const saveOutbox = (o: Outbox) => write("outbox.json", o);
+/** Η σάρωση παραλαβής σε εξέλιξη: αν κοπεί το σήμα ή κλείσει η εφαρμογή στην αποθήκη, δεν χάνεται. */
+export const loadReceivingDraft = <T>() => read<T | null>("receiving.json", null);
+export const saveReceivingDraft = (d: unknown) => write("receiving.json", d);

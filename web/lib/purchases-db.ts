@@ -23,6 +23,7 @@ export async function postPurchaseInTransaction(
   });
   if (!doc) throw new PurchaseError("Το τιμολόγιο δεν βρέθηκε");
   if (doc.receiptInvoice) throw new PurchaseError("Το τιμολόγιο παραλαβής οριστικοποιείται μόνο μέσω του τριπλού ελέγχου, χωρίς νέα εγγραφή αποθέματος");
+  if (doc.kind === "RETURN" || doc.kind === "CREDIT") throw new PurchaseError("Οι επιστροφές και τα πιστωτικά καταχωρούνται από τη δική τους καρτέλα");
   if (doc.status !== "DRAFT") throw new PurchaseError("Το τιμολόγιο έχει ήδη καταχωρηθεί");
   if (!doc.lines.length) throw new PurchaseError("Το τιμολόγιο δεν έχει γραμμές");
   const unmatched = doc.lines.find((l) => !l.genericItemId || !l.tradeItemId);

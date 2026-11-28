@@ -220,7 +220,7 @@ export async function postStockMovement(tx: StockDb, input: PostStockMovementInp
       countLineId: input.countLineId ?? null,
       note: input.note ?? null,
       occurredAt: input.occurredAt,
-      createdById: input.actor.id,
+      createdById: input.actor.id || null, // συσκευή ή αυτόματη εργασία: χωρίς χρήστη, μένει το όνομα
       createdByName: input.actor.name,
     },
   });
@@ -248,7 +248,7 @@ export async function postLegacyStockMovement(
       lineId: input.lineId ?? null,
       note: input.note ?? null,
       occurredAt: input.occurredAt,
-      createdById: input.actor?.id ?? null,
+      createdById: input.actor?.id || null,
       createdByName: input.actor?.name ?? null,
     },
   });

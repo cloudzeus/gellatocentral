@@ -33,6 +33,8 @@ export async function fetchMyIncome(userId: string, subKey: string, entityVat: s
 
 // ---- Εισαγωγή ως πρόχειρα τιμολόγια αγοράς ----
 
+const isCredit = (type: string | null) => type === "5.1" || type === "5.2";
+
 /**
  * Φέρνει τα τιμολόγια αγοράς του διαστήματος από το myDATA και φτιάχνει πρόχειρα PurchaseDoc.
  * Γνωστό ΑΦΜ προμηθευτή → σύνδεση· άγνωστο → δημιουργείται καρτέλα προμηθευτή για έλεγχο.
@@ -70,7 +72,9 @@ export async function importMyIncome(orgId: string, userName: string, from: Date
       const doc = await tx.purchaseDoc.create({
         data: {
           orgId, supplierId: supplier.id, warehouseId: warehouse.id, number: d.number, issuedAt: d.issuedAt, mydataMark: d.mark,
-          source: "mydata", note: "Από myDATA (RequestMyIncome) — έλεγχος πριν από την αποδοχή",
+          // 5.1/5.2: πιστωτικό του προμηθευτή, όχι νέα αγορά· δένεται με το τιμολόγιο στην καρτέλα του (lib/purchase-returns.ts)
+          kind: isCredit(d.type) ? "CREDIT" : "INVOICE", mydataType: d.type, relatedMark: d.relatedMark,
+          source: "mydata", note: isCredit(d.type) ? "Πιστωτικό από myDATA — σύνδεσέ το με το τιμολόγιο που αφορά" : "Από myDATA (RequestMyIncome) — έλεγχος πριν από την αποδοχή",
           supplierSnapshot: partySnapshot(supplier), buyerSnapshot: partySnapshot({ ...buyer, name: org.name, vatNumber: org.vatNumber }), createdByName: userName,
         },
       });

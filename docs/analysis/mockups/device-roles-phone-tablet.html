@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup · Ρόλοι στη συσκευή · κινητό και tablet</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* χρώματα από mobile/theme.ts (σκούρο θέμα της εφαρμογής) */
+  :root { --bg:#111315; --panel:#1A1C1F; --card:#212428; --raised:#2A2D32; --line:rgba(255,255,255,.08); --div:rgba(255,255,255,.12);
+          --text:#FAFAFA; --muted:#B4B7BD; --faint:#787C84; --ink:#121417; --bad:#F28B8B; --wait:#F2C46D; --ok:#7FD1A1;
+          --g-service:#F0D2C4; --g-kitchen:#DDE9C4; --g-warehouse:#C8DAEA; --g-management:#C9CAEE; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#e9ecf1; font:13px/1.45 "Inter Tight", system-ui, sans-serif; color:#1d2433; }
+  main { max-width:1500px; margin:0 auto; padding:28px 24px 80px; }
+  h1 { font-size:22px; font-weight:600; margin:0 0 4px; }
+  h2 { font-size:17px; font-weight:600; margin:44px 0 4px; }
+  p.cap { color:#5b6476; margin:0 0 18px; max-width:980px; }
+  .row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+  .lbl { font-size:12px; color:#5b6476; margin:0 0 8px; font-weight:600; }
+  ul.why { margin:8px 0 0; padding-left:18px; color:#5b6476; max-width:420px; } ul.why li { margin:3px 0; }
+
+  /* συσκευές */
+  .phone { width:300px; height:620px; border-radius:34px; background:var(--bg); border:8px solid #0a0b0c; color:var(--text); display:flex; flex-direction:column; overflow:hidden; position:relative; }
+  .tablet { width:900px; height:560px; border-radius:22px; background:var(--bg); border:10px solid #0a0b0c; color:var(--text); display:flex; overflow:hidden; }
+  .status { height:22px; flex:none; font-size:10px; color:var(--muted); display:flex; justify-content:space-between; padding:4px 16px 0; }
+
+  /* κοινά */
+  .badge { display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:3px 10px; font-weight:600; font-size:12px; color:var(--ink); white-space:nowrap; }
+  .badge.s { font-size:10.5px; padding:2px 7px; }
+  .badge.l { font-size:14px; padding:6px 14px; }
+  .service { background:var(--g-service); } .kitchen { background:var(--g-kitchen); } .warehouse { background:var(--g-warehouse); } .management { background:var(--g-management); }
+  .ic { width:14px; height:14px; display:inline-block; }
+  .av { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; font-weight:700; font-size:12px; color:var(--ink); flex:none; }
+  .card { background:var(--card); border-radius:12px; padding:10px 12px; }
+  .muted { color:var(--muted); } .faint { color:var(--faint); } .sm { font-size:11.5px; }
+  .num { font-variant-numeric:tabular-nums; }
+  .btn { border-radius:12px; min-height:44px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600; background:var(--card); }
+  .btn.primary { background:#F4F4F5; color:var(--ink); }
+
+  /* κινητό: πάνω μπάρα με ρόλο, κάτω tabs */
+  .topbar { flex:none; display:flex; align-items:center; gap:8px; padding:8px 14px 10px; border-bottom:1px solid var(--div); }
+  .topbar .t { flex:1; min-width:0; } .topbar .t b { font-size:15px; display:block; }
+  .content { flex:1; overflow:hidden; padding:12px 14px; display:grid; gap:8px; align-content:start; }
+  .tabs { flex:none; display:flex; border-top:1px solid var(--div); background:var(--panel); padding:6px 4px 10px; }
+  .tabs span { flex:1; display:grid; justify-items:center; gap:2px; font-size:10.5px; color:var(--faint); padding:4px 0; border-radius:10px; }
+  .tabs span.on { color:var(--text); background:var(--raised); }
+  .tabs .dot { width:20px; height:20px; border-radius:6px; background:var(--raised); }
+  .cartbar { position:absolute; left:10px; right:10px; bottom:66px; border-radius:14px; background:#F4F4F5; color:var(--ink); padding:10px 14px; display:flex; justify-content:space-between; font-weight:600; }
+
+  /* tablet: πλαϊνό μενού με κάρτα ρόλου κάτω */
+  .rail { width:200px; flex:none; border-right:1px solid var(--div); padding:16px 12px; display:flex; flex-direction:column; gap:3px; }
+  .rail .it { padding:9px 10px; border-radius:10px; color:var(--muted); font-weight:600; display:flex; gap:10px; align-items:center; }
+  .rail .it.on { background:var(--raised); color:var(--text); }
+  .rail .it i:not([data-i]) { width:16px; height:16px; border-radius:4px; background:currentColor; opacity:.5; }
+  .rail .who { margin-top:auto; border-top:1px solid var(--div); padding-top:12px; display:grid; gap:8px; }
+  .pane { flex:1; padding:16px; display:grid; gap:10px; align-content:start; overflow:hidden; }
+  .grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+  .key { height:74px; border-radius:12px; background:var(--card); padding:8px; font-weight:600; font-size:12px; border-left:3px solid; }
+  .side2 { width:300px; flex:none; background:var(--panel); padding:16px; display:grid; gap:10px; align-content:start; }
+  .legend { display:flex; gap:10px; flex-wrap:wrap; }
+  .note { background:#fff; border:1px solid #d9dde5; border-radius:12px; padding:12px 14px; max-width:460px; }
+  i[data-i] { display:inline-flex; vertical-align:-3px; } i[data-i] svg { width:16px; height:16px; }
+  .tabs i[data-i] svg { width:20px; height:20px; }
+  .tbl { border-radius:12px; padding:9px 10px; min-height:78px; display:grid; gap:2px; align-content:start; color:var(--ink); }
+  .tbl b { font-size:14px; } .tbl .amt { font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:auto; }
+  .t-free { background:var(--card); color:var(--text); } .t-open { background:#F0D2C4; } .t-mine { background:#F0D2C4; box-shadow:inset 0 0 0 2px #121417; }
+  .t-res { background:var(--card); color:var(--text); box-shadow:inset 0 0 0 2px #C9CAEE; } .t-pay { background:#CDE5DB; }
+  .line { display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-top:1px solid var(--div); font-size:12.5px; }
+  .step { display:inline-grid; place-items:center; width:32px; height:32px; border-radius:10px; background:var(--raised); font-weight:700; }
+  .seg { display:inline-flex; background:var(--raised); border-radius:10px; padding:2px; gap:2px; } .seg span { min-width:28px; height:28px; padding:0 8px; display:grid; place-items:center; border-radius:8px; color:var(--muted); font-weight:600; font-size:12px; } .seg span.on { background:var(--text); color:var(--ink); }
+  .seg.wide { display:flex; } .seg.wide span { flex:1; height:34px; }
+  .alert { display:flex; gap:10px; align-items:center; background:var(--card); border-radius:12px; padding:9px 10px; box-shadow:inset 3px 0 0 var(--c); } .alert > div { flex:1; min-width:0; display:grid; font-size:12px; } .alert > div span { color:var(--muted); font-size:11.5px; } .alert .go { white-space:nowrap; font-size:11.5px; font-weight:700; background:var(--raised); padding:6px 9px; border-radius:8px; } .alert > i { color:var(--c); }
+  .alert.ok { --c:var(--ok); } .alert.wait { --c:var(--wait); } .alert.res { --c:#C9CAEE; }
+  .trow { display:grid; grid-template-columns:34px 1fr auto 52px; gap:8px; align-items:center; background:var(--card); border-radius:12px; padding:8px 10px; min-height:48px; font-size:12.5px; } .trow > div { display:grid; font-size:12px; } .trow .tn { font-size:15px; } .trow .tm { color:var(--muted); font-size:11.5px; font-variant-numeric:tabular-nums; } .trow b.num { text-align:right; }
+  .trow.late { box-shadow:inset 3px 0 0 var(--wait); }
+  .fab { position:absolute; right:14px; bottom:74px; background:#F4F4F5; color:var(--ink); border-radius:16px; padding:12px 16px; font-weight:700; display:flex; gap:6px; align-items:center; box-shadow:0 6px 18px rgba(0,0,0,.4); }
+  .chip { background:var(--raised); color:var(--text); border-radius:999px; padding:6px 11px; font-size:11.5px; font-weight:600; white-space:nowrap; } .chip.on { background:var(--text); color:var(--ink); }
+  .held { display:flex; gap:8px; align-items:center; background:rgba(242,196,109,.12); color:var(--wait); border-radius:12px; padding:8px 10px; } .held b { color:var(--text); }
+  .seat { display:inline-grid; place-items:center; width:18px; height:18px; border-radius:6px; background:var(--raised); color:var(--muted); font-size:10.5px; font-weight:700; margin-right:6px; }
+  .st { font-size:11px; white-space:nowrap; } .st.ok { color:var(--ok); } .st.wait { color:var(--wait); font-weight:700; }
+  .dock { position:absolute; left:0; right:0; bottom:0; padding:10px 14px 14px; background:var(--bg); border-top:1px solid var(--div); display:grid; gap:8px; }
+  .cart { display:flex; justify-content:space-between; align-items:center; font-size:13px; }
+  .menu { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .mi { position:relative; border-radius:14px; padding:10px; min-height:74px; display:grid; align-content:space-between; color:var(--ink); font-size:12px; } .mi b { font-size:13px; line-height:1.2; } .mi .n { position:absolute; top:-6px; right:-6px; width:24px; height:24px; border-radius:50%; background:var(--text); color:var(--ink); border:2px solid var(--bg); display:grid; place-items:center; font-style:normal; font-weight:800; font-size:12px; }
+  .mi.out { background:var(--card); color:var(--faint); } .mi.out b { text-decoration:line-through; }
+  .sheet { position:absolute; left:0; right:0; bottom:0; background:var(--panel); border-radius:22px 22px 0 0; padding:10px 16px 16px; display:grid; gap:10px; box-shadow:0 -10px 30px rgba(0,0,0,.5); } .grab { width:40px; height:4px; border-radius:2px; background:var(--raised); justify-self:center; }
+  .flav { display:flex; flex-wrap:wrap; gap:6px; } .flav span { background:var(--raised); border-radius:10px; padding:9px 11px; font-size:12px; font-weight:600; } .flav span.on { background:#C9CAEE; color:var(--ink); } .flav span.out { color:var(--faint); text-decoration:line-through; }
+  .pay { display:flex; gap:10px; align-items:center; background:var(--card); border-radius:12px; padding:10px 12px; min-height:52px; } .pay.sel { box-shadow:inset 0 0 0 2px var(--text); } .pay.done { opacity:.6; } .pay.done i { color:var(--ok); }
+  .floor { position:relative; height:250px; background:var(--panel); border-radius:14px; background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px); background-size:16px 16px; }
+  .ft { position:absolute; width:20%; height:40%; border-radius:12px; display:grid; align-content:center; justify-items:center; gap:2px; font-size:11px; color:var(--ink); } .ft b { font-size:15px; } .ft.round { border-radius:50%; width:18%; }
+  .ft.mine { background:#F0D2C4; } .ft.other { background:var(--raised); color:var(--muted); } .ft.free { background:transparent; border:1.5px dashed var(--faint); color:var(--muted); } .ft.res { background:transparent; border:2px solid #C9CAEE; color:#C9CAEE; } .ft.pay { background:#CDE5DB; } .ft.late { box-shadow:inset 0 0 0 3px var(--wait); } .ft.sel { outline:3px solid #fff; outline-offset:3px; } .ft .dot { position:absolute; top:6px; right:6px; width:10px; height:10px; border-radius:50%; background:var(--ok); }
+  .sheetrow { min-height:44px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; border-radius:12px; background:var(--card); font-weight:600; }
+  .mx { background:var(--bg); color:var(--text); border-radius:16px; padding:12px; display:grid; gap:8px; }
+  .mx .bar { display:flex; background:var(--panel); border-radius:12px; padding:6px 4px; }
+  .mx .bar span { flex:1; display:grid; justify-items:center; gap:3px; font-size:10.5px; color:var(--faint); } .mx .bar span:first-child { color:var(--text); }
+  .mx .bar span:first-child { background:var(--raised); border-radius:8px; }
+  .mx .cols { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .mx .rail2 { background:var(--panel); border-radius:12px; padding:8px; display:grid; gap:2px; align-content:start; font-size:11.5px; }
+  .mx .rail2 .h { color:var(--faint); font-size:10px; margin:4px 4px 0; } .mx .rail2 div.r { padding:4px 6px; border-radius:6px; color:var(--muted); } .mx .rail2 div.r:first-of-type { background:var(--raised); color:var(--text); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Ρόλοι στη συσκευή: καθαροί σε κάθε οθόνη, διαφορετικός σχεδιασμός για κινητό και tablet</h1>
+  <p class="cap">Συνέχεια του εγκεκριμένου staff-roles-shifts.html. Δύο αλλαγές: (1) ο ρόλος έχει δικό του χρώμα και εικονίδιο ανά ομάδα και φαίνεται πάντα πάνω, όχι μόνο στη σύνδεση, (2) το κινητό παύει να είναι «μικρό tablet»: έχει μπάρα ρόλου πάνω, μενού κάτω και μία στήλη. Το tablet κρατά το πλαϊνό μενού και τις δύο στήλες.</p>
+
+  <h2>1 · Ο ρόλος με μια ματιά</h2>
+  <p class="cap">Τέσσερις ομάδες, ένα χρώμα η καθεμία (από την παλέτα της εφαρμογής). Ίδια ετικέτα στη σύνδεση, στην πάνω μπάρα, στο μενού, στη λήξη βάρδιας.</p>
+  <div class="row">
+    <div class="card" style="background:var(--bg); color:var(--text); padding:16px; border-radius:16px; display:grid; gap:12px; min-width:520px">
+      <div class="legend">
+        <span class="badge service"><i data-i="bell"></i> Σέρβις</span><span class="badge kitchen"><i data-i="chef"></i> Κουζίνα</span><span class="badge warehouse"><i data-i="warehouse"></i> Αποθήκη</span><span class="badge management"><i data-i="briefcase"></i> Διοίκηση</span>
+      </div>
+      <div class="sm muted">Σέρβις: Σερβιτόρος, Υπεύθυνος σέρβις, Βοηθός σέρβις, Ταμίας, Κρατήσεις, Barman · Κουζίνα: Chef, Sous chef, Μάγειρας, Λαντζέρης · Αποθήκη: Αποθηκάριος, Παραγγελίες, Βοηθός λογιστή · Διοίκηση: Μάνατζερ, Ιδιοκτήτης, Διοίκηση</div>
+      <div class="sm faint">Γραμμικά εικονίδια lucide (ConciergeBell, ChefHat, Warehouse, BriefcaseBusiness), ίδια με της εφαρμογής. Το χρώμα δεν είναι ποτέ μόνο του: πάντα με εικονίδιο και όνομα ρόλου.</div>
+    </div>
+  </div>
+
+  <h2>2 · Κινητό (στενή οθόνη, κάθετα)</h2>
+  <p class="cap">Σύνδεση σε τρία βήματα με μία ερώτηση ανά οθόνη. Μετά, η πάνω μπάρα λέει ποιος είναι και με ποιον ρόλο. Κάτω μόνο τα μενού του ρόλου (έως 4) και «Βάρδια».</p>
+  <div class="row">
+    <div><p class="lbl">α. Ποιος είσαι</p>
+      <div class="phone"><div class="status"><span>09:41</span><span>Κατάστημα Πειραιά</span></div>
+        <div class="content">
+          <b style="font-size:17px">Ποιος ξεκινά βάρδια;</b>
+          <div class="sm muted">Πάτα το όνομά σου</div>
+          <div class="card" style="display:flex; gap:10px; align-items:center"><div class="av" style="background:#C8DAEA">ΘΛ</div><div style="flex:1"><b>Θανάσης Λάμπρου</b><div class="sm muted num">Πρόγραμμα 08:00–16:00</div><div style="display:flex; gap:4px; margin-top:4px"><span class="badge s warehouse">Αποθηκάριος</span><span class="badge s warehouse">Παραγγελίες</span></div></div></div>
+          <div class="card" style="display:flex; gap:10px; align-items:center"><div class="av" style="background:#F0D2C4">ΕΣ</div><div style="flex:1"><b>Ελένη Σταύρου</b><div class="sm muted num">Πρόγραμμα 08:00–16:00</div><div style="display:flex; gap:4px; margin-top:4px"><span class="badge s service">Σερβιτόρος</span><span class="badge s service">Barman</span></div></div></div>
+          <div class="card" style="display:flex; gap:10px; align-items:center"><div class="av" style="background:#DDE9C4">ΠΡ</div><div style="flex:1"><b>Παναγιώτα Ρήγα</b><div class="sm muted num">Πρόγραμμα 16:00–00:00</div><div style="margin-top:4px"><span class="badge s kitchen">Μάγειρας</span></div></div></div>
+          <div class="card" style="display:flex; gap:10px; align-items:center; opacity:.5"><div class="av" style="background:#C9CAEE">ΚΔ</div><div style="flex:1"><b>Κώστας Δημητρίου</b><div class="sm muted">Σε άδεια</div></div></div>
+        </div>
+      </div>
+    </div>
+    <div><p class="lbl">β. Με ποιον ρόλο (μόνο αν έχει πάνω από έναν)</p>
+      <div class="phone"><div class="status"><span>09:41</span><span>Κατάστημα Πειραιά</span></div>
+        <div class="content" style="gap:10px">
+          <div style="display:flex; gap:10px; align-items:center"><span class="muted">←</span><div class="av" style="background:#C8DAEA">ΘΛ</div><b>Θανάσης Λάμπρου</b></div>
+          <b style="font-size:17px">Με ποιον ρόλο δουλεύεις τώρα;</b>
+          <div class="card" style="border:2px solid var(--g-warehouse); display:grid; gap:6px"><div style="display:flex; justify-content:space-between"><span class="badge l warehouse"><i data-i="warehouse"></i> Αποθηκάριος</span><span class="sm muted">στο πρόγραμμα</span></div><div class="sm muted">Ανοίγει: Παραλαβή · Απόθεμα</div></div>
+          <div class="card" style="display:grid; gap:6px"><span class="badge l warehouse" style="opacity:.75"><i data-i="warehouse"></i> Υπεύθυνος παραγγελιών</span><div class="sm muted">Ανοίγει: Παραλαβή · Απόθεμα</div></div>
+          <div class="sm faint">Ο ρόλος αποφασίζει τι βλέπεις. Αλλάζει με λήξη βάρδιας και νέα είσοδο.</div>
+          <div class="btn primary" style="margin-top:auto">Συνέχεια στο PIN</div>
+        </div>
+      </div>
+    </div>
+    <div><p class="lbl">γ. Αποθηκάριος σε βάρδια</p>
+      <div class="phone"><div class="status"><span>09:52</span><span></span></div>
+        <div class="topbar"><div class="av" style="background:#C8DAEA; width:30px; height:30px">ΘΛ</div><div class="t"><b>Απόθεμα</b><span class="sm muted">Θανάσης · από 09:44</span></div><span class="badge s warehouse"><i data-i="warehouse"></i> Αποθηκάριος ▾</span></div>
+        <div class="content">
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px"><div class="card"><b style="color:var(--bad); font-size:18px">2</b><div class="sm muted">Χαμηλά</div></div><div class="card"><b style="color:var(--wait); font-size:18px">1</b><div class="sm muted">Λήγουν</div></div><div class="card"><b style="font-size:18px">1</b><div class="sm muted">Χωρίς θέση</div></div></div>
+          <div class="card" style="border-left:3px solid var(--bad)"><div style="display:flex; justify-content:space-between"><b>Γάλα πλήρες</b><b class="num" style="color:var(--bad)">6 l</b></div><div class="sm" style="color:var(--bad)">Ελάχιστο 20 l · λείπουν 14 l</div><div class="sm muted"><i data-i="pin"></i> Ψυγείο 2 · Γαλακτοκομικά</div></div>
+          <div class="card" style="border-left:3px solid var(--wait)"><div style="display:flex; justify-content:space-between"><b>Κρέμα γάλακτος</b><b class="num">4 l</b></div><div class="sm" style="color:var(--wait)">1 l λήγει 30/11 · πρώτα αυτό</div><div class="sm muted"><i data-i="pin"></i> Ψυγείο 1 · Ράφι πάνω</div></div>
+          <div class="card"><div style="display:flex; justify-content:space-between"><b>Ζάχαρη</b><b class="num">25 kg</b></div><div class="sm" style="color:var(--wait)"><i data-i="pin"></i> Όρισε θέση</div></div>
+        </div>
+        <div class="tabs"><span><i data-i="package"></i>Παραλαβή</span><span class="on"><i data-i="boxes"></i>Απόθεμα</span></div>
+      </div>
+    </div>
+    <div><p class="lbl">δ. Ταμίας σε βάρδια: πώληση σε μία στήλη</p>
+      <div class="phone"><div class="status"><span>12:10</span><span></span></div>
+        <div class="topbar"><div class="av" style="background:#F0D2C4; width:30px; height:30px">ΔΠ</div><div class="t"><b>Πώληση</b><span class="sm muted">Δήμητρα · από 08:02</span></div><span class="badge s service"><i data-i="bell"></i> Ταμίας ▾</span></div>
+        <div class="content" style="padding-bottom:110px">
+          <div class="card muted"><i data-i="search"></i> Αναζήτηση</div>
+          <div style="display:flex; gap:6px; overflow:hidden"><span class="badge s" style="background:var(--text)">Συχνά</span><span class="badge s" style="background:var(--raised); color:var(--text)">Παγωτά</span><span class="badge s" style="background:var(--raised); color:var(--text)">Καφέδες</span><span class="badge s" style="background:var(--raised); color:var(--text)">Γλυκά</span></div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px">
+            <div class="key" style="border-color:#C9CAEE">Κύπελλο 2 μπάλες<div class="faint num">3,50 €</div></div><div class="key" style="border-color:#C9CAEE">Χωνάκι<div class="faint num">2,80 €</div></div>
+            <div class="key" style="border-color:#E6DECB">Freddo espresso<div class="faint num">2,60 €</div></div><div class="key" style="border-color:#E6DECB">Cappuccino<div class="faint num">2,90 €</div></div>
+            <div class="key" style="border-color:#EBCAD8">Βάφλα<div class="faint num">5,50 €</div></div><div class="key" style="border-color:#EBCAD8">Κρέπα<div class="faint num">4,80 €</div></div>
+          </div>
+        </div>
+        <div class="cartbar"><span>Καλάθι · 3 είδη</span><span class="num">Είσπραξη 9,10 € →</span></div>
+        <div class="tabs"><span class="on"><i data-i="cone"></i>Πώληση</span><span><i data-i="grid"></i>Τραπέζια</span><span><i data-i="bike"></i>Παραγγελίες</span><span><i data-i="more"></i>Περισσότερα</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:18px">
+    <div><p class="lbl">ε. «Περισσότερα» του ταμία: φύλλο από κάτω, ομαδοποιημένο</p>
+      <div class="phone"><div class="status"><span>12:10</span><span></span></div>
+        <div class="topbar" style="opacity:.35"><div class="av" style="background:#F0D2C4; width:30px; height:30px">ΔΠ</div><div class="t"><b>Πώληση</b><span class="sm muted">Δήμητρα · από 08:02</span></div><span class="badge s service"><i data-i="bell"></i> Ταμίας ▾</span></div>
+        <div style="flex:1; background:rgba(0,0,0,.55)"></div>
+        <div style="position:absolute; left:0; right:0; bottom:0; background:var(--panel); border-radius:20px 20px 0 0; padding:10px 14px 14px; display:grid; gap:6px">
+          <div style="width:36px; height:4px; border-radius:2px; background:var(--raised); justify-self:center"></div>
+          <div class="sm faint" style="margin-top:4px">Δουλειά</div>
+          <div class="sheetrow"><i data-i="calendar"></i> Κρατήσεις <span class="faint">3 σήμερα</span></div>
+          <div class="sheetrow"><i data-i="receipt"></i> Συναλλαγές</div>
+          <div class="sm faint" style="margin-top:6px">Η βάρδιά μου</div>
+          <div class="sheetrow"><i data-i="wallet"></i> Συρτάρι <span class="num muted">178,40 €</span></div>
+          <div class="sheetrow"><i data-i="lock"></i> Κλείσιμο ημέρας</div>
+          <div class="sheetrow" style="color:var(--bad)"><i data-i="logout"></i> Λήξη βάρδιας</div>
+        </div>
+      </div>
+    </div>
+    <div><p class="lbl">στ. Πάτημα στην ετικέτα ρόλου (πάνω δεξιά): η βάρδια μου</p>
+      <div class="phone"><div class="status"><span>09:52</span><span></span></div>
+        <div style="flex:1; background:rgba(0,0,0,.55)"></div>
+        <div style="position:absolute; left:0; right:0; bottom:0; background:var(--panel); border-radius:20px 20px 0 0; padding:14px; display:grid; gap:10px">
+          <div style="width:36px; height:4px; border-radius:2px; background:var(--raised); justify-self:center"></div>
+          <div style="display:flex; gap:10px; align-items:center"><div class="av" style="background:#C8DAEA">ΘΛ</div><div style="flex:1"><b>Θανάσης Λάμπρου</b><div class="sm muted num">Σε βάρδια από 09:44 · 0:08</div></div></div>
+          <span class="badge l warehouse"><i data-i="warehouse"></i> Αποθηκάριος</span>
+          <div class="card sm muted">Βλέπεις: Παραλαβή · Απόθεμα. Για άλλον ρόλο (π.χ. Υπεύθυνος παραγγελιών): λήξη βάρδιας και νέα είσοδος.</div>
+          <div class="btn primary">Λήξη βάρδιας</div>
+        </div>
+      </div>
+    </div>
+    <div class="note" style="align-self:center"><b>Κανόνες μενού στο κινητό</b>
+      <ul class="why">
+        <li>Κάτω μπάρα: <b>έως 4 θέσεις</b>, πάντα με όνομα κάτω από το εικονίδιο. Χωράει «Παραγγελίες» ακόμα και σε οθόνη 360dp.</li>
+        <li>Ως 4 οθόνες ο ρόλος: όλες κάτω. Πάνω από 4: οι 3 πρώτες + «Περισσότερα» (φύλλο από κάτω).</li>
+        <li>Η σειρά είναι του ρόλου: ο σερβιτόρος ξεκινά από Τραπέζια, ο ταμίας από Πώληση, ο chef από Παραγγελίες.</li>
+        <li>Η βάρδια <b>δεν</b> πιάνει θέση κάτω: ζει στην ετικέτα ρόλου πάνω δεξιά. Ρόλοι με συρτάρι έχουν «Συρτάρι» και «Κλείσιμο ημέρας» στο «Περισσότερα».</li>
+        <li>Ρόλος με μία οθόνη (Μάγειρας, Βοηθός λογιστή): χωρίς κάτω μπάρα, όλη η οθόνη για τη δουλειά.</li>
+        <li>Λαντζέρης (χωρίς οθόνες): μόνο κάρτα βάρδιας με ώρα και «Λήξη βάρδιας».</li>
+        <li>Κατάστημα χωρίς τραπέζια: Τραπέζια και Κρατήσεις φεύγουν και ανεβαίνει η επόμενη οθόνη.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>2α · Σερβιτόρος: η πιο απαιτητική οθόνη</h2>
+  <p class="cap">Ξαναστήθηκε με βάση το πώς δουλεύουν οι εφαρμογές σερβιτόρου των Toast, Lightspeed, Square και TouchBistro. Από αυτές κρατήσαμε έξι πράγματα:
+    <b>(1)</b> πρώτα η λίστα «Σε περιμένουν» και μετά η σάλα·
+    <b>(2)</b> κάθε τραπέζι δείχνει σε ποιο στάδιο είναι και πόση ώρα πέρασε από την τελευταία κίνηση·
+    <b>(3)</b> παραγγελία ανά θέση (1, 2, 3…), προαιρετικά·
+    <b>(4)</b> «Τώρα / Μετά»: τα ποτά φεύγουν αμέσως και τα γλυκά κρατιούνται μέχρι το «Βγάλ' τα»·
+    <b>(5)</b> τα είδη που τελείωσαν φαίνονται πριν τα πατήσεις·
+    <b>(6)</b> ο λογαριασμός μοιράζεται ανά θέση με ένα πάτημα.
+    Όλα γίνονται με τον αντίχειρα, με πλήκτρα ≥ 48dp κάτω στην οθόνη.</p>
+  <div class="row">
+    <div><p class="lbl">α. Σε περιμένουν · μετά τα δικά μου</p>
+      <div class="phone"><div class="status"><span>20:14</span><span></span></div>
+        <div class="topbar"><div class="t"><b>Τραπέζια</b><span class="sm muted num">5 δικά μου · 3 ελεύθερα</span></div><span class="seg"><span class="on"><i data-i="list"></i></span><span><i data-i="map"></i></span></span><span class="badge s service"><i data-i="bell"></i> ▾</span></div>
+        <div class="content" style="gap:6px">
+          <div class="sm faint">Σε περιμένουν · 3</div>
+          <div class="alert ok"><i data-i="chef"></i><div><b>Τ7 · Έτοιμο</b><span>2× Κρέπα · πριν 1′</span></div><span class="go">Πήρα</span></div>
+          <div class="alert wait"><i data-i="receipt"></i><div><b>Τ2 · Λογαριασμός</b><span>24,50 € · πριν 3′</span></div><span class="go">Άνοιξε</span></div>
+          <div class="alert res"><i data-i="calendar"></i><div><b>Τ5 · Κράτηση 20:30</b><span>4 άτομα · σε 16′</span></div><span class="go">Στρώθηκε</span></div>
+          <div class="sm faint" style="margin-top:6px">Τα δικά μου · Βεράντα</div>
+          <div class="trow"><b class="tn">Τ7</b><div><span>Τρώνε · 2 γύροι</span><span class="faint">1 γλυκό σε αναμονή</span></div><span class="tm">12′</span><b class="num">31,00</b></div>
+          <div class="trow"><b class="tn">Τ2</b><div><span>Λογαριασμός</span><span class="faint">3 άτομα</span></div><span class="tm">35′</span><b class="num">24,50</b></div>
+          <div class="trow late"><b class="tn">Τ9</b><div><span>Τελείωσαν · 3 γύροι</span><span style="color:var(--wait)">28′ χωρίς κίνηση</span></div><span class="tm">58′</span><b class="num">12,60</b></div>
+        </div>
+        <div class="fab"><i data-i="plus"></i> Νέο τραπέζι</div>
+        <div class="tabs"><span class="on"><i data-i="grid"></i>Τραπέζια</span><span><i data-i="cone"></i>Πώληση</span><span><i data-i="calendar"></i>Κρατήσεις</span></div>
+      </div>
+    </div>
+    <div><p class="lbl">β. Τραπέζι 7 · ανά θέση</p>
+      <div class="phone"><div class="status"><span>20:15</span><span></span></div>
+        <div class="topbar"><i data-i="back"></i><div class="t"><b>Τραπέζι 7</b><span class="sm muted num">3 άτομα · 12′ · Ελένη</span></div><i data-i="more"></i></div>
+        <div class="content" style="gap:6px; padding-bottom:120px">
+          <div style="display:flex; gap:6px"><span class="chip on">Όλοι</span><span class="chip">1 · 9,60</span><span class="chip">2 · 12,30</span><span class="chip">3 · 9,10</span></div>
+          <div class="held"><i data-i="pause"></i><div style="flex:1"><b>Σε αναμονή</b><div class="sm">Τιραμισού · θέση 2</div></div><span class="btn primary" style="min-height:36px; padding:0 12px"><i data-i="flame"></i> Βγάλ' το</span></div>
+          <div class="sm faint" style="margin-top:4px">Γύρος 2 · 20:11</div>
+          <div class="line"><span><span class="seat">1</span>1× Freddo espresso</span><span class="st ok">✓ σερβ.</span></div>
+          <div class="line"><span><span class="seat">3</span>2× Κρέπα πραλίνα</span><span class="st wait">έτοιμο</span></div>
+          <div class="sm faint" style="margin-top:4px">Γύρος 1 · 20:03</div>
+          <div class="line"><span><span class="seat">1</span>1× Κύπελλο 3 μπάλες<br><span class="faint" style="padding-left:24px">φιστίκι, σοκολάτα</span></span><span class="st ok">✓ σερβ.</span></div>
+          <div class="line"><span><span class="seat">2</span>1× Βάφλα με παγωτό</span><span class="st ok">✓ σερβ.</span></div>
+          <div class="line"><span><span class="seat">2</span>2× Νερό 1L</span><span class="st ok">✓ σερβ.</span></div>
+          <div class="sm faint" style="margin-top:2px">Πάτα ένα είδος: ξανά το ίδιο · μεταφορά σε θέση · ακύρωση</div>
+        </div>
+        <div class="dock">
+          <div style="display:flex; justify-content:space-between; font-size:14px"><span class="muted">Χρωστάει</span><b class="num">31,00 €</b></div>
+          <div style="display:grid; grid-template-columns:1fr 2fr; gap:8px"><div class="btn"><i data-i="receipt"></i> Λογαρ.</div><div class="btn primary"><i data-i="plus"></i> Παραγγελία</div></div>
+        </div>
+      </div>
+    </div>
+    <div><p class="lbl">γ. Παραγγελία: πάτημα = +1</p>
+      <div class="phone"><div class="status"><span>20:16</span><span></span></div>
+        <div class="topbar"><i data-i="back"></i><div class="t"><b>Τ7 · γύρος 3</b><span class="sm muted">για τη θέση</span></div><span class="seg"><span>1</span><span class="on">2</span><span>3</span></span></div>
+        <div class="content" style="gap:8px; padding-bottom:118px">
+          <div style="display:flex; gap:6px; overflow:hidden"><span class="chip on">Συχνά</span><span class="chip">Καφέδες</span><span class="chip">Παγωτά</span><span class="chip">Γλυκά</span><span class="chip">Ποτά</span></div>
+          <div class="menu">
+            <div class="mi" style="background:#E6DECB"><b>Freddo cappuccino</b><span class="num">3,20</span><i class="n">2</i></div>
+            <div class="mi" style="background:#E6DECB"><b>Freddo espresso</b><span class="num">2,80</span></div>
+            <div class="mi" style="background:#C9CAEE"><b>Κύπελλο 2 μπάλες</b><span class="num">3,50 · γεύσεις ›</span></div>
+            <div class="mi" style="background:#EBCAD8"><b>Κρέπα πραλίνα</b><span class="num">4,80</span><i class="n">1</i></div>
+            <div class="mi out"><b>Τιραμισού</b><span>τελείωσε</span></div>
+            <div class="mi" style="background:#DDE9C4"><b>Πορτοκαλάδα</b><span class="num">3,80 · 2 έμειναν</span></div>
+          </div>
+          <div class="sm faint">Κράτημα: σημειώσεις και αλλεργίες · ↶ αναίρεση της τελευταίας προσθήκης</div>
+        </div>
+        <div class="dock">
+          <div class="cart"><span><b>3 είδη</b> · 11,20 €</span><span class="sm muted">Bar 2 · Κουζίνα 1 ›</span></div>
+          <div style="display:grid; grid-template-columns:1fr 2fr; gap:8px"><div class="btn"><i data-i="pause"></i> Μετά</div><div class="btn primary"><i data-i="send"></i> Στείλε τώρα</div></div>
+        </div>
+      </div>
+    </div>
+    <div><p class="lbl">δ. Γεύσεις: ένα φύλλο, χωρίς νέα οθόνη</p>
+      <div class="phone"><div class="status"><span>20:16</span><span></span></div>
+        <div class="content" style="opacity:.35">
+          <div class="menu"><div class="mi" style="background:#E6DECB"><b>Freddo</b></div><div class="mi" style="background:#C9CAEE"><b>Κύπελλο</b></div></div>
+        </div>
+        <div class="sheet">
+          <div class="grab"></div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline"><b style="font-size:16px">Κύπελλο 2 μπάλες</b><span class="sm muted">Θέση 2</span></div>
+          <div class="sm muted">Διάλεξε 2 γεύσεις · 1 / 2</div>
+          <div class="flav"><span class="on">Φιστίκι ✓</span><span>Σοκολάτα</span><span>Βανίλια</span><span>Φράουλα</span><span class="out">Μάνγκο · τελείωσε</span><span>Καραμέλα</span><span>Λεμόνι</span><span>Cookies</span></div>
+          <div class="sm muted">Επιπλέον</div>
+          <div class="flav"><span>Σαντιγί +0,50</span><span>Σιρόπι +0,30</span><span>Χωρίς ζάχαρη</span></div>
+          <div class="card sm muted"><i data-i="alert"></i> Αλλεργία ή σημείωση</div>
+          <div style="display:grid; grid-template-columns:auto 1fr; gap:8px; align-items:center"><span class="seg"><span>−</span><span class="on">1</span><span>+</span></span><div class="btn primary">Πρόσθεσε · 3,50 €</div></div>
+        </div>
+      </div>
+    </div>
+    <div><p class="lbl">ε. Λογαριασμός ανά θέση</p>
+      <div class="phone"><div class="status"><span>20:48</span><span></span></div>
+        <div class="topbar"><i data-i="back"></i><div class="t"><b>Λογαριασμός · Τ7</b><span class="sm muted num">Σύνολο 42,20 € · πληρώθηκαν 9,60</span></div></div>
+        <div class="content" style="gap:8px">
+          <div class="seg wide"><span>Όλο</span><span class="on">Θέση</span><span>Ίσα</span><span>Είδος</span></div>
+          <div class="pay done"><span class="seat">1</span><div style="flex:1"><b>Θέση 1</b><div class="sm">Κάρτα · 20:46</div></div><b class="num">9,60</b><i data-i="check"></i></div>
+          <div class="pay sel"><span class="seat">2</span><div style="flex:1"><b>Θέση 2</b><div class="sm muted">Βάφλα, Νερό, Τιραμισού</div></div><b class="num">20,50</b></div>
+          <div class="pay"><span class="seat">3</span><div style="flex:1"><b>Θέση 3</b><div class="sm muted">2× Κρέπα</div></div><b class="num">12,10</b></div>
+          <div class="sm faint">Ό,τι δεν έχει θέση μοιράζεται ισόποσα στις θέσεις.</div>
+        </div>
+        <div class="dock">
+          <div class="btn primary" style="min-height:52px"><i data-i="card"></i> Κάρτα · 20,50 €</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px"><div class="btn"><i data-i="wallet"></i> Μετρητά</div><div class="btn"><i data-i="receipt"></i> Τύπωσε</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="lbl" style="margin-top:22px">στ. Tablet: κάτοψη της σάλας, το τραπέζι δεξιά, τα επείγοντα πάνω</p>
+  <div class="tablet">
+    <div class="rail">
+      <b style="padding:0 8px 14px">Gelato System</b>
+      <div class="sm faint" style="padding:0 10px 4px">Δουλειά</div>
+      <span class="it on"><i data-i="grid"></i>Τραπέζια</span><span class="it"><i data-i="cone"></i>Πώληση</span><span class="it"><i data-i="calendar"></i>Κρατήσεις</span>
+      <div class="who"><div style="display:flex; gap:8px; align-items:center"><div class="av" style="background:#F0D2C4">ΕΣ</div><div><b>Ελένη</b><div class="sm muted">από 16:02</div></div></div><span class="badge s service"><i data-i="bell"></i> Σερβιτόρος</span><div class="btn" style="min-height:36px; font-size:12px; color:var(--bad)"><i data-i="logout"></i> Λήξη βάρδιας</div></div>
+    </div>
+    <div class="pane">
+      <div style="display:flex; gap:6px"><div class="alert ok" style="flex:1"><i data-i="chef"></i><div><b>Τ7 · Έτοιμο</b><span>2× Κρέπα</span></div></div><div class="alert wait" style="flex:1"><i data-i="receipt"></i><div><b>Τ2 · Λογαριασμός</b><span>πριν 3′</span></div></div><div class="alert res" style="flex:1"><i data-i="calendar"></i><div><b>Τ5 · 20:30</b><span>σε 16′</span></div></div></div>
+      <div style="display:flex; gap:6px; align-items:center"><b style="font-size:15px; flex:1">Βεράντα</b><span class="chip on">Δικά μου</span><span class="chip">Όλα</span><span class="chip">Σάλα</span></div>
+      <div class="floor">
+        <div class="ft mine" style="left:4%; top:6%"><b>Τ2</b><span>Λογαρ. · 35′</span></div>
+        <div class="ft pay" style="left:28%; top:6%"><b>Τ3</b><span>πληρώνεται</span></div>
+        <div class="ft res round" style="left:52%; top:4%"><b>Τ5</b><span>20:30</span></div>
+        <div class="ft mine sel" style="left:74%; top:6%"><b>Τ7</b><span>Τρώνε · 12′</span><i class="dot ok"></i></div>
+        <div class="ft mine late" style="left:4%; top:54%"><b>Τ9</b><span>28′ ήσυχο</span></div>
+        <div class="ft free round" style="left:30%; top:56%"><b>Τ10</b><span>ελεύθερο</span></div>
+        <div class="ft other" style="left:52%; top:54%"><b>Τ11</b><span>Γιώργος</span></div>
+        <div class="ft free" style="left:76%; top:56%"><b>Τ12</b><span>ελεύθερο</span></div>
+      </div>
+    </div>
+    <div class="side2">
+      <div style="display:flex; justify-content:space-between"><b style="font-size:16px">Τραπέζι 7</b><span class="sm muted">3 άτομα · 12′</span></div>
+      <div style="display:flex; gap:4px"><span class="chip on">Όλοι</span><span class="chip">1</span><span class="chip">2</span><span class="chip">3</span></div>
+      <div class="held"><i data-i="pause"></i><span style="flex:1" class="sm">Τιραμισού σε αναμονή</span><b class="sm">Βγάλ' το</b></div>
+      <div class="line"><span><span class="seat">3</span>2× Κρέπα</span><span class="st wait">έτοιμο</span></div>
+      <div class="line"><span><span class="seat">1</span>Freddo espresso</span><span class="st ok">✓</span></div>
+      <div class="line"><span><span class="seat">2</span>Βάφλα · 2× Νερό</span><span class="st ok">✓</span></div>
+      <div class="line" style="font-weight:700; font-size:14px"><span>Χρωστάει</span><span class="num">31,00 €</span></div>
+      <div class="btn primary"><i data-i="plus"></i> Παραγγελία</div>
+      <div class="btn"><i data-i="receipt"></i> Λογαριασμός</div>
+    </div>
+  </div>
+  <div class="note" style="margin-top:14px"><b>Τι αλλάζει στον server για να γίνει (όχι μόνο οθόνη)</b>
+    <ul class="why">
+      <li><b>Θέση ανά γραμμή</b> (seat, προαιρετικό): νέο πεδίο στη γραμμή του λογαριασμού, και μοίρασμα «ανά θέση» πάνω στο υπάρχον μοίρασμα.</li>
+      <li><b>«Μετά» (κράτημα)</b>: η γραμμή αποθηκεύεται χωρίς να τυπωθεί. Το «Βγάλ' το» τη στέλνει σε Bar/Κουζίνα ως νέο γύρο. Το δελτίο 8.6 εκδίδεται όταν φύγει, όχι νωρίτερα.</li>
+      <li><b>Στάδιο γραμμής</b> (στάλθηκε → έτοιμο → σερβιρίστηκε): το «έτοιμο» έρχεται από την οθόνη κουζίνας/bar και το «σερβιρίστηκε» το πατά ο σερβιτόρος. Χωρίς οθόνη κουζίνας, το στάδιο μένει «στάλθηκε».</li>
+      <li><b>«Ζήτησε λογαριασμό»</b>: ένα πάτημα στο τραπέζι το βάζει στη λίστα «Σε περιμένουν», δικιά του και του ταμία.</li>
+      <li><b>«Τελείωσε»</b>: διακόπτης διαθεσιμότητας ανά είδος και ανά γεύση, που τον πατά ο υπεύθυνος βάρδιας ή η κουζίνα.</li>
+      <li><b>Μετρητά από σερβιτόρο</b>: είτε ο σερβιτόρος κρατά «πορτοφόλι» που κλείνει στο τέλος της βάρδιας, είτε τα παραδίδει στον ταμία. Αυτό είναι απόφαση λειτουργίας.</li>
+    </ul>
+  </div>
+
+  <h2>2β · Το μενού κάθε ρόλου (και οι 16)</h2>
+  <p class="cap">Από τη λίστα ρόλων του server (web/lib/specialties.ts), με τους κανόνες πάνω. Αριστερά το κινητό (κάτω μπάρα + ό,τι πάει στο «Περισσότερα»), δεξιά το tablet (πλαϊνό μενού σε δύο ενότητες).</p>
+  <div id="matrix" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(340px, 1fr)); gap:14px"></div>
+
+  <h2>3 · Tablet (φαρδιά οθόνη, οριζόντια)</h2>
+  <p class="cap">Το tablet του ταμείου κρατά το πλαϊνό μενού και τα δύο πάνελ. Η κάρτα κάτω αριστερά δείχνει ποιος είναι σε βάρδια και με ποιον ρόλο. Στη σύνδεση: ονόματα αριστερά, ρόλος + PIN δεξιά σε μία οθόνη.</p>
+  <div class="row">
+    <div><p class="lbl">α. Σύνδεση: ονόματα αριστερά, ρόλος και PIN δεξιά</p>
+      <div class="tablet">
+        <div class="pane" style="padding:24px; gap:14px">
+          <b style="font-size:18px">Ποιος ξεκινά βάρδια;</b>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px">
+            <div class="card" style="border:2px solid rgba(255,255,255,.5)"><b>Ελένη Σταύρου</b><div class="sm muted num">08:00–16:00</div><div style="display:flex; gap:4px; margin-top:4px"><span class="badge s service">Σερβιτόρος</span><span class="badge s service">Barman</span></div></div>
+            <div class="card"><b>Θανάσης Λάμπρου</b><div class="sm muted num">08:00–16:00</div><div style="display:flex; gap:4px; margin-top:4px"><span class="badge s warehouse">Αποθηκάριος</span><span class="badge s warehouse">+1</span></div></div>
+            <div class="card"><b>Παναγιώτα Ρήγα</b><div class="sm muted num">16:00–00:00</div><div style="margin-top:4px"><span class="badge s kitchen">Μάγειρας</span></div></div>
+            <div class="card"><b>Αλέξανδρος Μ.</b><div class="sm muted num">08:00–16:00</div><div style="margin-top:4px"><span class="badge s management">Ιδιοκτήτης</span></div></div>
+            <div class="card"><b>Σοφία Νικολάου</b><div class="sm muted num">08:00–16:00</div><div style="display:flex; gap:4px; margin-top:4px"><span class="badge s service">Κρατήσεις</span><span class="badge s service">Ταμίας</span></div></div>
+            <div class="card"><b>Μανώλης Κρητικός</b><div class="sm muted">Όχι σήμερα</div><div style="display:flex; gap:4px; margin-top:4px"><span class="badge s kitchen">Chef</span><span class="badge s kitchen">Sous chef</span></div></div>
+          </div>
+        </div>
+        <div class="side2" style="width:320px">
+          <div style="display:flex; gap:10px; align-items:center"><div class="av" style="background:#F0D2C4">ΕΣ</div><b>Ελένη Σταύρου</b></div>
+          <div class="sm muted">Με ποιον ρόλο δουλεύεις τώρα;</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap"><span class="badge l service">✓ Barman · πρόγραμμα</span><span class="badge l" style="background:var(--card); color:var(--text)">Σερβιτόρος</span></div>
+          <div class="card sm muted">Ανοίγει: Πώληση · Τραπέζια · Συναλλαγές · Συρτάρι</div>
+          <div style="display:flex; justify-content:center; gap:10px; padding:6px"><i style="width:12px;height:12px;border-radius:50%;background:#fff"></i><i style="width:12px;height:12px;border-radius:50%;background:#fff"></i><i style="width:12px;height:12px;border-radius:50%;border:2px solid #787C84"></i><i style="width:12px;height:12px;border-radius:50%;border:2px solid #787C84"></i></div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px"><div class="btn">1</div><div class="btn">2</div><div class="btn">3</div><div class="btn">4</div><div class="btn">5</div><div class="btn">6</div></div>
+          <div class="card sm"><span class="muted">Μετρητά στο συρτάρι</span><b class="num" style="float:right">150,00 €</b></div>
+          <div class="btn primary">Έναρξη βάρδιας</div>
+        </div>
+      </div>
+    </div>
+    <div><p class="lbl">β. Αποθηκάριος σε βάρδια: απόθεμα σε δύο στήλες</p>
+      <div class="tablet">
+        <div class="rail">
+          <b style="padding:0 8px 14px">Gelato System</b>
+          <span class="it"><i data-i="package"></i>Παραλαβή</span><span class="it on"><i data-i="boxes"></i>Απόθεμα</span><span class="it"><i data-i="users"></i>Βάρδια</span>
+          <div class="who"><div style="display:flex; gap:8px; align-items:center"><div class="av" style="background:#C8DAEA">ΘΛ</div><div><b>Θανάσης</b><div class="sm muted">από 09:44</div></div></div><span class="badge s warehouse"><i data-i="warehouse"></i> Αποθηκάριος</span><div class="btn" style="min-height:36px; font-size:12px">Λήξη βάρδιας</div></div>
+        </div>
+        <div class="pane">
+          <div style="display:flex; justify-content:space-between; align-items:center"><b style="font-size:18px">Απόθεμα · Κεντρική Αποθήκη</b><span class="badge warehouse"><i data-i="warehouse"></i> Αποθηκάριος · Παραλαβή, Απόθεμα</span></div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px"><div class="card"><b style="color:var(--bad); font-size:20px">2</b> <span class="muted">κάτω από το ελάχιστο</span></div><div class="card"><b style="color:var(--wait); font-size:20px">1</b> <span class="muted">λήγουν σε 3 ημέρες</span></div><div class="card"><b style="font-size:20px">1</b> <span class="muted">χωρίς θέση</span></div></div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
+            <div class="card" style="border-left:3px solid var(--bad)"><div style="display:flex; justify-content:space-between"><b>Γάλα πλήρες</b><b style="color:var(--bad)">6 l</b></div><div class="sm" style="color:var(--bad)">Ελάχιστο 20 l · λείπουν 14 l</div><div class="sm muted"><i data-i="pin"></i> Ψυγείο 2 · Γαλακτοκομικά</div></div>
+            <div class="card" style="border-left:3px solid var(--wait)"><div style="display:flex; justify-content:space-between"><b>Κρέμα γάλακτος</b><b>4 l</b></div><div class="sm" style="color:var(--wait)">1 l λήγει 30/11</div><div class="sm muted"><i data-i="pin"></i> Ψυγείο 1 · Ράφι πάνω</div></div>
+            <div class="card" style="border-left:3px solid var(--bad)"><div style="display:flex; justify-content:space-between"><b>Φράουλες κατεψυγμένες</b><b style="color:var(--bad)">1,2 kg</b></div><div class="sm" style="color:var(--bad)">Ελάχιστο 5 kg</div><div class="sm muted"><i data-i="pin"></i> Καταψύκτης · Βάσεις</div></div>
+            <div class="card"><div style="display:flex; justify-content:space-between"><b>Ζάχαρη</b><b>25 kg</b></div><div class="sm" style="color:var(--wait)"><i data-i="pin"></i> Όρισε θέση</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note" style="margin-top:14px"><b>Πώς διαλέγει η εφαρμογή</b>
+    <ul class="why"><li>Πλαϊνό μενού tablet σε δύο ενότητες: «Δουλειά» (οθόνες του ρόλου) και «Η βάρδια μου» (Συρτάρι, Κλείσιμο ημέρας). Ο μάνατζερ με 9 γραμμές χωράει σε tablet 800dp· αν όχι, η λίστα κυλάει και η κάρτα βάρδιας μένει σταθερή κάτω.</li><li>Κινητό: η στενή πλευρά της οθόνης κάτω από 600dp (π.χ. τηλέφωνο σε κάθετη θέση).</li><li>Tablet: όλα τα άλλα. Το tablet του ταμείου μένει όπως σήμερα, με την ετικέτα ρόλου στο πλαϊνό μενού.</li><li>Το ίδιο APK και στα δύο: ο ρόλος της συσκευής στη σύζευξη μένει όπως είναι.</li></ul>
+  </div>
+</main>
+<script>
+const N = { sale:"Πώληση", tables:"Τραπέζια", reservations:"Κρατήσεις", orders:"Παραγγελίες", transactions:"Συναλλαγές", receiving:"Παραλαβή", stock:"Απόθεμα" };
+const ALL = ["sale","tables","reservations","orders","transactions","receiving","stock"];
+const R = [["Σερβιτόρος","service",["tables","sale","reservations"],0],["Υπεύθυνος σέρβις","service",["tables","sale","reservations","orders","transactions"],1],["Βοηθός σέρβις","service",["tables","sale"],0],["Ταμίας","service",["sale","tables","reservations","orders","transactions"],1],["Υπεύθυνος κρατήσεων","service",["reservations","tables"],0],["Barman","service",["sale","tables","transactions"],1],["Chef","kitchen",["orders","stock"],0],["Sous chef","kitchen",["orders","stock"],0],["Μάγειρας","kitchen",["orders"],0],["Λαντζέρης","kitchen",[],0],["Αποθηκάριος","warehouse",["receiving","stock"],0],["Υπεύθυνος παραγγελιών","warehouse",["receiving","stock"],0],["Βοηθός λογιστή","warehouse",["transactions"],0],["Μάνατζερ καταστήματος","management",ALL,1],["Ιδιοκτήτης","management",ALL,1],["Διοίκηση","management",ALL,1]];
+const IC = { service:'<i data-i="bell"></i>', kitchen:'<i data-i="chef"></i>', warehouse:'<i data-i="warehouse"></i>', management:'<i data-i="briefcase"></i>' };
+const VI = { sale:"cone", tables:"grid", reservations:"calendar", orders:"bike", transactions:"receipt", receiving:"package", stock:"boxes", more:"more" };
+document.getElementById("matrix").innerHTML = R.map(([name, g, v, cash]) => {
+  const bar = v.length > 4 ? [...v.slice(0, 3), "more"] : v;
+  const more = v.length > 4 ? v.slice(3).map((x) => N[x]) : [];
+  if (cash) more.push("Συρτάρι", "Κλείσιμο ημέρας");
+  const phone = v.length === 0 ? '<div class="card sm muted">Χωρίς οθόνες: κάρτα βάρδιας με «Λήξη βάρδιας»</div>'
+    : v.length === 1 ? `<div class="card sm muted">Μία οθόνη (${N[v[0]]}): χωρίς κάτω μπάρα</div>`
+    : `<div class="bar">${bar.map((x) => `<span><i data-i="${VI[x]}"></i>${x === "more" ? "Περισσότερα" : N[x]}</span>`).join("")}</div>`;
+  const moreTxt = more.length ? `<div class="sm muted">Περισσότερα / ετικέτα ρόλου: ${more.join(" · ")}</div>` : `<div class="sm faint">Βάρδια: από την ετικέτα ρόλου πάνω δεξιά</div>`;
+  const rail = `<div class="rail2"><div class="h">Δουλειά</div>${v.length ? v.map((x) => `<div class="r">${N[x]}</div>`).join("") : '<div class="r">—</div>'}<div class="h">Η βάρδια μου</div>${cash ? '<div class="r" style="background:none;color:var(--muted)">Συρτάρι</div><div class="r" style="background:none;color:var(--muted)">Κλείσιμο ημέρας</div>' : ""}<div class="r" style="background:none;color:var(--muted)">Λήξη βάρδιας</div></div>`;
+  return `<div class="mx"><span class="badge ${g}">${IC[g]} ${name}</span><div class="cols"><div style="display:grid;gap:6px;align-content:start"><div class="sm faint">Κινητό</div>${phone}${moreTxt}</div><div style="display:grid;gap:6px;align-content:start"><div class="sm faint">Tablet</div>${rail}</div></div></div>`;
+}).join("");
+
+const P = {
+ grid:'<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+ calendar:'<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+ receipt:'<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8H8M16 12H8M13 16H8"/>',
+ bell:'<path d="M3 20a1 1 0 0 1-1-1v-1a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1Z"/><path d="M20 16a8 8 0 1 0-16 0"/><path d="M12 4v4M10 4h4"/>',
+ chef:'<path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.46.32-.84.73-1.04a4 4 0 0 0-2.14-7.59 5 5 0 0 0-9.18 0 4 4 0 0 0-2.14 7.59c.41.2.73.58.73 1.04V20a1 1 0 0 0 1 1Z"/><path d="M6 17h12"/>',
+ warehouse:'<path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z"/><path d="M6 18h12M6 14h12"/><rect width="12" height="12" x="6" y="10"/>',
+ briefcase:'<rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+ cone:'<path d="m7 11 4.08 10.35a1 1 0 0 0 1.84 0L17 11"/><path d="M17 7A5 5 0 0 0 7 7"/><path d="M17 7a2 2 0 0 1 0 4H7a2 2 0 0 1 0-4"/>',
+ bike:'<circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>',
+ package:'<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/>',
+ boxes:'<path d="M12 2 2 7l10 5 10-5Z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/>',
+ more:'<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+ wallet:'<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+ pin:'<path d="M20 10c0 5-5.5 10.2-7.4 11.8a1 1 0 0 1-1.2 0C9.5 20.2 4 15 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+ search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+ lock:'<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+ logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
+ send:'<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+ users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+ card:'<rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>',
+ back:'<path d="m15 18-6-6 6-6"/>', plus:'<path d="M5 12h14M12 5v14"/>', check:'<path d="M20 6 9 17l-5-5"/>',
+ cup:'<path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2M10 2v2M14 2v2"/>',
+ list:'<path d="M3 6h18M3 12h18M3 18h18"/>', map:'<path d="M14.1 4.6 9 2 3 4.6v16l6-2.6 5.1 2.6 6-2.6v-16Z"/><path d="M9 2v16M15 4.6v16"/>',
+ pause:'<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>',
+ flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3.3.3 1.6 1.3 2.8 2.5 2.8Z"/>',
+ alert:'<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
+};
+document.querySelectorAll("i[data-i]").forEach((el) => { el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${P[el.dataset.i] ?? ""}</svg>`; });
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 // Ανοιχτοί λογαριασμοί στον server: άνοιγμα (τραπέζι ή ελεύθερος), αποστολές, ακύρωση γραμμής, πληρωμή.
 // Κάθε συσκευή του καταστήματος βλέπει τους ίδιους λογαριασμούς· οι αλλαγές κλειδώνουν τη γραμμή του λογαριασμού.
-import { type BillLineState, type BillPick, billTotals, canVoid, paidQuantity, pickDue, remaining } from "./bill";
+import { type BillLineState, type BillPick, billStage, billTotals, canVoid, paidQuantity, pickDue, remaining } from "./bill";
 import { db } from "./db";
 import type { Prisma } from "./generated/prisma/client";
 import { tenantWriteTransaction } from "./migration-cutover";
@@ -11,7 +11,7 @@ type Ctx = { org: { id: string }; store: { id: string }; device: { id: string } 
 
 /** Αποτυχία με γνωστή αιτία: το API τη στέλνει στη συσκευή με τον κωδικό της. */
 export class BillError extends Error {
-  constructor(readonly code: "not_found" | "closed" | "table_busy" | "paid_line" | "nothing_due" | "changed" | "too_much", message: string) {
+  constructor(readonly code: "not_found" | "closed" | "table_busy" | "paid_line" | "nothing_due" | "changed" | "too_much" | "sold_out", message: string) {
     super(message);
     this.name = "BillError";
   }
@@ -19,6 +19,7 @@ export class BillError extends Error {
 
 const lineSelect = {
   id: true, roundId: true, productId: true, name: true, quantity: true, unitPriceCents: true, vatRate: true, options: true, note: true, voidedAt: true, voidReason: true,
+  seat: true, readyAt: true, servedAt: true, round: { select: { held: true, sentAt: true } },
   saleLines: { select: { quantity: true, sale: { select: { status: true } } } },
 } satisfies Prisma.BillLineSelect;
 
@@ -26,7 +27,8 @@ const sumCents = (xs: { amountCents: number }[]) => xs.reduce((s, x) => s + x.am
 // Μερίδια (μοίρασμα κατά ποσό) που εισπράχθηκαν και δεν έχουν μπει ακόμα σε ολοκληρωμένη απόδειξη
 const heldShares = { status: "PAID", OR: [{ saleId: null }, { sale: { status: { not: "COMPLETED" } } }] } satisfies Prisma.BillShareWhereInput;
 const summary = (lines: BillLineState[], held: { amountCents: number }[] = []) =>
-  ({ ...billTotals(lines), heldCents: sumCents(held), items: lines.filter((l) => !l.voidedAt).reduce((s, l) => s + l.quantity, 0) });
+  ({ ...billTotals(lines), heldCents: sumCents(held), items: lines.filter((l) => !l.voidedAt && !l.round?.held).reduce((s, l) => s + l.quantity, 0) });
+
 
 /** Τι χρωστάει ο λογαριασμός και τι έχει εισπραχθεί ως μερίδια. Μέσα σε συναλλαγή που κλείδωσε τον λογαριασμό. */
 export async function shareState(tx: Prisma.TransactionClient, billId: string) {
@@ -44,10 +46,19 @@ export async function storeBills(ctx: Ctx) {
     db.diningTable.findMany({ where: { orgId: ctx.org.id, storeId: ctx.store.id, active: true }, orderBy: [{ zone: "asc" }, { position: "asc" }, { name: "asc" }], select: { id: true, name: true, zone: true, seats: true } }),
     db.bill.findMany({
       where: { orgId: ctx.org.id, storeId: ctx.store.id, status: "OPEN" }, orderBy: { openedAt: "asc" },
-      select: { id: true, tableId: true, label: true, guests: true, openedAt: true, openedByName: true, lines: { select: lineSelect }, shares: { where: heldShares, select: { amountCents: true } } },
+      select: { id: true, tableId: true, label: true, guests: true, openedAt: true, openedByName: true, waiterId: true, billAskedAt: true, billAskedCash: true, lines: { select: { ...lineSelect, product: { select: { category: { select: { station: true } } } } } }, shares: { where: heldShares, select: { amountCents: true } } },
     }),
   ]);
-  return { tables, bills: bills.map(({ lines, shares, ...b }) => ({ ...b, ...summary(lines, shares) })) };
+  return { tables, soldOut: await soldOutIds(ctx), bills: bills.map(({ lines, shares, ...b }) => ({ ...b, ...summary(lines, shares), ...billStage(b, lines.map(({ product, ...l }) => ({ ...l, station: product.category.station }))) })) };
+}
+
+/** Οι ανοιχτοί λογαριασμοί ενός σερβιτόρου: πριν λήξει η βάρδια του κλείνουν ή παραδίδονται σε συνάδελφο. */
+export async function waiterBills(orgId: string, storeId: string, waiterId: string) {
+  const bills = await db.bill.findMany({
+    where: { orgId, storeId, status: "OPEN", waiterId }, orderBy: { openedAt: "asc" },
+    select: { id: true, label: true, openedAt: true, table: { select: { name: true } }, lines: { select: lineSelect }, shares: { where: heldShares, select: { amountCents: true } } },
+  });
+  return bills.map(({ lines, shares, table, ...b }) => { const s = summary(lines, shares); return { id: b.id, name: table ? `Τραπέζι ${table.name}` : b.label ?? "Λογαριασμός", openedAt: b.openedAt, dueCents: s.dueCents - s.heldCents, items: s.items }; });
 }
 
 /** Ο λογαριασμός με τις αποστολές του και, ανά γραμμή, τι πληρώθηκε και τι μένει. */
@@ -55,9 +66,9 @@ export async function billDetail(ctx: Ctx, billId: string) {
   const bill = await db.bill.findFirst({
     where: { id: billId, orgId: ctx.org.id, storeId: ctx.store.id },
     select: {
-      id: true, status: true, label: true, guests: true, openedAt: true, openedByName: true, closedAt: true,
-      table: { select: { id: true, name: true, zone: true } },
-      rounds: { orderBy: { number: "asc" }, select: { id: true, number: true, sentAt: true, sentByName: true } },
+      id: true, status: true, label: true, guests: true, openedAt: true, openedByName: true, closedAt: true, billAskedAt: true, billAskedCash: true,
+      table: { select: { id: true, name: true, zone: true, seats: true } },
+      rounds: { orderBy: { number: "asc" }, select: { id: true, number: true, sentAt: true, sentByName: true, held: true } },
       lines: { orderBy: { id: "asc" }, select: lineSelect },
       sales: { where: { status: "COMPLETED" }, orderBy: { issuedAt: "asc" }, select: { id: true, series: true, aa: true, totalCents: true, issuedAt: true } },
       shares: {
@@ -71,12 +82,13 @@ export async function billDetail(ctx: Ctx, billId: string) {
   return {
     ...rest, ...summary(lines, shares.filter((x) => x.status === "PAID")),
     shares: shares.map(({ method, ...x }) => ({ ...x, method: method.name, cash: method.code === "cash" })),
-    lines: lines.map(({ saleLines, ...l }) => ({ ...l, remaining: remaining({ ...l, saleLines }), paid: paidQuantity({ ...l, saleLines }), canVoid: canVoid({ ...l, saleLines }) })),
+    // round μένει στον υπολογισμό (τα «Μετά» δεν χρωστιούνται ακόμα) αλλά όχι στην απάντηση
+    lines: lines.map(({ saleLines, round, ...l }) => ({ ...l, remaining: remaining({ ...l, round, saleLines }), paid: paidQuantity({ ...l, saleLines }), canVoid: canVoid({ ...l, round, saleLines }) })),
   };
 }
 
 /** Ανοίγει λογαριασμό. Σε τραπέζι που έχει ήδη ανοιχτό, επιστρέφει εκείνον (δύο σερβιτόροι, ένα τραπέζι). */
-export async function openBill(ctx: Ctx, input: { tableId?: string; label?: string; guests?: number; byName?: string }) {
+export async function openBill(ctx: Ctx, input: { tableId?: string; label?: string; guests?: number; byName?: string; waiterId?: string }) {
   return tenantWriteTransaction(ctx.org.id, async (tx) => {
     if (input.tableId) {
       const [table] = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "DiningTable" WHERE id = ${input.tableId} AND "orgId" = ${ctx.org.id} AND "storeId" = ${ctx.store.id} AND active FOR UPDATE`;
@@ -85,7 +97,7 @@ export async function openBill(ctx: Ctx, input: { tableId?: string; label?: stri
       if (open) return { id: open.id, existing: true };
     }
     const bill = await tx.bill.create({
-      data: { orgId: ctx.org.id, storeId: ctx.store.id, tableId: input.tableId, label: input.label, guests: input.guests, openedByName: input.byName },
+      data: { orgId: ctx.org.id, storeId: ctx.store.id, tableId: input.tableId, label: input.label, guests: input.guests, openedByName: input.byName, waiterId: input.waiterId },
       select: { id: true },
     });
     return { id: bill.id, existing: false };
@@ -100,15 +112,61 @@ async function lockOpenBill(tx: Prisma.TransactionClient, ctx: Ctx, billId: stri
 
 /** Νέα αποστολή: οι γραμμές μπαίνουν στον λογαριασμό με τις τιμές του καταλόγου εκείνη τη στιγμή. */
 /** Νέα αποστολή: γραμμές + 8.6 (lib/order-slips.ts). Επιστρέφει και το 8.6, για υπογραφή μετά τη συναλλαγή (signOrderSlips). */
-export async function addRound(ctx: SlipCtx, billId: string, lines: PricedLine[], byName?: string) {
+/** held («Μετά»): οι γραμμές γράφονται χωρίς 8.6 και χωρίς να χρωστιούνται· βγαίνουν με το fireRound. */
+export async function addRound(ctx: SlipCtx, billId: string, lines: PricedLine[], byName?: string, held = false) {
   return tenantWriteTransaction(ctx.org.id, async (tx) => {
     await lockOpenBill(tx, ctx, billId);
     const last = await tx.billRound.findFirst({ where: { billId }, orderBy: { number: "desc" }, select: { number: true } });
-    const round = await tx.billRound.create({ data: { billId, number: (last?.number ?? 0) + 1, deviceId: ctx.device.id, sentByName: byName }, select: { id: true, number: true } });
+    const round = await tx.billRound.create({ data: { billId, number: (last?.number ?? 0) + 1, deviceId: ctx.device.id, sentByName: byName, held }, select: { id: true, number: true } });
     await tx.billLine.createMany({ data: lines.map((l) => ({ ...l, options: l.options ?? undefined, billId, roundId: round.id })) });
+    if (held) return { ...round, slipIds: [] as string[] };
     const slip = await issueRoundSlip(tx, ctx, round.id);
     return { ...round, slipIds: [slip.id] };
   });
+}
+
+/** «Βγάλ' το»: η αποστολή που περίμενε πάει τώρα σε κουζίνα/bar, με το 8.6 της, και μπαίνει στον λογαριασμό. */
+export async function fireRound(ctx: SlipCtx, billId: string, roundId: string, byName?: string) {
+  return tenantWriteTransaction(ctx.org.id, async (tx) => {
+    await lockOpenBill(tx, ctx, billId);
+    const fired = await tx.billRound.updateMany({ where: { id: roundId, billId, held: true }, data: { held: false, sentAt: new Date(), ...(byName ? { sentByName: byName } : {}) } });
+    if (!fired.count) throw new BillError("changed", "Η αποστολή έχει ήδη βγει ή δεν υπάρχει.");
+    // όλα ακυρωμένα όσο περίμενε: τίποτα για την κουζίνα, άρα ούτε 8.6
+    if (!(await tx.billLine.count({ where: { roundId, voidedAt: null } }))) return { slipIds: [] as string[] };
+    return { slipIds: [(await issueRoundSlip(tx, ctx, roundId)).id] };
+  });
+}
+
+/** Ο σερβιτόρος σημειώνει ότι σέρβιρε (ή το αναιρεί). Μόνο γραμμές που έχουν βγει. */
+export async function markServed(ctx: Ctx, billId: string, lineIds: string[], served: boolean) {
+  return tenantWriteTransaction(ctx.org.id, async (tx) => {
+    await lockOpenBill(tx, ctx, billId);
+    const r = await tx.billLine.updateMany({ where: { billId, id: { in: lineIds }, voidedAt: null, round: { held: false } }, data: { servedAt: served ? new Date() : null } });
+    return { count: r.count };
+  });
+}
+
+/** «Ζήτησε λογαριασμό»: ο λογαριασμός μπαίνει στο «Σε περιμένουν» σερβιτόρου και ταμία. cash: θα πληρώσει μετρητά στον ταμία. */
+export async function askBill(ctx: Ctx, billId: string, ask: boolean, cash = false) {
+  return tenantWriteTransaction(ctx.org.id, async (tx) => {
+    await lockOpenBill(tx, ctx, billId);
+    await tx.bill.update({ where: { id: billId }, data: { billAskedAt: ask ? new Date() : null, billAskedCash: ask && cash } });
+    return { ok: true };
+  });
+}
+
+/** Τι έχει τελειώσει σήμερα στο κατάστημα: ids προϊόντων και επιλογών (γεύσεων). */
+export async function soldOutIds(ctx: Ctx) {
+  return (await db.soldOut.findMany({ where: { orgId: ctx.org.id, storeId: ctx.store.id }, select: { itemId: true } })).map((x) => x.itemId);
+}
+
+/** «Τελείωσε» / «Υπάρχει ξανά». Το id πρέπει να είναι προϊόν ή επιλογή της επιχείρησης. */
+export async function setSoldOut(ctx: Ctx, itemId: string, out: boolean, byName?: string) {
+  const known = (await db.product.count({ where: { id: itemId, orgId: ctx.org.id } })) || (await db.modifierOption.count({ where: { id: itemId, group: { orgId: ctx.org.id } } }));
+  if (!known) throw new BillError("not_found", "Το είδος δεν βρέθηκε στον κατάλογο.");
+  if (out) await db.soldOut.upsert({ where: { storeId_itemId: { storeId: ctx.store.id, itemId } }, create: { orgId: ctx.org.id, storeId: ctx.store.id, itemId, byName }, update: {} });
+  else await db.soldOut.deleteMany({ where: { storeId: ctx.store.id, itemId } });
+  return soldOutIds(ctx);
 }
 
 /** Ακύρωση γραμμής πριν πληρωθεί (λάθος παραγγελία, ο πελάτης το άλλαξε). Η γραμμή μένει, σημειωμένη. */
@@ -180,6 +238,7 @@ export async function draftSettlement(ctx: Ctx, billId: string, pick?: BillPick[
 export async function closeBillIfDone(tx: Prisma.TransactionClient, billId: string) {
   const lines = await tx.billLine.findMany({ where: { billId }, select: lineSelect });
   const t = billTotals(lines);
-  if (t.dueCents > 0 || t.pendingCents > 0 || t.paidCents === 0) return;
+  // ό,τι περιμένει («Μετά») δεν έχει έρθει ακόμα στο τραπέζι: ο λογαριασμός μένει ανοιχτός γι' αυτό
+  if (t.dueCents > 0 || t.pendingCents > 0 || t.paidCents === 0 || lines.some((l) => !l.voidedAt && l.round?.held)) return;
   await tx.bill.updateMany({ where: { id: billId, status: "OPEN" }, data: { status: "SETTLED", closedAt: new Date() } });
 }

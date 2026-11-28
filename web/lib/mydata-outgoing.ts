@@ -5,6 +5,9 @@ import { createAadeMyDataProvider } from "./mydata-aade.ts";
 import type { Dispatch } from "./documents/build.ts";
 import { issuerForStore } from "./documents/issuer.ts";
 import { VivaMyDataProvider } from "./mydata-viva.ts";
+import { sumDocumentTotals } from "./procurement.ts";
+import { lineBaseQty } from "./purchases.ts";
+import { stockCostScale } from "./units.ts";
 import { assertStockScope, type StockContext } from "./stock-scope.ts";
 import { auditWorkflow, cleanText, WorkflowError } from "./workflow-db.ts";
 
@@ -94,4 +97,52 @@ export async function createMyDataProvider(orgId: string, issuer: Awaited<Return
     const items = await db.genericItem.findMany({ where: { orgId, id: { in: [...ids] } }, select: { id: true, name: true, nature: true, baseUnit: { select: { dimension: true } } } });
     return new Map(items.map((i) => [i.id, { name: i.name, nature: i.nature, dimension: i.baseUnit.dimension }]));
   });
+}
+
+/** 9.3 επιστροφής σε προμηθευτή (σκοπός 5): ίδια διεκδίκηση και ίδιος πάροχος με τη χονδρική. Φόρτωση από το κατάστημα, παράδοση στον προμηθευτή. */
+export async function transmitPurchaseReturn(ctx: StockContext, purchaseDocId: string, provider?: MyDataProvider) {
+  const prepared = await db.$transaction(async (tx) => {
+    const doc = await tx.purchaseDoc.findFirst({ where: { id: purchaseDocId, orgId: ctx.orgId, kind: "RETURN" }, include: { lines: { include: { supplierItem: true, tradeItem: true, genericItem: { include: { baseUnit: true } } } }, fiscalDocument: true } });
+    if (!doc?.fiscalDocument) throw new WorkflowError("Η επιστροφή δεν έχει εκδοθεί");
+    await assertStockScope(tx, ctx, { warehouseId: doc.warehouseId, forWrite: true });
+    const fiscal = doc.fiscalDocument;
+    if (fiscal.status === "SIGNED") return { doc, fiscal, alreadySent: true };
+    const claimed = await tx.fiscalDocument.updateMany({ where: { id: fiscal.id, orgId: ctx.orgId, status: { in: ["NOT_SENT", "FAILED"] } }, data: { status: "PENDING", error: null } });
+    if (claimed.count !== 1) throw new WorkflowError("Υπάρχει διαβίβαση σε εξέλιξη· περίμενε το αποτέλεσμα");
+    return { doc, fiscal, alreadySent: false };
+  });
+  if (prepared.alreadySent) return prepared.fiscal;
+  const { doc, fiscal } = prepared;
+  try {
+    const request = fiscal.request as { storeId?: string; series?: string; aa?: number };
+    const issuer = await issuerForStore(ctx.orgId, request.storeId ?? null);
+    const selectedProvider = provider ?? await createMyDataProvider(ctx.orgId, issuer);
+    const supplier = (doc.supplierSnapshot ?? {}) as { name?: unknown; vatNumber?: unknown; countryCode?: unknown; address?: unknown; city?: unknown; postalCode?: unknown };
+    const text = (v: unknown) => (typeof v === "string" ? v : "");
+    // Η αξία της γραμμής ξαναγράφεται ανά βασική μονάδα· shortcut: στρογγυλοποίηση λεπτού ανά γραμμή, το 9.3 είναι δελτίο, όχι το χρηματοοικονομικό
+    const lines = doc.lines.filter((l) => l.genericItem && l.tradeItem).map((l) => {
+      const quantityBase = lineBaseQty(l.quantity, l.supplierItem?.packQty ?? 1, l.tradeItem!.contentQty);
+      const net = Math.round(l.quantity * l.unitPriceCents * (10_000 - l.discountBps) / 10_000);
+      return { genericItemId: l.genericItemId!, lotId: null, quantityBase, unitPriceCents: Math.round(net * stockCostScale(l.genericItem!.baseUnit.dimension) / quantityBase), vatRate: l.vatRate, costScale: stockCostScale(l.genericItem!.baseUnit.dimension) };
+    });
+    if (!lines.length) throw new WorkflowError("Η επιστροφή δεν έχει είδη για το δελτίο αποστολής");
+    const totals = sumDocumentTotals(lines);
+    const issuedAt = doc.issuedAt ?? fiscal.createdAt;
+    const receipt = await selectedProvider.submit({
+      idempotencyKey: fiscal.receiptReference, docType: "9.3", series: request.series ?? "", aa: fiscal.aa ?? request.aa ?? 0, issuedAt,
+      customer: { ...supplier, address: text(supplier.address), city: text(supplier.city), postalCode: text(supplier.postalCode) },
+      lines: lines.map((l) => ({ genericItemId: l.genericItemId, lotId: l.lotId, quantityBase: l.quantityBase, unitPriceCents: l.unitPriceCents, vatRate: l.vatRate })), netCents: totals.netCents, vatCents: totals.vatCents, totalCents: totals.totalCents,
+      dispatch: { moment: issuedAt, movePurpose: 5, loading: issuer.storeAddress ?? { street: issuer.address ?? "", city: issuer.city ?? "", postalCode: issuer.postalCode ?? "" }, delivery: { street: text(supplier.address), city: text(supplier.city), postalCode: text(supplier.postalCode) } },
+    });
+    const mark = cleanText(receipt.mark, "MARK", 100, true)!;
+    return await db.$transaction(async (tx) => {
+      const updated = await tx.fiscalDocument.update({ where: { id: fiscal.id, orgId: ctx.orgId }, data: { status: "SIGNED", error: null, mark, totalCents: totals.totalCents, response: JSON.parse(JSON.stringify({ ...receipt, mark })) } });
+      await auditWorkflow(tx, { orgId: ctx.orgId, actor: { id: ctx.userId || null, name: ctx.userName }, action: "mydata.sent", entityType: "purchase", entityId: doc.id, warehouseId: doc.warehouseId, metadata: { mark } });
+      return updated;
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, 500) : "Η διαβίβαση απέτυχε";
+    await db.fiscalDocument.updateMany({ where: { id: fiscal.id, orgId: ctx.orgId, status: "PENDING" }, data: { status: "FAILED", error: message } });
+    throw error;
+  }
 }

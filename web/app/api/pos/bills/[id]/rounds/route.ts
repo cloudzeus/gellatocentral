@@ -1,12 +1,14 @@
 import { z } from "zod";
 import { after } from "next/server";
 import { signOrderSlips } from "@/lib/order-slips";
-import { addRound } from "@/lib/bills";
+import { addRound, BillError, soldOutIds } from "@/lib/bills";
 import { tillFromRequest } from "@/lib/device-auth";
 import { cartLines, priceCart } from "@/lib/pos-cart";
 import { pausedResponse, tillErrorResponse } from "@/lib/pos-till";
+import { openShift } from "@/lib/till-shift";
 
-const body = z.object({ lines: cartLines, byName: z.string().trim().max(60).optional() });
+// held: «Μετά» (π.χ. τα γλυκά): γράφεται στον λογαριασμό χωρίς να πάει σε κουζίνα/bar, ως το «Βγάλ' το»
+const body = z.object({ lines: cartLines, byName: z.string().trim().max(60).optional(), held: z.boolean().optional() });
 
 // Νέα αποστολή στον λογαριασμό. Η συσκευή στέλνει μόνο προϊόν, ποσότητα, επιλογές· τιμές από τον κατάλογο.
 export async function POST(req: Request, { params }: RouteContext<"/api/pos/bills/[id]/rounds">) {
@@ -17,9 +19,11 @@ export async function POST(req: Request, { params }: RouteContext<"/api/pos/bill
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "invalid" }, { status: 400 });
   try {
+    const out = new Set(await soldOutIds(ctx));
+    if (parsed.data.lines.some((l) => out.has(l.productId) || l.options.some((o) => out.has(o)))) throw new BillError("sold_out", "Κάτι από την παραγγελία τελείωσε στο μεταξύ. Δες τα διαγραμμένα είδη και βγάλ' τα.");
     const priced = await priceCart(ctx.org.id, parsed.data.lines);
     if (!priced) return Response.json({ error: "unknown_product" }, { status: 400 });
-    const round = await addRound(ctx, (await params).id, priced, parsed.data.byName);
+    const round = await addRound(ctx, (await params).id, priced, parsed.data.byName ?? (await openShift(ctx.device.id))?.employee.name, parsed.data.held);
     after(() => signOrderSlips(ctx.org.id, ctx.issuer.vivaMerchantId ?? null, round.slipIds)); // 8.6: η κουζίνα δεν περιμένει τη Viva
     return Response.json(round);
   } catch (e) {

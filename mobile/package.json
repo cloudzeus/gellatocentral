@@ -29,7 +29,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "node --test till.test.ts reservations.test.ts pair-qr.test.ts transactions.test.ts drawer.test.ts orders.test.ts offline.test.ts",
+    "test": "node --test till.test.ts reservations.test.ts pair-qr.test.ts transactions.test.ts drawer.test.ts orders.test.ts offline.test.ts receiving.test.ts waiter.test.ts kitchen.test.ts",
     "lint": "expo lint"
   },
   "private": true

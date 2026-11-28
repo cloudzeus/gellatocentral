@@ -5,8 +5,10 @@ import { writeAudit } from "./audit";
 import { db } from "./db";
 import { Prisma } from "./generated/prisma/client";
 import { tenantWriteTransaction } from "./migration-cutover";
+import { waiterBills } from "./bills";
 import { athensDayRange } from "./production-day-close";
 import { expectedCash, sumMovements, type Figures } from "./till-figures";
+import { isSpecialty, roleHasCash, roleViews, specialtyGroup, specialtyName, suggestedRole } from "./specialties";
 
 export class ShiftError extends Error {
   constructor(readonly code: string, message: string) { super(message); }
@@ -20,10 +22,14 @@ const hhmm = (d: Date) => d.toLocaleTimeString("el-GR", { timeZone: "Europe/Athe
 
 /** Βάρδιες ισχύουν μόνο όταν το κατάστημα έχει έστω έναν υπάλληλο με PIN ταμείου· αλλιώς το ταμείο δουλεύει όπως πριν. */
 export const shiftsOn = async (ctx: Ctx) =>
-  (await db.employee.count({ where: { orgId: ctx.org.id, storeId: ctx.device.storeId, active: true, tillPinHash: { not: null } } })) > 0;
+  (await db.employee.count({ where: { orgId: ctx.org.id, stores: { some: { storeId: ctx.device.storeId } }, active: true, tillPinHash: { not: null } } })) > 0;
 
 export const openShift = (deviceId: string) =>
   db.tillShift.findFirst({ where: { deviceId, endedAt: null }, include: { employee: { select: { id: true, name: true } } } });
+
+/** Η ανοιχτή βάρδια για την εφαρμογή, με τον ρόλο και το όνομά του. */
+export const shiftView = (s: NonNullable<Awaited<ReturnType<typeof openShift>>>) =>
+  ({ id: s.id, employee: s.employee, startedAt: s.startedAt, openingCents: s.openingCents, role: s.role, roleName: specialtyName(s.role), roleGroup: specialtyGroup(s.role) });
 
 /** Πύλη για ό,τι εισπράττει ή επιστρέφει χρήματα: χωρίς ανοιχτή βάρδια (όταν οι βάρδιες ισχύουν) απαντά 409. */
 export async function shiftResponse(ctx: Ctx) {
@@ -35,31 +41,38 @@ export async function shiftResponse(ctx: Ctx) {
 export async function tillStaff(ctx: Ctx, now = new Date()) {
   const { start, end } = athensDayRange(athensDay(now));
   const staff = await db.employee.findMany({
-    where: { orgId: ctx.org.id, storeId: ctx.device.storeId, active: true, tillPinHash: { not: null } },
+    where: { orgId: ctx.org.id, stores: { some: { storeId: ctx.device.storeId } }, active: true, tillPinHash: { not: null } },
     select: {
       id: true, name: true,
-      shifts: { where: { startsAt: { lt: end }, endsAt: { gt: start } }, select: { startsAt: true, endsAt: true }, orderBy: { startsAt: "asc" }, take: 1 },
+      specialties: { select: { specialty: true, isPrimary: true } },
+      // η βάρδια της ημέρας σε αυτό το κατάστημα (σε άλλο κατάστημα δεν δίνει πρόταση ρόλου εδώ)
+      shifts: { where: { startsAt: { lt: end }, endsAt: { gt: start }, OR: [{ storeId: ctx.device.storeId }, { storeId: null }] }, select: { startsAt: true, endsAt: true, specialty: true }, orderBy: { startsAt: "asc" }, take: 1 },
       leaves: { where: { fromAt: { lte: now }, toAt: { gte: now } }, select: { id: true }, take: 1 },
     },
     orderBy: { name: "asc" },
   });
   return staff
-    .map((e) => ({ id: e.id, name: e.name, scheduled: e.shifts[0] ? `${hhmm(e.shifts[0].startsAt)}–${hhmm(e.shifts[0].endsAt)}` : null, onLeave: e.leaves.length > 0, startsAt: e.shifts[0]?.startsAt.getTime() ?? Infinity }))
+    .map((e) => ({
+      id: e.id, name: e.name, onLeave: e.leaves.length > 0, startsAt: e.shifts[0]?.startsAt.getTime() ?? Infinity,
+      scheduled: e.shifts[0] ? `${hhmm(e.shifts[0].startsAt)}–${hhmm(e.shifts[0].endsAt)}${e.shifts[0].specialty ? ` ${specialtyName(e.shifts[0].specialty)}` : ""}` : null,
+      roles: [...e.specialties].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary)).filter((s) => isSpecialty(s.specialty)).map((s) => ({ key: s.specialty, name: specialtyName(s.specialty)!, group: specialtyGroup(s.specialty), cash: roleHasCash(s.specialty), views: roleViews(s.specialty) })),
+      suggested: suggestedRole(e.specialties, e.shifts[0]?.specialty),
+    }))
     .sort((a, b) => a.startsAt - b.startsAt)
-    .map((e) => ({ id: e.id, name: e.name, scheduled: e.scheduled, onLeave: e.onLeave }));
+    .map(({ startsAt: _, ...e }) => e);
 }
 
 // shortcut: μετρητής λαθών στη μνήμη του server (5 λάθη → 5′ κλείδωμα ανά ταμείο)· σε πολλούς servers θέλει κοινό χώρο (Redis/βάση)
 const misses = new Map<string, { n: number; until: number }>();
 
-export async function startShift(ctx: Ctx, input: { employeeId: string; pin: string; openingCents: number }) {
+export async function startShift(ctx: Ctx, input: { employeeId: string; pin: string; openingCents: number; role?: string | null }) {
   const lock = misses.get(ctx.device.id);
   if (lock && lock.until > Date.now()) throw new ShiftError("locked", "Πολλά λάθος PIN. Δοκίμασε ξανά σε λίγα λεπτά");
   const open = await openShift(ctx.device.id);
   if (open) throw new ShiftError("shift_open", `Η βάρδια του/της ${open.employee.name} είναι ακόμα ανοιχτή. Κλείσ' την πρώτα`);
   if (await db.tillDayClose.findUnique({ where: { deviceId_day: { deviceId: ctx.device.id, day: athensDay(new Date()) } } }))
     throw new ShiftError("day_closed", "Η ημέρα έκλεισε σε αυτό το ταμείο. Νέα βάρδια από αύριο");
-  const employee = await db.employee.findFirst({ where: { id: input.employeeId, orgId: ctx.org.id, storeId: ctx.device.storeId, active: true }, select: { id: true, name: true, tillPinHash: true } });
+  const employee = await db.employee.findFirst({ where: { id: input.employeeId, orgId: ctx.org.id, stores: { some: { storeId: ctx.device.storeId } }, active: true }, select: { id: true, name: true, tillPinHash: true, specialties: { select: { specialty: true } } } });
   const given = Buffer.from(pinHash(input.employeeId, input.pin));
   if (!employee?.tillPinHash || !timingSafeEqual(given, Buffer.from(employee.tillPinHash))) {
     const n = (lock && lock.until > Date.now() - 300_000 ? lock.n : 0) + 1;
@@ -67,11 +80,16 @@ export async function startShift(ctx: Ctx, input: { employeeId: string; pin: str
     throw new ShiftError("wrong_pin", "Λάθος PIN");
   }
   misses.delete(ctx.device.id);
+  // με ειδικότητες: ο ρόλος είναι υποχρεωτικός και δικός του· χωρίς: όπως πριν, χωρίς ρόλο
+  const roles = employee.specialties.map((s) => s.specialty).filter(isSpecialty);
+  const role = roles.length ? (input.role && roles.includes(input.role) ? input.role : roles.length === 1 ? roles[0] : null) : null;
+  if (roles.length && !role) throw new ShiftError("role_required", "Διάλεξε με ποιον ρόλο μπαίνεις");
+  const openingCents = roleHasCash(role) ? input.openingCents : 0;
   try {
-    const shift = await db.tillShift.create({ data: { orgId: ctx.org.id, deviceId: ctx.device.id, employeeId: employee.id, openingCents: input.openingCents } });
+    const shift = await db.tillShift.create({ data: { orgId: ctx.org.id, deviceId: ctx.device.id, employeeId: employee.id, openingCents, role } });
     await tenantWriteTransaction(ctx.org.id, (tx) => writeAudit(tx, {
       orgId: ctx.org.id, actor: { id: null, name: employee.name }, action: "till.shift.start", entityType: "device", entityId: ctx.device.id,
-      storeId: ctx.device.storeId, metadata: { shiftId: shift.id, openingCents: input.openingCents },
+      storeId: ctx.device.storeId, metadata: { shiftId: shift.id, openingCents, role },
     }));
     return shift;
   } catch (e) {
@@ -108,8 +126,8 @@ export async function tillFigures(ctx: Ctx, from: Date, to: Date): Promise<Figur
 export async function shiftReport(ctx: Ctx) {
   const shift = await openShift(ctx.device.id);
   if (!shift) return null;
-  const figures = await tillFigures(ctx, shift.startedAt, new Date());
-  return { shift: { id: shift.id, employee: shift.employee, startedAt: shift.startedAt, openingCents: shift.openingCents }, figures, expectedCents: expectedCash(shift.openingCents, figures) };
+  const [figures, openBills] = await Promise.all([tillFigures(ctx, shift.startedAt, new Date()), waiterBills(ctx.org.id, ctx.device.storeId, shift.employeeId)]);
+  return { shift: shiftView(shift), figures, expectedCents: expectedCash(shift.openingCents, figures), openBills };
 }
 
 export async function closeShift(ctx: Ctx, input: { countedCents: number; keptCents: number; reason?: string }) {
@@ -118,6 +136,8 @@ export async function closeShift(ctx: Ctx, input: { countedCents: number; keptCe
   if (input.keptCents > input.countedCents) throw new ShiftError("invalid", "Δεν μπορείς να αφήσεις περισσότερα από όσα μέτρησες");
   const diff = input.countedCents - report.expectedCents;
   if (diff !== 0 && !input.reason?.trim()) throw new ShiftError("reason_required", "Γράψε τι έγινε με τη διαφορά");
+  if (report.openBills.length)
+    throw new ShiftError("open_bills", `Έχεις ${report.openBills.length === 1 ? "ένα ανοιχτό τραπέζι" : `${report.openBills.length} ανοιχτά τραπέζια`}. Κλείσε τα ή παράδωσέ τα σε συνάδελφο`);
   if (await db.sale.count({ where: { deviceId: ctx.device.id, status: "AWAITING_PAYMENT" } }))
     throw new ShiftError("pending_charge", "Μια χρέωση περιμένει στο POS. Ολοκλήρωσέ την ή ακύρωσέ την από τις Συναλλαγές");
   const { count } = await db.tillShift.updateMany({
@@ -131,6 +151,24 @@ export async function closeShift(ctx: Ctx, input: { countedCents: number; keptCe
     metadata: { shiftId: report.shift.id, expectedCents: report.expectedCents, countedCents: input.countedCents, diffCents: diff, keptCents: input.keptCents },
   }));
   return { diffCents: diff };
+}
+
+/** Ο σερβιτόρος που φεύγει παραδίδει όλα τα ανοιχτά τραπέζια του σε συνάδελφο του καταστήματος. */
+export async function handOver(ctx: Ctx, toEmployeeId: string) {
+  const shift = await openShift(ctx.device.id);
+  if (!shift) throw new ShiftError("no_shift", "Δεν υπάρχει ανοιχτή βάρδια");
+  if (toEmployeeId === shift.employeeId) throw new ShiftError("invalid", "Διάλεξε άλλον συνάδελφο");
+  const to = await db.employee.findFirst({ where: { id: toEmployeeId, orgId: ctx.org.id, stores: { some: { storeId: ctx.device.storeId } }, active: true, tillPinHash: { not: null } }, select: { id: true, name: true } });
+  if (!to) throw new ShiftError("invalid", "Ο συνάδελφος δεν βρέθηκε σε αυτό το κατάστημα");
+  const bills = await db.bill.findMany({ where: { orgId: ctx.org.id, storeId: ctx.device.storeId, status: "OPEN", waiterId: shift.employeeId }, select: { id: true } });
+  if (!bills.length) return { count: 0, to: to.name };
+  // το όνομα στο πλακίδιο είναι ο σερβιτόρος του τραπεζιού· ποιος το άνοιξε μένει στο ημερολόγιο
+  const { count } = await db.bill.updateMany({ where: { id: { in: bills.map((b) => b.id) }, status: "OPEN", waiterId: shift.employeeId }, data: { waiterId: to.id, openedByName: to.name } });
+  await tenantWriteTransaction(ctx.org.id, (tx) => writeAudit(tx, {
+    orgId: ctx.org.id, actor: { id: null, name: shift.employee.name }, action: "pos.bill.handover", entityType: "device", entityId: ctx.device.id,
+    storeId: ctx.device.storeId, metadata: { shiftId: shift.id, from: shift.employeeId, to: to.id, billIds: bills.map((b) => b.id) },
+  }));
+  return { count, to: to.name };
 }
 
 /** Μετρητά που άφησε η τελευταία κλειστή βάρδια: η πρόταση για τα μετρητά έναρξης. */

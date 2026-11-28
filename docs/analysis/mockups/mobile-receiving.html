@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup · Παραλαβή από το κινητό του αποθηκάριου</title>
+<style>
+  :root { --navy:#131F3B; --ink:#1d2433; --muted:#5b6476; --line:#d9dde5; --soft:#f3f5f8; --ok:#15803d; --warn:#b45309; --bad:#b91c1c; --info:#3730a3; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#e9ecf1; font:13px/1.45 "Nunito", system-ui, sans-serif; color:var(--ink); }
+  .wrap { max-width:1280px; margin:0 auto; padding:28px 20px 60px; }
+  h1 { font-size:20px; font-weight:600; margin:0 0 4px; }
+  p.cap { color:var(--muted); margin:0 0 20px; max-width:900px; }
+  .row { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start; }
+  .step { width:290px; }
+  .step > b { display:block; font-size:12px; color:var(--muted); margin:0 0 8px; }
+  .phone { width:290px; height:600px; background:#fff; border-radius:30px; border:9px solid #1b1f2a; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 8px 24px rgba(0,0,0,.18); }
+  .top { padding:12px 14px 10px; border-bottom:1px solid var(--line); }
+  .top small { color:var(--muted); font-size:11px; } .top h3 { margin:2px 0 0; font-size:15px; }
+  .scroll { flex:1; overflow:hidden; padding:12px 14px; display:grid; gap:10px; align-content:start; }
+  .bottom { padding:10px 14px 14px; border-top:1px solid var(--line); display:grid; gap:8px; }
+  .btn { border-radius:12px; min-height:46px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600; font-size:13.5px; border:1px solid var(--line); background:#fff; }
+  .btn.primary { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .btn.ok { background:var(--ok); color:#fff; border-color:var(--ok); }
+  .cam { height:300px; border-radius:16px; background:linear-gradient(160deg,#2a3142,#141823); position:relative; display:grid; place-items:center; }
+  .doc { width:170px; height:230px; background:#f6f3ea; border-radius:4px; transform:rotate(-3deg); box-shadow:0 4px 14px rgba(0,0,0,.4); padding:12px; font-size:7px; color:#555; line-height:1.6; }
+  .doc i { display:block; height:5px; background:#ccc; margin:4px 0; border-radius:2px; }
+  .frame { position:absolute; inset:24px 40px; border:2px dashed rgba(255,255,255,.7); border-radius:10px; }
+  .card { border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+  .card h4 { margin:0 0 4px; font-size:13px; }
+  .kv { display:grid; grid-template-columns:90px 1fr; gap:3px 8px; font-size:12px; } .kv span { color:var(--muted); }
+  .pill { font-size:10.5px; padding:1px 7px; border-radius:999px; font-weight:700; white-space:nowrap; display:inline-block; }
+  .p-ok { background:#dcfce7; color:var(--ok); } .p-warn { background:#fef3c7; color:var(--warn); } .p-bad { background:#fee2e2; color:var(--bad); } .p-info { background:#e0e7ff; color:var(--info); }
+  .opt { border:1.5px solid var(--line); border-radius:12px; padding:10px 12px; font-size:12px; display:grid; grid-template-columns:18px 1fr; gap:8px; }
+  .opt.on { border-color:var(--navy); background:#f4f6fb; }
+  .dot { width:16px; height:16px; border-radius:50%; border:2px solid var(--line); margin-top:1px; } .on .dot { border:5px solid var(--navy); }
+  .line { border:1px solid var(--line); border-radius:12px; padding:9px 11px; display:grid; gap:5px; }
+  .line .t { display:flex; justify-content:space-between; gap:6px; font-size:12.5px; font-weight:600; }
+  .line .s { font-size:11px; color:var(--muted); display:flex; justify-content:space-between; }
+  .bar { height:7px; border-radius:4px; background:var(--soft); overflow:hidden; display:flex; }
+  .flash { background:#f0fdf4; border:1px solid #86efac; color:#14532d; border-radius:12px; padding:9px 11px; font-size:12px; display:flex; gap:8px; align-items:center; }
+  .warnbox { background:#fffbeb; border:1px solid #fcd34d; color:#5c4708; border-radius:12px; padding:9px 11px; font-size:12px; }
+  .scanbtn { height:64px; border-radius:16px; background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:center; gap:10px; font-weight:700; font-size:15px; }
+  svg { flex-shrink:0; }
+  .design { background:#fff; border-radius:12px; padding:16px 20px; box-shadow:0 2px 14px rgba(0,0,0,.06); font-size:12.5px; margin-top:28px; }
+  .design h3 { margin:0 0 8px; font-size:15px; } .design ol { margin:0; padding-left:18px; } .design li { margin:5px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Παραλαβή από το κινητό του αποθηκάριου</h1>
+  <p class="cap">Ο αποθηκάριος φωτογραφίζει το δελτίο αποστολής. Η εφαρμογή διαβάζει τον προμηθευτή και τις γραμμές του δελτίου και βρίσκει τις ανοιχτές παραγγελίες και ό,τι περιμένουμε από αυτόν τον προμηθευτή. Μετά ο αποθηκάριος σαρώνει το barcode κάθε κιβωτίου που βγάζει από την παλέτα, και κάθε σάρωση το σβήνει από το δελτίο. Στο τέλος βλέπει τι έλειψε και το καταχωρίζει με ένα κουμπί.</p>
+
+  <div class="row">
+    <!-- 1 -->
+    <div class="step"><b>1 · Φωτογραφία του δελτίου</b>
+      <div class="phone">
+        <div class="top"><small>Αποθήκη · Κεντρική</small><h3>Νέα παραλαβή</h3></div>
+        <div class="scroll">
+          <div class="cam"><div class="doc"><b style="font-size:8px;color:#222">ΓΑΛΑΚΤΟΚΟΜΙΚΑ ΑΕ</b><br>ΑΦΜ 099876543<br>ΔΕΛΤΙΟ ΑΠΟΣΤΟΛΗΣ ΔΑ-881<i></i><i></i><i style="width:70%"></i><i></i><i style="width:60%"></i><i></i><i style="width:80%"></i></div><div class="frame"></div></div>
+          <p style="margin:0;font-size:12px;color:var(--muted);text-align:center">Βάλε όλο το δελτίο μέσα στο πλαίσιο</p>
+        </div>
+        <div class="bottom">
+          <div class="btn primary"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg>Φωτογραφία δελτίου</div>
+          <div class="btn">Χωρίς δελτίο · διάλεξε προμηθευτή</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 -->
+    <div class="step"><b>2 · Βρέθηκε προμηθευτής και παραγγελία</b>
+      <div class="phone">
+        <div class="top"><small>Διαβάστηκε από τη φωτογραφία</small><h3>Δελτίο ΔΑ-881</h3></div>
+        <div class="scroll">
+          <div class="card"><div class="kv"><span>Προμηθευτής</span><b>ΓΑΛΑΚΤΟΚΟΜΙΚΑ ΑΕ</b><span>ΑΦΜ</span><span style="color:var(--ok)">099876543 · βρέθηκε</span><span>Ημερομηνία</span><b>24/11/2026</b><span>MARK</span><b>400001977…</b><span>Γραμμές</span><b>4 είδη · 76 τεμ.</b></div></div>
+          <p style="margin:2px 0 0;font-size:12px;font-weight:700">Σε ποια παραγγελία ανήκει;</p>
+          <div class="opt on"><span class="dot"></span><span><b>ΠΑΡ-0042</b> · 20/11<br><span style="color:var(--muted)">4 είδη περιμένουμε · ταιριάζουν και τα 4</span></span></div>
+          <div class="opt"><span class="dot"></span><span><b>ΠΑΡ-0037</b> · 12/11 · <span class="pill p-warn">αναμένονται</span><br><span style="color:var(--muted)">2 είδη από παλιότερο δελτίο · ταιριάζει 1</span></span></div>
+          <div class="opt"><span class="dot"></span><span>Και στις δύο<br><span style="color:var(--muted)">πρώτα καλύπτεται η παλιότερη</span></span></div>
+        </div>
+        <div class="bottom"><div class="btn primary">Ξεκίνα τη σάρωση</div></div>
+      </div>
+    </div>
+
+    <!-- 3 -->
+    <div class="step"><b>3 · Σάρωση barcode ανά κιβώτιο</b>
+      <div class="phone">
+        <div class="top"><small>ΔΑ-881 · ΠΑΡ-0042</small><h3>Σαρώθηκαν 58 από 76</h3><div class="bar" style="margin-top:6px"><div style="width:76%;background:var(--ok)"></div></div></div>
+        <div class="scroll">
+          <div class="flash"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg><span><b>+1 κιβώτιο κρέμα γάλακτος</b> (6 × 1 L)<br>παρτίδα K118 · λήξη 15/12</span></div>
+          <div class="line"><div class="t">Γάλα φρέσκο 1 L <span class="pill p-ok">40 / 40</span></div><div class="bar"><div style="width:100%;background:var(--ok)"></div></div></div>
+          <div class="line"><div class="t">Κρέμα γάλακτος 1 L <span class="pill p-warn">12 / 18</span></div><div class="bar"><div style="width:67%;background:var(--ok)"></div></div><div class="s"><span>στο δελτίο 18 · παραγγελία 30</span><span>λείπει 1 κιβ.</span></div></div>
+          <div class="line"><div class="t">Βούτυρο 250 g <span class="pill p-warn">6 / 12</span></div><div class="bar"><div style="width:50%;background:var(--ok)"></div></div><div class="s"><span>στο δελτίο 12 · παραγγελία 20</span><span></span></div></div>
+          <div class="line"><div class="t">Γιαούρτι 1 kg <span class="pill p-bad">0 / 6</span></div><div class="bar"></div><div class="s"><span>στο δελτίο 6 · παραγγελία 10</span><span></span></div></div>
+        </div>
+        <div class="bottom">
+          <div class="scanbtn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M10 8v8M13 8v8M17 8v8"/></svg>Σάρωσε barcode</div>
+          <div class="btn">Τελείωσα · δες τι λείπει</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 -->
+    <div class="step"><b>4 · Τι έλειψε και καταχώριση</b>
+      <div class="phone">
+        <div class="top"><small>ΔΑ-881 · ΠΑΡ-0042</small><h3>Ήρθαν 74 από 76 του δελτίου</h3></div>
+        <div class="scroll">
+          <div class="warnbox"><b>Λιγότερα από όσα γράφει το δελτίο</b><br>Βούτυρο: 10 αντί για 12. Σημειώνεται στην παραλαβή για τον υπεύθυνο αγορών.</div>
+          <p style="margin:2px 0 0;font-size:12px;font-weight:700">Όσα λείπουν από την παραγγελία</p>
+          <div class="line"><div class="t">Κρέμα γάλακτος · 12 <span class="pill p-warn">τα περιμένουμε</span></div></div>
+          <div class="line"><div class="t">Βούτυρο · 10 <span class="pill p-info">πιστωτικό</span></div></div>
+          <div class="line"><div class="t">Γιαούρτι · 4 <span class="pill p-warn">τα περιμένουμε</span></div></div>
+          <div class="card" style="font-size:12px"><div class="kv"><span>Αναμένονται</span><b>έως 02/12</b><span>Μπαίνουν τώρα</span><b>74 τεμ. με παρτίδα και λήξη</b></div></div>
+        </div>
+        <div class="bottom"><div class="btn ok"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>Καταχώριση παραλαβής</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="design">
+    <h3>Πώς στήνεται (για έγκριση)</h3>
+    <ol>
+      <li><b>Ανάγνωση δελτίου.</b> Χρησιμοποιεί την ίδια ανάγνωση φωτογραφίας με τη σάρωση τιμολογίων, την υπηρεσία OCR που χρεώνεται ανά χρήση. Παίρνει ΑΦΜ, αριθμό, ημερομηνία, MARK και γραμμές με κωδικό, EAN και ποσότητα. Ο προμηθευτής βρίσκεται από τον ΑΦΜ.</li>
+      <li><b>Παραγγελίες και εκκρεμότητες.</b> Η οθόνη δείχνει τις ανοιχτές παραγγελίες του προμηθευτή, και όσες έχουν αναμενόμενα, με πόσες γραμμές του δελτίου ταιριάζουν. Η αντιστοίχιση γίνεται με τον κωδικό ή το EAN της συσκευασίας του προμηθευτή, όπως γίνεται και στα τιμολόγια.</li>
+      <li><b>Σάρωση.</b> Κάθε barcode προσθέτει μία συσκευασία (π.χ. κιβώτιο 6 τεμ.) στη σωστή γραμμή. Αν το barcode είναι GS1 με παρτίδα και λήξη, αυτές γράφονται μόνες τους. Barcode που δεν ανήκει στο δελτίο κάνει δόνηση και βγάζει κόκκινο μήνυμα. Δουλεύει με την κάμερα στα Android (Chrome) και με scanner Bluetooth σε οποιοδήποτε κινητό. Στο iPhone χωρίς scanner η ποσότητα γράφεται με το χέρι.</li>
+      <li><b>Τρεις ποσότητες ανά είδος:</b> παραγγελία, δελτίο, σαρώθηκαν. Αν σαρώθηκαν λιγότερα από όσα γράφει το δελτίο, αυτό σημειώνεται στην παραλαβή. Για όσα λείπουν από την παραγγελία ισχύει η ίδια επιλογή που χτίστηκε τώρα: «τα περιμένουμε» ή «πιστωτικό».</li>
+      <li><b>Η καταχώριση</b> είναι η ίδια παραλαβή με τη σελίδα της παραγγελίας: ίδιο απόθεμα, παρτίδες, έλεγχος τιμών και αναμενόμενα. Η σάρωση κρατιέται στο κινητό, οπότε αν κοπεί το σήμα στην αποθήκη δεν χάνεται τίποτα, και στέλνεται με την καταχώριση.</li>
+      <li><b>Πού τρέχει:</b> σελίδα της web εφαρμογής φτιαγμένη για κινητό (<code>/receive</code>), με δικαίωμα «Παραλαβές». Δεν χρειάζεται εγκατάσταση και ανοίγει από το κινητό του αποθηκάριου.</li>
+    </ol>
+  </div>
+</div>
+</body>
+</html>

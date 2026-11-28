@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { createInvoiceFromReceipt, createPurchaseOrder, cancelPurchaseOrder, markPurchaseOrderSent, receivePurchaseOrder, reversePurchaseReceipt, reviewPurchaseReceipt, reviewReceiptInvoice, saveMrpSetting } from "@/lib/procurement-db";
+import { createInvoiceFromReceipt, createOrderInvoice, createPurchaseOrder, resolveShortfall, type ShortfallDecision, cancelPurchaseOrder, markPurchaseOrderSent, receivePurchaseOrder, reversePurchaseReceipt, reviewPurchaseReceipt, reviewReceiptInvoice, saveMrpSetting } from "@/lib/procurement-db";
 import { awardRfq, createRfq, regenerateRfqInvitation } from "@/lib/rfq-db";
 import { requireStockContext } from "@/lib/stock-context";
 import { stockCostScale } from "@/lib/units";
@@ -61,7 +61,9 @@ export async function receiveOrder(form: FormData) {
       const expiry = String(form.get(`expiry:${orderLineId}`) ?? "");
       return [{ orderLineId, quantityBase, batchNumber: String(form.get(`batch:${orderLineId}`) ?? ""), expiresAt: expiry ? new Date(`${expiry}T00:00:00Z`) : null }];
     });
-    const receipt = await receivePurchaseOrder(ctx, { orderId: id, clientKey: String(form.get("clientKey") ?? randomUUID()), lines });
+    const noteDate = String(form.get("deliveryNoteDate") ?? "");
+    const deliveryNote = { number: String(form.get("deliveryNoteNumber") ?? ""), date: noteDate ? new Date(`${noteDate}T00:00:00Z`) : null, mark: String(form.get("deliveryNoteMark") ?? "") };
+    const receipt = await receivePurchaseOrder(ctx, { orderId: id, clientKey: String(form.get("clientKey") ?? randomUUID()), lines, deliveryNote, shortfall: shortfallDecisions(form) });
     back(`/orders/${id}`, `?saved=${encodeURIComponent(`Η παραλαβή ${receipt.id.slice(-8)} καταχωρήθηκε`)}`);
   } catch (error) { fail(`/orders/${id}`, error); }
 }
@@ -154,4 +156,34 @@ export async function awardRfqLine(form: FormData) {
   const ctx = await requireStockContext("orders.edit");
   const id = String(form.get("rfqId") ?? "");
   try { await awardRfq(ctx, String(form.get("rfqLineId") ?? ""), String(form.get("supplierId") ?? "")); back(`/orders/rfqs/${id}`, "?saved=1"); } catch (error) { fail(`/orders/rfqs/${id}`, error); }
+}
+
+/** short:<γραμμή> = wait | close, expectedAt = κοινή ημερομηνία για όσα αναμένονται. */
+function shortfallDecisions(form: FormData): ShortfallDecision[] {
+  const date = String(form.get("expectedAt") ?? "");
+  const expectedAt = date ? new Date(`${date}T00:00:00Z`) : null;
+  return [...form.keys()].filter((key) => key.startsWith("short:")).flatMap((key) => {
+    const action = String(form.get(key));
+    return action === "wait" || action === "close" ? [{ orderLineId: key.slice(6), action, expectedAt }] : [];
+  });
+}
+
+export async function shortfallOrder(form: FormData) {
+  const ctx = await requireStockContext("orders.edit");
+  const id = String(form.get("orderId") ?? "");
+  try {
+    await resolveShortfall(ctx, id, shortfallDecisions(form));
+    back(`/orders/${id}`, "?saved=Ενημερώθηκε τι γίνεται με όσα λείπουν");
+  } catch (error) { fail(`/orders/${id}`, error); }
+}
+
+export async function orderInvoice(form: FormData) {
+  const ctx = await requireStockContext("orders.edit");
+  const id = String(form.get("orderId") ?? "");
+  try {
+    const date = String(form.get("issuedAt") ?? "");
+    const invoice = await createOrderInvoice(ctx, { orderId: id, number: String(form.get("number") ?? ""), issuedAt: new Date(`${date}T00:00:00Z`), mark: String(form.get("mark") ?? "") });
+    revalidatePath("/purchases");
+    back(`/orders/${id}`, `?saved=${encodeURIComponent(`Το τιμολόγιο ${invoice.number} συνδέθηκε με την παραγγελία`)}`);
+  } catch (error) { fail(`/orders/${id}`, error); }
 }

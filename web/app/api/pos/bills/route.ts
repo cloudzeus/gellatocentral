@@ -2,6 +2,7 @@ import { z } from "zod";
 import { openBill, storeBills } from "@/lib/bills";
 import { tillFromRequest } from "@/lib/device-auth";
 import { pausedResponse, tillErrorResponse } from "@/lib/pos-till";
+import { openShift } from "@/lib/till-shift";
 
 // Η κάτοψη του καταστήματος: τραπέζια και ανοιχτοί λογαριασμοί, ίδια για κάθε συσκευή.
 export async function GET(req: Request) {
@@ -26,7 +27,9 @@ export async function POST(req: Request) {
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "invalid" }, { status: 400 });
   try {
-    return Response.json(await openBill(ctx, parsed.data));
+    // ο λογαριασμός γίνεται «δικός» όποιου έχει τη βάρδια στη συσκευή που τον άνοιξε
+    const shift = await openShift(ctx.device.id);
+    return Response.json(await openBill(ctx, { ...parsed.data, byName: parsed.data.byName ?? shift?.employee.name, waiterId: shift?.employee.id }));
   } catch (e) {
     return tillErrorResponse(e, ctx, "pos/bills");
   }

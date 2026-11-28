@@ -45,7 +45,7 @@ export function Btn({ t, label, onPress, primary, danger, solid, disabled, Icon,
   );
 }
 
-function Seg<T extends string>({ t, value, items, onChange }: { t: Theme; value: T; items: [T, string][]; onChange: (v: T) => void }) {
+export function Seg<T extends string>({ t, value, items, onChange }: { t: Theme; value: T; items: [T, string][]; onChange: (v: T) => void }) {
   return (
     <View style={{ flexDirection: "row", backgroundColor: t.panel, borderRadius: 12, padding: 4, gap: 2 }}>
       {items.map(([v, label]) => (

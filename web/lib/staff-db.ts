@@ -6,6 +6,8 @@ import { assertGlobalStockScope, assertStockScope, type StockContext } from "./s
 import { stockTransaction } from "./stock-transaction";
 import { hashAccessToken } from "./wholesale";
 import { auditWorkflow, assertNonNegativeInt, cleanText, WorkflowError } from "./workflow-db";
+import { hashPassword } from "./password";
+import { isSpecialty, specialtyName } from "./specialties";
 import { affectedScheduleEmployeeIds, hourlyCostCents, intervalsOverlap, shiftsForEmployee, workedMinutes } from "./staff";
 
 type Tx = Prisma.TransactionClient;
@@ -50,6 +52,7 @@ export async function saveEmployee(ctx: StockContext, input: { name: string; dep
       orgId: ctx.orgId, name, departmentId: input.departmentId ?? null, storeId: input.storeId ?? null, warehouseId: input.warehouseId ?? null,
       userId: input.userId ?? null, phone: cleanText(input.phone, "Τηλέφωνο", 40), email: cleanText(input.email, "Email", 160),
       startDate: input.startDate ?? null, endDate: input.endDate ?? null,
+      ...(input.storeId ? { stores: { create: { storeId: input.storeId } } } : {}),
     } });
     await auditWorkflow(tx, { orgId: ctx.orgId, actor: actor(ctx), action: "staff.employee", entityType: "employee", entityId: employee.id, storeId: employee.storeId, warehouseId: employee.warehouseId });
     return employee;
@@ -75,18 +78,28 @@ export async function saveEmployeePay(ctx: StockContext, employeeId: string, inp
   });
 }
 
-export async function createShift(ctx: StockContext, input: { employeeId: string; departmentId?: string | null; storeId?: string | null; productionPlanId?: string | null; startsAt: Date; endsAt: Date; breakMinutes?: number; hourlyRateCents?: number | null; note?: string | null }) {
+export async function createShift(ctx: StockContext, input: { employeeId: string; departmentId?: string | null; storeId?: string | null; specialty?: string | null; productionPlanId?: string | null; startsAt: Date; endsAt: Date; breakMinutes?: number; hourlyRateCents?: number | null; note?: string | null }) {
   const minutes = workedMinutes(input.startsAt, input.endsAt, input.breakMinutes ?? 0);
   if (input.hourlyRateCents != null) { requirePermission(ctx, "staff.pay"); assertNonNegativeInt(input.hourlyRateCents, "Ωρομίσθιο"); }
   return stockTransaction(async (tx) => {
     const employee = await ownedEmployee(tx, ctx.orgId, input.employeeId);
     await ownedDepartment(tx, ctx.orgId, input.departmentId);
     if (input.departmentId && employee.departmentId && employee.departmentId !== input.departmentId) throw new WorkflowError("Η βάρδια ανήκει σε διαφορετικό τμήμα από τον εργαζόμενο");
+    // κατάστημα και ειδικότητα μόνο από όσα έχει ο εργαζόμενος (όταν έχουν οριστεί)
+    const [stores, specialties] = await Promise.all([tx.employeeStore.findMany({ where: { employeeId: employee.id }, select: { storeId: true } }), tx.employeeSpecialty.findMany({ where: { employeeId: employee.id }, select: { specialty: true } })]);
+    if (input.storeId && stores.length && !stores.some((x) => x.storeId === input.storeId)) throw new WorkflowError(`Ο/η ${employee.name} δεν δουλεύει σε αυτό το κατάστημα. Πρόσθεσέ το στα καταστήματά του πρώτα`);
+    if (input.specialty && !isSpecialty(input.specialty)) throw new WorkflowError("Άγνωστη ειδικότητα");
+    if (input.specialty && specialties.length && !specialties.some((x) => x.specialty === input.specialty)) throw new WorkflowError(`Ο/η ${employee.name} δεν έχει την ειδικότητα «${specialtyName(input.specialty)}»`);
     await assertStockScope(tx, ctx, { storeId: input.storeId ?? employee.storeId ?? undefined, warehouseId: employee.warehouseId ?? undefined, forWrite: true });
     if (input.productionPlanId && !await tx.productionPlan.findFirst({ where: { id: input.productionPlanId, orgId: ctx.orgId } })) throw new WorkflowError("Το πρόγραμμα παραγωγής δεν βρέθηκε");
-    if (await tx.shift.findFirst({ where: { orgId: ctx.orgId, employeeId: employee.id, startsAt: { lt: input.endsAt }, endsAt: { gt: input.startsAt } }, select: { id: true } })) throw new WorkflowError("Υπάρχει επικαλυπτόμενη βάρδια");
+    const overlap = await tx.shift.findFirst({ where: { orgId: ctx.orgId, employeeId: employee.id, startsAt: { lt: input.endsAt }, endsAt: { gt: input.startsAt } }, select: { startsAt: true, endsAt: true, storeId: true } });
+    if (overlap) {
+      const where = overlap.storeId ? (await tx.store.findFirst({ where: { id: overlap.storeId }, select: { name: true } }))?.name : null;
+      const t = (d: Date) => d.toLocaleString("el-GR", { timeZone: "Europe/Athens", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      throw new WorkflowError(`Ο/η ${employee.name} έχει ήδη βάρδια ${t(overlap.startsAt)}–${t(overlap.endsAt)}${where ? ` στο κατάστημα ${where}` : ""}. Ένας άνθρωπος δεν δουλεύει σε δύο σημεία ταυτόχρονα`);
+    }
     if (await tx.employeeLeave.findFirst({ where: { orgId: ctx.orgId, employeeId: employee.id, fromAt: { lt: input.endsAt }, toAt: { gt: input.startsAt } }, select: { id: true } })) throw new WorkflowError("Υπάρχει άδεια στο διάστημα της βάρδιας");
-    const shift = await tx.shift.create({ data: { orgId: ctx.orgId, employeeId: employee.id, departmentId: input.departmentId ?? employee.departmentId, storeId: input.storeId ?? employee.storeId, productionPlanId: input.productionPlanId ?? null, startsAt: input.startsAt, endsAt: input.endsAt, breakMinutes: input.breakMinutes ?? 0, hourlyRateCents: input.hourlyRateCents ?? null, note: cleanText(input.note, "Σημείωση", 500) } });
+    const shift = await tx.shift.create({ data: { orgId: ctx.orgId, employeeId: employee.id, departmentId: input.departmentId ?? employee.departmentId, storeId: input.storeId ?? employee.storeId, specialty: input.specialty ?? null, productionPlanId: input.productionPlanId ?? null, startsAt: input.startsAt, endsAt: input.endsAt, breakMinutes: input.breakMinutes ?? 0, hourlyRateCents: input.hourlyRateCents ?? null, note: cleanText(input.note, "Σημείωση", 500) } });
     await auditWorkflow(tx, { orgId: ctx.orgId, actor: actor(ctx), action: "staff.shift", entityType: "shift", entityId: shift.id, storeId: shift.storeId, metadata: { minutes, employeeId: employee.id } });
     return shift;
   });
@@ -122,7 +135,7 @@ export async function publishSchedule(ctx: StockContext, input: { storeId?: stri
     const employeeNames = new Map(employees.map((row) => [row.id, row.name]));
     const departmentNames = new Map(departments.map((row) => [row.id, row.name]));
     const storeNames = new Map(stores.map((row) => [row.id, row.name]));
-    const snapshot = { shifts: shifts.map((shift) => ({ id: shift.id, employeeId: shift.employeeId, employeeName: employeeNames.get(shift.employeeId) ?? "Εργαζόμενος", startsAt: shift.startsAt.toISOString(), endsAt: shift.endsAt.toISOString(), breakMinutes: shift.breakMinutes, note: shift.note, departmentName: shift.departmentId ? departmentNames.get(shift.departmentId) ?? null : null, storeName: shift.storeId ? storeNames.get(shift.storeId) ?? null : null })) };
+    const snapshot = { shifts: shifts.map((shift) => ({ id: shift.id, employeeId: shift.employeeId, employeeName: employeeNames.get(shift.employeeId) ?? "Εργαζόμενος", startsAt: shift.startsAt.toISOString(), endsAt: shift.endsAt.toISOString(), breakMinutes: shift.breakMinutes, note: shift.note, specialty: specialtyName(shift.specialty), departmentName: shift.departmentId ? departmentNames.get(shift.departmentId) ?? null : null, storeName: shift.storeId ? storeNames.get(shift.storeId) ?? null : null })) };
     const publicationWhere = { orgId: ctx.orgId, storeId: input.storeId ?? null, groupKind, fromAt: input.fromAt, toAt: input.toAt };
     const [previous, previousPublication] = await Promise.all([
       tx.schedulePublication.aggregate({ where: publicationWhere, _max: { version: true } }),
@@ -185,6 +198,92 @@ export async function staffPayrollSummary(ctx: StockContext, fromAt: Date, toAt:
     byEmployee.set(shift.employeeId, row);
   }
   return [...byEmployee.values()];
+}
+
+/**
+ * Ειδικότητες και καταστήματα εργαζομένου: αντικαθιστά και τα δύο σύνολα. Το κύριο κατάστημα (storeId) μένει
+ * το πρώτο της λίστας, ώστε οι παλιές αναφορές να βλέπουν ένα από αυτά.
+ */
+export async function setEmployeeRoles(ctx: StockContext, employeeId: string, input: { specialties: string[]; primary?: string | null; storeIds: string[] }) {
+  const specialties = [...new Set(input.specialties)];
+  if (specialties.some((k) => !isSpecialty(k))) throw new WorkflowError("Άγνωστη ειδικότητα");
+  const storeIds = [...new Set(input.storeIds)];
+  return stockTransaction(async (tx) => {
+    const employee = await ownedEmployee(tx, ctx.orgId, employeeId);
+    if (storeIds.length !== await tx.store.count({ where: { orgId: ctx.orgId, id: { in: storeIds } } })) throw new WorkflowError("Κάποιο κατάστημα δεν βρέθηκε");
+    // όποιος βλέπει μόνο κάποια καταστήματα, αλλάζει μόνο αυτά· τα υπόλοιπα του εργαζομένου μένουν ως έχουν
+    const current = await tx.employeeStore.findMany({ where: { employeeId }, select: { storeId: true } });
+    const touched = [...new Set([...storeIds, ...current.map((x) => x.storeId)])];
+    for (const storeId of touched) await assertStockScope(tx, ctx, { storeId, forWrite: true });
+    const primary = input.primary && specialties.includes(input.primary) ? input.primary : specialties[0] ?? null;
+    await tx.employeeSpecialty.deleteMany({ where: { employeeId } });
+    if (specialties.length) await tx.employeeSpecialty.createMany({ data: specialties.map((specialty) => ({ employeeId, specialty, isPrimary: specialty === primary })) });
+    await tx.employeeStore.deleteMany({ where: { employeeId } });
+    if (storeIds.length) await tx.employeeStore.createMany({ data: storeIds.map((storeId) => ({ employeeId, storeId })) });
+    const homeStore = storeIds.includes(employee.storeId ?? "") ? employee.storeId : storeIds[0] ?? null;
+    await tx.employee.update({ where: { id: employeeId }, data: { storeId: homeStore } });
+    await auditWorkflow(tx, { orgId: ctx.orgId, actor: actor(ctx), action: "staff.employee.roles", entityType: "employee", entityId: employeeId, storeId: homeStore, metadata: { specialties, primary, storeIds } });
+  });
+}
+
+const INVITE_DAYS = 7;
+
+/** Link εγγραφής στο portal: εμφανίζεται μία φορά, ισχύει 7 ημέρες, ένα ενεργό ανά εργαζόμενο. */
+export async function createEmployeeInvite(ctx: StockContext, employeeId: string) {
+  return stockTransaction(async (tx) => {
+    const employee = await ownedEmployee(tx, ctx.orgId, employeeId);
+    await assertStockScope(tx, ctx, { storeId: employee.storeId ?? undefined, warehouseId: employee.warehouseId ?? undefined, forWrite: true });
+    if (employee.userId) throw new WorkflowError(`Ο/η ${employee.name} έχει ήδη λογαριασμό στο portal`);
+    const token = randomBytes(32).toString("base64url");
+    await tx.employeeInvite.updateMany({ where: { employeeId, usedAt: null }, data: { expiresAt: new Date() } }); // το προηγούμενο link παύει
+    const invite = await tx.employeeInvite.create({ data: { orgId: ctx.orgId, employeeId, tokenHash: hashAccessToken(token), expiresAt: new Date(Date.now() + INVITE_DAYS * 86_400_000), createdByName: ctx.userName } });
+    await auditWorkflow(tx, { orgId: ctx.orgId, actor: actor(ctx), action: "staff.invite", entityType: "employee", entityId: employeeId, storeId: employee.storeId });
+    return { token, expiresAt: invite.expiresAt, name: employee.name, email: employee.email, phone: employee.phone };
+  });
+}
+
+/** Ποιον καλεί το link, για τη σελίδα εγγραφής· null αν έληξε ή χρησιμοποιήθηκε. */
+export async function inviteInfo(token: string) {
+  const invite = await db.employeeInvite.findUnique({ where: { tokenHash: hashAccessToken(token) }, include: { employee: { select: { name: true, email: true, phone: true, active: true, userId: true, org: { select: { name: true, suspendedAt: true } } } } } });
+  if (!invite || invite.usedAt || invite.expiresAt < new Date() || !invite.employee.active || invite.employee.userId || invite.employee.org.suspendedAt) return null;
+  return { name: invite.employee.name, email: invite.employee.email, phone: invite.employee.phone, orgName: invite.employee.org.name, expiresAt: invite.expiresAt };
+}
+
+/** Εγγραφή από το link: φτιάχνει λογαριασμό (ή δένει υπάρχοντα με ίδιο email, αν δώσει τον κωδικό του) και καίει το link. */
+export async function acceptEmployeeInvite(token: string, input: { email: string; password: string; phone?: string | null }) {
+  const email = input.email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 160) throw new WorkflowError("Γράψε ένα έγκυρο email");
+  if (input.password.length < 10 || input.password.length > 200) throw new WorkflowError("Ο κωδικός θέλει τουλάχιστον 10 χαρακτήρες");
+  return db.$transaction(async (tx) => {
+    const invite = await tx.employeeInvite.findUnique({ where: { tokenHash: hashAccessToken(token) }, include: { employee: true } });
+    if (!invite || invite.usedAt || invite.expiresAt < new Date() || !invite.employee.active || invite.employee.userId) throw new WorkflowError("Το link εγγραφής δεν ισχύει πια. Ζήτα νέο από τον υπεύθυνο");
+    if (await tx.user.findUnique({ where: { email }, select: { id: true } })) throw new WorkflowError("Υπάρχει ήδη λογαριασμός με αυτό το email. Γράψε άλλο email ή ζήτα από τον υπεύθυνο να σε συνδέσει");
+    const used = await tx.employeeInvite.updateMany({ where: { id: invite.id, usedAt: null }, data: { usedAt: new Date() } });
+    if (!used.count) throw new WorkflowError("Το link εγγραφής χρησιμοποιήθηκε ήδη");
+    const user = await tx.user.create({ data: { email, name: invite.employee.name, passwordHash: hashPassword(input.password) } });
+    await tx.employee.update({ where: { id: invite.employeeId }, data: { userId: user.id, email: invite.employee.email ?? email, phone: cleanText(input.phone, "Τηλέφωνο", 40) ?? invite.employee.phone } });
+    return user;
+  });
+}
+
+/** Το portal του εργαζομένου: οι βάρδιές του σε όλα τα καταστήματα (από χθες, 4 εβδομάδες), ειδικότητες και άδειες. */
+export async function myStaffPortal(userId: string) {
+  const employee = await db.employee.findFirst({ where: { userId, active: true }, include: { org: { select: { name: true } }, specialties: true, stores: { include: { store: { select: { name: true } } } } } });
+  if (!employee) return null;
+  const from = new Date(Date.now() - 86_400_000);
+  const to = new Date(Date.now() + 28 * 86_400_000);
+  const [shifts, leaves] = await Promise.all([
+    db.shift.findMany({ where: { employeeId: employee.id, publishedAt: { not: null }, endsAt: { gt: from }, startsAt: { lt: to } }, orderBy: { startsAt: "asc" }, select: { id: true, startsAt: true, endsAt: true, storeId: true, specialty: true, breakMinutes: true, note: true } }),
+    db.employeeLeave.findMany({ where: { employeeId: employee.id, toAt: { gt: from } }, orderBy: { fromAt: "asc" }, take: 10 }),
+  ]);
+  const storeNames = new Map((await db.store.findMany({ where: { orgId: employee.orgId, id: { in: shifts.flatMap((x) => (x.storeId ? [x.storeId] : [])) } }, select: { id: true, name: true } })).map((x) => [x.id, x.name]));
+  return {
+    name: employee.name, orgName: employee.org.name,
+    specialties: employee.specialties.sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary)).map((x) => ({ key: x.specialty, name: specialtyName(x.specialty)!, primary: x.isPrimary })),
+    stores: employee.stores.map((x) => x.store.name),
+    shifts: shifts.map((x) => ({ ...x, storeName: x.storeId ? storeNames.get(x.storeId) ?? null : null, specialtyName: specialtyName(x.specialty) })),
+    leaves,
+  };
 }
 
 export { intervalsOverlap };

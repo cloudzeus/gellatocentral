@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStockContext } from "@/lib/stock-context";
-import { createLeave, createScheduleLink, createShift, publishSchedule, saveDepartment, saveEmployee, saveEmployeePay } from "@/lib/staff-db";
+import { createEmployeeInvite, createLeave, createScheduleLink, createShift, publishSchedule, saveDepartment, saveEmployee, saveEmployeePay, setEmployeeRoles } from "@/lib/staff-db";
 import { workflowMessage } from "@/lib/workflow-db";
 import { redirectUrl } from "@/lib/flash";
 import { db } from "@/lib/db";
@@ -48,7 +48,7 @@ export async function newShift(form: FormData) {
   try {
     await createShift(ctx, {
       employeeId: String(form.get("employeeId") ?? ""), departmentId: String(form.get("departmentId") ?? "") || null,
-      storeId: String(form.get("storeId") ?? "") || null, startsAt: date(form.get("startsAt")) ?? new Date(NaN), endsAt: date(form.get("endsAt")) ?? new Date(NaN),
+      storeId: String(form.get("storeId") ?? "") || null, specialty: String(form.get("specialty") ?? "") || null, startsAt: date(form.get("startsAt")) ?? new Date(NaN), endsAt: date(form.get("endsAt")) ?? new Date(NaN),
       breakMinutes: Number(form.get("breakMinutes") ?? 0), hourlyRateCents: ctx.can("staff.pay") && String(form.get("hourlyRate") ?? "") ? cents(form.get("hourlyRate")) : null,
       note: String(form.get("note") ?? ""),
     });
@@ -85,7 +85,26 @@ export async function setTillPin(employeeId: string, form: FormData) {
   if (pin && !/^\d{4}$/.test(pin)) back(`?error=${encodeURIComponent("Το PIN είναι 4 ψηφία")}`);
   const employee = await db.employee.findFirst({ where: { id: employeeId, orgId: ctx.orgId, ...(ctx.storeIds.length ? { storeId: { in: [...ctx.storeIds] } } : {}) }, select: { id: true, name: true, storeId: true } });
   if (!employee) back(`?error=${encodeURIComponent("Ο εργαζόμενος δεν βρέθηκε")}`);
-  if (pin && !employee!.storeId) back(`?error=${encodeURIComponent("Διάλεξε πρώτα κατάστημα για τον εργαζόμενο: μπαίνει στα ταμεία του καταστήματός του")}`);
+  if (pin && !(await db.employeeStore.count({ where: { employeeId: employee!.id } }))) back(`?error=${encodeURIComponent("Διάλεξε πρώτα σε ποια καταστήματα δουλεύει: μπαίνει στις συσκευές τους")}`);
   await db.employee.update({ where: { id: employee!.id }, data: { tillPinHash: pin ? pinHash(employee!.id, pin) : null } });
   back(`?saved=${encodeURIComponent(pin ? `Ο/η ${employee!.name} μπαίνει πλέον στο ταμείο με το PIN του` : `Αφαιρέθηκε το PIN ταμείου του/της ${employee!.name}`)}`);
+}
+
+/** Ειδικότητες (πολλές, μία κύρια) και καταστήματα του εργαζομένου. */
+export async function saveEmployeeRoles(employeeId: string, form: FormData) {
+  const ctx = await requireStockContext("staff.edit");
+  try {
+    await setEmployeeRoles(ctx, employeeId, { specialties: form.getAll("specialty").map(String), primary: String(form.get("primary") ?? "") || null, storeIds: form.getAll("storeId").map(String) });
+    back("?saved=Οι ειδικότητες και τα καταστήματα αποθηκεύτηκαν");
+  } catch (error) { fail(error); }
+}
+
+/** Link εγγραφής στο portal· επιστρέφει το token μία φορά για αντιγραφή ή αποστολή. */
+export async function issueEmployeeInvite(employeeId: string) {
+  const ctx = await requireStockContext("staff.edit");
+  try {
+    const r = await createEmployeeInvite(ctx, employeeId);
+    revalidatePath("/staff");
+    return { token: r.token, expiresAt: r.expiresAt.toISOString(), name: r.name, email: r.email, phone: r.phone, error: null as string | null };
+  } catch (error) { return { token: null, expiresAt: null, name: null, email: null, phone: null, error: workflowMessage(error) }; }
 }

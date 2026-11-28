@@ -153,7 +153,7 @@ export async function recordSupplierPayment(ctx: StockContext, input: SupplierPa
       for (const { allocation, document } of documents) {
         const totals = purchaseTotals(document, document.lines);
         const previous = await tx.supplierPaymentAllocation.aggregate({ where: { orgId: ctx.orgId, purchaseDocId: document.id }, _sum: { amountCents: true } });
-        if (allocation.amountCents > totals.totalCents - (previous._sum.amountCents ?? 0)) throw new WorkflowError("Η αντιστοίχιση υπερβαίνει το απλήρωτο τιμολόγιο αγοράς");
+        if (allocation.amountCents > totals.totalCents - document.creditCents - (previous._sum.amountCents ?? 0)) throw new WorkflowError("Η αντιστοίχιση υπερβαίνει το απλήρωτο τιμολόγιο αγοράς");
       }
       const payment = await tx.supplierPayment.create({ data: {
         orgId: ctx.orgId, supplierId: request.supplierId, accountId: account?.id ?? null, amountCents: request.amountCents, paidAt: request.paidAt,

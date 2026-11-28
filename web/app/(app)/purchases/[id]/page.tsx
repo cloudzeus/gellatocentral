@@ -21,6 +21,7 @@ import { addLine, cancelDoc, postDoc, rematchLine, removeLine, removeLines, upda
 import { reviewInvoiceReceipt } from "../../orders/actions";
 import { StatusBadge } from "@/components/status-badge";
 import { look } from "@/lib/status";
+import { AdjustmentPage, InvoiceActions, InvoiceBalance, invoiceAdjustments } from "./adjustments";
 
 const day = (d: Date | null) => (d ? new Intl.DateTimeFormat("el-GR", { timeZone: "UTC" }).format(d) : "—");
 const inputDay = (d: Date | null) => d?.toISOString().slice(0, 10) ?? "";
@@ -43,6 +44,8 @@ export default async function PurchaseDocPage({ params, searchParams }: { params
     },
   });
   if (!doc) notFound();
+  if (doc.kind === "RETURN" || doc.kind === "CREDIT") return <AdjustmentPage id={doc.id} orgId={org.id} canEdit={can("purchases.edit")} error={typeof q.error === "string" ? q.error : undefined} />;
+  const adjustments = doc.kind === "INVOICE" && doc.status === "POSTED" ? await invoiceAdjustments(doc) : null;
   const isReceipt = doc.kind === "RECEIPT";
   const receiptReview = isReceipt
     ? await db.purchaseReceipt.findFirst({ where: { purchaseDocId: doc.id, orgId: org.id }, include: { discrepancies: true, invoiceDiscrepancies: true } })
@@ -139,7 +142,7 @@ export default async function PurchaseDocPage({ params, searchParams }: { params
   return (
     <Page section="Αποθήκη & αγορές" title={`${isReceipt ? "Παραλαβή" : "Τιμολόγιο αγοράς"} ${doc.number ?? ""}`}
       description={`${doc.supplier.name} · ${day(doc.issuedAt)} · ${doc.status === "DRAFT" ? "πρόχειρο" : doc.status === "POSTED" ? "καταχωρημένο" : "ακυρωμένο"} από ${doc.createdByName}`}
-      actions={<span className="flex flex-wrap gap-2 print:hidden"><PrintButton />{draft && can("purchases.edit") ? <><form action={cancelDoc.bind(null, doc.id)}><Submit className={btn("ghost")}><X /> Ακύρωση</Submit></form>{doc.lines.length && !unmatched.length ? <form action={postDoc.bind(null, doc.id)}><Submit className={btn("default")}><Check /> Αποδοχή αποθέματος · {euro(totals.totalCents)}</Submit></form> : null}</> : null}</span>}>
+      actions={<span className="flex flex-wrap gap-2 print:hidden">{adjustments && can("purchases.edit") ? <InvoiceActions invoice={doc} data={adjustments} /> : null}<PrintButton />{draft && can("purchases.edit") ? <><form action={cancelDoc.bind(null, doc.id)}><Submit className={btn("ghost")}><X /> Ακύρωση</Submit></form>{doc.lines.length && !unmatched.length ? <form action={postDoc.bind(null, doc.id)}><Submit className={btn("default")}><Check /> Αποδοχή αποθέματος · {euro(totals.totalCents)}</Submit></form> : null}</> : null}</span>}>
       <div className="grid max-w-7xl gap-4 print:max-w-none print:gap-0">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive print:hidden">Δεν αποθηκεύτηκε: {q.error.slice(0, 300)}</p> : null}
         {isReceipt ? <p className="rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground print:hidden">Η παραλαβή έχει γράψει απόθεμα, παρτίδα και κόστος, αλλά δεν δημιουργεί οφειλή και δεν συμμετέχει σε ΦΠΑ ή οικονομικές αναφορές αγορών.</p> : null}
@@ -155,6 +158,7 @@ export default async function PurchaseDocPage({ params, searchParams }: { params
         {draft && unmatched.length && doc.lines.length ? <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm font-medium text-warning-ink print:hidden">{unmatched.length} γραμμές χωρίς αντιστοίχιση — η αποδοχή απαιτεί όλες αντιστοιχισμένες</p> : null}
         {offAgreement.length ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive print:hidden">{offAgreement.length} γραμμές χρεώθηκαν εκτός ειδικής συμφωνίας — η διαφορά είναι προς διεκδίκηση από τον προμηθευτή</p> : null}
 
+        {adjustments ? <InvoiceBalance invoice={doc} data={adjustments} /> : null}
         <PurchaseDocument doc={view} />
 
         <Card className="p-4 print:hidden">

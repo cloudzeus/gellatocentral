@@ -12,7 +12,9 @@ import { filterParam, listParams } from "@/lib/paging";
 import { look } from "@/lib/status";
 import { staffPayrollSummary } from "@/lib/staff-db";
 import { requireStockContext, warehouseScopeWhere } from "@/lib/stock-context";
-import { employeePay, newDepartment, newEmployee, newLeave, newShift, publishStaffSchedule, setTillPin } from "./actions";
+import { employeePay, newDepartment, newEmployee, newLeave, newShift, publishStaffSchedule, saveEmployeeRoles, setTillPin } from "./actions";
+import { EmployeeInviteForm } from "@/components/employee-invite-form";
+import { GROUPS, SPECIALTIES, specialtyName } from "@/lib/specialties";
 
 const money = (value: number | null | undefined) => euro(value ?? 0);
 const dateTime = (value: Date) => new Intl.DateTimeFormat("el-GR", { dateStyle: "medium", timeStyle: "short" }).format(value);
@@ -31,7 +33,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
   const canPay = ctx.can("staff.pay");
   const restricted = ctx.storeIds.length > 0 || ctx.warehouseIds.length > 0;
   const warehouses = await db.warehouse.findMany({ where: { ...warehouseScopeWhere(ctx), active: true }, orderBy: { name: "asc" } });
-  const employeeScope = restricted ? { OR: [...(ctx.storeIds.length ? [{ storeId: { in: [...ctx.storeIds] } }] : []), { warehouseId: { in: warehouses.map((row) => row.id) } }] } : {};
+  const employeeScope = restricted ? { OR: [...(ctx.storeIds.length ? [{ storeId: { in: [...ctx.storeIds] } }, { stores: { some: { storeId: { in: [...ctx.storeIds] } } } }] : []), { warehouseId: { in: warehouses.map((row) => row.id) } }] } : {};
   // όλοι οι εργαζόμενοι του δικαιώματος (μόνο id/όνομα): επιλογές στις φόρμες και scope για βάρδιες/άδειες
   const employees = await db.employee.findMany({ where: { orgId: ctx.orgId, ...employeeScope }, select: { id: true, name: true, active: true }, orderBy: { name: "asc" } });
   const employeeIds = employees.map((employee) => employee.id);
@@ -68,9 +70,9 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
     ...(pList.q ? { AND: [{ OR: [{ publishedByName: text(pList.q) }, { storeId: { in: stores.filter((store) => store.name.toLocaleLowerCase("el").includes(pNeedle)).map((store) => store.id) } }] }] } : {}),
   };
   const [staff, staffTotal, shifts, shiftTotal, leaves, leaveTotal, publications, publicationTotal] = await Promise.all([
-    db.employee.findMany({ where: eWhere, include: { pay: canPay }, orderBy: [{ name: eList.sort === "name" ? eList.dir : "asc" }, { id: "asc" }], skip: eList.skip, take: eList.take }),
+    db.employee.findMany({ where: eWhere, include: { pay: canPay, specialties: true, stores: { select: { storeId: true } }, invites: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true, usedAt: true, expiresAt: true } } }, orderBy: [{ name: eList.sort === "name" ? eList.dir : "asc" }, { id: "asc" }], skip: eList.skip, take: eList.take }),
     db.employee.count({ where: eWhere }),
-    db.shift.findMany({ where: sWhere, select: { id: true, employeeId: true, departmentId: true, storeId: true, startsAt: true, endsAt: true, breakMinutes: true, hourlyRateCents: canPay, note: true, publishedAt: true }, orderBy: sList.sort === "rate" ? [{ hourlyRateCents: sList.dir }, { id: "desc" }] : [{ startsAt: sList.sort === "start" ? sList.dir : "desc" }, { id: "desc" }], skip: sList.skip, take: sList.take }),
+    db.shift.findMany({ where: sWhere, select: { id: true, employeeId: true, departmentId: true, storeId: true, specialty: true, startsAt: true, endsAt: true, breakMinutes: true, hourlyRateCents: canPay, note: true, publishedAt: true }, orderBy: sList.sort === "rate" ? [{ hourlyRateCents: sList.dir }, { id: "desc" }] : [{ startsAt: sList.sort === "start" ? sList.dir : "desc" }, { id: "desc" }], skip: sList.skip, take: sList.take }),
     db.shift.count({ where: sWhere }),
     db.employeeLeave.findMany({ where: lWhere, orderBy: [{ fromAt: lList.sort === "from" ? lList.dir : "desc" }, { id: "desc" }], skip: lList.skip, take: lList.take }),
     db.employeeLeave.count({ where: lWhere }),
@@ -87,9 +89,26 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
   const canAdd = ctx.can("staff.add");
   const canEdit = ctx.can("staff.edit");
   const createEmployee = canAdd ? <Modal label={<><UserPlus /> Εργαζόμενος</>} title="Νέος εργαζόμενος"><form action={newEmployee} className="grid gap-3 sm:grid-cols-2"><Field label="Ονοματεπώνυμο" name="name" required maxLength={150} /><Select label="Τμήμα" name="departmentId" options={[["", "Χωρίς τμήμα"], ...departments.map((row): [string, string] => [row.id, row.name])]} /><Select label="Κατάστημα" name="storeId" options={storeOptions} /><Select label="Αποθήκη" name="warehouseId" options={warehouseOptions} /><Field label="Τηλέφωνο" name="phone" maxLength={40} /><Field label="Email" name="email" type="email" maxLength={160} /><Field label="Έναρξη" name="startDate" type="date" /><Field label="Λήξη" name="endDate" type="date" /><Submit className={btn("default", "default", "sm:col-span-2")}>Αποθήκευση εργαζομένου</Submit></form></Modal> : null;
-  const createShift = canAdd ? <Modal label={<><CalendarPlus /> Βάρδια</>} title="Νέα βάρδια"><form action={newShift} className="grid gap-3 sm:grid-cols-2"><Select label="Εργαζόμενος" name="employeeId" required options={employees.filter((employee) => employee.active).map((row): [string, string] => [row.id, row.name])} /><Select label="Τμήμα" name="departmentId" options={[["", "Τμήμα εργαζομένου"], ...departments.map((row): [string, string] => [row.id, row.name])]} /><Select label="Κατάστημα" name="storeId" options={storeOptions} /><Field label="Διάλειμμα (λεπτά)" name="breakMinutes" type="number" min={0} max={1440} defaultValue={0} required /><Field label="Έναρξη" name="startsAt" type="datetime-local" required /><Field label="Λήξη" name="endsAt" type="datetime-local" required />{canPay ? <Field label="Ωρομίσθιο βάρδιας € (προαιρετικά)" name="hourlyRate" inputMode="decimal" /> : null}<div className="sm:col-span-2"><TextareaField label="Σημείωση" name="note" maxLength={500} /></div><Submit className={btn("default", "default", "sm:col-span-2")}>Αποθήκευση βάρδιας</Submit></form></Modal> : null;
+  const createShift = canAdd ? <Modal label={<><CalendarPlus /> Βάρδια</>} title="Νέα βάρδια"><form action={newShift} className="grid gap-3 sm:grid-cols-2"><Select label="Εργαζόμενος" name="employeeId" required options={employees.filter((employee) => employee.active).map((row): [string, string] => [row.id, row.name])} /><Select label="Τμήμα" name="departmentId" options={[["", "Τμήμα εργαζομένου"], ...departments.map((row): [string, string] => [row.id, row.name])]} /><Select label="Κατάστημα" name="storeId" options={storeOptions} /><Select label="Ειδικότητα στη βάρδια" name="specialty" options={[["", "Χωρίς ειδικότητα"], ...SPECIALTIES.map((x): [string, string] => [x.key, x.name])]} /><Field label="Διάλειμμα (λεπτά)" name="breakMinutes" type="number" min={0} max={1440} defaultValue={0} required /><Field label="Έναρξη" name="startsAt" type="datetime-local" required /><Field label="Λήξη" name="endsAt" type="datetime-local" required />{canPay ? <Field label="Ωρομίσθιο βάρδιας € (προαιρετικά)" name="hourlyRate" inputMode="decimal" /> : null}<div className="sm:col-span-2"><TextareaField label="Σημείωση" name="note" maxLength={500} /></div><Submit className={btn("default", "default", "sm:col-span-2")}>Αποθήκευση βάρδιας</Submit></form></Modal> : null;
   const createLeave = canAdd ? <Modal size="sm" label={<><Plus /> Άδεια</>} title="Καταχώριση άδειας"><form action={newLeave} className="grid gap-3"><Select label="Εργαζόμενος" name="employeeId" options={employees.map((row): [string, string] => [row.id, row.name])} /><Select label="Είδος" name="kind" options={LEAVE_KINDS} /><Field label="Από" name="fromAt" type="datetime-local" required /><Field label="Έως" name="toAt" type="datetime-local" required /><TextareaField label="Σημείωση" name="note" maxLength={500} /><Submit className={btn("default")}>Καταχώριση</Submit></form></Modal> : null;
   const publish = canEdit ? <Modal label={<><Send /> Δημοσίευση</>} title="Δημοσίευση προγράμματος"><form action={publishStaffSchedule} className="grid gap-3"><Select label="Κατάστημα" name="storeId" options={storeOptions} /><Select label="Ομάδα" name="groupKind" options={[["store", "Κατάστημα"], ["production", "Παραγωγή"]]} /><Field label="Από" name="fromAt" type="datetime-local" required /><Field label="Έως" name="toAt" type="datetime-local" required /><Submit className={btn("default")}>Δημιουργία snapshot</Submit></form></Modal> : null;
+  const rolesModal = (employee: (typeof staff)[number]) => {
+    const has = new Set(employee.specialties.map((x) => x.specialty));
+    const primary = employee.specialties.find((x) => x.isPrimary)?.specialty ?? "";
+    const inStores = new Set(employee.stores.map((x) => x.storeId));
+    return <Modal label="Ειδικότητες & καταστήματα" title={`Ειδικότητες & καταστήματα · ${employee.name}`} description="Διάλεξε όσες ειδικότητες κάνει. Στη συσκευή διαλέγει ρόλο όταν έχει πάνω από μία, και ο ρόλος αποφασίζει τι μενού βλέπει.">
+      <form action={saveEmployeeRoles.bind(null, employee.id)} className="grid gap-4">
+        {GROUPS.map(([group, label]) => <fieldset key={group} className="grid gap-2"><legend className="mb-1 text-sm text-muted-foreground">{label}</legend><div className="flex flex-wrap gap-2">
+          {SPECIALTIES.filter((x) => x.group === group).map((x) => <label key={x.key} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:font-semibold"><input type="checkbox" name="specialty" value={x.key} defaultChecked={has.has(x.key)} className="size-4 accent-primary" />{x.name}</label>)}
+        </div></fieldset>)}
+        <Select label="Κύρια ειδικότητα (προτείνεται πρώτη στις βάρδιες και στη συσκευή)" name="primary" defaultValue={primary} options={[["", "Η πρώτη που διάλεξες"], ...SPECIALTIES.map((x): [string, string] => [x.key, x.name])]} />
+        <fieldset className="grid gap-2"><legend className="mb-1 text-sm text-muted-foreground">Σε ποια καταστήματα δουλεύει</legend><div className="flex flex-wrap gap-2">
+          {stores.map((store) => <label key={store.id} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-border px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:font-semibold"><input type="checkbox" name="storeId" value={store.id} defaultChecked={inStores.has(store.id)} className="size-4 accent-primary" />{store.name}</label>)}
+        </div><p className="text-xs text-muted-foreground">Μπαίνει με το PIN του στις συσκευές αυτών των καταστημάτων και παίρνει βάρδιες σε αυτά.</p></fieldset>
+        <Submit className={btn("default")}>Αποθήκευση</Submit>
+      </form>
+    </Modal>;
+  };
   const emptyWith = (text: string, action: React.ReactNode) => <><p>{text}</p>{action ? <div className="mt-3 flex justify-center">{action}</div> : null}</>;
   return <Page section="Ομάδα & δεδομένα" title="Προσωπικό & βάρδιες" description="Τμήματα, εργαζόμενοι, άδειες, δημοσιευμένα προγράμματα και εργατικό κόστος με ξεχωριστό απόρρητο" actions={<span className="flex flex-wrap gap-2">{canAdd ? <Modal label={<><Building /> Τμήμα</>} title="Νέο τμήμα"><form action={newDepartment} className="grid gap-3"><Field label="Όνομα" name="name" required maxLength={100} /><Select label="Είδος" name="kind" options={[["store", "Κατάστημα"], ["production", "Παραγωγή"], ["office", "Γραφείο"], ["other", "Άλλο"]]} /><Submit className={btn("default")}>Αποθήκευση</Submit></form></Modal> : null}{createEmployee}{createShift}{publish}</span>}>
     <div className="grid gap-5">
@@ -102,8 +121,10 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
           columns={[
             { key: "name", label: "Ονοματεπώνυμο", required: true, sortable: true },
             { key: "status", label: "Κατάσταση" },
+            { key: "specialties", label: "Ειδικότητες", wrap: true },
+            { key: "store", label: "Καταστήματα", wrap: true },
+            { key: "portal", label: "Portal" },
             { key: "department", label: "Τμήμα" },
-            { key: "store", label: "Κατάστημα" },
             { key: "email", label: "Email" },
             { key: "phone", label: "Τηλέφωνο" },
             ...(canPay ? [{ key: "pay", label: "Αμοιβή", numeric: true }] : []),
@@ -113,7 +134,9 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
             cells: {
               name: <span className="font-semibold">{employee.name}{employee.tillPinHash ? <span className="ml-2 text-xs font-normal text-muted-foreground">· μπαίνει στο ταμείο</span> : null}</span>,
               department: (employee.departmentId ? departmentNames.get(employee.departmentId) : null) ?? "Χωρίς τμήμα",
-              store: (employee.storeId ? storeNames.get(employee.storeId) : null) ?? "Χωρίς κατάστημα",
+              store: employee.stores.length ? employee.stores.map((x) => storeNames.get(x.storeId) ?? "—").join(", ") : <span className="text-muted-foreground">Κανένα</span>,
+              specialties: employee.specialties.length ? <span className="flex flex-wrap gap-1">{[...employee.specialties].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary)).map((x) => <span key={x.specialty} className="whitespace-nowrap rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium">{x.isPrimary ? "★ " : ""}{specialtyName(x.specialty)}</span>)}</span> : <span className="text-muted-foreground">Καμία</span>,
+              portal: employee.userId ? <StatusBadge look={look("success", "Μπήκε")} /> : employee.invites[0] && !employee.invites[0].usedAt && employee.invites[0].expiresAt > now ? <StatusBadge look={look("warning", `Στάλθηκε ${employee.invites[0].createdAt.toLocaleDateString("el-GR", { day: "2-digit", month: "2-digit" })}`)} /> : <StatusBadge look={look("neutral", "Δεν στάλθηκε")} />,
               email: employee.email ?? "—",
               phone: employee.phone ?? "—",
               pay: employee.pay?.payType === "MONTHLY" ? `${money(employee.pay.monthlySalaryCents)} / μήνα` : `${money(employee.pay?.hourlyRateCents)} / ώρα`,
@@ -122,7 +145,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
             // σύνδεσμος προγράμματος και στοιχεία αμοιβής ανοίγουν κάτω από τη γραμμή
             details: canEdit || canPay ? {
               label: employee.name,
-              view: <div className="flex flex-wrap items-start gap-3">{canEdit ? <ScheduleLinkForm employeeId={employee.id} /> : null}{canEdit ? <Modal size="sm" label={employee.tillPinHash ? "Αλλαγή PIN ταμείου" : "PIN ταμείου"} title={`PIN ταμείου · ${employee.name}`} description="Με αυτό ανοίγει βάρδια στο ταμείο Android του καταστήματός του. Ό,τι πουλήσει γράφεται στη βάρδιά του."><form action={setTillPin.bind(null, employee.id)} className="grid gap-3"><Field label="Νέο PIN (4 ψηφία)" name="pin" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete="off" required={!employee.tillPinHash} hint={employee.tillPinHash ? "Άφησέ το κενό και πάτα Αποθήκευση για να αφαιρέσεις το PIN" : undefined} /><Submit className={btn("default")}>Αποθήκευση</Submit></form></Modal> : null}{canPay ? <Modal size="sm" label="Στοιχεία αμοιβής" title={`Αμοιβή · ${employee.name}`}><form action={employeePay} className="grid gap-3"><input type="hidden" name="employeeId" value={employee.id} /><Select label="Τύπος" name="payType" defaultValue={employee.pay?.payType ?? "HOURLY"} options={[["HOURLY", "Ωρομίσθιο"], ["MONTHLY", "Μηνιαίος μισθός"]]} /><Field label="Ωρομίσθιο €" name="hourlyRate" inputMode="decimal" defaultValue={((employee.pay?.hourlyRateCents ?? 0) / 100).toFixed(2)} /><Field label="Μηνιαίος μισθός €" name="monthlySalary" inputMode="decimal" defaultValue={((employee.pay?.monthlySalaryCents ?? 0) / 100).toFixed(2)} /><Field label="IBAN" name="iban" defaultValue={employee.pay?.iban ?? ""} maxLength={34} /><Field label="ΑΦΜ" name="vatNumber" defaultValue={employee.pay?.vatNumber ?? ""} maxLength={20} /><TextareaField label="Σημειώσεις" name="notes" defaultValue={employee.pay?.notes ?? ""} maxLength={500} /><Submit className={btn("default")}>Αποθήκευση αμοιβής</Submit></form></Modal> : null}</div>,
+              view: <div className="flex flex-wrap items-start gap-3">{canEdit ? rolesModal(employee) : null}{canEdit && !employee.userId ? <EmployeeInviteForm employeeId={employee.id} sent={employee.invites[0] && !employee.invites[0].usedAt ? employee.invites[0].createdAt.toLocaleDateString("el-GR") : null} /> : null}{canEdit ? <ScheduleLinkForm employeeId={employee.id} /> : null}{canEdit ? <Modal size="sm" label={employee.tillPinHash ? "Αλλαγή PIN ταμείου" : "PIN ταμείου"} title={`PIN ταμείου · ${employee.name}`} description="Με αυτό ανοίγει βάρδια στο ταμείο Android του καταστήματός του. Ό,τι πουλήσει γράφεται στη βάρδιά του."><form action={setTillPin.bind(null, employee.id)} className="grid gap-3"><Field label="Νέο PIN (4 ψηφία)" name="pin" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete="off" required={!employee.tillPinHash} hint={employee.tillPinHash ? "Άφησέ το κενό και πάτα Αποθήκευση για να αφαιρέσεις το PIN" : undefined} /><Submit className={btn("default")}>Αποθήκευση</Submit></form></Modal> : null}{canPay ? <Modal size="sm" label="Στοιχεία αμοιβής" title={`Αμοιβή · ${employee.name}`}><form action={employeePay} className="grid gap-3"><input type="hidden" name="employeeId" value={employee.id} /><Select label="Τύπος" name="payType" defaultValue={employee.pay?.payType ?? "HOURLY"} options={[["HOURLY", "Ωρομίσθιο"], ["MONTHLY", "Μηνιαίος μισθός"]]} /><Field label="Ωρομίσθιο €" name="hourlyRate" inputMode="decimal" defaultValue={((employee.pay?.hourlyRateCents ?? 0) / 100).toFixed(2)} /><Field label="Μηνιαίος μισθός €" name="monthlySalary" inputMode="decimal" defaultValue={((employee.pay?.monthlySalaryCents ?? 0) / 100).toFixed(2)} /><Field label="IBAN" name="iban" defaultValue={employee.pay?.iban ?? ""} maxLength={34} /><Field label="ΑΦΜ" name="vatNumber" defaultValue={employee.pay?.vatNumber ?? ""} maxLength={20} /><TextareaField label="Σημειώσεις" name="notes" defaultValue={employee.pay?.notes ?? ""} maxLength={500} /><Submit className={btn("default")}>Αποθήκευση αμοιβής</Submit></form></Modal> : null}</div>,
             } : undefined,
           }))}
         />
@@ -137,7 +160,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
             { key: "start", label: "Έναρξη", sortable: true },
             { key: "end", label: "Λήξη" },
             { key: "break", label: "Διάλειμμα (λεπτά)", numeric: true },
-            { key: "place", label: "Τμήμα / κατάστημα" },
+            { key: "place", label: "Κατάστημα · ειδικότητα · τμήμα" },
             ...(canPay ? [{ key: "rate", label: "Ωρομίσθιο", numeric: true, sortable: true }] : []),
           ]}
           rows={shifts.map((shift) => ({
@@ -147,7 +170,7 @@ export default async function StaffPage({ searchParams }: PageProps<"/staff">) {
               start: dateTime(shift.startsAt),
               end: dateTime(shift.endsAt),
               break: shift.breakMinutes,
-              place: <>{(shift.departmentId ? departmentNames.get(shift.departmentId) : null) ?? "—"} · {(shift.storeId ? storeNames.get(shift.storeId) : null) ?? "—"}</>,
+              place: <>{(shift.storeId ? storeNames.get(shift.storeId) : null) ?? "—"}{shift.specialty ? <> · <strong className="font-medium">{specialtyName(shift.specialty)}</strong></> : null} · {(shift.departmentId ? departmentNames.get(shift.departmentId) : null) ?? "—"}</>,
               rate: shift.hourlyRateCents == null ? "Κατάλογος εργαζομένου" : money(shift.hourlyRateCents),
             },
           }))}

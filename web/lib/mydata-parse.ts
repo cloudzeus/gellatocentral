@@ -7,6 +7,8 @@ export type MyIncomeDoc = {
   supplierName: string;
   number: string | null; // ο αριθμός (aa) του παραστατικού
   issuedAt: Date | null;
+  type: string | null; // invoiceType της ΑΑΔΕ: 1.1, 5.1, 5.2 …
+  relatedMark: string | null; // correlatedInvoices: το MARK που πιστώνει ένα 5.1
   lines: { description: string; quantity: number; unitPriceCents: number; discountBps: number; vatRate: number }[];
 };
 
@@ -46,7 +48,7 @@ export function parseMyIncomeXml(xml: string): MyIncomeDoc[] {
       lines.push({ description, quantity: Math.max(1, Math.round(qty)), unitPriceCents: Math.max(0, Math.round((net / qty) * 100)), discountBps: 0, vatRate });
     }
     if (!supplierVat || !lines.length) continue;
-    out.push({ mark, supplierVat, supplierName: supplierName || `Προμηθευτής ${supplierVat}`, number, issuedAt, lines });
+    out.push({ mark, supplierVat, supplierName: supplierName || `Προμηθευτής ${supplierVat}`, number, issuedAt, type: tag(doc, "invoiceType"), relatedMark: tag(doc, "correlatedInvoices"), lines });
   }
   return out;
 }

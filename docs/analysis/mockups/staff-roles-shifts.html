@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup · Ειδικότητες, βάρδιες σε πολλά καταστήματα, πρόσκληση, ρόλος στη συσκευή, θέσεις αποθήκης</title>
+<style>
+  :root { --navy:#131F3B; --ink:#1d2433; --muted:#5b6476; --line:#d9dde5; --soft:#f3f5f8; --ok:#15803d; --warn:#b45309; --bad:#b91c1c; --info:#3730a3;
+          --s1:#dbeafe; --s1i:#1e40af; --s2:#fce7f3; --s2i:#9d174d; --s3:#dcfce7; --s3i:#166534; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#e9ecf1; font:13px/1.45 "Nunito", system-ui, sans-serif; color:var(--ink); }
+  .wrap { max-width:1320px; margin:0 auto; padding:28px 20px 60px; }
+  h1 { font-size:20px; font-weight:600; margin:0 0 4px; }
+  h2 { font-size:16px; font-weight:600; margin:40px 0 4px; }
+  p.cap { color:var(--muted); margin:0 0 18px; max-width:940px; }
+  .row { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start; }
+  .step { width:290px; } .step > b, .webstep > b { display:block; font-size:12px; color:var(--muted); margin:0 0 8px; }
+  .webstep { flex:1; min-width:620px; }
+  .phone { width:290px; height:600px; background:#fff; border-radius:30px; border:9px solid #1b1f2a; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 8px 24px rgba(0,0,0,.18); }
+  .web { background:#fff; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.12); overflow:hidden; }
+  .bar { display:flex; gap:6px; padding:8px 12px; background:#eef0f4; border-bottom:1px solid var(--line); } .bar i { width:9px; height:9px; border-radius:50%; background:#c9ced8; }
+  .webin { display:grid; grid-template-columns:150px 1fr; min-height:420px; }
+  .side { background:var(--navy); color:#c9d2e6; padding:14px 10px; font-size:12px; display:grid; gap:4px; align-content:start; }
+  .side span { padding:6px 8px; border-radius:7px; } .side span.on { background:rgba(255,255,255,.12); color:#fff; font-weight:600; }
+  .main { padding:16px 18px; display:grid; gap:12px; align-content:start; }
+  .top { padding:12px 14px 10px; border-bottom:1px solid var(--line); } .top small { color:var(--muted); font-size:11px; } .top h3 { margin:2px 0 0; font-size:15px; }
+  .scroll { flex:1; overflow:hidden; padding:12px 14px; display:grid; gap:10px; align-content:start; }
+  .bottom { padding:10px 14px 14px; border-top:1px solid var(--line); display:grid; gap:8px; }
+  .btn { border-radius:10px; min-height:40px; padding:0 14px; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:600; font-size:13px; border:1px solid var(--line); background:#fff; white-space:nowrap; }
+  .phone .btn { min-height:46px; border-radius:12px; display:flex; }
+  .btn.primary { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .card { border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+  .card h4 { margin:0 0 4px; font-size:13px; }
+  .muted { color:var(--muted); } .sm { font-size:11.5px; }
+  .chip { font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600; white-space:nowrap; display:inline-block; background:var(--soft); color:var(--ink); border:1px solid var(--line); }
+  .c-sv { background:#e0e7ff; color:#3730a3; border-color:#c7d2fe; } .c-kt { background:#ffedd5; color:#9a3412; border-color:#fed7aa; }
+  .c-br { background:#fae8ff; color:#86198f; border-color:#f5d0fe; } .c-wh { background:#dcfce7; color:#166534; border-color:#bbf7d0; } .c-of { background:#e2e8f0; color:#1e293b; border-color:#cbd5e1; }
+  .pill { font-size:10.5px; padding:1px 7px; border-radius:999px; font-weight:700; white-space:nowrap; display:inline-block; }
+  .p-ok { background:#dcfce7; color:var(--ok); } .p-warn { background:#fef3c7; color:var(--warn); } .p-bad { background:#fee2e2; color:var(--bad); } .p-info { background:#e0e7ff; color:var(--info); }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; } th { text-align:left; color:var(--muted); font-weight:600; font-size:11.5px; padding:6px 8px; border-bottom:1px solid var(--line); }
+  td { padding:8px; border-bottom:1px solid #eef0f4; vertical-align:top; } td .chips { display:flex; flex-wrap:wrap; gap:4px; }
+  .grp { display:grid; gap:6px; } .grp > b { font-size:11.5px; color:var(--muted); }
+  .checks { display:flex; flex-wrap:wrap; gap:6px; }
+  .ck { display:inline-flex; gap:6px; align-items:center; border:1.5px solid var(--line); border-radius:9px; padding:5px 9px; font-size:12px; }
+  .ck.on { border-color:var(--navy); background:#f4f6fb; font-weight:600; } .ck .b { width:13px; height:13px; border-radius:3px; border:1.5px solid var(--line); } .ck.on .b { background:var(--navy); border-color:var(--navy); }
+  .roster { display:grid; grid-template-columns:130px repeat(7,1fr); font-size:11.5px; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .roster > div { padding:6px; border-right:1px solid #eef0f4; border-bottom:1px solid #eef0f4; min-height:46px; }
+  .roster .h { background:var(--soft); font-weight:600; color:var(--muted); min-height:auto; }
+  .sh { border-radius:7px; padding:4px 6px; display:grid; gap:1px; margin-bottom:3px; } .sh b { font-size:11px; } .sh span { font-size:10.5px; }
+  .st1 { background:var(--s1); color:var(--s1i); border-left:3px solid var(--s1i); } .st2 { background:var(--s2); color:var(--s2i); border-left:3px solid var(--s2i); } .st3 { background:var(--s3); color:var(--s3i); border-left:3px solid var(--s3i); }
+  .conf { background:#fee2e2; color:var(--bad); border-left:3px solid var(--bad); }
+  .legend { display:flex; gap:14px; font-size:11.5px; color:var(--muted); align-items:center; flex-wrap:wrap; } .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+  .field { display:grid; gap:4px; } .field label { font-size:11.5px; color:var(--muted); } .field div { border:1px solid var(--line); border-radius:10px; padding:10px 11px; font-size:13px; }
+  .opt { border:1.5px solid var(--line); border-radius:14px; padding:12px; display:grid; grid-template-columns:36px 1fr; gap:10px; align-items:center; }
+  .opt.on { border-color:var(--navy); background:#f4f6fb; } .ico { width:36px; height:36px; border-radius:10px; display:grid; place-items:center; }
+  .names { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .name { border:1px solid var(--line); border-radius:12px; padding:10px 8px; text-align:center; font-size:12px; font-weight:600; } .name.on { border-color:var(--navy); background:#f4f6fb; }
+  .av { width:34px; height:34px; border-radius:50%; background:#e0e7ff; color:var(--info); display:grid; place-items:center; font-size:12px; font-weight:700; margin:0 auto 5px; }
+  .pin { display:flex; justify-content:center; gap:12px; margin:8px 0; } .pin i { width:14px; height:14px; border-radius:50%; background:var(--navy); }
+  .keys { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; } .keys span { border:1px solid var(--line); border-radius:12px; text-align:center; padding:11px 0; font-size:16px; font-weight:600; }
+  .navrow { display:flex; justify-content:space-around; border-top:1px solid var(--line); padding:8px 4px 10px; font-size:10.5px; color:var(--muted); } .navrow span { display:grid; justify-items:center; gap:3px; } .navrow span.on { color:var(--navy); font-weight:700; }
+  .spot { display:grid; grid-template-columns:1fr auto; gap:2px 8px; border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+  .spot b { font-size:12.5px; } .spot .where { grid-row:span 2; align-self:center; text-align:right; font-weight:700; font-size:12.5px; color:var(--s3i); } .spot small { color:var(--muted); font-size:11px; }
+  .flash { background:#f0fdf4; border:1px solid #86efac; color:#14532d; border-radius:12px; padding:9px 11px; font-size:12px; display:flex; gap:8px; align-items:center; }
+  .warnbox { background:#fffbeb; border:1px solid #fcd34d; color:#5c4708; border-radius:12px; padding:9px 11px; font-size:12px; }
+  .stockbar { height:6px; border-radius:3px; background:var(--soft); overflow:hidden; } .stockbar i { display:block; height:100%; }
+  svg { flex-shrink:0; }
+  .design { background:#fff; border-radius:12px; padding:16px 20px; box-shadow:0 2px 14px rgba(0,0,0,.06); font-size:12.5px; margin-top:28px; }
+  .design h3 { margin:14px 0 6px; font-size:14px; } .design h3:first-child { margin-top:0; } .design ol, .design ul { margin:0; padding-left:18px; } .design li { margin:4px 0; }
+  code { background:var(--soft); padding:0 4px; border-radius:4px; font-size:11.5px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></symbol>
+  <symbol id="i-cash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-table" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+  <symbol id="i-chef" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 13.9A4 4 0 0 1 7 6a5 5 0 0 1 10 0 4 4 0 0 1 1 7.9V20H6z"/><path d="M6 17h12"/></symbol>
+</svg>
+<div class="wrap">
+  <h1>Ειδικότητες, βάρδιες σε πολλά καταστήματα, πρόσκληση υπαλλήλου, ρόλος στη συσκευή και θέσεις αποθήκης</h1>
+  <p class="cap">Ένας υπάλληλος μπορεί να έχει πολλές ειδικότητες και να δουλεύει σε πολλά καταστήματα του ίδιου tenant. Στο βαρδιολόγιο κάθε βάρδια λέει σε ποιο κατάστημα και με ποια ειδικότητα. Ο διαχειριστής στέλνει link εγγραφής και ο υπάλληλος μπαίνει στο portal του. Στη συσκευή διαλέγει όνομα, βάζει PIN και, αν έχει πάνω από μία ειδικότητα, διαλέγει ρόλο. Ο ρόλος αποφασίζει τι μενού βλέπει. Ο αποθηκάριος βλέπει το απόθεμα και πού μπαίνει κάθε υλικό που παρέλαβε.</p>
+
+  <!-- ================= 1. Προσωπικό ================= -->
+  <h2>1 · Προσωπικό: ειδικότητες και καταστήματα ανά υπάλληλο (web)</h2>
+  <p class="cap">Η λίστα δείχνει όλες τις ειδικότητες και τα καταστήματα κάθε υπαλλήλου και αν έχει μπει στο portal. Η ειδικότητα με αστεράκι είναι η κύρια, που προτείνεται πρώτη στο βαρδιολόγιο.</p>
+  <div class="row">
+    <div class="webstep"><b>Λίστα προσωπικού</b>
+      <div class="web"><div class="bar"><i></i><i></i><i></i></div>
+        <div class="webin">
+          <div class="side"><span>Αρχική</span><span>Πωλήσεις</span><span>Αγορές</span><span>Απόθεμα</span><span class="on">Προσωπικό</span><span>Βαρδιολόγιο</span><span>Οικονομικά</span></div>
+          <div class="main">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+              <div><b style="font-size:16px">Προσωπικό</b><div class="muted sm">18 ενεργοί · 3 καταστήματα · 14 μπήκαν στο portal</div></div>
+              <div style="display:flex;gap:8px"><span class="btn">Ειδικότητες</span><span class="btn primary">+ Νέος υπάλληλος</span></div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip" style="background:var(--navy);color:#fff;border-color:var(--navy)">Όλα τα καταστήματα</span><span class="chip">Πειραιάς</span><span class="chip">Γλυφάδα</span><span class="chip">Κεντρική αποθήκη</span><span class="chip">Σέρβις</span><span class="chip">Κουζίνα</span><span class="chip">Αποθήκη</span></div>
+            <table>
+              <tr><th>Υπάλληλος</th><th>Ειδικότητες</th><th>Καταστήματα</th><th>Portal</th></tr>
+              <tr><td><b>Μαρία Κ.</b><div class="muted sm">PIN ταμείου ✓</div></td><td><div class="chips"><span class="chip c-sv">★ Ταμίας</span><span class="chip c-sv">Σερβιτόρος</span><span class="chip c-sv">Υπεύθ. κρατήσεων</span></div></td><td>Πειραιάς, Γλυφάδα</td><td><span class="pill p-ok">Μπήκε</span></td></tr>
+              <tr><td><b>Γιώργος Λ.</b><div class="muted sm">PIN ταμείου ✓</div></td><td><div class="chips"><span class="chip c-wh">★ Αποθηκάριος</span><span class="chip c-of">Υπεύθ. παραγγελιών</span></div></td><td>Κεντρική αποθήκη, Πειραιάς</td><td><span class="pill p-ok">Μπήκε</span></td></tr>
+              <tr><td><b>Ελένη Σ.</b><div class="muted sm">PIN ταμείου ✓</div></td><td><div class="chips"><span class="chip c-kt">★ Chef</span><span class="chip c-kt">Μάγειρας</span></div></td><td>Γλυφάδα</td><td><span class="pill p-warn">Στάλθηκε 26/11</span></td></tr>
+              <tr><td><b>Κώστας Π.</b><div class="muted sm">PIN ταμείου ✓</div></td><td><div class="chips"><span class="chip c-br">★ Barman</span><span class="chip c-sv">Βοηθός σέρβις</span></div></td><td>Πειραιάς, Γλυφάδα</td><td><span class="pill p-info">Δεν στάλθηκε</span></td></tr>
+              <tr><td><b>Νίκη Α.</b><div class="muted sm">χωρίς PIN</div></td><td><div class="chips"><span class="chip c-of">★ Βοηθός λογιστή</span></div></td><td>Όλα</td><td><span class="pill p-ok">Μπήκε</span></td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="webstep" style="min-width:520px"><b>Καρτέλα υπαλλήλου · Μαρία Κ.</b>
+      <div class="web"><div class="bar"><i></i><i></i><i></i></div>
+        <div class="main">
+          <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:16px">Μαρία Κ.</b><span class="pill p-ok">Μπήκε στο portal 27/11</span></div>
+          <div class="grp"><b>Ειδικότητες · διάλεξε όσες κάνει (★ = κύρια)</b>
+            <div class="sm muted">Σέρβις</div>
+            <div class="checks"><span class="ck on"><i class="b"></i>Σερβιτόρος</span><span class="ck"><i class="b"></i>Υπεύθυνος σέρβις</span><span class="ck"><i class="b"></i>Βοηθός σέρβις</span><span class="ck on"><i class="b"></i>★ Ταμίας</span><span class="ck on"><i class="b"></i>Υπεύθυνος κρατήσεων</span><span class="ck"><i class="b"></i>Barman</span></div>
+            <div class="sm muted">Κουζίνα</div>
+            <div class="checks"><span class="ck"><i class="b"></i>Chef</span><span class="ck"><i class="b"></i>Sous chef</span><span class="ck"><i class="b"></i>Μάγειρας</span><span class="ck"><i class="b"></i>Λαντζέρης</span></div>
+            <div class="sm muted">Αποθήκη και γραφείο</div>
+            <div class="checks"><span class="ck"><i class="b"></i>Αποθηκάριος</span><span class="ck"><i class="b"></i>Υπεύθυνος παραγγελιών</span><span class="ck"><i class="b"></i>Βοηθός λογιστή</span></div>
+            <div class="sm muted">Διοίκηση</div>
+            <div class="checks"><span class="ck"><i class="b"></i>Μάνατζερ καταστήματος</span><span class="ck"><i class="b"></i>Ιδιοκτήτης</span><span class="ck"><i class="b"></i>Διοίκηση</span></div>
+          </div>
+          <div class="grp"><b>Σε ποια καταστήματα δουλεύει</b>
+            <div class="checks"><span class="ck on"><i class="b"></i>Πειραιάς</span><span class="ck on"><i class="b"></i>Γλυφάδα</span><span class="ck"><i class="b"></i>Κεντρική αποθήκη</span></div>
+            <div class="sm muted">Μπαίνει με το PIN της στις συσκευές αυτών των καταστημάτων.</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="btn">Αλλαγή PIN ταμείου</span><span class="btn"><svg width="15" height="15"><use href="#i-link"/></svg>Στείλε ξανά link εγγραφής</span><span class="btn primary">Αποθήκευση</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 2. Βαρδιολόγιο ================= -->
+  <h2>2 · Βαρδιολόγιο σε πολλά καταστήματα (web)</h2>
+  <p class="cap">Μία γραμμή ανά υπάλληλο και ένα χρώμα ανά κατάστημα. Κάθε βάρδια γράφει ώρες και ειδικότητα. Αν κάποιος μπει σε δύο καταστήματα την ίδια ώρα, η βάρδια κοκκινίζει και δεν δημοσιεύεται. Με το φίλτρο «Πειραιάς» ο μάνατζερ βλέπει μόνο το δικό του κατάστημα, και τις βάρδιες των ίδιων ανθρώπων αλλού γκρίζες, για να ξέρει πότε είναι διαθέσιμοι.</p>
+  <div class="web"><div class="bar"><i></i><i></i><i></i></div>
+    <div class="main">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div><b style="font-size:16px">Βαρδιολόγιο · 1–7 Δεκεμβρίου</b><div class="muted sm">Όλα τα καταστήματα · 212 ώρες · 1 σύγκρουση</div></div>
+        <div class="legend"><span><i style="background:var(--s1i)"></i>Πειραιάς</span><span><i style="background:var(--s2i)"></i>Γλυφάδα</span><span><i style="background:var(--s3i)"></i>Κεντρική αποθήκη</span><span class="btn primary">Δημοσίευση</span></div>
+      </div>
+      <div class="roster">
+        <div class="h">Υπάλληλος</div><div class="h">Δευ 1</div><div class="h">Τρι 2</div><div class="h">Τετ 3</div><div class="h">Πεμ 4</div><div class="h">Παρ 5</div><div class="h">Σαβ 6</div><div class="h">Κυρ 7</div>
+        <div><b>Μαρία Κ.</b><div class="sm muted">38 ώρες</div></div>
+        <div><div class="sh st1"><b>09–17</b><span>Ταμίας</span></div></div>
+        <div><div class="sh st1"><b>09–17</b><span>Ταμίας</span></div></div>
+        <div><div class="sh st2"><b>17–23</b><span>Σερβιτόρος</span></div></div>
+        <div></div>
+        <div><div class="sh st1"><b>09–15</b><span>Κρατήσεις</span></div><div class="sh st2"><b>18–23</b><span>Σερβιτόρος</span></div></div>
+        <div><div class="sh st2"><b>12–20</b><span>Ταμίας</span></div></div>
+        <div></div>
+        <div><b>Γιώργος Λ.</b><div class="sm muted">40 ώρες</div></div>
+        <div><div class="sh st3"><b>07–15</b><span>Αποθηκάριος</span></div></div>
+        <div><div class="sh st1"><b>07–11</b><span>Αποθηκάριος</span></div><div class="sh st3"><b>12–16</b><span>Παραγγελίες</span></div></div>
+        <div><div class="sh st3"><b>07–15</b><span>Αποθηκάριος</span></div></div>
+        <div><div class="sh st3"><b>07–15</b><span>Αποθηκάριος</span></div></div>
+        <div><div class="sh st1"><b>07–15</b><span>Αποθηκάριος</span></div></div>
+        <div></div><div></div>
+        <div><b>Κώστας Π.</b><div class="sm muted">30 ώρες</div></div>
+        <div></div>
+        <div><div class="sh st1"><b>18–02</b><span>Barman</span></div></div>
+        <div><div class="sh st1"><b>18–02</b><span>Barman</span></div></div>
+        <div><div class="sh conf"><b>19–01 · Πειραιάς</b><span>Barman</span></div><div class="sh conf"><b>20–24 · Γλυφάδα</b><span>Βοηθός σέρβις · σύγκρουση</span></div></div>
+        <div><div class="sh st2"><b>18–02</b><span>Barman</span></div></div>
+        <div></div><div></div>
+      </div>
+      <div class="warnbox"><b>Κώστας Π., Πέμπτη 4/12:</b> δύο βάρδιες που επικαλύπτονται, 20:00–01:00, σε Πειραιά και Γλυφάδα. Άλλαξε τη μία για να δημοσιευτεί το πρόγραμμα.</div>
+      <div class="card" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+        <div><div class="muted sm">Νέα βάρδια · Υπάλληλος</div><b>Μαρία Κ.</b></div>
+        <div><div class="muted sm">Κατάστημα (μόνο όσα δουλεύει)</div><b>Γλυφάδα ▾</b></div>
+        <div><div class="muted sm">Ειδικότητα (μόνο όσες έχει)</div><b>Σερβιτόρος ▾</b></div>
+        <div><div class="muted sm">Ώρες</div><b>17:00 – 23:00</b></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 3. Πρόσκληση και portal ================= -->
+  <h2>3 · Πρόσκληση, εγγραφή και portal υπαλλήλου (κινητό, browser)</h2>
+  <p class="cap">Ο διαχειριστής πατά «Στείλε link εγγραφής» και το link πάει με SMS ή email. Το link ισχύει 7 ημέρες και χρησιμοποιείται μία φορά. Ο υπάλληλος ορίζει κωδικό και μπαίνει στο portal του. Εκεί βλέπει τις βάρδιές του σε όλα τα καταστήματα, τις ειδικότητές του και τις άδειές του.</p>
+  <div class="row">
+    <div class="step"><b>1 · Το μήνυμα που λαμβάνει</b>
+      <div class="phone">
+        <div class="top"><small>Μηνύματα</small><h3>EPIC Gelato</h3></div>
+        <div class="scroll">
+          <div class="card" style="background:var(--soft);border:none;border-radius:16px">Γεια σου Μαρία. Η EPIC Gelato σε πρόσθεσε στο προσωπικό. Φτιάξε τον λογαριασμό σου για να βλέπεις το πρόγραμμά σου:<br><u style="color:var(--info)">epic.app/join/7Kq2…</u><br><span class="muted sm">Ισχύει έως 5/12.</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="step"><b>2 · Εγγραφή</b>
+      <div class="phone">
+        <div class="top"><small>EPIC Gelato · Προσωπικό</small><h3>Φτιάξε τον λογαριασμό σου</h3></div>
+        <div class="scroll">
+          <div class="field"><label>Όνομα</label><div>Μαρία Κ.</div></div>
+          <div class="field"><label>Email για τη σύνδεση</label><div>maria@…</div></div>
+          <div class="field"><label>Κινητό</label><div>69…</div></div>
+          <div class="field"><label>Κωδικός (τουλάχιστον 10 χαρακτήρες)</label><div>••••••••••</div></div>
+          <div class="sm muted">Το PIN για το ταμείο το δίνει ο υπεύθυνος. Δεν είναι ο ίδιος με αυτόν τον κωδικό.</div>
+        </div>
+        <div class="bottom"><span class="btn primary">Δημιουργία λογαριασμού</span></div>
+      </div>
+    </div>
+    <div class="step"><b>3 · Portal: το πρόγραμμά μου</b>
+      <div class="phone">
+        <div class="top"><small>Γεια σου, Μαρία</small><h3>Το πρόγραμμά μου</h3></div>
+        <div class="scroll">
+          <div class="flash"><svg width="15" height="15"><use href="#i-check"/></svg>Νέο πρόγραμμα για 1–7/12 · 38 ώρες</div>
+          <div class="card"><b>Δευτέρα 1/12 · 09:00–17:00</b><div class="sm"><span class="chip c-sv">Ταμίας</span> Πειραιάς</div></div>
+          <div class="card"><b>Τετάρτη 3/12 · 17:00–23:00</b><div class="sm"><span class="chip c-sv">Σερβιτόρος</span> Γλυφάδα</div></div>
+          <div class="card"><b>Παρασκευή 5/12</b><div class="sm">09–15 <span class="chip c-sv">Κρατήσεις</span> Πειραιάς</div><div class="sm">18–23 <span class="chip c-sv">Σερβιτόρος</span> Γλυφάδα</div></div>
+          <div class="btn">Το είδα ✓</div>
+        </div>
+        <div class="navrow"><span class="on">Πρόγραμμα</span><span>Άδειες</span><span>Τα στοιχεία μου</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 4. Είσοδος στη συσκευή ================= -->
+  <h2>4 · Είσοδος στη συσκευή του καταστήματος: όνομα, PIN, ρόλος (Android)</h2>
+  <p class="cap">Η συσκευή δείχνει μόνο όσους δουλεύουν σε αυτό το κατάστημα, πρώτους όσους έχουν βάρδια τώρα. Μετά το PIN, όποιος έχει μία ειδικότητα μπαίνει κατευθείαν. Όποιος έχει περισσότερες διαλέγει ρόλο, και προεπιλεγμένη είναι η ειδικότητα της βάρδιάς του. Το μενού αλλάζει ανάλογα με τον ρόλο. Η κάσα ανοίγει μόνο για τον ρόλο Ταμίας.</p>
+  <div class="row">
+    <div class="step"><b>1 · Ποιος είσαι;</b>
+      <div class="phone">
+        <div class="top"><small>Πειραιάς · Συσκευή A2</small><h3>Ποιος μπαίνει;</h3></div>
+        <div class="scroll">
+          <div class="sm muted">Βάρδια τώρα</div>
+          <div class="names"><div class="name on"><div class="av">ΜΚ</div>Μαρία Κ.<div class="muted sm" style="font-weight:400">09–17 Ταμίας</div></div><div class="name"><div class="av" style="background:#dcfce7;color:#166534">ΓΛ</div>Γιώργος Λ.<div class="muted sm" style="font-weight:400">07–11 Αποθήκη</div></div></div>
+          <div class="sm muted">Όλοι στον Πειραιά</div>
+          <div class="names"><div class="name"><div class="av" style="background:#fae8ff;color:#86198f">ΚΠ</div>Κώστας Π.</div><div class="name"><div class="av" style="background:#ffedd5;color:#9a3412">ΔΜ</div>Δημήτρης Μ.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="step"><b>2 · PIN</b>
+      <div class="phone">
+        <div class="top"><small>Πειραιάς · Συσκευή A2</small><h3>Μαρία Κ.</h3></div>
+        <div class="scroll">
+          <div class="muted" style="text-align:center">Βάλε το PIN σου</div>
+          <div class="pin"><i></i><i></i><i></i><i></i></div>
+          <div class="keys"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span style="font-size:12px">Πίσω</span><span>0</span><span style="font-size:12px">⌫</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="step"><b>3 · Με ποιον ρόλο; (μόνο αν έχει πάνω από έναν)</b>
+      <div class="phone">
+        <div class="top"><small>Μαρία Κ. · Πειραιάς</small><h3>Τι κάνεις σήμερα;</h3></div>
+        <div class="scroll">
+          <div class="opt on"><div class="ico" style="background:#e0e7ff;color:#3730a3"><svg width="20" height="20"><use href="#i-cash"/></svg></div><div><b>Ταμίας</b><div class="sm muted">Βάρδια 09–17 · ανοίγει κάσα, πωλήσεις, Ζ</div></div></div>
+          <div class="opt"><div class="ico" style="background:#e0e7ff;color:#3730a3"><svg width="20" height="20"><use href="#i-table"/></svg></div><div><b>Σερβιτόρος</b><div class="sm muted">Τραπέζια και παραγγελίες, χωρίς κάσα</div></div></div>
+          <div class="opt"><div class="ico" style="background:#e0e7ff;color:#3730a3"><svg width="20" height="20"><use href="#i-phone"/></svg></div><div><b>Υπεύθυνος κρατήσεων</b><div class="sm muted">Κρατήσεις και τραπέζια</div></div></div>
+        </div>
+        <div class="bottom"><span class="btn primary">Συνέχεια ως Ταμίας</span></div>
+      </div>
+    </div>
+    <div class="step"><b>4 · Το μενού του ρόλου</b>
+      <div class="phone">
+        <div class="top"><small>Μαρία Κ. · Ταμίας · Πειραιάς</small><h3>Ταμείο</h3></div>
+        <div class="scroll">
+          <div class="card"><h4>Τι βλέπει κάθε ρόλος</h4>
+            <div class="sm" style="display:grid;gap:5px">
+              <div><span class="chip c-sv">Ταμίας</span> Πώληση · Συναλλαγές · Ταμείο</div>
+              <div><span class="chip c-sv">Σερβιτόρος</span> Τραπέζια · Παραγγελίες</div>
+              <div><span class="chip c-sv">Κρατήσεις</span> Κρατήσεις · Τραπέζια</div>
+              <div><span class="chip c-br">Barman</span> Παραγγελίες bar</div>
+              <div><span class="chip c-kt">Κουζίνα</span> Οθόνη κουζίνας · HACCP</div>
+              <div><span class="chip c-wh">Αποθηκάριος</span> Παραλαβή · Απόθεμα · Θέσεις</div>
+              <div><span class="chip c-of">Μάνατζερ</span> όλα</div>
+              <div><span class="chip">Λαντζέρης</span> μόνο είσοδος και έξοδος βάρδιας</div>
+            </div>
+          </div>
+        </div>
+        <div class="navrow"><span class="on">Πώληση</span><span>Συναλλαγές</span><span>Ταμείο</span><span>Ρόλος ↺</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 5. Αποθηκάριος ================= -->
+  <h2>5 · Αποθηκάριος: απόθεμα και πού μπαίνει κάθε υλικό (Android)</h2>
+  <p class="cap">Κάθε υλικό έχει ανά αποθήκη μια σταθερή θέση, π.χ. «Ψυγείο 1 · Ράφι 2». Ο υπεύθυνος την ορίζει από τη web εφαρμογή, ή ο αποθηκάριος την πρώτη φορά που το παραλαμβάνει, και η εφαρμογή τη θυμάται. Μετά την παραλαβή η οθόνη ολοκλήρωσης δείχνει πού πάει το καθετί, ομαδοποιημένο ανά χώρο, ώστε να γίνει μία διαδρομή.</p>
+  <div class="row">
+    <div class="step"><b>1 · Τέλος παραλαβής: πού τα βάζω</b>
+      <div class="phone">
+        <div class="top"><small>ΠΠ-RCV-45688 · Καταχωρίστηκε</small><h3>Τακτοποίηση · 3 είδη</h3></div>
+        <div class="scroll">
+          <div class="sm muted"><b style="color:var(--s3i)">Ψυγείο 1 (CHL)</b> · 2 είδη</div>
+          <div class="spot"><b>Γάλα φρέσκο</b><span class="where">Ράφι 2</span><small>6 kg · παρτίδα L2411 · λήξη 05/12</small></div>
+          <div class="spot"><b>Κρέμα γάλακτος 35%</b><span class="where">Ράφι 3</span><small>4 l · λήξη 10/12 · πρώτα τα παλιά (FIFO)</small></div>
+          <div class="sm muted"><b style="color:var(--s3i)">Ξηρά (DRY)</b> · 1 είδος</div>
+          <div class="spot"><b>Ζάχαρη</b><span class="where">Παλέτα Α</span><small>4 kg</small></div>
+          <div class="spot" style="border-style:dashed"><b>Κύπελλα 8oz</b><span class="where" style="color:var(--warn)">Όρισε θέση ▸</span><small>Δεν έχει θέση ακόμα · θα τη θυμόμαστε</small></div>
+        </div>
+        <div class="bottom"><span class="btn primary">Τα τακτοποίησα ✓</span></div>
+      </div>
+    </div>
+    <div class="step"><b>2 · Απόθεμα της αποθήκης</b>
+      <div class="phone">
+        <div class="top"><small>Γιώργος Λ. · Αποθηκάριος · Πειραιάς</small><h3>Απόθεμα</h3></div>
+        <div class="scroll">
+          <div class="field"><div class="muted">Αναζήτηση ή σάρωση barcode</div></div>
+          <div class="checks"><span class="ck on">Όλα</span><span class="ck">Λίγα · 3</span><span class="ck">Λήγουν · 2</span></div>
+          <div class="card"><div style="display:flex;justify-content:space-between"><b>Γάλα φρέσκο</b><b>14 kg</b></div><div class="sm muted"><svg width="11" height="11"><use href="#i-pin"/></svg> Ψυγείο 1 · Ράφι 2 · ελάχιστο 10 kg</div><div class="stockbar"><i style="width:70%;background:var(--ok)"></i></div></div>
+          <div class="card"><div style="display:flex;justify-content:space-between"><b>Φράουλες κατεψυγμένες</b><b style="color:var(--warn)">3 kg</b></div><div class="sm muted"><svg width="11" height="11"><use href="#i-pin"/></svg> Καταψύκτης 1 · Κάδος 4 · ελάχιστο 8 kg</div><div class="stockbar"><i style="width:28%;background:var(--warn)"></i></div><div class="sm" style="color:var(--warn)">Λίγο · παραγγελία ΠΠ-46012 έρχεται 2/12</div></div>
+          <div class="card"><div style="display:flex;justify-content:space-between"><b>Κρέμα γάλακτος</b><b>9 l</b></div><div class="sm muted"><svg width="11" height="11"><use href="#i-pin"/></svg> Ψυγείο 1 · Ράφι 3</div><div class="sm" style="color:var(--bad)">2 l λήγουν 30/11 · χρησιμοποίησέ τα πρώτα</div></div>
+        </div>
+        <div class="navrow"><span>Παραλαβή</span><span class="on">Απόθεμα</span><span>Θέσεις</span><span>Ρόλος ↺</span></div>
+      </div>
+    </div>
+    <div class="step"><b>3 · Ορισμός θέσης (μία φορά)</b>
+      <div class="phone">
+        <div class="top"><small>Κύπελλα 8oz · Πειραιάς</small><h3>Πού το βάζουμε;</h3></div>
+        <div class="scroll">
+          <div class="sm muted">Χώρος</div>
+          <div class="checks"><span class="ck">Ψυγείο 1</span><span class="ck">Καταψύκτης 1</span><span class="ck on">Ξηρά</span></div>
+          <div class="sm muted">Θέση μέσα στον χώρο</div>
+          <div class="checks"><span class="ck">Παλέτα Α</span><span class="ck on">Ράφι συσκευασιών</span><span class="ck">+ Νέα θέση</span></div>
+          <div class="sm muted">Από εδώ και πέρα κάθε παραλαβή του είδους θα δείχνει «Ξηρά · Ράφι συσκευασιών». Η θέση αλλάζει από τη σελίδα «Θέσεις».</div>
+        </div>
+        <div class="bottom"><span class="btn primary">Αποθήκευση θέσης</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="design">
+    <h3>Τι αλλάζει στο σύστημα</h3>
+    <ol>
+      <li><b>Ειδικότητες.</b> Νέος πίνακας <code>Specialty</code> ανά tenant (όνομα, ομάδα, τι μενού ανοίγει στη συσκευή, αν ανοίγει κάσα). Μπαίνουν έτοιμες οι 16 που ζήτησες και ο tenant μπορεί να προσθέσει. Νέος πίνακας <code>EmployeeSpecialty</code> (πολλές ανά υπάλληλο, μία κύρια).</li>
+      <li><b>Πολλά καταστήματα.</b> Νέος πίνακας <code>EmployeeStore</code>. Το σημερινό <code>Employee.storeId</code> μένει ως «κύριο κατάστημα» και μεταφέρεται αυτόματα στο νέο πίνακα. Η συσκευή δείχνει όσους έχουν το κατάστημά της.</li>
+      <li><b>Βάρδια με ειδικότητα.</b> Το <code>Shift</code> έχει ήδη κατάστημα. Προστίθεται <code>specialtyId</code> και έλεγχος επικάλυψης για τον ίδιο υπάλληλο σε όλα τα καταστήματα πριν τη δημοσίευση.</li>
+      <li><b>Πρόσκληση και portal.</b> Νέος πίνακας <code>EmployeeInvite</code>: token σε hash, λήξη σε 7 ημέρες, μία χρήση. Η εγγραφή φτιάχνει <code>User</code> και το δένει στο <code>Employee.userId</code>. Το portal <code>/me</code> επεκτείνει τη σημερινή σελίδα <code>/schedule/[token]</code>, με σύνδεση αντί για link. Οι ειδικότητες γραφείου (Υπεύθυνος παραγγελιών, Βοηθός λογιστή, Μάνατζερ, Ιδιοκτήτης, Διοίκηση) παίρνουν επιπλέον και πρόσβαση στη web εφαρμογή, με τον αντίστοιχο ρόλο δικαιωμάτων που υπάρχει ήδη.</li>
+      <li><b>Ρόλος στη συσκευή.</b> Μετά το PIN ο server επιστρέφει τις ειδικότητες του υπαλλήλου. Ο ρόλος που διαλέγει γράφεται στη βάρδια συσκευής (<code>TillShift.specialtyId</code>) και κρίνει το μενού. Έτσι φεύγει και το σημερινό shortcut «κάθε ταμείο κάνει παραλαβή»: παραλαβή κάνει μόνο ο ρόλος Αποθηκάριος ή Μάνατζερ, χωρίς να ανοίγει κάσα.</li>
+      <li><b>Θέσεις αποθήκης.</b> Νέοι πίνακες <code>StorageSpot</code> (αποθήκη + όνομα θέσης, π.χ. «Ράφι 2») και <code>ItemSpot</code> (υλικό + αποθήκη → θέση). Η παραλαβή και το απόθεμα δείχνουν τη θέση. Στην οθόνη ολοκλήρωσης τα είδη ομαδοποιούνται ανά χώρο.</li>
+      <li><b>Demo.</b> Ένας χρήστης ανά ειδικότητα (16), μερικοί με δύο ή τρεις ειδικότητες και σε δύο καταστήματα. Όλοι έχουν PIN 1234 και βάρδιες για την τρέχουσα εβδομάδα σε Πειραιά και Γλυφάδα.</li>
+    </ol>
+    <h3>Δεν μπαίνουν τώρα</h3>
+    <ul>
+      <li>Μισθοδοσία ανά ειδικότητα (διαφορετική ωριαία αμοιβή). Η αμοιβή μένει ανά υπάλληλο όπως σήμερα.</li>
+      <li>Αποστολή SMS από την πλατφόρμα. Το link αντιγράφεται ή στέλνεται με email, και SMS όταν συνδεθεί πάροχος.</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

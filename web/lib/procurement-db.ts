@@ -1,6 +1,7 @@
 // Παραγγελίες/MRP: όλα τα IDs επαληθεύονται στο tenant και οι παραλαβές γράφονται ατομικά.
 import { createHash } from "node:crypto";
 import type { Prisma } from "./generated/prisma/client";
+import { lineValueCents, missingQty, orderStatus } from "./backorders";
 import { matchInvoiceLine, normalizedGrossUnitPrice } from "./invoice-match";
 import { mrpSuggestion, sumDocumentTotals, uniqueSupplierItemFallback } from "./procurement";
 import { postPurchaseInTransaction, type PurchaseLinePosted } from "./purchases-db";
@@ -99,6 +100,9 @@ export async function cancelPurchaseOrder(ctx: StockContext, orderId: string, re
 }
 
 type ReceiptLineInput = { orderLineId: string; quantityBase: number; batchNumber?: string | null; expiresAt?: Date | null };
+export type DeliveryNoteInput = { number?: string | null; date?: Date | null; mark?: string | null };
+/** Για όσα λείπουν μετά την παραλαβή: wait = αναμένονται (back order), close = δεν θα έρθουν (αίτημα πιστωτικού αν υπάρχει τιμολόγιο παραγγελίας). */
+export type ShortfallDecision = { orderLineId: string; action: "wait" | "close"; expectedAt?: Date | null };
 const receiptHash = (orderId: string, lines: readonly ReceiptLineInput[]) => createHash("sha256").update(JSON.stringify({ orderId, lines: [...lines].sort((a, b) => a.orderLineId.localeCompare(b.orderLineId)).map((l) => ({ ...l, expiresAt: l.expiresAt?.toISOString() ?? null })) })).digest("hex");
 
 function isUniqueConflict(error: unknown): boolean {
@@ -174,7 +178,7 @@ async function receiptPriceReview(
   );
 }
 
-export async function receivePurchaseOrder(ctx: StockContext, input: { orderId: string; clientKey: string; lines: ReceiptLineInput[] }) {
+export async function receivePurchaseOrder(ctx: StockContext, input: { orderId: string; clientKey: string; lines: ReceiptLineInput[]; deliveryNote?: DeliveryNoteInput; shortfall?: ShortfallDecision[]; remark?: string }) {
   if (!/^[-_a-zA-Z0-9]{8,100}$/.test(input.clientKey)) throw new WorkflowError("Άκυρο κλειδί παραλαβής");
   if (!input.lines.length || input.lines.length > 200) throw new WorkflowError("Δώσε τουλάχιστον μία ποσότητα παραλαβής");
   const requestHash = receiptHash(input.orderId, input.lines);
@@ -198,13 +202,16 @@ export async function receivePurchaseOrder(ctx: StockContext, input: { orderId: 
       for (const line of input.lines) {
         const ordered = byId.get(line.orderLineId);
         assertPositiveInt(line.quantityBase, "Ποσότητα παραλαβής");
-        if (!ordered || line.quantityBase > ordered.orderedBaseQty - ordered.receivedBaseQty) throw new WorkflowError("Η ποσότητα υπερβαίνει το υπόλοιπο της παραγγελίας");
+        if (!ordered || line.quantityBase > missingQty(ordered)) throw new WorkflowError("Η ποσότητα υπερβαίνει το υπόλοιπο της παραγγελίας");
       }
 
       const snapshots = await purchaseSnapshots(organization, supplier);
       const receivedAt = new Date();
-      const doc = await tx.purchaseDoc.create({ data: { orgId: ctx.orgId, supplierId: order.supplierId, warehouseId: order.warehouseId, kind: "RECEIPT", number: `Παραλαβή ${order.number}`, issuedAt: receivedAt, note: `Παραγγελία ${order.number}`, source: "order", ...snapshots, createdByName: ctx.userName } });
-      const receipt = await tx.purchaseReceipt.create({ data: { orgId: ctx.orgId, orderId: order.id, purchaseDocId: doc.id, clientKey: input.clientKey, requestHash, reviewStatus: "PROVISIONAL", createdByName: ctx.userName } });
+      const note = deliveryNote(input.deliveryNote);
+      const already = await receivedNote(tx, ctx.orgId, order.supplierId, note.deliveryNoteNumber, note.deliveryNoteMark);
+      if (already) throw new WorkflowError(already.message);
+      const doc = await tx.purchaseDoc.create({ data: { orgId: ctx.orgId, supplierId: order.supplierId, warehouseId: order.warehouseId, kind: "RECEIPT", number: note.deliveryNoteNumber ? `ΔΑ ${note.deliveryNoteNumber}` : `Παραλαβή ${order.number}`, issuedAt: receivedAt, note: [`Παραγγελία ${order.number}`, cleanText(input.remark, "Σημείωση", 300)].filter(Boolean).join(" · "), source: "order", ...snapshots, createdByName: ctx.userName } });
+      const receipt = await tx.purchaseReceipt.create({ data: { orgId: ctx.orgId, orderId: order.id, purchaseDocId: doc.id, clientKey: input.clientKey, requestHash, reviewStatus: "PROVISIONAL", ...note, createdByName: ctx.userName } });
       const purchaseToOrder = new Map<string, string>();
       const priceReviews = new Map<string, { review: ReceiptPriceReview; itemName: string; dimension: string }>();
 
@@ -248,10 +255,12 @@ export async function receivePurchaseOrder(ctx: StockContext, input: { orderId: 
         }
         await tx.purchaseOrderLine.update({ where: { id: orderLineId }, data: { receivedBaseQty: { increment: line.quantityBase } } });
       }
+      if (input.shortfall?.length) await applyShortfall(tx, ctx, order.id, input.shortfall);
       const freshLines = await tx.purchaseOrderLine.findMany({ where: { orderId: order.id } });
-      const complete = freshLines.every((line) => line.receivedBaseQty === line.orderedBaseQty);
-      const remaining = freshLines.reduce((sum, line) => sum + line.orderedBaseQty - line.receivedBaseQty, 0);
-      await tx.purchaseOrder.update({ where: { id: order.id }, data: { status: complete ? "RECEIVED" : "PARTIAL" } });
+      const status = orderStatus(freshLines);
+      const complete = status === "RECEIVED";
+      const remaining = freshLines.reduce((sum, line) => sum + missingQty(line), 0);
+      await tx.purchaseOrder.update({ where: { id: order.id }, data: { status } });
       await auditWorkflow(tx, { orgId: ctx.orgId, actor: { id: ctx.userId, name: ctx.userName }, action: "order.receive", entityType: "purchase_receipt", entityId: receipt.id, warehouseId: order.warehouseId, metadata: { orderId: order.id, lines: posted.length, complete, remaining, reviewStatus: receipt.reviewStatus, discrepancyCount: discrepancies.length, discrepancies } });
       return receipt;
     }, LONG_POSTING);
@@ -332,9 +341,10 @@ export async function createInvoiceFromReceipt(ctx: StockContext, input: Receipt
       await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtextextended(${`purchase-receipt:${ctx.orgId}:${input.receiptId}`}, 0))) AS lock`;
       const receipt = await tx.purchaseReceipt.findFirst({
         where: { id: input.receiptId, orgId: ctx.orgId },
-        include: { order: { select: { warehouseId: true, number: true } }, lines: true },
+        include: { order: { select: { warehouseId: true, number: true, invoiceDocId: true } }, lines: true },
       });
       if (!receipt) throw new WorkflowError("Η παραλαβή δεν βρέθηκε");
+      if (receipt.order.invoiceDocId) throw new WorkflowError("Η παραγγελία έχει ήδη τιμολόγιο για όλα τα είδη· τα δελτία αποστολής δεν τιμολογούνται χωριστά");
       await assertStockScope(tx, ctx, { warehouseId: receipt.order.warehouseId, forWrite: true });
       if (receipt.invoiceDocId) {
         if (receipt.invoiceRequestHash === canonical.requestHash) {
@@ -489,12 +499,111 @@ export async function reversePurchaseReceipt(ctx: StockContext, receiptId: strin
       await tx.purchaseDoc.update({ where: { id: receipt.purchaseDocId }, data: { status: "CANCELLED" } });
       const reversed = await tx.purchaseReceipt.update({ where: { id: receipt.id }, data: { reversedAt: new Date(), reversalReason: cleanReason } });
       const lines = await tx.purchaseOrderLine.findMany({ where: { orderId: receipt.orderId } });
-      const status = lines.every((line) => line.receivedBaseQty === 0) ? "SENT" : lines.every((line) => line.receivedBaseQty === line.orderedBaseQty) ? "RECEIVED" : "PARTIAL";
+      const status = orderStatus(lines);
       await tx.purchaseOrder.update({ where: { id: receipt.orderId }, data: { status } });
       await auditWorkflow(tx, { orgId: ctx.orgId, actor: { id: ctx.userId, name: ctx.userName }, action: "order.receipt.reverse", entityType: "purchase_receipt", entityId: receipt.id, warehouseId: receipt.order.warehouseId, reason: cleanReason, metadata: { purchaseDocId: receipt.purchaseDocId, lines: receipt.lines.length } });
       return reversed;
     });
   } catch (error) { throw translateStockError(error); }
+}
+
+/**
+ * Το ίδιο δελτίο αποστολής δεν καταχωρίζεται δεύτερη φορά: ίδιος προμηθευτής και ίδιος αριθμός ή ίδιο MARK,
+ * σε παραλαβή που δεν έχει αντιλογιστεί. Επιστρέφει πότε, πού και από ποιον καταχωρίστηκε.
+ */
+export async function receivedNote(tx: Pick<Prisma.TransactionClient, "purchaseReceipt">, orgId: string, supplierId: string, number: string | null | undefined, mark: string | null | undefined) {
+  const or = [number ? { deliveryNoteNumber: { equals: number, mode: "insensitive" as const } } : null, mark ? { deliveryNoteMark: mark } : null].filter((x) => x !== null);
+  if (!or.length) return null;
+  const r = await tx.purchaseReceipt.findFirst({ where: { orgId, reversedAt: null, order: { supplierId }, OR: or }, orderBy: { createdAt: "asc" }, select: { createdAt: true, createdByName: true, deliveryNoteNumber: true, order: { select: { number: true } } } });
+  if (!r) return null;
+  const at = new Intl.DateTimeFormat("el-GR", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Athens" }).format(r.createdAt);
+  return { orderNumber: r.order.number, at: r.createdAt, by: r.createdByName, message: `Το δελτίο ${r.deliveryNoteNumber ?? number ?? ""} έχει ήδη καταχωριστεί στις ${at} από ${r.createdByName}, στην παραγγελία ${r.order.number}.`.replace("  ", " ") };
+}
+
+function deliveryNote(input: DeliveryNoteInput | undefined) {
+  const date = input?.date && !Number.isNaN(input.date.getTime()) ? input.date : null;
+  return { deliveryNoteNumber: cleanText(input?.number, "Αριθμός δελτίου", 60), deliveryNoteDate: date, deliveryNoteMark: cleanText(input?.mark, "MARK δελτίου", 30) };
+}
+
+/**
+ * Τι γίνεται με όσα λείπουν. «close» κλείνει τη γραμμή κοντά: αν η παραγγελία έχει τιμολόγιο (πληρώσαμε όλα),
+ * η αξία τους γράφεται ως αίτημα πιστωτικού· χωρίς τιμολόγιο απλώς δεν τα περιμένουμε άλλο.
+ */
+async function applyShortfall(tx: Prisma.TransactionClient, ctx: StockContext, orderId: string, decisions: readonly ShortfallDecision[]) {
+  if (new Set(decisions.map((d) => d.orderLineId)).size !== decisions.length) throw new WorkflowError("Διπλή απόφαση για το ίδιο είδος");
+  const order = await tx.purchaseOrder.findFirstOrThrow({ where: { id: orderId, orgId: ctx.orgId }, include: { lines: true } });
+  const byId = new Map(order.lines.map((line) => [line.id, line]));
+  let creditCents = 0;
+  for (const decision of decisions) {
+    const line = byId.get(decision.orderLineId);
+    if (!line) throw new WorkflowError("Το είδος δεν ανήκει στην παραγγελία");
+    const missing = missingQty(line);
+    if (!missing) continue;
+    if (decision.action === "wait") {
+      await tx.purchaseOrderLine.update({ where: { id: line.id }, data: { expectedAt: decision.expectedAt ?? order.expectedAt ?? null } });
+      continue;
+    }
+    if (order.invoiceDocId) {
+      const generic = await tx.genericItem.findFirstOrThrow({ where: { id: line.genericItemId, orgId: ctx.orgId }, select: { baseUnit: { select: { dimension: true } } } });
+      creditCents += lineValueCents(missing, line, stockCostScale(generic.baseUnit.dimension));
+    }
+    await tx.purchaseOrderLine.update({ where: { id: line.id }, data: { closedBaseQty: { increment: missing }, expectedAt: null } });
+  }
+  if (creditCents) await tx.purchaseOrder.update({ where: { id: order.id }, data: { creditRequestedCents: { increment: creditCents } } });
+  await auditWorkflow(tx, { orgId: ctx.orgId, actor: { id: ctx.userId, name: ctx.userName }, action: "order.shortfall", entityType: "purchase_order", entityId: order.id, warehouseId: order.warehouseId, metadata: { decisions: decisions.map((d) => ({ ...d, expectedAt: d.expectedAt?.toISOString() ?? null })), creditRequestedCents: creditCents } });
+}
+
+/** Αναμενόμενα ή αίτημα πιστωτικού έξω από παραλαβή, π.χ. όταν πέρασε η ημερομηνία και τα είδη δεν ήρθαν. */
+export async function resolveShortfall(ctx: StockContext, orderId: string, decisions: ShortfallDecision[]) {
+  if (!decisions.length) throw new WorkflowError("Δεν επιλέχθηκε κανένα είδος");
+  return stockTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtextextended(${`purchase-order:${ctx.orgId}:${orderId}`}, 0))) AS lock`;
+    const order = await tx.purchaseOrder.findFirst({ where: { id: orderId, orgId: ctx.orgId }, select: { id: true, warehouseId: true, status: true } });
+    if (!order) throw new WorkflowError("Η παραγγελία δεν βρέθηκε");
+    await assertStockScope(tx, ctx, { warehouseId: order.warehouseId, forWrite: true });
+    if (!["SENT", "PARTIAL"].includes(order.status)) throw new WorkflowError("Η παραγγελία δεν είναι ανοιχτή");
+    await applyShortfall(tx, ctx, order.id, decisions);
+    const status = orderStatus(await tx.purchaseOrderLine.findMany({ where: { orderId: order.id } }));
+    return tx.purchaseOrder.update({ where: { id: order.id }, data: { status } });
+  }).catch((error) => { throw translateStockError(error); });
+}
+
+/**
+ * Τιμολόγιο του προμηθευτή για όλη την παραγγελία, πριν έρθουν τα είδη (προπληρωμή). Μόνο οικονομικό:
+ * χρωστάμε και πληρώνουμε, δεν γράφει απόθεμα· το απόθεμα το γράφουν τα δελτία αποστολής (παραλαβές).
+ */
+export async function createOrderInvoice(ctx: StockContext, input: { orderId: string; number: string; issuedAt: Date; mark?: string | null }) {
+  const number = cleanText(input.number, "Αριθμός τιμολογίου", 100, true)!;
+  if (!(input.issuedAt instanceof Date) || Number.isNaN(input.issuedAt.getTime())) throw new WorkflowError("Άκυρη ημερομηνία έκδοσης");
+  const mark = cleanText(input.mark, "MARK", 30);
+  return stockTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtextextended(${`purchase-order:${ctx.orgId}:${input.orderId}`}, 0))) AS lock`;
+    const order = await tx.purchaseOrder.findFirst({ where: { id: input.orderId, orgId: ctx.orgId }, include: { lines: true, receipts: { where: { invoiceDocId: { not: null } }, select: { id: true } } } });
+    if (!order) throw new WorkflowError("Η παραγγελία δεν βρέθηκε");
+    await assertStockScope(tx, ctx, { warehouseId: order.warehouseId, forWrite: true });
+    if (order.invoiceDocId) throw new WorkflowError("Η παραγγελία έχει ήδη τιμολόγιο");
+    if (order.status === "DRAFT" || order.status === "CANCELLED") throw new WorkflowError("Τιμολόγιο καταχωρείται σε παραγγελία που έχει σταλεί");
+    if (order.receipts.length) throw new WorkflowError("Κάποιο δελτίο της παραγγελίας έχει ήδη δικό του τιμολόγιο");
+    if (mark && await tx.purchaseDoc.findFirst({ where: { orgId: ctx.orgId, mydataMark: mark }, select: { id: true } })) throw new WorkflowError("Υπάρχει ήδη παραστατικό με αυτό το MARK");
+    const [supplier, organization, generics] = await Promise.all([
+      tx.party.findFirst({ where: { id: order.supplierId, orgId: ctx.orgId } }),
+      tx.organization.findUnique({ where: { id: ctx.orgId } }),
+      tx.genericItem.findMany({ where: { orgId: ctx.orgId, id: { in: order.lines.map((l) => l.genericItemId) } }, include: { baseUnit: true } }),
+    ]);
+    if (!supplier || !organization) throw new WorkflowError("Τα στοιχεία της παραγγελίας δεν βρέθηκαν");
+    const genericById = new Map(generics.map((g) => [g.id, g]));
+    const invoice = await tx.purchaseDoc.create({ data: {
+      orgId: ctx.orgId, supplierId: order.supplierId, warehouseId: order.warehouseId, kind: "INVOICE", status: "POSTED", number, issuedAt: input.issuedAt, mydataMark: mark,
+      source: "order", note: `Τιμολόγιο παραγγελίας ${order.number}`, ...(await purchaseSnapshots(organization, supplier)), createdByName: ctx.userName,
+      lines: { create: order.lines.map((line) => {
+        const generic = genericById.get(line.genericItemId)!;
+        return { orgId: ctx.orgId, description: generic.name, quantity: 1, unitPriceCents: Math.round(line.orderedBaseQty * line.unitPriceCents / stockCostScale(generic.baseUnit.dimension)), discountBps: line.discountBps, vatRate: line.vatRate, supplierItemId: line.supplierItemId, genericItemId: generic.id, matchNote: "order" };
+      }) },
+    } });
+    await tx.purchaseOrder.update({ where: { id: order.id }, data: { invoiceDocId: invoice.id } });
+    await auditWorkflow(tx, { orgId: ctx.orgId, actor: { id: ctx.userId, name: ctx.userName }, action: "order.invoice", entityType: "purchase", entityId: invoice.id, warehouseId: order.warehouseId, metadata: { orderId: order.id, lines: order.lines.length, stockMovements: 0 } });
+    return invoice;
+  }).catch((error) => { throw translateStockError(error); });
 }
 
 function translateStockError(error: unknown) {
@@ -538,7 +647,7 @@ export async function buildMrpSuggestions(ctx: StockContext, warehouseId: string
   const onHand = new Map(balances.map((r) => [r.genericItemId!, r._sum.quantity ?? 0]));
   const consumed = new Map(usage.map((r) => [r.genericItemId!, -(r._sum.quantity ?? 0)]));
   const incoming = new Map<string, number>();
-  for (const line of openLines) incoming.set(line.genericItemId, (incoming.get(line.genericItemId) ?? 0) + line.orderedBaseQty - line.receivedBaseQty);
+  for (const line of openLines) incoming.set(line.genericItemId, (incoming.get(line.genericItemId) ?? 0) + missingQty(line));
   return generics.map((generic) => {
     const setting = settings.find((s) => s.genericItemId === generic.id && s.warehouseId === warehouseId) ?? settings.find((s) => s.genericItemId === generic.id && s.warehouseId === null);
     const suggestion = mrpSuggestion({ onHandBaseQty: (onHand.get(generic.id) ?? 0) + (incoming.get(generic.id) ?? 0), averageDailyUsageBaseQty: (consumed.get(generic.id) ?? 0) / usageDays, leadDays: setting?.leadDays ?? 1, coverDays: setting?.coverDays ?? org?.mrpCoverDays ?? 4, minimumBaseQty: setting?.minimumBaseQty ?? 0, orderMultipleBase: setting?.orderMultipleBase ?? 1 });

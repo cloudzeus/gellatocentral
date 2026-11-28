@@ -21,5 +21,5 @@ export async function POST(req: Request) {
   if (count === 0) return Response.json({ error: "invalid_code" }, { status: 401 });
   // η ίδια φυσική συσκευή ήταν πριν άλλο ταμείο της επιχείρησης: η ταυτότητα μεταφέρεται εδώ
   if (parsed.data.androidId) await db.device.updateMany({ where: { orgId: device.orgId, androidId: parsed.data.androidId.toLowerCase(), id: { not: device.id } }, data: { androidId: null } });
-  return Response.json({ token, device: device.name });
+  return Response.json({ token, device: device.name, kind: device.kind });
 }

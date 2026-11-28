@@ -3,24 +3,30 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { parsePairQr } from "./pair-qr";
 import { InterTight_400Regular, InterTight_500Medium, InterTight_600SemiBold, InterTight_700Bold, useFonts } from "@expo-google-fonts/inter-tight";
 import { StatusBar } from "expo-status-bar";
-import { ArrowLeft, Banknote, Bike, CakeSlice, CalendarClock, Check, Clock, Divide, Coffee, CreditCard, CupSoda, IceCreamCone, LayoutGrid, LogOut, type LucideIcon, Plus, ReceiptText, Search, SlidersHorizontal, Star, StickyNote, Tag, Trash2, TriangleAlert, Wallet, X } from "lucide-react-native";
+import { ArrowLeft, Banknote, Boxes, Ellipsis, Pause, Send, PackageOpen, Bike, UserRound, CakeSlice, CalendarClock, Check, Clock, Divide, Coffee, CreditCard, CupSoda, IceCreamCone, LayoutGrid, LogOut, type LucideIcon, Plus, ReceiptText, Search, SlidersHorizontal, Star, StickyNote, Tag, Trash2, TriangleAlert, Wallet, X } from "lucide-react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, FlatList, Linking, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
-import { ApiError, type Bill, type BillLine, type BillPick, type BillSummary, cancelBill, type Catalog, checkResult, clearPending, clearSession, createSale, type DiningTable, getBill, getBills, getCatalog, loadPending, loadSession, openBill, type Outcome, pair, type PaymentMethod, type Pending, type Product, reportResult, savePending, saveSession, sendRound, type Session, settleBill, shareBill, syncOffline, voidBillLine } from "./api";
+import { ApiError, setSoldOut, type Bill, type BillLine, type BillPick, type BillSummary, cancelBill, type Catalog, checkResult, clearPending, clearSession, createSale, type DiningTable, getBill, getBills, getCatalog, markServed, loadPending, loadSession, openBill, type Outcome, pair, type PaymentMethod, type Pending, type Product, reportResult, savePending, saveSession, sendRound, type Session, settleBill, shareBill, syncOffline, voidBillLine } from "./api";
 import { enqueue, offlineSale, type Outbox } from "./offline";
 import { loadCachedCatalog, loadOutbox, saveCachedCatalog, saveOutbox } from "./offline-store";
 import { ReservationsView } from "./ReservationsScreen";
 import { TransactionsView } from "./TransactionsScreen";
+import { ReceivingView } from "./ReceivingScreen";
+import { StockView } from "./StockScreen";
 import { CallWatcher, CustomerSheet, OrderSendSheet, OrdersView } from "./OrdersScreen";
 import { type Customer, type OrderDraft, type OrderLine as PastLine, reorderLines } from "./orders";
 import { CloseShiftView, DayCloseView, SignInView, WhoIsOn } from "./ShiftScreens";
-import { getShift, type ShiftState } from "./shift-api";
+import { getShift, type ShiftState, type View as RoleView } from "./shift-api";
 import { hhmm, isoDay, nextByTable, type Reservation, untilText } from "./reservations";
 import { getDay } from "./reservations-api";
 import { dark, euro, font, type Theme, tint, ty } from "./theme";
 import { amountCents, amountText, dropOption, equalSplit, type Group, missingIn, quickAmounts, retryDelayMs, tapOption, totals, typeAmount, unitPrice } from "./till";
 import { isVivaResult, parseResult, saleUrl } from "./viva";
+import { KitchenScreen } from "./KitchenScreen";
+import { PhoneOrder, SentView, TableBill, UrgentRow, WaiterTables, type OrderCartLine } from "./WaiterScreens";
+import { durText, minutesSince, STAGE_TEXT, urgentList } from "./waiter";
+import { deviceKind } from "./device";
 
 // Κεντρικό ταμείο (docs/design/spec-central-till-package-1.md, ύφος: docs/mockups/central-till/central-till-cosy.html):
 // οθόνη πώλησης, επιλογές προϊόντος, μετρητά με ρέστα, καταστάσεις πληρωμής.
@@ -36,6 +42,7 @@ export default function App() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>
       <StatusBar style="light" />
       {loading ? <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator color={t.muted} /></View>
+        : session?.kind === "KITCHEN_DISPLAY" ? <KitchenScreen t={t} session={session} onUnpair={() => clearSession().then(() => setSession(null))} />
         : session ? <Till t={t} session={session} onUnpair={() => clearSession().then(() => clearPending()).then(() => setSession(null))} />
         : <Pair t={t} onPaired={setSession} />}
     </SafeAreaView>
@@ -206,9 +213,9 @@ function CashSheet({ t, totalCents, onContinue, onBack, back = "Πίσω στη�
 // ---- Επιλογές προϊόντος ----
 
 /** Γραμμή του καλαθιού. options: ids με τη σειρά που πατήθηκαν (η ίδια γεύση μπορεί δύο φορές). */
-type CartLine = { key: string; productId: string; options: string[]; note: string; quantity: number };
-const lineKey = (productId: string, options: readonly string[], note: string) => JSON.stringify([productId, [...options].sort(), note.trim()]);
-type Draft = { product: Product; color: string; editKey?: string; options: string[]; note: string; quantity: number };
+type CartLine = { key: string; productId: string; options: string[]; note: string; quantity: number; seat?: number };
+const lineKey = (productId: string, options: readonly string[], note: string, seat?: number) => JSON.stringify([productId, [...options].sort(), note.trim(), ...(seat ? [seat] : [])]);
+type Draft = { product: Product; color: string; editKey?: string; options: string[]; note: string; quantity: number; seat?: number };
 
 /** Ονόματα επιλογών για τη γραμμή: «2× Φιστίκι, Βανίλια, Χωρίς ζάχαρη», με τη σειρά των ομάδων. */
 function optionsText(groups: readonly Group[], chosen: readonly string[]) {
@@ -364,15 +371,15 @@ const failText = (e: unknown) => {
 };
 const unpairedBy = (e: unknown) => e instanceof ApiError && e.status === 401;
 
-function Tables({ t, session, now, width, onOpen, onReservations, onUnpaired }: { t: Theme; session: Session; now: Date; width: number; onOpen: (id: string) => void; onReservations: () => void; onUnpaired: () => void }) {
+function Tables({ t, session, now, width, selected, reload, onOpen, onReservations, onSoldOut, onUnpaired }: { t: Theme; session: Session; now: Date; width: number; selected?: string; reload?: number; onOpen: (id: string) => void; onReservations: () => void; onSoldOut?: (ids: string[]) => void; onUnpaired: () => void }) {
   const [data, setData] = useState<{ tables: DiningTable[]; bills: BillSummary[] }>();
   const [res, setRes] = useState<Reservation[]>([]);
   const [error, setError] = useState<string>();
   const [opening, setOpening] = useState<string>();
   // οι κρατήσεις είναι συμπληρωματικές: αν αποτύχουν, η κάτοψη δουλεύει κανονικά
-  const load = useCallback(() => Promise.all([getBills(session), getDay(session, isoDay(new Date())).catch(() => null)]).then(([d, r]) => { setData(d); if (r) setRes(r.reservations); setError(undefined); }, (e) => (unpairedBy(e) ? onUnpaired() : setError(failText(e)))), [session, onUnpaired]);
+  const load = useCallback(() => Promise.all([getBills(session), getDay(session, isoDay(new Date())).catch(() => null)]).then(([d, r]) => { setData(d); if (r) setRes(r.reservations); setError(undefined); if (d.soldOut) onSoldOut?.(d.soldOut); }, (e) => (unpairedBy(e) ? onUnpaired() : setError(failText(e)))), [session, onUnpaired, onSoldOut]);
   // Οι σερβιτόροι και τα άλλα ταμεία αλλάζουν την κάτοψη: ανανέωση κάθε 15''.
-  useEffect(() => { void load(); const id = setInterval(load, 15_000); return () => clearInterval(id); }, [load]);
+  useEffect(() => { void load(); const id = setInterval(load, 15_000); return () => clearInterval(id); }, [load, reload]);
 
   const open = async (tableId: string) => {
     setOpening(tableId);
@@ -389,6 +396,7 @@ function Tables({ t, session, now, width, onOpen, onReservations, onUnpaired }: 
   const due = data.bills.reduce((s, b) => s + b.dueCents - b.heldCents, 0);
   const cols = Math.max(3, Math.min(6, Math.floor((width + 12) / 176)));
   const tileW = (width - 12 * (cols - 1)) / cols;
+  const urgent = urgentList(data.bills, data.tables, res, now, euro);
 
   // Κράτηση: μοβ περίγραμμα όταν έρχονται μέσα στην ώρα (ή αργούν), διακεκομμένο όταν είναι αργότερα (mockup reservations.html, καρέ 1)
   const tile = (key: string, name: string, b: BillSummary | undefined, onPress: () => void, r?: Reservation) => {
@@ -398,9 +406,10 @@ function Tables({ t, session, now, width, onOpen, onReservations, onUnpaired }: 
     return (
     <Pressable key={key} onPress={onPress} disabled={!!opening} accessibilityRole="button"
       accessibilityLabel={[b ? `${name}, ανοιχτό, χρωστάει ${euro(b.dueCents - b.heldCents)}` : r ? `${name}, κράτηση` : `${name}, ελεύθερο, πάτα για νέο λογαριασμό`, r ? `${hhmm(r.startsAt)} ${r.name}, ${r.guests} άτομα, ${untilText(r.startsAt, now)}` : ""].filter(Boolean).join(". ")}
-      style={({ pressed }) => ({ width: tileW, height: 132, borderRadius: 14, padding: 12, opacity: pressed ? 0.85 : 1, backgroundColor: b ? t.categories[4] : soon ? tint(rc) : "transparent", borderWidth: b ? 0 : 1, borderStyle: soon ? "solid" : "dashed", borderColor: b ? "transparent" : r ? rc : t.raised })}>
+      style={({ pressed }) => ({ width: tileW, height: 132, borderRadius: 14, padding: 12, opacity: pressed ? 0.85 : 1, backgroundColor: b ? t.categories[4] : soon ? tint(rc) : "transparent", borderWidth: b ? (b.id === selected || b.stage === "asked" ? 3 : 0) : 1, borderStyle: soon || b ? "solid" : "dashed", borderColor: b ? (b.id === selected ? t.text : t.wait) : r ? rc : t.raised })}>
       <Text numberOfLines={1} style={ty(22, "b", b ? t.ink : r ? rc : t.faint)}>{name}</Text>
-      {b ? <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}><Clock size={13} strokeWidth={2} color={t.ink} style={{ opacity: 0.6 }} /><Text numberOfLines={1} style={[ty(12.5, "m", t.ink), { opacity: 0.7, flex: 1 }, num]}>{[b.openedByName, since(b.openedAt, now)].filter(Boolean).join(" · ")}</Text></View> : null}
+      {b ? <Text numberOfLines={1} style={[ty(12.5, "s", t.ink), { marginTop: 2 }]}>{b.readyIds?.length ? "Έτοιμο στην κουζίνα" : STAGE_TEXT[b.stage ?? "empty"]}{b.heldItems ? ` · ${b.heldItems} «Μετά»` : ""}</Text> : null}
+      {b ? <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}><Clock size={13} strokeWidth={2} color={t.ink} style={{ opacity: 0.6 }} /><Text numberOfLines={1} style={[ty(12.5, "m", t.ink), { opacity: 0.7, flex: 1 }, num]}>{[b.openedByName, b.stage !== "empty" && minutesSince(b.lastAt, now) >= 20 ? `${durText(minutesSince(b.lastAt, now))} χωρίς κίνηση` : since(b.openedAt, now)].filter(Boolean).join(" · ")}</Text></View> : null}
       {r ? <Text numberOfLines={1} style={[ty(12.5, "s", b ? "#3D3F8F" : rc), { marginTop: 4 }, num]}>{hhmm(r.startsAt)} · {r.name} · {r.guests}</Text> : null}
       <View style={{ marginTop: "auto", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         {b ? <Text style={[ty(18, "b", t.ink), num]}>{euro(b.dueCents - b.heldCents)}</Text>
@@ -423,6 +432,7 @@ function Tables({ t, session, now, width, onOpen, onReservations, onUnpaired }: 
         ))}
       </View>
       {error ? <Text accessibilityLiveRegion="assertive" style={ty(13, "m", t.bad)}>! {error}</Text> : null}
+      {urgent.length ? <View style={{ gap: 8 }}><Text style={ty(13.5, "s", t.muted)}>Σε περιμένουν · {urgent.length}</Text><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{urgent.map((u) => <View key={u.key} style={{ width: width >= 700 ? (width - 8) / 2 : width }}><UrgentRow t={t} u={u} onPress={() => (u.billId ? onOpen(u.billId) : onReservations())} onAct={u.kind === "ready" && u.billId ? () => void markServed(session, u.billId!, data.bills.find((b) => b.id === u.billId)?.readyIds ?? [], true).then(load, (e) => setError(failText(e))) : undefined} /></View>)}</View></View> : null}
       {data.tables.length === 0 ? <Text style={[ty(13.5, "m", t.muted), { lineHeight: 20 }]}>Το κατάστημα δεν έχει τραπέζια. Πρόσθεσέ τα από την κονσόλα.</Text> : null}
       {zones.map((z) => (
         <View key={z} style={{ gap: 8, borderTopWidth: 1, borderTopColor: t.divider, paddingTop: 14 }}>
@@ -796,7 +806,7 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
   const outboxRef = useRef(outbox);
   const [now, setNow] = useState(new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30_000); return () => clearInterval(id); }, []);
-  const [view, setView] = useState<"sale" | "tables" | "bill" | "reservations" | "transactions" | "orders" | "drawer" | "day">("sale");
+  const [view, setView] = useState<"sale" | "tables" | "bill" | "reservations" | "transactions" | "orders" | "receiving" | "stock" | "drawer" | "day">("sale");
   // τηλεφωνική παραγγελία: το καλάθι πάει σε παραγγελία αντί για είσπραξη (OrdersScreen.tsx)
   const [order, setOrder] = useState<OrderDraft>();
   const [orderNote, setOrderNote] = useState<string>();
@@ -804,7 +814,13 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
   const [lookedUp, setLookedUp] = useState<{ customer: Customer | null; phone: string }>();
   const [shift, setShift] = useState<ShiftState>(); // βάρδια ταμία· on=false: το κατάστημα δεν χρησιμοποιεί βάρδιες
   const [billId, setBillId] = useState<string>();
-  const [target, setTarget] = useState<{ id: string; title: string }>(); // η πώληση γράφεται σε αυτόν τον λογαριασμό
+  const [billMode, setBillMode] = useState<"bill" | "pay">("bill"); // «Είσπραξη» από τη λίστα ανοίγει κατευθείαν την πληρωμή
+  const [target, setTarget] = useState<{ id: string; title: string; seats?: number }>(); // η πώληση γράφεται σε αυτόν τον λογαριασμό
+  const [seat, setSeat] = useState<number>(); // για ποια θέση του τραπεζιού μπαίνουν τα επόμενα είδη· κενό = όλο το τραπέζι
+  const [sent, setSent] = useState<{ billId: string; title: string; number: number; held: boolean; lines: OrderCartLine[] }>(); // κινητό: τι μόλις στάλθηκε
+  const [soldOut, setSoldOutIds] = useState<ReadonlySet<string>>(new Set()); // «Τελείωσε» του καταστήματος (προϊόντα ή επιλογές)
+  const onSoldOut = useCallback((ids: string[]) => setSoldOutIds(new Set(ids)), []);
+  const [more, setMore] = useState(false); // κινητό: φύλλο «Περισσότερα»
   // πληρώνεται λογαριασμός, όχι το καλάθι· lines = μόνο όσα διάλεξε το μοίρασμα, billDueCents = όσα χρωστούσε όλος πριν
   // share: μερίδιο του μοιράσματος κατά ποσό (χωρίς απόδειξη ακόμα)
   const [paying, setPaying] = useState<{ id: string; title: string; dueCents: number; items: number; lines?: BillPick[]; billDueCents: number; share?: boolean }>();
@@ -837,7 +853,7 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
 
   const loadCatalog = useCallback(() => {
     getCatalog(session).then(
-      (c) => { setCatalog(c); setOnline(true); void saveCachedCatalog(c); void syncOutbox(); },
+      (c) => { setCatalog(c); setOnline(true); if (c.soldOut) setSoldOutIds(new Set(c.soldOut)); void saveCachedCatalog(c); void syncOutbox(); },
       (e) => {
         if (e instanceof ApiError && e.status === 401) return setStatus({ kind: "unpaired" });
         setOnline(false);
@@ -859,10 +875,16 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
   }, [unsynced, syncOutbox]);
   useEffect(loadCatalog, [loadCatalog]);
   const loadShift = useCallback(() => {
-    getShift(session).then(setShift, (e) => { if (e instanceof ApiError && e.status === 401) setStatus({ kind: "unpaired" }); });
+    getShift(session).then((next) => {
+      setShift(next);
+      // ο ρόλος της βάρδιας ορίζει τα μενού: αν η τρέχουσα οθόνη δεν επιτρέπεται, πάμε στην πρώτη που επιτρέπεται
+      setView((v) => (v === "drawer" || v === "day" || next.views.includes(v === "bill" ? "tables" : v) ? v : next.views[0] ?? "drawer"));
+    }, (e) => { if (e instanceof ApiError && e.status === 401) setStatus({ kind: "unpaired" }); });
   }, [session]);
   // κάθε επιστροφή στην πώληση ξαναρωτά τη βάρδια (π.χ. μπήκε PIN στην κονσόλα ή έκλεισε η μέρα)
   useEffect(() => { if (view === "sale") loadShift(); }, [view, loadShift]);
+  // ο ρόλος της βάρδιας ορίζει τα μενού· παλιός server χωρίς views: όλα, όπως πριν
+  const views: readonly RoleView[] = shift?.views ?? ["sale", "tables", "reservations", "orders", "transactions", "receiving", "stock"];
 
   // Μόνο μετρητά και κάρτα: το IRIS μέσα από το Viva Terminal δεν έχει επαληθευτεί σε αυτή τη σύνδεση (spec).
   const methods = useMemo(() => (catalog?.paymentMethods ?? []).filter((m) => m.code === "cash" || m.code === "card"), [catalog]);
@@ -873,18 +895,19 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
   const byId = useMemo(() => new Map(catalog?.categories.flatMap((c, i) => c.products.map((p) => [p.id, { product: p, color: colorOf(i) }] as const)) ?? []), [catalog, colorOf]);
   const frequent = useMemo(() => (catalog?.frequent ?? []).map((id) => byId.get(id)?.product).filter((p): p is Product => !!p), [catalog, byId]);
   const tab = cat ?? (frequent.length ? -1 : 0); // -1 = «Συχνά»
+  const catTab = tab;
 
   const lines = cart.flatMap((l) => { const hit = byId.get(l.productId); return hit ? [{ ...l, ...hit, unitCents: unitPrice(hit.product.priceCents, hit.product.groups, l.options) }] : []; });
   const sums = totals(lines.map((l) => ({ priceCents: l.unitCents, vatRate: l.product.vatRate, quantity: l.quantity })));
   const inCart = (id: string) => lines.reduce((n, l) => n + (l.productId === id ? l.quantity : 0), 0);
 
   /** Βάζει γραμμή στο καλάθι· ίδιο προϊόν με ίδιες επιλογές και σημείωση = ίδια γραμμή. replace: η γραμμή που διορθώνεται. */
-  const putLine = (productId: string, options: string[], note: string, quantity: number, replace?: string) => {
-    const key = lineKey(productId, options, note);
+  const putLine = (productId: string, options: string[], note: string, quantity: number, replace?: string, at: number | undefined = target ? seat : undefined) => {
+    const key = lineKey(productId, options, note, at);
     setCart((c) => {
       const rest = c.filter((l) => l.key !== replace);
       const same = rest.find((l) => l.key === key);
-      return same ? rest.map((l) => (l === same ? { ...l, quantity: l.quantity + quantity } : l)) : [...rest, { key, productId, options, note: note.trim(), quantity }];
+      return same ? rest.map((l) => (l === same ? { ...l, quantity: l.quantity + quantity } : l)) : [...rest, { key, productId, options, note: note.trim(), quantity, ...(at ? { seat: at } : {}) }];
     });
     setSelected(key);
   };
@@ -897,17 +920,29 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
     if (r.missing.length) setOrderNote(`Δεν μπήκαν: ${r.missing.join(", ")}. Δεν υπάρχουν πια στον κατάλογο.`);
   };
   const setQty = (key: string, quantity: number) => setCart((c) => (quantity > 0 ? c.map((l) => (l.key === key ? { ...l, quantity } : l)) : c.filter((l) => l.key !== key)));
-  const plainKey = (id: string) => lineKey(id, [], "");
+  const plainKey = (id: string) => lineKey(id, [], "", target ? seat : undefined);
+  /** «Ξανά» από γραμμή του λογαριασμού: ίδιο είδος, ίδιες επιλογές, ίδια θέση, στο καλάθι του τραπεζιού. */
+  // μία γραμμή = ένα κομμάτι· ολόκληρος γύρος («Ξανά ο γύρος») = ίδιες ποσότητες και θέσεις
+  const again = (billId: string, ls: BillLine[], title: string, seats: number) => {
+    const groups = new Map([...byId].map(([id, h]) => [id, { groups: h.product.groups }]));
+    setTarget({ id: billId, title, seats }); setSeat(ls.length === 1 ? ls[0].seat ?? undefined : undefined); setOrder(undefined); setView("sale");
+    for (const l of ls) {
+      const q = ls.length === 1 ? 1 : l.quantity;
+      for (const x of reorderLines([{ productId: l.productId, name: l.name, quantity: q, unitPriceCents: l.unitPriceCents, options: l.options ?? [], note: l.note }], groups).ok) putLine(x.productId, x.options, x.note, q, undefined, l.seat ?? undefined);
+    }
+  };
+  const toggleSoldOut = (p: Product) => void setSoldOut(session, p.id, !soldOut.has(p.id)).then(onSoldOut, (e) => (unpairedBy(e) ? unpaired() : setStatus({ kind: "blocked", message: failText(e) })));
 
   // Προϊόν με υποχρεωτικές επιλογές ανοίγει το φύλλο· τα άλλα μπαίνουν κατευθείαν.
   const tapProduct = (p: Product, color: string) => {
-    if (p.groups.some((g) => g.kind === "REQUIRED")) setDraft({ product: p, color, options: [], note: "", quantity: 1 });
+    if (soldOut.has(p.id)) return;
+    if (p.groups.some((g) => g.kind === "REQUIRED")) setDraft({ product: p, color, options: [], note: "", quantity: 1, seat: target ? seat : undefined });
     else putLine(p.id, [], "", 1);
   };
-  const editLine = (l: (typeof lines)[number]) => setDraft({ product: l.product, color: l.color, editKey: l.key, options: l.options, note: l.note, quantity: l.quantity });
+  const editLine = (l: (typeof lines)[number]) => setDraft({ product: l.product, color: l.color, editKey: l.key, options: l.options, note: l.note, quantity: l.quantity, seat: l.seat });
   const finishDraft = () => {
     if (!draft) return;
-    putLine(draft.product.id, draft.options, draft.note, draft.quantity, draft.editKey);
+    putLine(draft.product.id, draft.options, draft.note, draft.quantity, draft.editKey, draft.seat);
     setDraft(undefined);
   };
 
@@ -1075,7 +1110,8 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
   const askCancel: Action = { label: "Ακύρωση πληρωμής", onPress: () => status && setStatus({ kind: "cancel", back: status }) };
 
   const charge = () => (method?.code === "cash" ? setCash(true) : void startPayment());
-  const cartOut = () => lines.map((l) => ({ productId: l.productId, quantity: l.quantity, options: l.options, ...(l.note ? { note: l.note } : {}) }));
+  const cartOut = () => lines.map((l) => ({ productId: l.productId, quantity: l.quantity, options: l.options, ...(l.note ? { note: l.note } : {}), ...(l.seat ? { seat: l.seat } : {}) }));
+  const cartView = (): OrderCartLine[] => lines.map((l) => ({ key: l.key, name: l.product.name, quantity: l.quantity, cents: l.unitCents * l.quantity, opts: optionsText(l.product.groups, l.options), note: l.note, seat: l.seat, color: l.color }));
   const payBill = (b: Bill, title: string, pick?: Pick) => {
     const p = pick
       ? { id: b.id, title, dueCents: pick.cents, items: pick.items, lines: pick.lines, billDueCents: b.dueCents }
@@ -1089,14 +1125,16 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
     if (method?.code === "cash") setCash(true); else void startPayment(method, p);
   };
   // Η πώληση πηγαίνει στον λογαριασμό του τραπεζιού ως νέα αποστολή· πληρώνεται αργότερα από τον λογαριασμό.
-  const sendToBill = async () => {
+  // held: «Μετά»· γράφεται στον λογαριασμό χωρίς να πάει σε κουζίνα/bar, ως το «Βγάλ' το».
+  const sendToBill = async (held = false) => {
     if (!target || !lines.length) return;
     setBusy(true);
     try {
-      await sendRound(session, target.id, cartOut());
+      const r = await sendRound(session, target.id, cartOut(), held);
       setOnline(true);
-      setCart([]); setSelected(undefined); setTarget(undefined);
-      setBillId(target.id); setView("bill");
+      if (phone) setSent({ billId: target.id, title: target.title, number: r.number, held, lines: cartView() });
+      setCart([]); setSelected(undefined); setTarget(undefined); setSeat(undefined);
+      setBillId(target.id); if (!phone) setView(tablesOn && views.includes("tables") ? "tables" : "bill");
     } catch (e) {
       if (unpairedBy(e)) setStatus({ kind: "unpaired" });
       else setStatus({ kind: "blocked", message: `Η παραγγελία δεν στάλθηκε στο ${target.title}. ${failText(e)} Η παραγγελία έμεινε στην οθόνη.` });
@@ -1104,7 +1142,9 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
       setBusy(false);
     }
   };
-  const toTables = () => { setPaying(undefined); setTarget(undefined); setSplit(null); setView("tables"); };
+  const toTables = () => { setPaying(undefined); setTarget(undefined); setSeat(undefined); setSent(undefined); setSplit(null); setBillId(undefined); setView("tables"); };
+  const phone = deviceKind() === "phone"; // κινητό (από τη συσκευή, όχι το πλάτος): στήλη με κάτω μπάρα, οθόνες σερβιτόρου (WaiterScreens.tsx)
+  const tablesOn = catalog?.hasTables !== false; // παλιός server χωρίς το πεδίο: τα δείχνουμε όπως πριν
   const backToSale = () => setStatus(undefined);
 
   if (status) {
@@ -1172,24 +1212,30 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
     : (catalog.categories[tab]?.products ?? []).map((p) => ({ p, color: colorOf(tab) }));
   const heading = q ? `Αναζήτηση «${query.trim()}»` : tab === -1 ? "Συχνά" : catalog.categories[tab]?.name ?? "";
   const tiles = [...(frequent.length ? [{ i: -1, name: "Συχνά", count: frequent.length, color: t.categories[0], Icon: Star }] : []), ...catalog.categories.map((c, i) => ({ i, name: c.name, count: c.products.length, color: colorOf(i), Icon: catIcon(c.name) }))];
-  const tablesOn = catalog.hasTables !== false; // παλιός server χωρίς το πεδίο: τα δείχνουμε όπως πριν
   const items = lines.reduce((n, l) => n + l.quantity, 0);
 
-  const navItem = (label: string, Icon: LucideIcon, on: boolean, onPress: () => void) => (
-    <Pressable key={label} onPress={onPress} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: on }} style={({ pressed }) => ({ height: 44, minWidth: 44, flexDirection: "row", alignItems: "center", justifyContent: wide ? "flex-start" : "center", gap: 10, paddingHorizontal: wide ? 12 : 0, borderRadius: 12, backgroundColor: on ? t.raised : pressed ? t.panel : "transparent" })}>
+  // Τα μενού του ρόλου ως λίστα: πλάγια μπάρα στο tablet, κάτω μπάρα στο κινητό (το πολύ 4 θέσεις, τα άλλα στο «Περισσότερα»).
+  const navList: { label: string; Icon: LucideIcon; on: boolean; go: () => void }[] = [
+    ...(views.includes("sale") ? [{ label: "Πώληση", Icon: IceCreamCone, on: view === "sale", go: () => setView("sale") }] : []),
+    ...(tablesOn && views.includes("tables") ? [{ label: "Τραπέζια", Icon: LayoutGrid, on: view === "tables" || view === "bill", go: toTables }] : []),
+    ...(tablesOn && views.includes("reservations") ? [{ label: "Κρατήσεις", Icon: CalendarClock, on: view === "reservations", go: () => setView("reservations") }] : []),
+    ...(views.includes("orders") ? [{ label: "Παραγγελίες", Icon: Bike, on: view === "orders", go: () => setView("orders") }] : []),
+    ...(views.includes("transactions") ? [{ label: "Συναλλαγές", Icon: ReceiptText, on: view === "transactions", go: () => setView("transactions") }] : []),
+    ...(views.includes("receiving") ? [{ label: "Παραλαβή", Icon: PackageOpen, on: view === "receiving", go: () => setView("receiving") }] : []),
+    ...(views.includes("stock") ? [{ label: "Απόθεμα", Icon: Boxes, on: view === "stock", go: () => setView("stock") }] : []),
+    ...(shift?.on ? [{ label: shift.shift?.cash === false ? "Βάρδια" : "Ταμείο", Icon: shift.shift?.cash === false ? UserRound : Wallet, on: view === "drawer" || view === "day", go: () => setView("drawer") }] : []),
+  ];
+  const navItem = ({ label, Icon, on, go }: (typeof navList)[number]) => (
+    <Pressable key={label} onPress={go} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: on }} style={({ pressed }) => ({ height: 44, minWidth: 44, flexDirection: "row", alignItems: "center", justifyContent: wide ? "flex-start" : "center", gap: 10, paddingHorizontal: wide ? 12 : 0, borderRadius: 12, backgroundColor: on ? t.raised : pressed ? t.panel : "transparent" })}>
       <Icon {...ICON} color={on ? t.text : t.muted} />{wide ? <Text style={ty(14, "s", on ? t.text : t.muted)}>{label}</Text> : null}
     </Pressable>
   );
+  const navItems = <>{navList.map(navItem)}</>;
   const navBar = !wide ? (
     <View style={{ width: 60, paddingVertical: 20, paddingHorizontal: 8, gap: 4, borderRightWidth: 1, borderRightColor: t.divider }}>
-      {navItem("Πώληση", IceCreamCone, view === "sale", () => setView("sale"))}
-      {tablesOn ? navItem("Τραπέζια", LayoutGrid, view === "tables" || view === "bill", toTables) : null}
-      {tablesOn ? navItem("Κρατήσεις", CalendarClock, view === "reservations", () => setView("reservations")) : null}
-      {navItem("Παραγγελίες", Bike, view === "orders", () => setView("orders"))}
-      {navItem("Συναλλαγές", ReceiptText, view === "transactions", () => setView("transactions"))}
-      {shift?.on ? navItem("Ταμείο", Wallet, view === "drawer" || view === "day", () => setView("drawer")) : null}
+      {navItems}
       <View style={{ flex: 1 }} />
-      {shift?.on && shift.shift ? <WhoIsOn t={t} compact name={shift.shift.employee.name} since={shift.shift.startedAt} onSwitch={() => setView("drawer")} /> : null}
+      {shift?.on && shift.shift ? <WhoIsOn t={t} compact name={shift.shift.employee.name} role={shift.shift.roleName} group={shift.shift.roleGroup} cash={shift.shift.cash !== false} since={shift.shift.startedAt} onSwitch={() => setView("drawer")} /> : null}
     </View>
   ) : (
     <View style={{ width: 200, paddingVertical: 20, paddingHorizontal: 12, gap: 2, borderRightWidth: 1, borderRightColor: t.divider }}>
@@ -1197,14 +1243,9 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
         <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: t.categories[7] }} />
         <Text style={ty(15.5, "b", t.text)}>Gelato System</Text>
       </View>
-      {navItem("Πώληση", IceCreamCone, view === "sale", () => setView("sale"))}
-      {tablesOn ? navItem("Τραπέζια", LayoutGrid, view === "tables" || view === "bill", toTables) : null}
-      {tablesOn ? navItem("Κρατήσεις", CalendarClock, view === "reservations", () => setView("reservations")) : null}
-      {navItem("Παραγγελίες", Bike, view === "orders", () => setView("orders"))}
-      {navItem("Συναλλαγές", ReceiptText, view === "transactions", () => setView("transactions"))}
-      {shift?.on ? navItem("Ταμείο", Wallet, view === "drawer" || view === "day", () => setView("drawer")) : null}
+      {navItems}
       <View style={{ flex: 1 }} />
-      {shift?.on && shift.shift ? <View style={{ borderTopWidth: 1, borderTopColor: t.divider, paddingTop: 14, paddingHorizontal: 4, paddingBottom: 14 }}><WhoIsOn t={t} name={shift.shift.employee.name} since={shift.shift.startedAt} onSwitch={() => setView("drawer")} /></View> : null}
+      {shift?.on && shift.shift ? <View style={{ borderTopWidth: 1, borderTopColor: t.divider, paddingTop: 14, paddingHorizontal: 4, paddingBottom: 14 }}><WhoIsOn t={t} name={shift.shift.employee.name} role={shift.shift.roleName} group={shift.shift.roleGroup} cash={shift.shift.cash !== false} since={shift.shift.startedAt} onSwitch={() => setView("drawer")} /></View> : null}
       <View style={{ borderTopWidth: 1, borderTopColor: t.divider, paddingTop: 16, paddingHorizontal: 8, gap: 4 }}>
         <Text numberOfLines={2} style={ty(13, "s", t.text)}>{catalog.store}</Text>
         <Text numberOfLines={1} style={[ty(12, "m", t.muted), num]}>{catalog.device.name} · σειρά {catalog.device.series}</Text>
@@ -1216,18 +1257,97 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
   if (shift?.on && !shift.shift) return view === "day"
     ? <DayCloseView t={t} session={session} width={width} onBack={() => setView("sale")} onClosed={loadShift} onUnpaired={unpaired} />
     : <SignInView t={t} session={session} state={shift} width={width} place={`${catalog.store} · ${catalog.device.name}`} onStarted={loadShift} onDay={() => setView("day")} onUnpaired={unpaired} />;
-  if (view === "drawer") return <View style={{ flex: 1, flexDirection: "row" }}>{nav}<CloseShiftView t={t} session={session} width={mainW} now={now} onClosed={() => { setView("sale"); loadShift(); }} onDay={() => setView("day")} onUnpaired={unpaired} /></View>;
+  if (phone) {
+    // κάτω μπάρα: τραπέζια πρώτα· ως 4 θέσεις, αλλιώς 3 + «Περισσότερα»
+    const ordered = [...navList.filter((x) => x.label === "Τραπέζια"), ...navList.filter((x) => x.label !== "Τραπέζια")];
+    const bar = ordered.length > 4 ? ordered.slice(0, 3) : ordered;
+    const rest = ordered.length > 4 ? ordered.slice(3) : [];
+    const me = shift?.on ? shift.shift : undefined;
+    // μέσα σε τραπέζι (λογαριασμός, παραγγελία γύρου, «στάλθηκε») χωρίς κάτω μπάρα: το βέλος γυρίζει πίσω
+    const inTable = (view === "bill" && !!billId) || (view === "sale" && (!!target || !!sent));
+    const tab = (x: { label: string; Icon: LucideIcon; on: boolean; go: () => void }) => (
+      <Pressable key={x.label} onPress={() => { setMore(false); x.go(); }} accessibilityRole="tab" accessibilityLabel={x.label} accessibilityState={{ selected: x.on }} style={{ flex: 1, minHeight: 56, alignItems: "center", justifyContent: "center", gap: 3 }}>
+        <View style={{ height: 28, paddingHorizontal: 14, borderRadius: 14, justifyContent: "center", backgroundColor: x.on ? t.raised : "transparent" }}><x.Icon {...ICON} color={x.on ? t.text : t.muted} /></View>
+        <Text numberOfLines={1} style={ty(11.5, x.on ? "s" : "m", x.on ? t.text : t.muted)}>{x.label}</Text>
+      </Pressable>
+    );
+    const body = view === "drawer" ? <CloseShiftView t={t} session={session} width={width} now={now} onClosed={() => { setView("sale"); loadShift(); }} onDay={() => setView("day")} onUnpaired={unpaired} onOpenBill={(id) => { setBillId(id); setBillMode("pay"); setView("bill"); }} />
+      : view === "day" ? <DayCloseView t={t} session={session} width={width} onBack={() => setView("drawer")} onClosed={loadShift} onUnpaired={unpaired} />
+      : view === "tables" ? <WaiterTables t={t} session={session} now={now} me={me?.employee.id} onOpen={(id, m) => { setBillId(id); setBillMode(m ?? "bill"); setView("bill"); }} onReservations={() => setView("reservations")} onSoldOut={onSoldOut} onUnpaired={unpaired} />
+      : view === "bill" && billId ? <TableBill key={`${billId}-${billMode}`} startMode={billMode} t={t} session={session} id={billId} now={now} cash={me?.cash !== false} methods={methods} method={method} setMethodId={setMethodId} busy={busy} onBack={toTables} onUnpaired={unpaired}
+          onAdd={(title, seats) => { setTarget({ id: billId, title, seats }); setSeat(undefined); setOrder(undefined); setView("sale"); }} onAgain={(ls, title, seats) => again(billId, ls, title, seats)} onPay={payBill} onShare={payShare} />
+      : view === "orders" ? <OrdersView t={t} session={session} now={now} width={width} onOpenBill={(id) => { setBillId(id); setBillMode("bill"); setView("bill"); }} onNewOrder={(customer, phoneNo) => setLookedUp({ customer, phone: phoneNo })} onUnpaired={unpaired} />
+      : view === "receiving" ? <ReceivingView t={t} session={session} onUnpaired={unpaired} />
+      : view === "stock" ? <StockView t={t} session={session} width={width} onUnpaired={unpaired} />
+      : view === "transactions" ? <TransactionsView t={t} session={session} now={now} width={width} onUnpaired={unpaired} />
+      : view === "reservations" ? <ReservationsView t={t} session={session} now={now} width={width - 32} onOpenBill={(id) => { setBillId(id); setBillMode("bill"); setView("bill"); }} onUnpaired={unpaired} />
+      : sent ? <SentView t={t} title={sent.title} number={sent.number} held={sent.held} lines={sent.lines} onTables={toTables} onBill={() => { const id = sent.billId; setSent(undefined); setBillId(id); setBillMode("bill"); setView("bill"); }} />
+      : <PhoneOrder t={t} title={target ? target.title : order ? `${order.delivery ? "Διανομή" : "Παραλαβή"} · ${order.name}` : "Πώληση"} seats={target?.seats ?? 0} seat={seat} setSeat={setSeat}
+          tiles={tiles} tab={catTab} setTab={setCat} query={query} setQuery={setQuery} products={shown.map((x) => x.p)} colorOf={(p) => byId.get(p.id)?.color ?? t.card} inCart={inCart} soldOut={soldOut}
+          lines={cartView()} totalCents={sums.totalCents} busy={busy} mode={target ? "table" : "sale"} methods={methods} method={method} setMethodId={setMethodId}
+          onTap={(p) => tapProduct(p, byId.get(p.id)?.color ?? t.card)} onToggleSoldOut={toggleSoldOut} onQty={setQty} onEdit={(key) => { const l = lines.find((x) => x.key === key); if (l) editLine(l); }} onClear={() => { setCart([]); setSelected(undefined); }}
+          onSend={(held) => void sendToBill(held)} onCharge={order ? () => setSendingOrder(true) : charge}
+          onBack={target ? () => { const id = target.id; setTarget(undefined); setSeat(undefined); setBillId(id); setBillMode("bill"); setView("bill"); } : undefined} />;
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>{body}</View>
+        {view === "sale" && !sent && order ? <Pressable onPress={() => { setOrder(undefined); setOrderNote(undefined); setCart([]); }} style={{ paddingVertical: 8, alignItems: "center" }} accessibilityRole="button"><Text style={ty(13, "s", t.bad)}>Ακύρωση τηλεφωνικής παραγγελίας</Text></Pressable> : null}
+        {inTable ? null : (
+          <View accessibilityRole="tablist" style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: t.divider, backgroundColor: t.panel, paddingHorizontal: 4 }}>
+            {bar.map(tab)}
+            {rest.length || me ? tab({ label: "Περισσότερα", Icon: Ellipsis, on: more || rest.some((x) => x.on), go: () => setMore((m) => !m) }) : null}
+          </View>
+        )}
+        {more ? (
+          <Pressable onPress={() => setMore(false)} accessibilityLabel="Κλείσιμο" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+            <Pressable onPress={() => undefined} style={{ backgroundColor: t.panel, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 24, gap: 6 }}>
+              <View style={{ alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: t.raised, marginBottom: 8 }} />
+              {me ? <View style={{ paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: t.divider, marginBottom: 4 }}><WhoIsOn t={t} name={me.employee.name} role={me.roleName} group={me.roleGroup} cash={me.cash !== false} since={me.startedAt} onSwitch={() => { setMore(false); setView("drawer"); }} /></View> : null}
+              {rest.map((x) => (
+                <Pressable key={x.label} onPress={() => { setMore(false); x.go(); }} accessibilityRole="button" style={({ pressed }) => ({ minHeight: 52, borderRadius: 12, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: x.on ? t.raised : pressed ? t.card : "transparent" })}>
+                  <x.Icon {...ICON} color={t.text} /><Text style={ty(15, "s", t.text)}>{x.label}</Text>
+                </Pressable>
+              ))}
+              {me ? <Pressable onPress={() => { setMore(false); setView("drawer"); }} accessibilityRole="button" style={({ pressed }) => ({ minHeight: 52, borderRadius: 12, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: pressed ? t.card : "transparent" })}>
+                <LogOut {...ICON} color={t.bad} /><Text style={ty(15, "s", t.bad)}>Λήξη βάρδιας</Text>
+              </Pressable> : null}
+              <Text numberOfLines={1} style={[ty(12, "m", t.faint), { paddingHorizontal: 12, paddingTop: 6 }]}>{catalog.store} · {catalog.device.name}{online ? "" : " · χωρίς σύνδεση"}</Text>
+            </Pressable>
+          </Pressable>
+        ) : null}
+        <CallWatcher t={t} session={session} onOrder={startOrder} onReservation={() => setView("reservations")} />
+        {lookedUp ? <CustomerSheet t={t} session={session} phone={lookedUp.phone} customer={lookedUp.customer} onClose={() => setLookedUp(undefined)} onCreated={(customer) => setLookedUp({ ...lookedUp, customer })}
+          onOrder={(d, past) => { setLookedUp(undefined); startOrder(d, past); }} /> : null}
+        {draft ? <OptionsSheet t={t} draft={draft} setDraft={setDraft} onDone={finishDraft} onClose={() => setDraft(undefined)} /> : null}
+        {sendingOrder && order ? <OrderSendSheet t={t} session={session} draft={order} lines={cartOut()} totalCents={sums.totalCents} onClose={() => setSendingOrder(false)} onUnpaired={unpaired}
+          onSent={() => { setSendingOrder(false); setOrder(undefined); setOrderNote(undefined); setCart([]); setSelected(undefined); setView("orders"); }} /> : null}
+      </View>
+    );
+  }
+  if (view === "drawer") return <View style={{ flex: 1, flexDirection: "row" }}>{nav}<CloseShiftView t={t} session={session} width={mainW} now={now} onClosed={() => { setView("sale"); loadShift(); }} onDay={() => setView("day")} onUnpaired={unpaired} onOpenBill={(id) => { setBillId(id); setView(tablesOn && views.includes("tables") ? "tables" : "bill"); }} /></View>;
   if (view === "day") return <View style={{ flex: 1, flexDirection: "row" }}>{nav}<DayCloseView t={t} session={session} width={mainW} onBack={() => setView("drawer")} onClosed={loadShift} onUnpaired={unpaired} /></View>;
-  if (view === "tables") return <View style={{ flex: 1, flexDirection: "row" }}>{nav}<Tables t={t} session={session} now={now} width={mainW - 32} onOpen={(id) => { setBillId(id); setView("bill"); }} onReservations={() => setView("reservations")} onUnpaired={unpaired} /></View>;
+  // tablet: κάτοψη αριστερά, το τραπέζι που πάτησες σε στήλη δεξιά (mockup 2α, στ)
+  const sideW = 360;
+  if (view === "tables") return (
+    <View style={{ flex: 1, flexDirection: "row" }}>{nav}
+      <Tables t={t} session={session} now={now} width={mainW - (billId ? sideW : 0) - 32} selected={billId} onOpen={setBillId} onReservations={() => setView("reservations")} onSoldOut={onSoldOut} onUnpaired={unpaired} />
+      {billId ? <View style={{ width: sideW, backgroundColor: t.panel, borderLeftWidth: 1, borderLeftColor: t.divider }}>
+        <TableBill key={billId} t={t} session={session} id={billId} now={now} compact cash={!shift?.on || shift.shift?.cash !== false} methods={methods} method={method} setMethodId={setMethodId} busy={busy} onBack={() => setBillId(undefined)} onUnpaired={unpaired}
+          onAdd={(title, seats) => { setTarget({ id: billId, title, seats }); setSeat(undefined); setView("sale"); }} onAgain={(ls, title, seats) => again(billId, ls, title, seats)} onPay={payBill} onShare={payShare} />
+      </View> : null}
+    </View>
+  );
   if (view === "orders") return (
     <View style={{ flex: 1, flexDirection: "row" }}>{nav}
-      <OrdersView t={t} session={session} now={now} width={mainW} onOpenBill={(id) => { setBillId(id); setView("bill"); }} onNewOrder={(customer, phone) => setLookedUp({ customer, phone })} onUnpaired={unpaired} />
+      <OrdersView t={t} session={session} now={now} width={mainW} onOpenBill={(id) => { setBillId(id); setBillMode("bill"); setView("bill"); }} onNewOrder={(customer, phone) => setLookedUp({ customer, phone })} onUnpaired={unpaired} />
       {lookedUp ? <CustomerSheet t={t} session={session} phone={lookedUp.phone} customer={lookedUp.customer} onClose={() => setLookedUp(undefined)} onCreated={(customer) => setLookedUp({ ...lookedUp, customer })}
         onOrder={(d, past) => { setLookedUp(undefined); startOrder(d, past); }} /> : null}
     </View>
   );
+  if (view === "receiving") return <View style={{ flex: 1, flexDirection: "row" }}>{nav}<ReceivingView t={t} session={session} onUnpaired={unpaired} /></View>;
+  if (view === "stock") return <View style={{ flex: 1, flexDirection: "row" }}>{nav}<StockView t={t} session={session} width={mainW} onUnpaired={unpaired} /></View>;
   if (view === "transactions") return <View style={{ flex: 1, flexDirection: "row" }}>{nav}<TransactionsView t={t} session={session} now={now} width={mainW} onUnpaired={unpaired} /></View>;
-  if (view === "reservations") return <View style={{ flex: 1, flexDirection: "row" }}>{nav}<ReservationsView t={t} session={session} now={now} width={mainW - 32} onOpenBill={(id) => { setBillId(id); setView("bill"); }} onUnpaired={unpaired} /></View>;
+  if (view === "reservations") return <View style={{ flex: 1, flexDirection: "row" }}>{nav}<ReservationsView t={t} session={session} now={now} width={mainW - 32} onOpenBill={(id) => { setBillId(id); setBillMode("bill"); setView("bill"); }} onUnpaired={unpaired} /></View>;
   if (view === "bill" && billId) return (
     <View style={{ flex: 1, flexDirection: "row" }}>
       {nav}
@@ -1288,14 +1408,14 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
             const plain = !p.groups.some((g) => g.kind === "REQUIRED");
             const fg = n ? t.ink : t.text;
             return (
-              <Pressable onPress={() => tapProduct(p, color)} accessibilityRole="button" accessibilityLabel={`${p.name}, ${euro(p.priceCents)}${n ? `, ${n} στο καλάθι` : ""}${plain ? "" : ", με επιλογές"}`} style={({ pressed }) => ({ width: keyW, height: 116, borderRadius: 14, padding: 12, backgroundColor: n ? color : pressed ? t.raised : t.card, borderLeftWidth: 4, borderLeftColor: color })}>
+              <Pressable onPress={() => tapProduct(p, color)} onLongPress={() => toggleSoldOut(p)} delayLongPress={600} accessibilityRole="button" accessibilityHint="Παρατεταμένο πάτημα: τελείωσε ή υπάρχει ξανά" accessibilityLabel={`${p.name}, ${euro(p.priceCents)}${soldOut.has(p.id) ? ", τελείωσε" : ""}${n ? `, ${n} στο καλάθι` : ""}${plain ? "" : ", με επιλογές"}`} style={({ pressed }) => ({ width: keyW, height: 116, borderRadius: 14, padding: 12, opacity: soldOut.has(p.id) ? 0.4 : 1, backgroundColor: n ? color : pressed ? t.raised : t.card, borderLeftWidth: 4, borderLeftColor: soldOut.has(p.id) ? t.faint : color })}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6, minHeight: 14 }}>
                   {p.code ? <Text style={[ty(11.5, "s", fg), { opacity: 0.6, letterSpacing: 0.5 }]}>{p.code}</Text> : null}
                   {!plain ? <SlidersHorizontal size={13} strokeWidth={2} color={fg} style={{ opacity: 0.55 }} /> : null}
                 </View>
                 <Text numberOfLines={2} style={[ty(15, "s", fg), { marginTop: 4, lineHeight: 19 }]}>{p.name}</Text>
                 <View style={{ marginTop: "auto", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <Text style={[ty(14, "s", fg), { opacity: n ? 0.75 : 0.8 }, num]}>{euro(p.priceCents)}</Text>
+                  <Text style={[ty(14, "s", fg), { opacity: n ? 0.75 : 0.8 }, num]}>{soldOut.has(p.id) ? "Τελείωσε" : euro(p.priceCents)}</Text>
                   {n && plain ? (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
                       <Pressable onPress={() => setQty(plainKey(p.id), (cart.find((l) => l.key === plainKey(p.id))?.quantity ?? 0) - 1)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Ένα λιγότερο ${p.name}`} style={{ width: 30, height: 30, borderRadius: 9, borderWidth: 1, borderColor: "rgba(18,20,23,0.3)", alignItems: "center", justifyContent: "center" }}><Text style={ty(16, "s", t.ink)}>−</Text></Pressable>
@@ -1326,7 +1446,7 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
               <Pressable key={l.key} onPress={() => setSelected(on ? undefined : l.key)} accessibilityRole="button" accessibilityState={{ selected: on }} style={{ borderRadius: on ? 12 : 0, borderBottomWidth: on || i === lines.length - 1 ? 0 : 1, borderBottomColor: t.divider, paddingVertical: 10, paddingHorizontal: 12, gap: 4, backgroundColor: on ? t.raised : t.card, borderLeftWidth: 4, borderLeftColor: l.color }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <View style={{ minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 6, backgroundColor: on ? t.card : t.raised, alignItems: "center", justifyContent: "center" }}><Text style={[ty(12, "b", t.text), num]}>{l.quantity}</Text></View>
-                  <Text numberOfLines={2} style={[ty(14, "s", t.text), { flex: 1 }]}>{l.product.name}</Text>
+                  <Text numberOfLines={2} style={[ty(14, "s", t.text), { flex: 1 }]}>{l.product.name}{l.seat ? <Text style={ty(12.5, "s", t.muted)}>{`  · θέση ${l.seat}`}</Text> : null}</Text>
                   <Text style={[ty(14, "s", t.text), num]}>{euro(l.unitCents * l.quantity)}</Text>
                 </View>
                 {opts ? <Text style={[ty(12.5, "m", t.muted), { marginLeft: 32, lineHeight: 17 }]}>{opts}</Text> : null}
@@ -1360,11 +1480,25 @@ function Till({ t, session, onUnpair }: { t: Theme; session: Session; onUnpair: 
           </>
         ) : target ? (
           <>
-            <Pressable onPress={() => void sendToBill()} disabled={busy || !lines.length} accessibilityRole="button" accessibilityState={{ disabled: busy || !lines.length }} style={({ pressed }) => ({ height: 56, borderRadius: 28, paddingHorizontal: 22, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: t.action, opacity: busy || !lines.length ? 0.35 : pressed ? 0.85 : 1 })}>
-              <Text style={ty(16, "s", t.onAction)}>{busy ? "Περίμενε…" : "Αποστολή στο τραπέζι"}</Text>
-              <Text style={[ty(16, "b", t.onAction), num]}>{euro(sums.totalCents)}</Text>
-            </Pressable>
-            <Button t={t} label="Πίσω στον λογαριασμό" onPress={() => { const id = target.id; setTarget(undefined); setBillId(id); setView("bill"); }} />
+            {(target.seats ?? 0) > 1 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6, alignItems: "center" }}>
+                <Text style={[ty(13, "m", t.muted), { marginRight: 2 }]}>Θέση</Text>
+                {[0, ...Array.from({ length: target.seats! }, (_, i) => i + 1)].map((n) => { const on = (seat ?? 0) === n; return (
+                  <Pressable key={n} onPress={() => setSeat(n || undefined)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={{ height: 40, minWidth: 44, paddingHorizontal: 12, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: on ? t.text : t.raised }}>
+                    <Text style={[ty(13.5, "s", on ? t.ink : t.text), num]}>{n ? String(n) : "Όλοι"}</Text>
+                  </Pressable>); })}
+              </ScrollView>
+            ) : null}
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Pressable onPress={() => void sendToBill(true)} disabled={busy || !lines.length} accessibilityRole="button" accessibilityHint="Γράφεται στον λογαριασμό, πάει στην κουζίνα όταν πατήσεις «Βγάλ' το»" style={({ pressed }) => ({ height: 56, borderRadius: 28, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderColor: t.line, opacity: busy || !lines.length ? 0.35 : pressed ? 0.85 : 1 })}>
+                <Pause {...ICON} color={t.text} /><Text style={ty(15, "s", t.text)}>Μετά</Text>
+              </Pressable>
+              <Pressable onPress={() => void sendToBill()} disabled={busy || !lines.length} accessibilityRole="button" accessibilityState={{ disabled: busy || !lines.length }} style={({ pressed }) => ({ flex: 1, height: 56, borderRadius: 28, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: t.action, opacity: busy || !lines.length ? 0.35 : pressed ? 0.85 : 1 })}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><Send size={16} strokeWidth={2} color={t.onAction} /><Text style={ty(16, "s", t.onAction)}>{busy ? "Περίμενε…" : "Στείλε τώρα"}</Text></View>
+                <Text style={[ty(16, "b", t.onAction), num]}>{euro(sums.totalCents)}</Text>
+              </Pressable>
+            </View>
+            <Button t={t} label="Πίσω στον λογαριασμό" onPress={() => { const id = target.id; setTarget(undefined); setBillId(id); setBillMode("bill"); setView("bill"); }} />
           </>
         ) : (
           <>

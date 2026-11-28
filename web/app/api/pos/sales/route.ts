@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       return tx.sale.create({
         data: {
           orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id,
-          lines: { create: priced },
+          lines: { create: priced.map(({ seat: _seat, ...l }) => l) }, // η θέση αφορά μόνο λογαριασμούς τραπεζιού
         },
       });
     });

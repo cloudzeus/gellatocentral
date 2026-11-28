@@ -55,15 +55,16 @@ export async function fiscalOverview(orgId: string, now = new Date()) {
   ]);
   const counts = await db.fiscalAttempt.groupBy({ by: ["fiscalDocumentId"], where: { fiscalDocumentId: { in: failed.map((d) => d.id) }, toStatus: "FAILED" }, _count: true });
   const failures = new Map(counts.map((c) => [c.fiscalDocumentId, c._count]));
-  const [names, sales] = await Promise.all([
+  const [names, sales, returns] = await Promise.all([
     labels(failed.map((d) => d.id)),
     db.salesDocument.findMany({ where: { orgId, fiscalDocumentId: { in: failed.map((d) => d.id) } }, select: { id: true, fiscalDocumentId: true } }),
+    db.purchaseDoc.findMany({ where: { orgId, fiscalDocumentId: { in: failed.map((d) => d.id) } }, select: { id: true, fiscalDocumentId: true } }),
   ]);
-  const salesOf = new Map(sales.map((s) => [s.fiscalDocumentId, s.id]));
+  const salesOf = new Map([...sales.map((s) => [s.fiscalDocumentId, `/invoices/${s.id}`] as const), ...returns.map((r) => [r.fiscalDocumentId, `/purchases/${r.id}`] as const)]);
   const attention = failed.map((d) => {
     const n = failures.get(d.id) ?? 1;
     const manual = needsCorrection(d.error) || n >= MAX_ATTEMPTS;
-    return { ...d, message: readableError(d.error), label: names.get(d.id) ?? "—", attempts: n, manual, nextAt: manual ? null : new Date(d.updatedAt.getTime() + backoffMs(n)), href: salesOf.has(d.id) ? `/invoices/${salesOf.get(d.id)}` : null };
+    return { ...d, message: readableError(d.error), label: names.get(d.id) ?? "—", attempts: n, manual, nextAt: manual ? null : new Date(d.updatedAt.getTime() + backoffMs(n)), href: salesOf.get(d.id) ?? null };
   });
   return { signed, waiting: pending + awaitingMark, retrying: attention.filter((a) => !a.manual).length, manual: attention.filter((a) => a.manual).length, attention };
 }

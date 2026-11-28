@@ -38,7 +38,7 @@ export async function writeAudit(tx: AuditDb, input: AuditInput) {
   return tx.auditEvent.create({
     data: {
       orgId: text(input.orgId, "tenant", 80),
-      actorId: input.actor.id === null ? null : text(input.actor.id, "actor", 80),
+      actorId: input.actor.id ? text(input.actor.id, "actor", 80) : null, // κενό = συσκευή ή αυτόματη εργασία
       actorName: text(input.actor.name, "όνομα actor", 120),
       action: actionKey(input.action),
       entityType: entityKey(input.entityType),

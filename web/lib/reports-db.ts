@@ -219,7 +219,7 @@ export async function businessReport(ctx: StockContext, input: ReportInput) {
   const paidByPurchase = new Map(supplierAllocations.map((row) => [row.purchaseDocId, row._sum.amountCents ?? 0]));
   const supplierById = new Map<string, { id: string; name: string; outstandingCents: number; aging: ReturnType<typeof emptyAging> }>();
   for (const purchase of supplierDocuments) {
-    const outstanding = Math.max(0, purchaseTotals(purchase, purchase.lines).totalCents - (paidByPurchase.get(purchase.id) ?? 0));
+    const outstanding = Math.max(0, purchaseTotals(purchase, purchase.lines).totalCents - purchase.creditCents - (paidByPurchase.get(purchase.id) ?? 0));
     if (!outstanding) continue;
     const row = supplierById.get(purchase.supplierId) ?? { id: purchase.supplierId, name: purchase.supplier.name, outstandingCents: 0, aging: emptyAging() };
     row.outstandingCents += outstanding; addAging(row.aging, outstanding, purchase.issuedAt, at); supplierById.set(purchase.supplierId, row);

@@ -89,3 +89,14 @@ test("παραστατικό χωρίς ΜΑΡΚ ή χωρίς γραμμές α
 test("κενή απάντηση: κανένα παραστατικό", () => {
   assert.equal(parseMyIncomeXml("<RequestedDoc/>").length, 0);
 });
+
+test("5.1 του προμηθευτή: διαβάζεται ο τύπος και το MARK που πιστώνει", () => {
+  const xml = `<RequestedDoc><invoicesDoc><invoiceDoc><invoiceHeader><aa>ΠΙΣ-118</aa><issueDate>2026-11-28</issueDate><invoiceType>5.1</invoiceType><correlatedInvoices>400001977212000</correlatedInvoices></invoiceHeader>
+    <counterpart><vatNumber>801218180</vatNumber><name>OVEROLL</name></counterpart>
+    <invoiceDetails><itemDescr>Γάλα</itemDescr><quantity>6</quantity><netValue>7.20</netValue><vatCategory>2</vatCategory></invoiceDetails>
+    <invoiceMark>400001977213004</invoiceMark></invoiceDoc></invoicesDoc></RequestedDoc>`;
+  const [doc] = parseMyIncomeXml(xml);
+  assert.equal(doc.type, "5.1");
+  assert.equal(doc.relatedMark, "400001977212000");
+  assert.equal(doc.lines[0].unitPriceCents, 120); // θετικά ποσά· το πρόσημο το δίνει το είδος CREDIT
+});

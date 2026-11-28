@@ -80,3 +80,25 @@ export async function moveDevice(deviceId: string, form: FormData) {
   revalidatePath("/devices");
   await flashOk(`Το «${device.name}» είναι τώρα στο ${store.name}`);
 }
+
+const stationField = z.enum(["", "KITCHEN", "BAR"]).transform((v) => (v === "" ? null : v));
+const minutes = z.coerce.number().int().min(1).max(120);
+
+/** Οθόνη κουζίνας: τι δείχνει, όρια χρόνου, και σε ποιον σταθμό πάει κάθε κατηγορία (κοινό για όλη την επιχείρηση). */
+export async function saveKitchen(deviceId: string, form: FormData) {
+  const { org } = await currentOrg("devices.edit");
+  const parsed = z.object({ station: stationField, kdsWarnMin: minutes, kdsLateMin: minutes }).refine((v) => v.kdsWarnMin < v.kdsLateMin).safeParse(Object.fromEntries(form));
+  if (!parsed.success) { await flashFail("Δεν αποθηκεύτηκε: το κίτρινο πρέπει να έρχεται πριν από το κόκκινο", "Τα λεπτά είναι από 1 ως 120."); return; }
+  const device = await db.device.findFirst({ where: { id: deviceId, orgId: org.id, kind: "KITCHEN_DISPLAY" }, select: { id: true, name: true } });
+  if (!device) { await flashFail("Δεν αποθηκεύτηκε: η οθόνη δεν βρέθηκε", "Ανανέωσε τη σελίδα και δοκίμασε ξανά."); return; }
+  const cats = await db.category.findMany({ where: { orgId: org.id }, select: { id: true } });
+  await db.$transaction([
+    db.device.update({ where: { id: device.id }, data: parsed.data }),
+    ...cats.flatMap((c) => {
+      const v = stationField.safeParse(form.get(`cat-${c.id}`) ?? "");
+      return v.success ? [db.category.update({ where: { id: c.id }, data: { station: v.data } })] : [];
+    }),
+  ]);
+  revalidatePath(`/devices/kitchen/${device.id}`);
+  await flashOk(`Η οθόνη «${device.name}» αποθηκεύτηκε`);
+}

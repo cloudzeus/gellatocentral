@@ -11,6 +11,9 @@
     "orders.test.ts",
     "pair-qr.test.ts",
     "transactions.test.ts",
-    "offline.test.ts"
+    "offline.test.ts",
+    "receiving.test.ts",
+    "waiter.test.ts",
+    "kitchen.test.ts"
   ]
 }

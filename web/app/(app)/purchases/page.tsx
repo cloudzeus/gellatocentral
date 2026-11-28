@@ -15,6 +15,8 @@ import { createDoc, importDocs, scanDoc } from "./actions";
 import { StatusBadge } from "@/components/status-badge";
 import { statusOptions } from "@/lib/status";
 
+// Επιστροφές και πιστωτικά προμηθευτή μένουν στην ίδια λίστα: μειώνουν ό,τι χρωστάμε (lib/purchase-returns.ts)
+const KIND_LABEL: Record<string, string> = { INVOICE: "Τιμολόγιο", RETURN: "Επιστροφή", CREDIT: "Πιστωτικό" };
 const day = (d: Date | null) => (d ? new Intl.DateTimeFormat("el-GR", { timeZone: "UTC" }).format(d) : "—");
 
 // Τιμολόγια αγοράς: server φίλτρα/ταξινόμηση· η ανάπτυξη δείχνει το ίδιο πλήρες έγγραφο με την καρτέλα.
@@ -30,9 +32,10 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
   const supplier = filterParam(q, "supplier", suppliers.map((s) => s.id));
   const warehouse = filterParam(q, "warehouse", warehouses.map((w) => w.id));
   const status = filterParam(q, "status", ["DRAFT", "POSTED", "CANCELLED"]);
+  const kind = filterParam(q, "kind", Object.keys(KIND_LABEL));
   const where = {
     orgId: org.id,
-    kind: "INVOICE",
+    kind: kind ?? { in: Object.keys(KIND_LABEL) },
     ...(supplier ? { supplierId: supplier } : {}),
     ...(warehouse ? { warehouseId: warehouse } : {}),
     ...(status ? { status } : {}),
@@ -110,6 +113,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
             listing={{ ...list, total, placeholder: "Προμηθευτής ή αριθμός τιμολογίου…", filters: [
               { key: "supplier", label: "Προμηθευτής", value: supplier, options: suppliers.map((s): [string, string] => [s.id, s.name]) },
               { key: "warehouse", label: "Αποθήκη", value: warehouse, options: warehouses.map((w): [string, string] => [w.id, w.name]) },
+              { key: "kind", label: "Είδος", value: kind, options: Object.entries(KIND_LABEL) },
               { key: "status", label: "Κατάσταση", value: status, options: statusOptions("purchase") },
             ] }}
             empty="Κανένα τιμολόγιο αγοράς ακόμα"
@@ -136,8 +140,8 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
                 id: d.id,
                 cells: {
                   supplier: <Link href={`/purchases/${d.id}`} title={d.supplier.name} className="block min-w-0 break-words font-semibold leading-snug underline-offset-2 hover:underline md:line-clamp-2">{d.supplier.name}</Link>,
-                  number: d.number ?? "—", issuedAt: day(d.issuedAt), warehouse: d.warehouse.name, lines: d._count.lines,
-                  total: <span className="whitespace-nowrap font-semibold">{euro(totals.totalCents)}</span>, status: <StatusBadge kind="purchase" value={d.status} />,
+                  number: <span>{d.number ?? "—"}{d.kind !== "INVOICE" ? <span className="block text-xs text-muted-foreground">{KIND_LABEL[d.kind]}{d.mydataType ? ` ${d.mydataType}` : ""}</span> : null}</span>, issuedAt: day(d.issuedAt), warehouse: d.warehouse.name, lines: d._count.lines,
+                  total: <span className="whitespace-nowrap font-semibold">{d.kind === "INVOICE" ? euro(totals.totalCents) : <span className="text-success-ink">−{euro(totals.totalCents)}</span>}</span>, status: <StatusBadge kind="purchase" value={d.status} />,
                 },
                 details: {
                   label: `${d.supplier.name}${d.number ? ` · ${d.number}` : ""}`,

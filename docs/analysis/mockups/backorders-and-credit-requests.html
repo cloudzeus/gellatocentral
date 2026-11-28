@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup · Μερικές παραλαβές, αναμενόμενα και αίτημα πιστωτικού</title>
+<style>
+  :root { --navy:#131F3B; --ink:#1d2433; --muted:#5b6476; --line:#d9dde5; --soft:#f3f5f8; --ok:#15803d; --warn:#b45309; --bad:#b91c1c; --info:#3730a3; --rec:#16a34a; --wait:#f59e0b; --cred:#6366f1; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#e9ecf1; font:13px/1.45 "Nunito", system-ui, sans-serif; color:var(--ink); }
+  .wrap { max-width:1180px; margin:0 auto; padding:28px 20px 60px; }
+  h1.cap { font-size:20px; font-weight:600; margin:0 0 4px; }
+  p.cap { color:var(--muted); margin:0 0 8px; max-width:880px; }
+  .label { display:block; font-size:12px; color:var(--muted); margin:32px 0 10px; font-weight:600; }
+  .app { background:#fff; border-radius:12px; box-shadow:0 2px 14px rgba(0,0,0,.1); overflow:hidden; }
+  .apphead { padding:16px 20px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+  .apphead h3 { margin:0; font-size:17px; } .apphead p { margin:2px 0 0; color:var(--muted); font-size:12px; }
+  .btn { border:1px solid var(--line); background:#fff; border-radius:8px; padding:7px 12px; font:inherit; font-size:12.5px; display:inline-flex; gap:6px; align-items:center; min-height:36px; }
+  .btn.primary { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .body { padding:16px 20px; }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:16px 20px; border-bottom:1px solid var(--line); }
+  .kpi span { display:block; font-size:11.5px; color:var(--muted); } .kpi b { font-size:20px; font-variant-numeric:tabular-nums; } .kpi small { display:block; font-size:11.5px; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; font-weight:600; color:var(--muted); font-size:11.5px; padding:7px 8px; border-bottom:1px solid var(--line); }
+  td { padding:9px 8px; border-bottom:1px solid #eceff4; vertical-align:middle; }
+  .n { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .s { color:var(--muted); font-size:11.5px; }
+  .bar { display:flex; height:10px; border-radius:5px; overflow:hidden; background:var(--soft); min-width:160px; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--muted); margin-top:8px; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+  .pill { font-size:11px; padding:1px 8px; border-radius:999px; font-weight:600; white-space:nowrap; }
+  .p-ok { background:#dcfce7; color:var(--ok); } .p-warn { background:#fef3c7; color:var(--warn); } .p-info { background:#e0e7ff; color:var(--info); } .p-mute { background:var(--soft); color:var(--muted); }
+  .grid2 { display:grid; grid-template-columns:1.3fr 1fr; gap:16px; }
+  .card { border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .card h4 { margin:0 0 8px; font-size:13px; }
+  .qty { width:70px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font:inherit; text-align:right; }
+  .field { display:grid; gap:4px; font-size:12px; } .field label { color:var(--muted); font-weight:600; font-size:11.5px; }
+  .input { border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:#fff; min-height:36px; }
+  .choice { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .opt { border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:12px; }
+  .opt.on { border-color:var(--navy); background:#f4f6fb; }
+  .opt b { display:block; font-size:12.5px; margin-bottom:2px; }
+  .timeline { list-style:none; margin:0; padding:0; display:grid; gap:0; }
+  .timeline li { display:grid; grid-template-columns:22px 1fr auto; gap:10px; padding:8px 0; border-bottom:1px dashed #e3e6ec; align-items:start; }
+  .dot { width:12px; height:12px; border-radius:50%; margin-top:3px; }
+  .callout { margin-top:12px; padding:10px 12px; border-radius:10px; font-size:12px; }
+  .c-info { background:#eef2ff; border:1px solid #c7d2fe; color:#27306b; }
+  .c-warn { background:#fffbeb; border:1px solid #fcd34d; color:#5c4708; }
+  .c-ok { background:#f0fdf4; border:1px solid #86efac; color:#14532d; }
+  .design { background:#fff; border-radius:12px; padding:16px 20px; box-shadow:0 2px 14px rgba(0,0,0,.06); font-size:12.5px; }
+  .design h3 { margin:0 0 8px; font-size:15px; } .design ol { margin:0; padding-left:18px; } .design li { margin:5px 0; }
+  @media (max-width: 820px) { .grid2, .choice { grid-template-columns:1fr; } .kpis { grid-template-columns:1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="cap">Μερικές παραλαβές: αναμενόμενα ή αίτημα πιστωτικού</h1>
+  <p class="cap">Παραγγείλαμε και πληρώσαμε. Ο προμηθευτής έστειλε το τιμολόγιο για όλη την παραγγελία, αλλά τα είδη έρχονται σε δόσεις. Κάθε δελτίο αποστολής που φτάνει το συνδέουμε με την παραγγελία και γράφουμε τι ήρθε. Ό,τι λείπει είτε <b>το περιμένουμε</b> (αναμενόμενο) είτε <b>ζητάμε πιστωτικό</b>. Η παραγγελία κλείνει όταν όλα έχουν έρθει ή πιστωθεί.</p>
+
+  <!-- 1. Παραγγελία -->
+  <span class="label">1 · Η παραγγελία ΠΑΡ-0042 μετά το πρώτο δελτίο αποστολής</span>
+  <div class="app">
+    <div class="apphead">
+      <div><h3>ΠΑΡ-0042 · ΓΑΛΑΚΤΟΚΟΜΙΚΑ ΑΕ</h3><p>Κεντρική αποθήκη · παραγγέλθηκε 20/11 · <span class="pill p-warn">Μερική παραλαβή</span></p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary">Νέο δελτίο αποστολής</button><button class="btn">Εκτύπωση</button></div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><span>Τιμολόγιο παραγγελίας</span><b>612,30 €</b><small><span class="pill p-ok">Πληρωμένο</span> ΤΔΑ-9932 · 21/11</small></div>
+      <div class="kpi"><span>Ήρθαν</span><b style="color:var(--ok)">402,10 €</b><small class="s">1 δελτίο αποστολής</small></div>
+      <div class="kpi"><span>Περιμένουμε</span><b style="color:var(--warn)">130,20 €</b><small class="s">έως 02/12 · 2 είδη</small></div>
+      <div class="kpi"><span>Ζητήθηκε πιστωτικό</span><b style="color:var(--info)">80,00 €</b><small class="s">δεν έχει έρθει ακόμα</small></div>
+    </div>
+    <div class="body">
+      <table>
+        <thead><tr><th>Είδος</th><th class="n">Παραγγελία</th><th class="n">Ήρθαν</th><th class="n">Λείπουν</th><th>Πρόοδος</th><th>Τι κάνουμε με όσα λείπουν</th></tr></thead>
+        <tbody>
+          <tr><td>Γάλα φρέσκο 3,5% 1 L</td><td class="n">40</td><td class="n">40</td><td class="n">—</td><td><div class="bar"><div style="width:100%;background:var(--rec)"></div></div></td><td><span class="pill p-ok">Ήρθαν όλα</span></td></tr>
+          <tr><td>Κρέμα γάλακτος 35% 1 L</td><td class="n">30</td><td class="n">18</td><td class="n">12</td><td><div class="bar"><div style="width:60%;background:var(--rec)"></div><div style="width:40%;background:var(--wait)"></div></div></td><td><span class="pill p-warn">Αναμένεται έως 02/12</span></td></tr>
+          <tr><td>Βούτυρο 250 g</td><td class="n">20</td><td class="n">12</td><td class="n">8</td><td><div class="bar"><div style="width:60%;background:var(--rec)"></div><div style="width:40%;background:var(--cred)"></div></div></td><td><span class="pill p-info">Ζητήθηκε πιστωτικό · 80,00 €</span></td></tr>
+          <tr><td>Γιαούρτι στραγγιστό 1 kg</td><td class="n">10</td><td class="n">6</td><td class="n">4</td><td><div class="bar"><div style="width:60%;background:var(--rec)"></div><div style="width:40%;background:var(--wait)"></div></div></td><td><span class="pill p-warn">Αναμένεται έως 02/12</span></td></tr>
+        </tbody>
+      </table>
+      <div class="legend"><span><i style="background:var(--rec)"></i>Ήρθαν</span><span><i style="background:var(--wait)"></i>Αναμένονται</span><span><i style="background:var(--cred)"></i>Πιστωτικό</span></div>
+    </div>
+  </div>
+
+  <!-- 2. Νέο δελτίο αποστολής -->
+  <span class="label">2 · Νέο δελτίο αποστολής: γράφουμε τι ήρθε και αποφασίζουμε για όσα λείπουν</span>
+  <div class="app">
+    <div class="apphead"><div><h3>Δελτίο αποστολής προμηθευτή για ΠΑΡ-0042</h3><p>Γράψε τον αριθμό του δελτίου και πόσα ήρθαν. Στο τέλος διάλεξε τι γίνεται με όσα δεν ήρθαν.</p></div></div>
+    <div class="body grid2">
+      <div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+          <div class="field"><label>Αριθμός δελτίου</label><div class="input">ΔΑ-881</div></div>
+          <div class="field"><label>Ημερομηνία</label><div class="input">24/11/2026</div></div>
+          <div class="field"><label>MARK (αν το έχει)</label><div class="input">400001977…</div></div>
+        </div>
+        <table>
+          <thead><tr><th>Είδος</th><th class="n">Αναμένονται</th><th class="n">Ήρθαν τώρα</th><th>Παρτίδα / λήξη</th></tr></thead>
+          <tbody>
+            <tr><td>Γάλα φρέσκο 1 L</td><td class="n">40</td><td class="n"><input class="qty" value="40"></td><td class="s">L2611 · 01/12</td></tr>
+            <tr><td>Κρέμα γάλακτος 1 L</td><td class="n">30</td><td class="n"><input class="qty" value="18"></td><td class="s">K118 · 15/12</td></tr>
+            <tr><td>Βούτυρο 250 g</td><td class="n">20</td><td class="n"><input class="qty" value="12"></td><td class="s">B07 · 10/01</td></tr>
+            <tr><td>Γιαούρτι 1 kg</td><td class="n">10</td><td class="n"><input class="qty" value="6"></td><td class="s">G55 · 05/12</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div class="card">
+          <h4>Λείπουν 3 είδη · 210,20 €</h4>
+          <div class="choice">
+            <div class="opt on"><b>Τα περιμένουμε</b>Η παραγγελία μένει ανοιχτή. Θα έρθουν με επόμενο δελτίο.<div class="field" style="margin-top:8px"><label>Αναμένονται έως</label><div class="input">02/12/2026</div></div></div>
+            <div class="opt"><b>Ζητάμε πιστωτικό</b>Δεν τα περιμένουμε άλλο. Ο προμηθευτής χρωστά 5.1 για την αξία τους.</div>
+          </div>
+          <p class="s" style="margin:10px 0 4px">Μπορείς να αλλάξεις την επιλογή ανά είδος:</p>
+          <table>
+            <tbody>
+              <tr><td>Κρέμα γάλακτος · 12</td><td class="n">σε αναμονή</td></tr>
+              <tr><td>Βούτυρο · 8</td><td class="n"><b style="color:var(--info)">πιστωτικό 80,00 €</b></td></tr>
+              <tr><td>Γιαούρτι · 4</td><td class="n">σε αναμονή</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout c-info">Τα 76 τεμάχια που ήρθαν μπαίνουν στην αποθήκη τώρα, με παρτίδα και λήξη. Το τιμολόγιο ΤΔΑ-9932 δεν αλλάζει: έχει ήδη πληρωθεί.</div>
+        <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary">Καταχώριση δελτίου</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Ιστορικό -->
+  <span class="label">3 · Ιστορικό της παραγγελίας μέχρι να κλείσει</span>
+  <div class="app">
+    <div class="body grid2">
+      <div class="card">
+        <h4>Τι έγινε</h4>
+        <ul class="timeline">
+          <li><span class="dot" style="background:var(--navy)"></span><span><b>Τιμολόγιο ΤΔΑ-9932</b> για όλη την παραγγελία<br><span class="s">21/11 · πληρώθηκε 612,30 € την ίδια μέρα</span></span><span class="pill p-ok">Πληρωμένο</span></li>
+          <li><span class="dot" style="background:var(--rec)"></span><span><b>Δελτίο ΔΑ-881</b> · ήρθαν 76 από 100<br><span class="s">24/11 · κρέμα και γιαούρτι σε αναμονή, για το βούτυρο ζητήθηκε πιστωτικό</span></span><span class="n">402,10 €</span></li>
+          <li><span class="dot" style="background:var(--rec)"></span><span><b>Δελτίο ΔΑ-902</b> · ήρθαν κρέμα 12, γιαούρτι 4<br><span class="s">01/12 · δεν λείπει τίποτα άλλο</span></span><span class="n">130,20 €</span></li>
+          <li><span class="dot" style="background:var(--cred)"></span><span><b>Πιστωτικό 5.1 ΠΙΣ-77</b> για το βούτυρο<br><span class="s">03/12 · μείωσε το τιμολόγιο κατά 80,00 €, χωρίς κίνηση αποθήκης</span></span><span class="n" style="color:var(--ok)">−80,00 €</span></li>
+          <li><span class="dot" style="background:var(--ok)"></span><span><b>Η παραγγελία έκλεισε</b><br><span class="s">όλα ήρθαν ή πιστώθηκαν</span></span><span class="pill p-ok">Ολοκληρώθηκε</span></li>
+        </ul>
+      </div>
+      <div>
+        <div class="card">
+          <h4>Λογαριασμός με τον προμηθευτή</h4>
+          <table><tbody>
+            <tr><td>Τιμολόγιο ΤΔΑ-9932</td><td class="n">612,30 €</td></tr>
+            <tr><td>Πληρώσαμε</td><td class="n">−612,30 €</td></tr>
+            <tr><td>Πιστωτικό ΠΙΣ-77</td><td class="n">−80,00 €</td></tr>
+            <tr><td><b>Μας χρωστά</b></td><td class="n"><b style="color:var(--ok)">80,00 €</b></td></tr>
+          </tbody></table>
+          <div class="callout c-ok">Το υπόλοιπο 80,00 € συμψηφίζεται με το επόμενο τιμολόγιο του προμηθευτή ή επιστρέφεται.</div>
+        </div>
+        <div class="callout c-warn">Αν περάσει η 02/12 και τα αναμενόμενα δεν έχουν έρθει, η παραγγελία εμφανίζεται «Καθυστερεί» στη λίστα, με κουμπί «Ζήτα πιστωτικό για τα υπόλοιπα».</div>
+      </div>
+    </div>
+  </div>
+
+  <span class="label">Πώς στήνεται (για έγκριση)</span>
+  <div class="design">
+    <h3>Σχέδιο</h3>
+    <ol>
+      <li><b>Τιμολόγιο παραγγελίας.</b> Ένα τιμολόγιο αγοράς μπορεί να δεθεί με την παραγγελία πριν έρθουν τα είδη (προπληρωμή). Είναι μόνο οικονομικό: χρωστάμε και πληρώνουμε, δεν γράφει απόθεμα. Το απόθεμα το γράφουν τα δελτία αποστολής. Η σημερινή ροή «παραλαβή → τιμολόγιο για αυτή την παραλαβή» μένει όπως είναι για όσους τιμολογούνται ανά παράδοση.</li>
+      <li><b>Δελτίο αποστολής = παραλαβή.</b> Η υπάρχουσα παραλαβή παραγγελίας παίρνει τον αριθμό, την ημερομηνία και το MARK του δελτίου του προμηθευτή. Μία παραγγελία έχει όσα δελτία χρειαστούν.</li>
+      <li><b>Ανά γραμμή παραγγελίας</b> κρατάμε τρία νούμερα: ήρθαν (υπάρχει), αναμένονται (ό,τι λείπει και δεν έχει κλείσει) και κλεισμένα με πιστωτικό. Η παραγγελία ολοκληρώνεται όταν ήρθαν + πιστωτικό = παραγγελία.</li>
+      <li><b>Αίτημα πιστωτικού</b> κλείνει τις ποσότητες που λείπουν και κρατά την αξία που μας χρωστά ο προμηθευτής. Όταν έρθει το 5.1 του (με το χέρι ή από το myDATA), καταχωρείται σαν πιστωτικό «δεν ήρθαν ποτέ»: μειώνει το τιμολόγιο της παραγγελίας, χωρίς κίνηση αποθήκης, και κλείνει το αίτημα.</li>
+      <li><b>Αναμενόμενα</b> παίρνουν ημερομηνία. Μετά από αυτήν η παραγγελία φαίνεται «Καθυστερεί» και προτείνει πιστωτικό για τα υπόλοιπα.</li>
+    </ol>
+    <p class="s" style="margin:10px 0 0">Δεν περιλαμβάνεται: αυτόματη λήψη των δελτίων αποστολής του προμηθευτή από το myDATA (μπορεί να προστεθεί μετά), ειδοποίηση στον προμηθευτή για το αίτημα πιστωτικού.</p>
+  </div>
+</div>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { soldOutIds } from "@/lib/bills";
 import { tillFromRequest } from "@/lib/device-auth";
 
 const FREQUENT_DAYS = 30;
@@ -45,5 +46,5 @@ export async function GET(req: Request) {
   const hasTables = (await db.diningTable.count({ where: { orgId: ctx.org.id, storeId: ctx.store.id, active: true } })) > 0;
   // Ό,τι χρειάζεται η εφαρμογή για να βγάλει απόδειξη χωρίς σύνδεση (lib/pos-offline.ts). Όχι με τερματικό Cloud: θέλει internet.
   const offline = ctx.device.vivaCloud ? null : { merchantVat: ctx.issuer.vatNumber, series: ctx.device.series, nextAa: ctx.device.nextAa };
-  return Response.json({ device: { name: ctx.device.name, series: ctx.device.series }, store: ctx.store.name, hasTables, categories: flat, frequent, paymentMethods, offline });
+  return Response.json({ device: { name: ctx.device.name, series: ctx.device.series }, store: ctx.store.name, hasTables, categories: flat, frequent, paymentMethods, offline, soldOut: await soldOutIds(ctx) });
 }

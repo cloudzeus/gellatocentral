@@ -32,6 +32,12 @@ export async function deviceFromRequest(req: Request) {
   return { org: device.store.org, store: device.store, device, issuer: issuerOf(device.store.org, device.store.legalEntity) };
 }
 
+/** Μόνο οθόνη κουζίνας: βλέπει και τσεκάρει δελτία, τίποτα άλλο. */
+export async function kitchenFromRequest(req: Request) {
+  const ctx = await deviceFromRequest(req);
+  return ctx?.device.kind === "KITCHEN_DISPLAY" ? ctx : null;
+}
+
 /** Μόνο ταμείο Android με σειρά αποδείξεων: οι υπόλοιπες συσκευές δεν εκδίδουν αποδείξεις. */
 export async function tillFromRequest(req: Request) {
   const ctx = await deviceFromRequest(req);

@@ -26,6 +26,12 @@ enum DeviceKind {
   SCALE // ζυγαριά, δεμένη με ταμείο ή με το εργαστήριο (κατάστημα)
 }
 
+// Σταθμός παρασκευής: κάθε κατηγορία πάει σε έναν και κάθε οθόνη κουζίνας δείχνει έναν (ή όλους).
+enum KitchenStation {
+  KITCHEN
+  BAR
+}
+
 // Τι είδους σημείο είναι το κατάστημα: ορίζει το πρότυπο του οδηγού στησίματος και τι δείχνουν οι οθόνες.
 // Κενό σε παλιά καταστήματα (πριν τον οδηγό).
 enum StoreKind {
@@ -516,6 +522,7 @@ model Store {
   printers         Printer[]
   sales            Sale[]
   diningTables     DiningTable[]
+  soldOut          SoldOut[]
   bills            Bill[]
   reservations     Reservation[]
   offPremiseOrders Order[]
@@ -526,6 +533,7 @@ model Store {
   stockTransfers   StockTransfer[]
   stockCounts      StockCount[]
   haccpRecords     HaccpRecord[]
+  staff            EmployeeStore[]
 
   @@index([orgId])
 }
@@ -571,6 +579,10 @@ model Device {
   peripherals        Device[]       @relation("DeviceLink")
   readings           Reading[]
   printerId          String? // ο εκτυπωτής που τυπώνει τις αποδείξεις αυτού του ταμείου
+  // Οθόνη κουζίνας: ποιον σταθμό δείχνει (κενό = όλους) και μετά από πόσα λεπτά ένα δελτίο γίνεται κίτρινο / κόκκινο
+  station            KitchenStation?
+  kdsWarnMin         Int            @default(8)
+  kdsLateMin         Int            @default(15)
   active             Boolean        @default(true)
   createdAt          DateTime       @default(now())
   store              Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
@@ -607,6 +619,7 @@ model Warehouse {
   destinationTransfers StockTransfer[]       @relation("TransferDestination")
   stockCounts          StockCount[]
   stockThresholds      StockThreshold[]
+  spots                StorageSpot[]
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -882,17 +895,32 @@ model PurchaseDoc {
   shippingCostCents  Int              @default(0) // καθαρή αξία προ ΦΠΑ
   otherExpensesCents Int              @default(0) // καθαρή αξία προ ΦΠΑ
   expensesVatRate    Int              @default(24) // snapshot συντελεστή των εξόδων
+  // Επιστροφές και πιστωτικά προμηθευτή (lib/purchase-returns.ts)
+  relatedId          String? // RETURN/CREDIT: το τιμολόγιο αγοράς που αφορούν (στο 5.2: αυτό με το οποίο συμψηφίζεται)
+  returnId           String? // CREDIT: η επιστροφή μας που κλείνει
+  fiscalDocumentId   String?          @unique // RETURN: το δικό μας 9.3 με σκοπό «Επιστροφή»
+  mydataType         String? // ο τύπος ΑΑΔΕ του προμηθευτή: 1.1, 5.1, 5.2
+  relatedMark        String? // από το myDATA: το MARK που πιστώνει (πρόταση σύνδεσης)
+  stockMode          String? // CREDIT: returned (με επιστροφή μας) | now (επιστρέφονται τώρα) | value (μόνο αξία)
+  creditCents        Int              @default(0) // INVOICE: σύνολο καταχωρημένων πιστωτικών που το μειώνουν
   createdByName      String
   createdAt          DateTime         @default(now())
+  related            PurchaseDoc?     @relation("PurchaseRelated", fields: [relatedId], references: [id], onDelete: Restrict)
+  derived            PurchaseDoc[]    @relation("PurchaseRelated")
+  returnDoc          PurchaseDoc?     @relation("PurchaseReturnCredit", fields: [returnId], references: [id], onDelete: Restrict)
+  credits            PurchaseDoc[]    @relation("PurchaseReturnCredit")
+  fiscalDocument     FiscalDocument?  @relation(fields: [fiscalDocumentId], references: [id], onDelete: Restrict)
   org                Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
   supplier           Party            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   warehouse          Warehouse        @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
   lines              PurchaseLine[]
   lots               StockLot[]
   receiptInvoice     PurchaseReceipt? @relation("PurchaseReceiptInvoice")
+  orderInvoice       PurchaseOrder?   @relation("PurchaseOrderInvoice")
 
   @@unique([orgId, mydataMark])
   @@index([orgId, supplierId, createdAt])
+  @@index([orgId, relatedId])
   @@index([orgId, kind, status, issuedAt])
 }
 
@@ -919,6 +947,7 @@ model PurchaseLine {
   tradeItemId    String?
   genericItemId  String? // τελικό: πού «πέφτει» το απόθεμα
   matchNote      String? // code | ean | manual — πώς βρέθηκε (για μάθηση/έλεγχο)
+  sourceLineId   String? // RETURN/CREDIT: η γραμμή του αρχικού τιμολογίου (όριο επιστρεφόμενης ποσότητας)
   document       PurchaseDoc               @relation(fields: [documentId], references: [id], onDelete: Cascade)
   supplierItem   SupplierItem?             @relation(fields: [supplierItemId], references: [id], onDelete: SetNull)
   tradeItem      TradeItem?                @relation(fields: [tradeItemId], references: [id], onDelete: SetNull)
@@ -972,6 +1001,7 @@ model Category {
   name     String
   position Int          @default(0)
   color    Int? // θέση 1–8 στη σταθερή λίστα χρωμάτων του ταμείου (mobile/theme.ts)· κενό = από τη σειρά της
+  station  KitchenStation? // ποια οθόνη κουζίνας φτιάχνει τα είδη της· κενό = δεν πάει σε οθόνη (π.χ. παγωτό από τη βιτρίνα)
   org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   products Product[]
 
@@ -1158,25 +1188,28 @@ model Reservation {
 // Ανοιχτός λογαριασμός («κουβάς»): μαζεύει παραγγελίες από ταμείο και σερβιτόρους μέχρι να πληρωθεί.
 // Ζει στον server, ώστε κάθε συσκευή του καταστήματος να βλέπει το ίδιο. Τραπέζι προαιρετικό (πακέτο, μπαρ).
 model Bill {
-  id           String       @id @default(cuid())
-  orgId        String
-  storeId      String
-  tableId      String?
-  label        String? // όταν δεν είναι τραπέζι: «Κώστας, πακέτο»
-  guests       Int?
-  status       BillStatus   @default(OPEN)
-  openedByName String?
-  openedAt     DateTime     @default(now())
-  closedAt     DateTime?
-  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  store        Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  table        DiningTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
-  rounds       BillRound[]
-  lines        BillLine[]
-  sales        Sale[]
-  shares       BillShare[]
-  reservation  Reservation?
-  order        Order?
+  id            String       @id @default(cuid())
+  orgId         String
+  storeId       String
+  tableId       String?
+  label         String? // όταν δεν είναι τραπέζι: «Κώστας, πακέτο»
+  guests        Int?
+  status        BillStatus   @default(OPEN)
+  openedByName  String?
+  waiterId      String? // ο υπάλληλος της βάρδιας που το άνοιξε: «τα δικά μου» στο κινητό του σερβιτόρου
+  openedAt      DateTime     @default(now())
+  closedAt      DateTime?
+  billAskedAt   DateTime? // ο πελάτης ζήτησε λογαριασμό: μπαίνει στο «Σε περιμένουν» σερβιτόρου και ταμία
+  billAskedCash Boolean      @default(false) // θα πληρώσει μετρητά: τα εισπράττει ο ταμίας (ο σερβιτόρος δεν κρατά συρτάρι)
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  store         Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  table         DiningTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  rounds        BillRound[]
+  lines         BillLine[]
+  sales         Sale[]
+  shares        BillShare[]
+  reservation   Reservation?
+  order         Order?
 
   @@index([orgId, storeId, status])
   @@index([tableId, status])
@@ -1216,13 +1249,14 @@ model BillShare {
 
 // Μία «αποστολή» του λογαριασμού: ό,τι παραγγέλθηκε μαζί. Θα γίνει το Δελτίο Παραγγελίας 8.6 όταν μπει η διαβίβαση.
 model BillRound {
-  id         String     @id @default(cuid())
+  id         String          @id @default(cuid())
   billId     String
   number     Int
   deviceId   String // ποια συσκευή την έστειλε (ταμείο ή κινητό σερβιτόρου)
   sentByName String?
-  sentAt     DateTime   @default(now())
-  bill       Bill       @relation(fields: [billId], references: [id], onDelete: Cascade)
+  sentAt     DateTime        @default(now()) // σε αποστολή «Μετά»: η ώρα που βγήκε («Βγάλ' το»)
+  held       Boolean         @default(false) // «Μετά»: γράφτηκε αλλά δεν πήγε σε κουζίνα/bar· χωρίς 8.6 και εκτός λογαριασμού ως το «Βγάλ' το»
+  bill       Bill            @relation(fields: [billId], references: [id], onDelete: Cascade)
   lines      BillLine[]
   orderSlip  FiscalDocument? // 8.6 της αποστολής
 
@@ -1240,6 +1274,9 @@ model BillLine {
   vatRate        Int
   options        Json?
   note           String?
+  seat           Int? // θέση στο τραπέζι (1, 2, …)· κενό = για όλο το τραπέζι
+  readyAt        DateTime? // η κουζίνα/bar το ετοίμασε (οθόνη κουζίνας)
+  servedAt       DateTime? // ο σερβιτόρος το σερβίρισε
   voidedAt       DateTime? // ακυρώθηκε πριν πληρωθεί
   voidReason     String?
   bill           Bill       @relation(fields: [billId], references: [id], onDelete: Cascade)
@@ -1249,6 +1286,20 @@ model BillLine {
 
   @@index([billId])
   @@index([productId])
+}
+
+// «Τελείωσε»: προϊόν ή επιλογή (γεύση) που δεν υπάρχει σήμερα στο κατάστημα. Το πατά όποιος έχει βάρδια στη συσκευή·
+// οι σερβιτόροι το βλέπουν διαγραμμένο πριν το πατήσουν και ο server δεν δέχεται παραγγελία του.
+model SoldOut {
+  id        String   @id @default(cuid())
+  orgId     String
+  storeId   String
+  itemId    String // Product.id ή ModifierOption.id
+  byName    String?
+  createdAt DateTime @default(now())
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, itemId])
 }
 
 model Payment {
@@ -1334,6 +1385,7 @@ model FiscalDocument {
   related          FiscalDocument?     @relation("DocumentCredit", fields: [relatedId], references: [id], onDelete: SetNull)
   billRound        BillRound?          @relation(fields: [billRoundId], references: [id], onDelete: SetNull)
   creditedBy       FiscalDocument[]    @relation("DocumentCredit")
+  purchaseReturn   PurchaseDoc? // 9.3 επιστροφής σε προμηθευτή
 
   @@index([orgId, docType, createdAt])
 }
@@ -1955,6 +2007,7 @@ model GenericItem {
   transferLines     StockTransferLine[]
   countLines        StockCountLine[]
   stockThresholds   StockThreshold[]
+  spots             ItemSpot[]
 
   @@unique([orgId, name])
   @@index([orgId, active])
@@ -2587,25 +2640,29 @@ model HaccpSourceCheck {
 // ---- Επιχειρησιακές ροές: κάθε εγγραφή ανήκει ρητά σε Organization και ελέγχεται server-side. ----
 
 model PurchaseOrder {
-  id            String              @id @default(cuid())
-  orgId         String
-  supplierId    String
-  warehouseId   String
-  number        String
-  status        PurchaseOrderStatus @default(DRAFT)
-  expectedAt    DateTime?
-  note          String?
-  sentAt        DateTime?
-  sentVia       String?
-  netCents      Int                 @default(0)
-  vatCents      Int                 @default(0)
-  totalCents    Int                 @default(0)
-  createdByName String
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  org           Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  lines         PurchaseOrderLine[]
-  receipts      PurchaseReceipt[]
+  id                   String              @id @default(cuid())
+  orgId                String
+  supplierId           String
+  warehouseId          String
+  number               String
+  status               PurchaseOrderStatus @default(DRAFT)
+  expectedAt           DateTime?
+  note                 String?
+  sentAt               DateTime?
+  sentVia              String?
+  netCents             Int                 @default(0)
+  vatCents             Int                 @default(0)
+  totalCents           Int                 @default(0)
+  // Τιμολόγιο για όλη την παραγγελία πριν έρθουν τα είδη (προπληρωμή): μόνο οικονομικό, το απόθεμα το γράφουν τα δελτία
+  invoiceDocId         String?             @unique
+  creditRequestedCents Int                 @default(0) // αξία ειδών που κλείσαμε με αίτημα πιστωτικού (το 5.1 «Μόνο αξία» στο τιμολόγιο την καλύπτει)
+  createdByName        String
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  org                  Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invoiceDoc           PurchaseDoc?        @relation("PurchaseOrderInvoice", fields: [invoiceDocId], references: [id], onDelete: Restrict)
+  lines                PurchaseOrderLine[]
+  receipts             PurchaseReceipt[]
 
   @@unique([orgId, number])
   @@index([orgId, supplierId, status, expectedAt])
@@ -2620,6 +2677,8 @@ model PurchaseOrderLine {
   supplierItemId  String?
   orderedBaseQty  Int
   receivedBaseQty Int                        @default(0)
+  closedBaseQty   Int                        @default(0) // όσα δεν θα έρθουν: κλεισμένα με αίτημα πιστωτικού ή χωρίς αυτά
+  expectedAt      DateTime? // αναμενόμενα (back order): πότε υποσχέθηκε ο προμηθευτής τα υπόλοιπα
   packQty         Int                        @default(1)
   unitPriceCents  Int
   discountBps     Int                        @default(0)
@@ -2640,6 +2699,9 @@ model PurchaseReceipt {
   invoiceDocId          String?                      @unique // το πολύ ένα χρηματοοικονομικό τιμολόγιο ανά παραλαβή
   clientKey             String
   requestHash           String
+  deliveryNoteNumber    String? // το δελτίο αποστολής του προμηθευτή που συνόδευε τα είδη
+  deliveryNoteDate      DateTime?
+  deliveryNoteMark      String?
   reviewStatus          String                       @default("PROVISIONAL") // PROVISIONAL | REVIEWED — ρητός έλεγχος πριν από τιμολόγιο
   reviewedAt            DateTime?
   reviewedByName        String?
@@ -3246,7 +3308,7 @@ model Department {
 }
 
 model Employee {
-  id           String          @id @default(cuid())
+  id           String              @id @default(cuid())
   orgId        String
   departmentId String?
   storeId      String?
@@ -3258,15 +3320,18 @@ model Employee {
   email        String?
   startDate    DateTime?
   endDate      DateTime?
-  active       Boolean         @default(true)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  org          Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  active       Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  org          Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   pay          EmployeePay?
   shifts       Shift[]
   leaves       EmployeeLeave[]
   scheduleLink ScheduleLink?
   tillShifts   TillShift[]
+  specialties  EmployeeSpecialty[] // ειδικότητες (πολλές· μία κύρια)
+  stores       EmployeeStore[] // καταστήματα όπου δουλεύει· το storeId μένει ως κύριο
+  invites      EmployeeInvite[]
 
   @@index([orgId, active, departmentId])
 }
@@ -3297,6 +3362,7 @@ model Shift {
   endsAt           DateTime
   breakMinutes     Int          @default(0)
   hourlyRateCents  Int?
+  specialty        String? // με ποια ειδικότητα δουλεύει σε αυτή τη βάρδια (lib/specialties.ts)
   publishedAt      DateTime?
   note             String?
   createdAt        DateTime     @default(now())
@@ -3786,6 +3852,7 @@ model TillShift {
   employeeId    String
   startedAt     DateTime  @default(now())
   endedAt       DateTime?
+  role          String? // ο ρόλος που διάλεξε στη συσκευή (κλειδί ειδικότητας)· κενό = χωρίς ειδικότητες
   openingCents  Int // μετρητά στο συρτάρι στην αρχή
   expectedCents Int? // έναρξη + μετρητά που μπήκαν − μετρητά που επιστράφηκαν, στο κλείσιμο
   countedCents  Int? // ό,τι μέτρησε ο ταμίας
@@ -3941,4 +4008,69 @@ model Integration {
   org           Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, kind])
+}
+
+// Ειδικότητα υπαλλήλου· το κλειδί και τι ανοίγει στη συσκευή ορίζονται στο lib/specialties.ts
+model EmployeeSpecialty {
+  employeeId String
+  specialty  String
+  isPrimary  Boolean  @default(false)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@id([employeeId, specialty])
+}
+
+// Σε ποια καταστήματα του tenant δουλεύει ο υπάλληλος (βάρδιες και είσοδος στις συσκευές τους)
+model EmployeeStore {
+  employeeId String
+  storeId    String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([employeeId, storeId])
+  @@index([storeId])
+}
+
+// Link εγγραφής υπαλλήλου στο portal: token μόνο σε hash, μία χρήση, λήγει
+model EmployeeInvite {
+  id            String    @id @default(cuid())
+  orgId         String
+  employeeId    String
+  tokenHash     String    @unique
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdByName String
+  createdAt     DateTime  @default(now())
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+// Θέση μέσα σε αποθήκη (π.χ. «Ράφι 2», «Κάδος 4»)
+model StorageSpot {
+  id          String     @id @default(cuid())
+  orgId       String
+  warehouseId String
+  name        String
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  warehouse   Warehouse  @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  items       ItemSpot[]
+
+  @@unique([warehouseId, name])
+}
+
+// Πού μπαίνει ένα υλικό σε μια αποθήκη· η παραλαβή και το απόθεμα το δείχνουν
+model ItemSpot {
+  genericItemId String
+  warehouseId   String
+  orgId         String
+  spotId        String
+  updatedByName String?
+  updatedAt     DateTime    @updatedAt
+  spot          StorageSpot @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  genericItem   GenericItem @relation(fields: [genericItemId], references: [id], onDelete: Cascade)
+
+  @@id([genericItemId, warehouseId])
+  @@index([spotId])
 }

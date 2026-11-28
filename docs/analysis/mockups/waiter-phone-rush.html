@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Σερβιτόρος στο κινητό · ώρα αιχμής</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#111315; --panel:#1A1C1F; --card:#212428; --raised:#2A2D32; --line:rgba(255,255,255,.08); --div:rgba(255,255,255,.12);
+    --text:#FAFAFA; --muted:#B4B7BD; --faint:#787C84; --ink:#121417; --action:#F4F4F5;
+    --bad:#F28B8B; --wait:#F2C46D; --ok:#7FD1A1;
+    --c1:#D9DADD; --c2:#C9CAEE; --c3:#CDE5DB; --c4:#F0D2C4; --c5:#C8DAEA; --c6:#E6DECB; --c7:#DDE9C4; --c8:#EBCAD8; }
+  * { box-sizing:border-box; margin:0; padding:0 }
+  body { background:#0A0B0C; color:var(--text); font-family:"Inter Tight",system-ui,sans-serif; padding:32px 24px 64px }
+  .page { max-width:1560px; margin:0 auto }
+  h1 { font-size:26px; font-weight:600 }
+  .lead { color:var(--muted); font-size:15px; margin-top:6px; max-width:860px; line-height:1.5 }
+  .kpis { display:flex; gap:12px; margin:20px 0 28px; flex-wrap:wrap }
+  .kpi { background:var(--panel); border-radius:14px; padding:14px 16px; min-width:200px }
+  .kpi b { font-size:22px; font-variant-numeric:tabular-nums }
+  .kpi span { display:block; color:var(--muted); font-size:13px; margin-top:2px }
+  .kpi i { font-style:normal; color:var(--ok); font-size:13px }
+  .row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start }
+  .col { width:360px }
+  .cap { font-size:15px; font-weight:600; margin-bottom:10px }
+  .cap small { color:var(--faint); font-weight:500; font-size:13px }
+  .phone { width:360px; height:760px; background:var(--bg); border-radius:28px; border:1px solid var(--div); overflow:hidden; display:flex; flex-direction:column; position:relative }
+  .status { height:24px; display:flex; justify-content:space-between; padding:4px 16px 0; font-size:11px; color:var(--muted) }
+  .scroll { flex:1; overflow:hidden; padding:0 12px }
+  .hdr { display:flex; align-items:center; gap:10px; height:52px; padding:0 12px; flex-shrink:0 }
+  .hdr .t { font-size:18px; font-weight:600; line-height:1.1 }
+  .hdr .s { font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums }
+  .back { width:40px; height:40px; border-radius:20px; background:var(--card); display:grid; place-items:center; flex-shrink:0 }
+  .seg { display:flex; background:var(--card); border-radius:10px; padding:3px; margin-left:auto }
+  .seg span { font-size:12.5px; font-weight:600; padding:7px 10px; border-radius:8px; color:var(--muted) }
+  .seg .on { background:var(--action); color:var(--ink) }
+  .lbl { font-size:12px; font-weight:600; color:var(--muted); margin:10px 0 6px; display:flex; gap:6px; align-items:center }
+  .lbl em { font-style:normal; color:var(--faint); font-weight:500 }
+  .urg { display:flex; align-items:center; gap:10px; background:var(--panel); border-radius:12px; padding:0 6px 0 10px; height:52px; margin-bottom:6px; border-left:3px solid var(--wait) }
+  .urg.bad { border-left-color:var(--bad) }
+  .urg .n { font-size:15px; font-weight:700; width:30px; font-variant-numeric:tabular-nums }
+  .urg .w { flex:1; min-width:0 }
+  .urg .w b { font-size:13.5px; font-weight:600; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .urg .w span { font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums }
+  .btn { height:40px; padding:0 12px; border-radius:10px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px; white-space:nowrap }
+  .btn.p { background:var(--action); color:var(--ink) }
+  .btn.g { background:var(--raised); color:var(--text) }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:6px }
+  .tt { background:var(--panel); border-radius:12px; height:84px; padding:8px 9px; display:flex; flex-direction:column; position:relative; border-top:3px solid var(--faint) }
+  .tt.ordered { border-top-color:var(--c5) } .tt.eating { border-top-color:var(--ok) } .tt.wait { border-top-color:var(--wait) } .tt.asked { border-top-color:var(--bad); background:#2a1e1f }
+  .tt .num { font-size:20px; font-weight:700; line-height:1 }
+  .tt .st { font-size:11.5px; color:var(--muted); margin-top:3px; display:flex; align-items:center; gap:4px }
+  .tt .ft { margin-top:auto; display:flex; justify-content:space-between; font-size:12px; font-variant-numeric:tabular-nums }
+  .tt .ft b { font-weight:600 } .tt .ft span { color:var(--faint) }
+  .dot { width:7px; height:7px; border-radius:4px; display:inline-block; flex-shrink:0 }
+  .free { display:grid; grid-template-columns:repeat(6,1fr); gap:6px }
+  .free span { height:44px; border-radius:10px; border:1.5px dashed var(--div); display:grid; place-items:center; font-size:14px; font-weight:600; color:var(--muted) }
+  .zone { font-size:11px; color:var(--faint); margin:8px 0 4px }
+  .nav { height:60px; border-top:1px solid var(--line); background:var(--panel); display:flex; flex-shrink:0 }
+  .nav div { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:11px; color:var(--faint) }
+  .nav .on { color:var(--text); font-weight:600 }
+  .nav .ic { width:22px; height:22px; border-radius:6px; border:1.6px solid currentColor }
+  .badge { position:absolute; top:-4px; right:-6px; background:var(--bad); color:var(--ink); font-size:10px; font-weight:700; border-radius:8px; padding:1px 5px }
+  .chips { display:flex; gap:6px; overflow:hidden; padding:2px 0 }
+  .chip { height:34px; padding:0 12px; border-radius:17px; background:var(--card); font-size:13px; font-weight:600; display:flex; align-items:center; gap:5px; white-space:nowrap; color:var(--text) }
+  .chip.on { background:var(--action); color:var(--ink) }
+  .chip small { font-weight:500; color:var(--muted); font-variant-numeric:tabular-nums } .chip.on small { color:#4b4f56 }
+  .rnd { font-size:11.5px; color:var(--faint); margin:10px 0 2px; display:flex; justify-content:space-between }
+  .ln { display:flex; align-items:center; gap:8px; height:40px; border-bottom:1px solid var(--line); font-size:13.5px }
+  .ln .q { width:22px; color:var(--muted); font-variant-numeric:tabular-nums }
+  .ln .nm { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .ln .se { font-size:11px; color:var(--muted); background:var(--card); border-radius:6px; padding:2px 6px }
+  .ln .pr { font-variant-numeric:tabular-nums; width:56px; text-align:right }
+  .ln .ok { color:var(--ok); font-size:12px }
+  .held { display:flex; align-items:center; gap:8px; background:#2b2618; border-radius:12px; padding:0 6px 0 10px; height:52px; margin-top:10px }
+  .held .w { flex:1; min-width:0 } .held b { font-size:13px; display:block } .held span { font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block }
+  .bar { flex-shrink:0; border-top:1px solid var(--line); background:var(--panel); padding:8px 12px 10px; display:flex; align-items:center; gap:8px }
+  .bar .due { flex:1 } .bar .due span { font-size:11.5px; color:var(--muted); display:block } .bar .due b { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums }
+  .bar .btn { height:48px; padding:0 14px; font-size:14px }
+  .search { width:40px; height:40px; border-radius:20px; background:var(--card); display:grid; place-items:center; margin-left:auto }
+  .pg { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:8px }
+  .pt { border-radius:12px; height:70px; padding:8px; color:var(--ink); display:flex; flex-direction:column; position:relative }
+  .pt b { font-size:13px; font-weight:600; line-height:1.15; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden }
+  .pt span { margin-top:auto; font-size:12px; font-variant-numeric:tabular-nums; color:#3a3d42 }
+  .pt .qty { position:absolute; top:6px; right:6px; background:var(--ink); color:var(--text); font-size:11.5px; font-weight:700; min-width:22px; height:22px; border-radius:11px; display:grid; place-items:center; padding:0 5px }
+  .pt.out { opacity:.4 } .pt.out span { color:var(--ink); font-weight:600 }
+  .cart { flex-shrink:0; background:var(--panel); border-top:1px solid var(--line); padding:8px 12px 10px }
+  .cart .top { display:flex; align-items:center; justify-content:space-between; font-size:13px; margin-bottom:8px }
+  .cart .top b { font-variant-numeric:tabular-nums }
+  .cart .top span { color:var(--muted); display:flex; gap:4px; align-items:center }
+  .cart .acts { display:flex; gap:8px } .cart .acts .btn { height:48px; flex:1; justify-content:center; font-size:14px }
+  .card { background:var(--panel); border-radius:12px; padding:2px 10px }
+  .mrow { display:flex; align-items:center; gap:10px; height:52px; border-bottom:1px solid var(--line); font-size:13.5px }
+  .mrow:last-child { border-bottom:0 }
+  .av { width:32px; height:32px; border-radius:16px; background:var(--c2); color:var(--ink); display:grid; place-items:center; font-size:12px; font-weight:700 }
+  .radio { width:20px; height:20px; border-radius:10px; border:2px solid var(--faint); margin-left:auto } .radio.on { border-color:var(--text); background:radial-gradient(var(--text) 0 4px, transparent 5px) }
+  .notes { margin-top:12px; font-size:13px; line-height:1.5; color:var(--muted) }
+  .notes li { margin:0 0 6px 16px }
+  .notes b { color:var(--text); font-weight:600 }
+  svg { display:block }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:var(--muted); margin:0 0 22px }
+  .legend span { display:flex; gap:6px; align-items:center }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Σερβιτόρος στο κινητό, σχεδιασμένος για ώρα αιχμής</h1>
+  <p class="lead">Ο σερβιτόρος δουλεύει με το ένα χέρι, όρθιος, με 8 με 12 τραπέζια. Το σχέδιο χωράει περισσότερα στην οθόνη και φέρνει την επόμενη κίνηση στο πρώτο άγγιγμα. Τα χρώματα, οι γραμματοσειρές και τα εικονίδια μένουν όπως στο υπόλοιπο ταμείο.</p>
+
+  <div class="kpis">
+    <div class="kpi"><b>3 <i>από 1</i></b><span>τραπέζια ανά σειρά: 9 ορατά μαζί με τα «Σε περιμένουν»</span></div>
+    <div class="kpi"><b>15 <i>από 6</i></b><span>είδη στην οθόνη παραγγελίας</span></div>
+    <div class="kpi"><b>1 <i>από 3</i></b><span>αγγίγματα για «Βγάλ' το» ή είσπραξη από τη λίστα</span></div>
+    <div class="kpi"><b>+60 dp</b><span>περισσότερος χώρος μέσα στο τραπέζι (χωρίς κάτω μενού)</span></div>
+  </div>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--bad)"></i>Ζήτησε λογαριασμό</span>
+    <span><i class="dot" style="background:var(--wait)"></i>Κάτι περιμένει να βγει</span>
+    <span><i class="dot" style="background:var(--ok)"></i>Τρώνε</span>
+    <span><i class="dot" style="background:var(--c5)"></i>Παρήγγειλαν</span>
+    <span><i class="dot" style="background:var(--faint)"></i>Άνοιξε, τίποτα ακόμα</span>
+  </div>
+
+  <div class="row">
+    <!-- 1. Τραπέζια -->
+    <div class="col">
+      <div class="cap">1 · Τραπέζια <small>με 9 δικά του, Σάββατο 21:30</small></div>
+      <div class="phone">
+        <div class="status"><span>21:32</span><span>▮▮▮ 82%</span></div>
+        <div class="hdr" style="padding-top:2px">
+          <div><div class="t">Τραπέζια</div><div class="s">9 δικά μου · 284,60 € ανοιχτά</div></div>
+          <div class="seg"><span class="on">Δικά μου</span><span>Όλα</span></div>
+        </div>
+        <div class="scroll">
+          <div class="lbl" style="margin-top:2px">Σε περιμένουν <em>3</em></div>
+          <div class="urg bad"><div class="n">7</div><div class="w"><b>Ζήτησε λογαριασμό · κάρτα</b><span>38,50 € · πριν 3′</span></div><div class="btn p">Είσπραξη</div></div>
+          <div class="urg"><div class="n">3</div><div class="w"><b>Έφαγαν · 2 γλυκά στο «Μετά»</b><span>τελευταίο πιάτο πριν 12′</span></div><div class="btn p">Βγάλ' το</div></div>
+          <div class="urg"><div class="n">11</div><div class="w"><b>24′ χωρίς κίνηση</b><span>Πέρνα να δεις αν θέλουν κάτι</span></div><div class="btn g">Άνοιξε</div></div>
+
+          <div class="lbl">Τα δικά μου <em>9</em></div>
+          <div class="grid3">
+            <div class="tt asked"><div class="num">7</div><div class="st"><i class="dot" style="background:var(--bad)"></i>Λογαριασμός</div><div class="ft"><b>38,50</b><span>52′</span></div></div>
+            <div class="tt wait"><div class="num">3</div><div class="st"><i class="dot" style="background:var(--wait)"></i>2 στο Μετά</div><div class="ft"><b>46,00</b><span>41′</span></div></div>
+            <div class="tt eating"><div class="num">11</div><div class="st"><i class="dot" style="background:var(--ok)"></i>Τρώνε</div><div class="ft"><b>22,40</b><span>24′</span></div></div>
+            <div class="tt ordered"><div class="num">2</div><div class="st"><i class="dot" style="background:var(--c5)"></i>Παρήγγειλαν</div><div class="ft"><b>18,00</b><span>6′</span></div></div>
+            <div class="tt eating"><div class="num">14</div><div class="st"><i class="dot" style="background:var(--ok)"></i>Τρώνε</div><div class="ft"><b>61,20</b><span>33′</span></div></div>
+            <div class="tt ordered"><div class="num">5</div><div class="st"><i class="dot" style="background:var(--c5)"></i>Παρήγγειλαν</div><div class="ft"><b>27,50</b><span>9′</span></div></div>
+            <div class="tt eating"><div class="num">9</div><div class="st"><i class="dot" style="background:var(--ok)"></i>Τρώνε</div><div class="ft"><b>33,00</b><span>18′</span></div></div>
+            <div class="tt"><div class="num">16</div><div class="st"><i class="dot" style="background:var(--faint)"></i>Μόλις κάθισαν</div><div class="ft"><b>—</b><span>2′</span></div></div>
+            <div class="tt eating"><div class="num">12</div><div class="st"><i class="dot" style="background:var(--ok)"></i>Τρώνε</div><div class="ft"><b>38,00</b><span>27′</span></div></div>
+          </div>
+
+          <div class="lbl">Ελεύθερα · πάτα για νέο τραπέζι <em>5</em></div>
+          <div class="free"><span>1</span><span>4</span><span>6</span><span>8</span><span>13</span><span>15</span></div>
+        </div>
+        <div class="nav">
+          <div class="on"><span class="ic"></span>Τραπέζια</div>
+          <div><span class="ic"></span>Πώληση</div>
+          <div><span class="ic"></span>Κρατήσεις</div>
+          <div><span class="ic" style="border-radius:11px"></span>Περισσότερα</div>
+        </div>
+      </div>
+      <ul class="notes">
+        <li><b>«Σε περιμένουν» με κουμπί στη γραμμή:</b> είσπραξη ή «Βγάλ' το» με ένα άγγιγμα, χωρίς να ανοίξει το τραπέζι.</li>
+        <li><b>Τρία πλακίδια στη σειρά, 84 dp:</b> αριθμός, στάδιο με χρώμα και λέξη, ποσό, λεπτά. Τα τραπέζια που θέλουν κάτι πάνε πρώτα.</li>
+        <li><b>Ελεύθερα ως μικρά κουμπιά</b> στο τέλος: δεν πιάνουν χώρο από τα ανοιχτά.</li>
+      </ul>
+    </div>
+
+    <!-- 2. Τραπέζι -->
+    <div class="col">
+      <div class="cap">2 · Μέσα στο τραπέζι <small>χωρίς κάτω μενού</small></div>
+      <div class="phone">
+        <div class="status"><span>21:32</span><span>▮▮▮ 82%</span></div>
+        <div class="hdr">
+          <div class="back">←</div>
+          <div><div class="t">Τραπέζι 3</div><div class="s">4 άτομα · 41′ · δικό μου</div></div>
+          <div class="search" style="font-size:18px">⋯</div>
+        </div>
+        <div style="padding:0 12px"><div class="chips">
+          <span class="chip on">Όλοι <small>46,00</small></span><span class="chip">1 <small>12,50</small></span><span class="chip">2 <small>9,00</small></span><span class="chip">3 <small>14,00</small></span><span class="chip">4 <small>10,50</small></span>
+        </div></div>
+        <div class="scroll">
+          <div class="held"><div class="w"><b>Περιμένουν στο «Μετά» · 2</b><span>Κρέπα σοκολάτα (θ.1), Βάφλα με παγωτό (θ.3)</span></div><div class="btn p">Βγάλ' το</div></div>
+          <div class="rnd"><span>Γύρος 2 · 21:05</span><span>σερβιρίστηκε</span></div>
+          <div class="ln"><span class="q">2×</span><span class="nm">Κύπελλο 3 μπάλες</span><span class="se">θ.1 θ.2</span><span class="pr">12,00</span></div>
+          <div class="ln"><span class="q">1×</span><span class="nm">Affogato</span><span class="se">θ.3</span><span class="pr">4,50</span></div>
+          <div class="ln"><span class="q">1×</span><span class="nm">Freddo espresso</span><span class="se">θ.4</span><span class="pr">3,50</span></div>
+          <div class="rnd"><span>Γύρος 1 · 20:51</span><span>σερβιρίστηκε</span></div>
+          <div class="ln"><span class="q">2×</span><span class="nm">Αναψυκτικό</span><span class="se">θ.1 θ.4</span><span class="pr">5,00</span></div>
+          <div class="ln"><span class="q">2×</span><span class="nm">Νερό 1 λίτρο</span><span class="se">κοινό</span><span class="pr">3,00</span></div>
+          <div class="ln"><span class="q">1×</span><span class="nm">Χωνάκι 1 μπάλα · φιστίκι</span><span class="se">θ.3</span><span class="pr">2,80</span></div>
+          <div class="ln"><span class="q">3×</span><span class="nm">Espresso</span><span class="se">θ.1 θ.2 θ.4</span><span class="pr">7,50</span></div>
+          <div style="display:flex;gap:6px;margin-top:10px"><span class="chip">↻ Ξανά ο γύρος 2</span><span class="chip">Σερβιρίστηκαν όλα</span></div>
+        </div>
+        <div class="bar">
+          <div class="due"><span>Χρωστάει</span><b>46,00 €</b></div>
+          <div class="btn g">+ Παραγγελία</div>
+          <div class="btn p">Είσπραξη</div>
+        </div>
+      </div>
+      <ul class="notes">
+        <li><b>Χωρίς κάτω μενού μέσα στο τραπέζι:</b> το βέλος γυρίζει στα τραπέζια. Κερδίζονται 60 dp.</li>
+        <li><b>Θέσεις με ποσό:</b> «2 · 9,00» λέει αμέσως τι χρωστάει ο καθένας· άγγιγμα = πληρωμή της θέσης.</li>
+        <li><b>Γραμμές 40 dp ανά γύρο</b> με τις θέσεις δίπλα, «Ξανά ο γύρος» για ίδιο κέρασμα σε ένα άγγιγμα.</li>
+        <li><b>Ένα κάτω πλαίσιο</b> αντί για δύο: ποσό, «+ Παραγγελία», «Είσπραξη».</li>
+      </ul>
+    </div>
+
+    <!-- 3. Παραγγελία -->
+    <div class="col">
+      <div class="cap">3 · Παραγγελία <small>3 στήλες, μετρητής πάνω στο είδος</small></div>
+      <div class="phone">
+        <div class="status"><span>21:33</span><span>▮▮▮ 82%</span></div>
+        <div class="hdr">
+          <div class="back">←</div>
+          <div><div class="t">Τραπέζι 3</div><div class="s">νέος γύρος · θέση 2</div></div>
+          <div class="search">⌕</div>
+        </div>
+        <div style="padding:0 12px">
+          <div class="chips"><span class="chip">Όλοι</span><span class="chip">1</span><span class="chip on">2</span><span class="chip">3</span><span class="chip">4</span><span class="chip" style="color:var(--muted)">+ θέση</span></div>
+          <div class="chips" style="margin-top:6px"><span class="chip on">Συχνά</span><span class="chip">Παγωτό</span><span class="chip">Γλυκά</span><span class="chip">Καφές</span><span class="chip">Ποτά</span></div>
+        </div>
+        <div class="scroll">
+          <div class="pg">
+            <div class="pt" style="background:var(--c6)"><b>Affogato</b><span>4,50</span></div>
+            <div class="pt" style="background:var(--c3)"><b>Βάφλα με παγωτό</b><span>7,50</span><i class="qty">1</i></div>
+            <div class="pt" style="background:var(--c5)"><b>Αναψυκτικό</b><span>2,50</span></div>
+            <div class="pt" style="background:var(--c2)"><b>Χωνάκι 1 μπάλα</b><span>2,80 ›</span></div>
+            <div class="pt" style="background:var(--c3)"><b>Κρέπα σοκολάτα</b><span>5,50</span></div>
+            <div class="pt" style="background:var(--c2)"><b>Κύπελλο 3 μπάλες</b><span>6,00 ›</span><i class="qty">2</i></div>
+            <div class="pt" style="background:var(--c4)"><b>Freddo espresso</b><span>3,50</span><i class="qty">1</i></div>
+            <div class="pt" style="background:var(--c4)"><b>Espresso</b><span>2,50</span></div>
+            <div class="pt" style="background:var(--c4)"><b>Cappuccino</b><span>3,50</span></div>
+            <div class="pt out" style="background:var(--c8)"><b>Σουφλέ σοκολάτας</b><span>Τελείωσε</span></div>
+            <div class="pt" style="background:var(--c5)"><b>Νερό 1 λίτρο</b><span>1,50</span></div>
+            <div class="pt" style="background:var(--c7)"><b>Smoothie φράουλα</b><span>4,80</span></div>
+            <div class="pt" style="background:var(--c2)"><b>Μιλκσέικ βανίλια</b><span>5,00</span></div>
+            <div class="pt" style="background:var(--c6)"><b>Τιραμισού</b><span>5,80</span></div>
+            <div class="pt" style="background:var(--c5)"><b>Λεμονάδα</b><span>3,00</span></div>
+          </div>
+        </div>
+        <div class="cart">
+          <div class="top"><span>4 είδη · θέσεις 2, 3 ⌃</span><b>23,00 €</b></div>
+          <div class="acts"><div class="btn g">Ⅱ Μετά</div><div class="btn p" style="flex:2">Στείλε τώρα</div></div>
+        </div>
+      </div>
+      <ul class="notes">
+        <li><b>Τρεις στήλες, 70 dp:</b> 15 είδη στην οθόνη αντί για 6. Η αναζήτηση γίνεται εικονίδιο πάνω δεξιά.</li>
+        <li><b>Μετρητής πάνω στο είδος:</b> άγγιγμα = +1 με δόνηση, φαίνεται αμέσως πόσα μπήκαν χωρίς να ανοίξει το καλάθι.</li>
+        <li><b>Η θέση μένει επιλεγμένη</b> μέχρι να αλλάξει· «+ θέση» αν κάθισε κι άλλος.</li>
+        <li><b>Το καλάθι είναι μία γραμμή</b>· άγγιγμα στο «⌃» το ανοίγει για αλλαγές και σημειώσεις.</li>
+      </ul>
+    </div>
+
+    <!-- 4. Λήξη βάρδιας -->
+    <div class="col">
+      <div class="cap">4 · Λήξη βάρδιας <small>με ανοιχτά τραπέζια</small></div>
+      <div class="phone">
+        <div class="status"><span>23:58</span><span>▮▮▮ 34%</span></div>
+        <div class="hdr">
+          <div class="back">←</div>
+          <div><div class="t">Πριν φύγεις</div><div class="s">3 τραπέζια ανοιχτά · 97,70 €</div></div>
+        </div>
+        <div class="scroll">
+          <div class="lbl" style="margin-top:2px">1 · Κλείσε όσα πληρώνουν τώρα</div>
+          <div class="card">
+            <div class="mrow"><b style="width:56px">Τ7</b><span style="flex:1;color:var(--muted);font-size:12px">5 είδη · από 21:40</span><b>38,50</b><span class="btn p" style="height:36px">Είσπραξη</span></div>
+            <div class="mrow"><b style="width:56px">Τ11</b><span style="flex:1;color:var(--muted);font-size:12px">3 είδη · από 22:15</span><b>22,40</b><span class="btn p" style="height:36px">Είσπραξη</span></div>
+            <div class="mrow"><b style="width:56px">Τ14</b><span style="flex:1;color:var(--muted);font-size:12px">8 είδη · από 23:02</span><b>36,80</b><span class="btn p" style="height:36px">Είσπραξη</span></div>
+          </div>
+          <div class="lbl">2 · Ή παράδωσε τα 3 σε συνάδελφο</div>
+          <div class="card">
+            <div class="mrow"><span class="av">ΜΚ</span><div><b>Μαρία Κ.</b><div style="font-size:12px;color:var(--muted)">Σερβιτόρος · ως 02:00</div></div><span class="radio on"></span></div>
+            <div class="mrow"><span class="av" style="background:var(--c3)">ΓΠ</span><div><b>Γιώργος Π.</b><div style="font-size:12px;color:var(--muted)">Σερβιτόρος · ως 01:00</div></div><span class="radio"></span></div>
+            <div class="mrow"><span class="av" style="background:var(--c4)">ΝΠ</span><div><b>Νίκος Π.</b><div style="font-size:12px;color:var(--muted)">Ταμίας · ως 00:30</div></div><span class="radio"></span></div>
+          </div>
+          <p style="font-size:12.5px;color:var(--faint);margin-top:10px;line-height:1.45">Η βάρδια κλείνει όταν δεν μείνει κανένα δικό σου τραπέζι. Ο συνάδελφος τα βρίσκει αμέσως στα «Δικά μου».</p>
+        </div>
+        <div class="bar"><div class="btn p" style="flex:1;justify-content:center">Παράδωσέ τα στη Μαρία Κ.</div></div>
+      </div>
+      <ul class="notes">
+        <li><b>Είσπραξη από τη γραμμή</b>, χωρίς να ανοίξει το τραπέζι.</li>
+        <li><b>Συνάδελφοι με τη βάρδια τους</b>, πρώτα οι σερβιτόροι που μένουν περισσότερο.</li>
+        <li>Μετά την παράδοση: οθόνη με κάθε τραπέζι που πέρασε και ποσό, και μετά η κανονική λήξη.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="kpis" style="margin-top:36px">
+    <div class="kpi" style="max-width:720px"><b style="font-size:16px">Και σε όλες τις οθόνες</b>
+      <span style="line-height:1.6;margin-top:6px">Κατά τη φόρτωση μένει η προηγούμενη εικόνα (όχι μαύρη οθόνη με σπίνερ). Δόνηση σε κάθε προσθήκη και αποστολή. Κουμπιά τουλάχιστον 44 dp, η κύρια ενέργεια πάντα κάτω δεξιά για τον αντίχειρα. Ένα μόνο κάθετο scroll ανά οθόνη.</span></div>
+  </div>
+</div>
+</body>
+</html>

@@ -109,7 +109,7 @@ export default async function FinancePage({ searchParams }: PageProps<"/finance"
   const storeOptions: [string, string][] = [...(restricted ? [] : [["", "Κεντρικό / όλα"] as [string, string]]), ...stores.map((store): [string, string] => [store.id, store.name])];
   const supplierOptions = suppliers.map((supplier): [string, string] => [supplier.id, supplier.name]);
   const purchaseOptions = payable.map((purchase): [string, string] => {
-    const outstanding = purchaseTotals(purchase, purchase.lines).totalCents - (allocated.get(purchase.id) ?? 0);
+    const outstanding = purchaseTotals(purchase, purchase.lines).totalCents - purchase.creditCents - (allocated.get(purchase.id) ?? 0);
     return [purchase.id, `${purchase.number ?? purchase.id.slice(-8)} · ${supplierNames.get(purchase.supplierId) ?? "Προμηθευτής"} · απλήρωτο ${money(outstanding)}`];
   });
   const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Athens" });
@@ -143,7 +143,7 @@ export default async function FinancePage({ searchParams }: PageProps<"/finance"
             ]}
           rows={purchases.map((purchase) => {
             const total = purchaseTotals(purchase, purchase.lines).totalCents;
-            const outstanding = total - (allocated.get(purchase.id) ?? 0);
+            const outstanding = total - purchase.creditCents - (allocated.get(purchase.id) ?? 0);
             return { id: purchase.id, cells: { number: <strong>{purchase.number ?? "Χωρίς αριθμό"}</strong>, supplier: purchase.supplier.name, date: day(purchase.createdAt), total: money(total), outstanding: money(outstanding), status: <StatusBadge look={paymentStatus({ outstandingCents: outstanding }, now)} /> } };
           })}
         />
