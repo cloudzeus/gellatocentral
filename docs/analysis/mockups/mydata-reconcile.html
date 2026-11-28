@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup · Τιμολόγια που λείπουν και αποδείξεις στην ΑΑΔΕ</title>
+<style>
+  :root { --navy:#131F3B; --ink:#1d2433; --muted:#5b6476; --line:#d9dde5; --soft:#f3f5f8; --ok:#15803d; --warn:#b45309; --bad:#b91c1c; --info:#3730a3; --okbar:#22c55e; --badbar:#ef4444; --warnbar:#f59e0b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#e9ecf1; font:13px/1.45 "Nunito", system-ui, sans-serif; color:var(--ink); }
+  .wrap { max-width:1280px; margin:0 auto; padding:28px 20px 60px; }
+  h1 { font-size:20px; font-weight:600; margin:0 0 4px; }
+  h2 { font-size:16px; font-weight:600; margin:40px 0 4px; }
+  p.cap { color:var(--muted); margin:0 0 18px; max-width:920px; }
+  .row { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start; }
+  .pill { font-size:11px; padding:2px 8px; border-radius:999px; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:4px; }
+  .p-ok { background:#dcfce7; color:var(--ok); } .p-warn { background:#fef3c7; color:var(--warn); } .p-bad { background:#fee2e2; color:var(--bad); } .p-info { background:#e0e7ff; color:var(--info); } .p-mute { background:var(--soft); color:var(--muted); }
+  .btn { border-radius:10px; min-height:36px; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-weight:600; font-size:12.5px; border:1px solid var(--line); background:#fff; padding:0 12px; white-space:nowrap; }
+  .btn.primary { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .btn.lg { min-height:46px; border-radius:12px; font-size:13.5px; }
+  svg { flex-shrink:0; }
+  .web { flex:1 1 640px; min-width:0; background:#fff; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.1); overflow:hidden; }
+  .web .bar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .web .bar h3 { margin:0; font-size:15px; } .web .bar small { color:var(--muted); }
+  .web .body { padding:16px 18px; display:grid; gap:16px; min-width:0; }
+  .web .body > * { min-width:0; }
+  .tw { overflow-x:auto; } .tw table { min-width:620px; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; } .tab { padding:5px 11px; border-radius:999px; font-size:12px; border:1px solid var(--line); } .tab.on { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .kpi { border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+  .kpi span { color:var(--muted); font-size:12px; } .kpi b { display:block; font-size:22px; font-variant-numeric:tabular-nums; margin:2px 0; }
+  .kpi small { font-size:11.5px; }
+  .kpi.bad { border-color:#fca5a5; background:#fef2f2; } .kpi.bad b { color:var(--bad); }
+  .kpi.ok b { color:var(--ok); }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; color:var(--muted); font-weight:600; font-size:11.5px; padding:6px 8px; border-bottom:1px solid var(--line); }
+  td { padding:8px; border-bottom:1px solid #eef0f4; vertical-align:middle; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  td small { display:block; color:var(--muted); font-size:11.5px; }
+  .rank { display:grid; grid-template-columns:150px 1fr 70px; gap:6px 10px; align-items:center; font-size:12.5px; }
+  .rank .track { height:10px; border-radius:5px; background:var(--soft); overflow:hidden; display:flex; }
+  .rank .n { text-align:right; font-variant-numeric:tabular-nums; color:var(--muted); }
+  .legend { display:flex; gap:16px; font-size:12px; color:var(--muted); flex-wrap:wrap; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+  .chart { display:grid; grid-template-columns:repeat(14,1fr); gap:6px; align-items:end; height:120px; padding-top:6px; border-bottom:1px solid var(--line); }
+  .chart .col { display:flex; flex-direction:column; justify-content:flex-end; height:100%; position:relative; }
+  .chart .col span { display:block; width:100%; }
+  .chart .col b { position:absolute; top:-18px; left:50%; transform:translateX(-50%); font-size:10.5px; color:var(--bad); }
+  .days { display:grid; grid-template-columns:repeat(14,1fr); gap:6px; font-size:10.5px; color:var(--muted); text-align:center; font-variant-numeric:tabular-nums; }
+  .note { border-radius:12px; padding:10px 12px; font-size:12.5px; display:flex; gap:8px; align-items:flex-start; }
+  .n-bad { background:#fef2f2; border:1px solid #fca5a5; color:#7f1d1d; } .n-ok { background:#f0fdf4; border:1px solid #86efac; color:#14532d; } .n-info { background:#eef2ff; border:1px solid #c7d2fe; color:#312e81; }
+  .phone { width:300px; height:620px; background:#fff; border-radius:30px; border:9px solid #1b1f2a; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 8px 24px rgba(0,0,0,.18); flex-shrink:0; }
+  .phone .top { padding:12px 14px 10px; border-bottom:1px solid var(--line); } .phone .top small { color:var(--muted); font-size:11px; } .phone .top h3 { margin:2px 0 0; font-size:15px; }
+  .phone .scroll { flex:1; overflow:hidden; padding:12px 14px; display:grid; gap:10px; align-content:start; }
+  .card { border:1px solid var(--line); border-radius:12px; padding:10px 12px; display:grid; gap:6px; font-size:12px; }
+  .card .h { display:flex; justify-content:space-between; gap:8px; align-items:baseline; } .card .h b { font-size:13px; }
+  .card .acts { display:flex; gap:6px; flex-wrap:wrap; }
+  .menu { position:relative; }
+  .pop { position:absolute; right:0; top:40px; width:260px; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.15); padding:6px; font-size:12.5px; z-index:2; }
+  .pop div { padding:8px 10px; border-radius:8px; } .pop div:hover, .pop div.hi { background:var(--soft); }
+  .pop small { display:block; color:var(--muted); }
+  .design { background:#fff; border-radius:12px; padding:16px 20px; box-shadow:0 2px 14px rgba(0,0,0,.06); font-size:12.5px; margin-top:22px; }
+  .design h3 { margin:0 0 8px; font-size:15px; } .design ol { margin:0; padding-left:18px; } .design li { margin:5px 0; }
+  @media (max-width:760px) { .kpis { grid-template-columns:1fr; } .rank { grid-template-columns:110px 1fr 56px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Δύο έλεγχοι με το myDATA, μόνο με ανάγνωση</h1>
+  <p class="cap">Α: τιμολόγια που έκοψαν οι προμηθευτές στην επιχείρηση αλλά δεν έχουν περάσει στις αγορές μας. Β: ημέρες όπου οι αποδείξεις του ταμείου στην ΑΑΔΕ δεν συμφωνούν σε πλήθος ή σύνολο με τις δικές μας, και αποδείξεις που δεν πήραν MARK. Και οι δύο έλεγχοι τρέχουν μόνοι τους κάθε βράδυ. Η εφαρμογή μόνο διαβάζει από το myDATA· οι διαβιβάσεις μας μένουν στη Viva.</p>
+
+  <!-- ================= Α ================= -->
+  <h2>Α · Τιμολόγια που λείπουν από τις αγορές</h2>
+  <p class="cap">Νέα καρτέλα «Λείπουν» στις Αγορές. Δείχνει ό,τι βρίσκεται στο myDATA ως έξοδο της επιχείρησης και δεν ταιριάζει με κανένα σκαναρισμένο ή περασμένο παραστατικό. Συνήθως σημαίνει χαρτί που χάθηκε, παραλαβή που δεν καταγράφηκε ή τιμολόγιο που δεν μας αφορά.</p>
+  <div class="row">
+    <div class="web">
+      <div class="bar">
+        <div><h3>Αγορές · Νοέμβριος 2026</h3><small>Τελευταίος έλεγχος με το myDATA: σήμερα 03:10</small></div>
+        <div class="tabs"><span class="tab">Όλα · 58</span><span class="tab">Διαφορές · 3</span><span class="tab on">Λείπουν · 6</span></div>
+      </div>
+      <div class="body">
+        <div class="kpis">
+          <div class="kpi bad"><span>Λείπουν από τις αγορές</span><b>6 · 1.284,60 €</b><small>Τα παλαιότερα 12 ημερών. Βρες τα πριν κλείσει ο μήνας</small></div>
+          <div class="kpi ok"><span>Στο myDATA και σε εμάς</span><b>52 από 58</b><small>90% του μήνα · πέρσι τέτοια εποχή 81%</small></div>
+          <div class="kpi"><span>Δεν μας αφορούν</span><b>2</b><small>Σημειωμένα, δεν ξαναεμφανίζονται</small></div>
+        </div>
+
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px"><b>Ανά προμηθευτή</b><span class="legend"><span><i style="background:var(--okbar)"></i>Περασμένα</span><span><i style="background:var(--badbar)"></i>Λείπουν</span></span></div>
+          <div class="rank">
+            <span>ΚΑΦΕΚΟΠΤΕΙΑ ΑΕ</span><span class="track"><span style="width:50%;background:var(--okbar)"></span><span style="width:33%;background:var(--badbar)"></span></span><span class="n">2 από 5</span>
+            <span>ΓΑΛΑΚΤΟΚΟΜΙΚΑ ΑΕ</span><span class="track"><span style="width:92%;background:var(--okbar)"></span><span style="width:8%;background:var(--badbar)"></span></span><span class="n">2 από 24</span>
+            <span>ΖΑΧΑΡΩΔΗ ΑΕ</span><span class="track"><span style="width:60%;background:var(--okbar)"></span><span style="width:20%;background:var(--badbar)"></span></span><span class="n">1 από 4</span>
+            <span>ΔΕΗ</span><span class="track"><span style="width:0%"></span><span style="width:12%;background:var(--badbar)"></span></span><span class="n">1 από 1</span>
+          </div>
+        </div>
+
+        <div class="tw"><table>
+          <tr><th>Προμηθευτής</th><th>Παραστατικό</th><th>Ημερομηνία</th><th>Κατάστημα</th><th class="num">Σύνολο</th><th></th></tr>
+          <tr><td>ΚΑΦΕΚΟΠΤΕΙΑ ΑΕ<small>ΑΦΜ 099887766</small></td><td>Τιμολόγιο Α-2231<small>MARK 400001239900112</small></td><td>16/11<small><span class="pill p-bad">12 ημέρες</span></small></td><td>Πειραιά<small>από τη διεύθυνση παράδοσης</small></td><td class="num">412,30</td>
+            <td class="menu"><span class="btn primary">Πέρασέ το</span>
+              <div class="pop">
+                <div class="hi"><b>Πέρασέ το από το myDATA</b><small>Πρόχειρο με τα ποσά της ΑΑΔΕ· ταιριάζεις τα είδη και το εγκρίνεις</small></div>
+                <div><b>Το έχω σκαναρισμένο</b><small>Διάλεξε το παραστατικό που περάσαμε με άλλον αριθμό</small></div>
+                <div><b>Δεν μας αφορά</b><small>π.χ. άλλη εταιρεία με ίδιο ΑΦΜ λάθος, διπλό του προμηθευτή</small></div>
+              </div></td></tr>
+          <tr><td>ΚΑΦΕΚΟΠΤΕΙΑ ΑΕ<small>ΑΦΜ 099887766</small></td><td>Τιμολόγιο Α-2248</td><td>22/11<small><span class="pill p-warn">6 ημέρες</span></small></td><td>Πειραιά</td><td class="num">389,10</td><td><span class="btn">Πέρασέ το</span></td></tr>
+          <tr><td>ΓΑΛΑΚΤΟΚΟΜΙΚΑ ΑΕ<small>ΑΦΜ 094123456</small></td><td>Πιστωτικό ΠΙΣ-130<small>επιστροφή ή έκπτωση</small></td><td>24/11<small><span class="pill p-warn">4 ημέρες</span></small></td><td><span class="pill p-info">διάλεξε</span><small>δεν γράφει διεύθυνση</small></td><td class="num" style="color:var(--ok)">−46,20</td><td><span class="btn">Πέρασέ το</span></td></tr>
+          <tr><td>ΓΑΛΑΚΤΟΚΟΜΙΚΑ ΑΕ</td><td>Τιμολόγιο ΤΔΑ-9970</td><td>26/11<small><span class="pill p-mute">2 ημέρες</span></small></td><td>Γλυφάδα</td><td class="num">118,40</td><td><span class="btn">Πέρασέ το</span></td></tr>
+          <tr><td>ΖΑΧΑΡΩΔΗ ΑΕ</td><td>Τιμολόγιο ΠΡ-81</td><td>27/11<small><span class="pill p-mute">1 ημέρα</span></small></td><td>Πειραιά</td><td class="num">231,80</td><td><span class="btn">Πέρασέ το</span></td></tr>
+          <tr><td>ΔΕΗ<small>λογαριασμός ρεύματος</small></td><td>Τιμολόγιο 7710-339</td><td>27/11<small><span class="pill p-mute">1 ημέρα</span></small></td><td>Γλυφάδα</td><td class="num">179,20</td><td><span class="btn">Πέρασέ το ως έξοδο</span></td></tr>
+        </table></div>
+        <div class="note n-info"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></svg><span>Το «Πέρασέ το» φτιάχνει πρόχειρο με προμηθευτή, αριθμό, ημερομηνία και ποσά από την ΑΑΔΕ. Τα είδη ταιριάζουν όπως στο σκανάρισμα· ό,τι δεν ταιριάξει το διαλέγεις εσύ. Τίποτα δεν μπαίνει στην αποθήκη πριν το εγκρίνεις.</span></div>
+      </div>
+    </div>
+
+    <div>
+      <b style="display:block;font-size:12px;color:var(--muted);margin:0 0 8px">Στο κινητό του υπεύθυνου καταστήματος</b>
+      <div class="phone">
+        <div class="top"><small>Αγορές · Πειραιά</small><h3>Λείπουν 4 τιμολόγια</h3></div>
+        <div class="scroll">
+          <div class="note n-bad" style="font-size:12px"><span>Οι προμηθευτές τα δήλωσαν στην ΑΑΔΕ για αυτό το κατάστημα, αλλά δεν τα έχουμε. Ψάξε το χαρτί ή πέρασέ τα από το myDATA.</span></div>
+          <div class="card"><div class="h"><b>ΚΑΦΕΚΟΠΤΕΙΑ ΑΕ</b><b style="font-variant-numeric:tabular-nums">412,30 €</b></div>
+            <span style="color:var(--muted)">Τιμολόγιο Α-2231 · 16/11 · <span class="pill p-bad">12 ημέρες</span></span>
+            <div class="acts"><span class="btn primary">Πέρασέ το</span><span class="btn">Σκάναρε το χαρτί</span></div></div>
+          <div class="card"><div class="h"><b>ΚΑΦΕΚΟΠΤΕΙΑ ΑΕ</b><b style="font-variant-numeric:tabular-nums">389,10 €</b></div>
+            <span style="color:var(--muted)">Τιμολόγιο Α-2248 · 22/11 · <span class="pill p-warn">6 ημέρες</span></span>
+            <div class="acts"><span class="btn primary">Πέρασέ το</span><span class="btn">Σκάναρε το χαρτί</span></div></div>
+          <div class="card"><div class="h"><b>ΖΑΧΑΡΩΔΗ ΑΕ</b><b style="font-variant-numeric:tabular-nums">231,80 €</b></div>
+            <span style="color:var(--muted)">Τιμολόγιο ΠΡ-81 · 27/11 · <span class="pill p-mute">1 ημέρα</span></span>
+            <div class="acts"><span class="btn primary">Πέρασέ το</span><span class="btn">Σκάναρε το χαρτί</span></div></div>
+          <div class="card"><div class="h"><b>ΓΑΛΑΚΤΟΚΟΜΙΚΑ ΑΕ</b><b style="font-variant-numeric:tabular-nums;color:var(--ok)">−46,20 €</b></div>
+            <span style="color:var(--muted)">Πιστωτικό ΠΙΣ-130 · 24/11 · <span class="pill p-warn">4 ημέρες</span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Β ================= -->
+  <h2>Β · Αποδείξεις του ταμείου στην ΑΑΔΕ</h2>
+  <p class="cap">Νέα καρτέλα «Έλεγχος με την ΑΑΔΕ» στις Διαβιβάσεις myDATA. Η ΑΑΔΕ δεν μας δίνει τις αποδείξεις μία-μία, γιατί τις διαβιβάζει η Viva. Μας δίνει όμως για κάθε ημέρα πόσες αποδείξεις έχει και με τι σύνολο. Κάθε βράδυ τα συγκρίνουμε με τις δικές μας αποδείξεις της ίδιας ημέρας. Χωριστά δείχνουμε τις δικές μας αποδείξεις που δεν πήραν ποτέ MARK.</p>
+  <div class="row">
+    <div class="web">
+      <div class="bar">
+        <div><h3>Διαβιβάσεις myDATA · Έλεγχος με την ΑΑΔΕ</h3><small>Τελευταίος έλεγχος: σήμερα 03:25 · καλύπτει ως χθες 27/11</small></div>
+        <div class="tabs"><span class="tab">Ημερολόγιο</span><span class="tab on">Έλεγχος με την ΑΑΔΕ · 3</span></div>
+      </div>
+      <div class="body">
+        <div class="kpis">
+          <div class="kpi ok"><span>Ημέρες που συμφωνούν</span><b>26 από 27</b><small>Ίδιο πλήθος και ίδιο σύνολο με την ΑΑΔΕ</small></div>
+          <div class="kpi bad"><span>Ημέρες με διαφορά</span><b>1 · 12,50 € λιγότερα</b><small>19/11 Πειραιά: 1 απόδειξη λιγότερη στην ΑΑΔΕ</small></div>
+          <div class="kpi bad"><span>Αποδείξεις χωρίς MARK</span><b>2 · 18,80 €</b><small>Δεν διαβιβάστηκαν. Ξαναστείλε τες μέσω Viva</small></div>
+        </div>
+
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:22px;gap:12px;flex-wrap:wrap"><b>Τελευταίες 14 ημέρες · όλα τα καταστήματα</b><span class="legend"><span><i style="background:var(--okbar)"></i>Συμφωνεί με την ΑΑΔΕ</span><span><i style="background:var(--badbar)"></i>Διαφορά στο πλήθος</span><span><i style="background:#d1d5db"></i>Περιμένουμε την ΑΑΔΕ</span></span></div>
+          <div class="chart">
+            <div class="col"><span style="height:62%;background:var(--okbar)"></span></div>
+            <div class="col"><span style="height:70%;background:var(--okbar)"></span></div>
+            <div class="col"><span style="height:88%;background:var(--okbar)"></span></div>
+            <div class="col"><span style="height:95%;background:var(--okbar)"></span></div>
+            <div class="col"><span style="height:58%;background:var(--okbar)"></span></div>
+            <div class="col"><b>−1</b><span style="height:60%;background:var(--badbar)"></span></div>
+            <div class="col"><span style="height:66%;background:var(--okbar)"></span></div>
+            <div class="col"><span style="height:72%;background:var(--okbar)"></span></div>
+            <div class="col"><span style="height:91%;background:var(--okbar)"></span></div>
+            <div class="col"><span style="height:98%;background:var(--okbar)"></span></div>
+            <div class="col"><span style="height:55%;background:var(--okbar)"></span></div>
+            <div class="col"><span style="height:61%;background:var(--okbar)"></span></div>
+            <div class="col"><span style="height:69%;background:var(--okbar)"></span></div>
+            <div class="col"><span style="height:74%;background:#d1d5db"></span></div>
+          </div>
+          <div class="days"><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span></div>
+        </div>
+
+        <div>
+          <b style="display:block;margin-bottom:6px">Ανά ημέρα και κατάστημα</b>
+          <div class="tw"><table>
+            <tr><th>Ημέρα</th><th>Κατάστημα</th><th class="num">Δικές μας</th><th class="num">Στην ΑΑΔΕ</th><th>Τι βρήκαμε</th></tr>
+            <tr><td><b>19/11</b></td><td>Πειραιά</td><td class="num">184 · 1.912,40 €</td><td class="num">183 · 1.899,90 €</td>
+              <td><span class="pill p-bad">1 λιγότερη στην ΑΑΔΕ · 12,50 €</span><small>Όλες οι δικές μας έχουν MARK. Δες τις αποδείξεις 12,50 € της ημέρας και στείλε τες στην υποστήριξη</small></td></tr>
+            <tr><td><b>19/11</b></td><td>Γλυφάδα</td><td class="num">121 · 1.006,20 €</td><td class="num">121 · 1.006,20 €</td><td><span class="pill p-ok">Συμφωνεί</span></td></tr>
+            <tr><td><b>27/11</b></td><td>Πειραιά</td><td class="num">203 · 2.141,00 €</td><td class="num">—</td><td><span class="pill p-mute">Περιμένουμε την ΑΑΔΕ</span><small>Ξαναελέγχεται απόψε· γίνεται κόκκινο μόνο αν διαφέρει 3 βράδια</small></td></tr>
+          </table></div>
+        </div>
+
+        <div>
+          <b style="display:block;margin-bottom:6px">Αποδείξεις χωρίς MARK</b>
+          <div class="tw"><table>
+            <tr><th>Απόδειξη</th><th>Κατάστημα · ταμείο</th><th class="num">Ποσό</th><th>Τι βρήκαμε</th><th></th></tr>
+            <tr><td><b>Β1-0977</b><small>19/11 18:05 · Μετρητά</small></td><td>Γλυφάδα · Ταμείο web</td><td class="num">6,80</td>
+              <td><span class="pill p-bad">Δεν διαβιβάστηκε</span><small>Η Viva απάντησε με σφάλμα και δεν ξαναδοκιμάστηκε</small></td><td><span class="btn primary">Ξαναστείλε μέσω Viva</span></td></tr>
+            <tr><td><b>Α1-2507</b><small>27/11 20:11 · Κάρτα</small></td><td>Πειραιά · Ταμείο 1</td><td class="num">12,00</td>
+              <td><span class="pill p-warn">Χωρίς απάντηση από τη Viva</span><small>Η πληρωμή πέρασε, η απόδειξη έμεινε σε αναμονή</small></td><td><span class="btn primary">Ξαναστείλε μέσω Viva</span></td></tr>
+          </table></div>
+        </div>
+        <div class="note n-info"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></svg><span>Όταν μια ημέρα διαφέρει ενώ όλες οι δικές μας αποδείξεις έχουν MARK, δεν μπορούμε να πούμε ποια απόδειξη λείπει, γιατί η ΑΑΔΕ δίνει μόνο σύνολα. Δείχνουμε όμως τη διαφορά σε πλήθος και ποσό, που συνήθως φτάνει για να βρεθεί.</span></div>
+        <div class="note n-ok"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg><span>Όταν όλα συμφωνούν, η καρτέλα γράφει «Όλες οι αποδείξεις ως χθες είναι στην ΑΑΔΕ» και δεν εμφανίζεται ειδοποίηση.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="design">
+    <h3>Πώς στήνεται (για έγκριση)</h3>
+    <ol>
+      <li><b>Α · Από πού έρχονται.</b> Υπάρχει ήδη λήψη εξόδων από το myDATA (<code>RequestDocs</code>, <code>lib/mydata-income.ts</code>) που φτιάχνει πρόχειρα αγορών. Αντί να γεμίζει τη λίστα με πρόχειρα, ο βραδινός έλεγχος τα κρατά ως «Λείπουν» και τα ταιριάζει με τα παραστατικά μας με MARK, αλλιώς με ΑΦΜ + αριθμό + ποσό. Γίνονται πρόχειρο μόνο όταν πατήσεις «Πέρασέ το».</li>
+      <li><b>Α · Κατάστημα.</b> Από τη διεύθυνση παράδοσης ή το υποκατάστημα αντισυμβαλλόμενου που δηλώνει ο προμηθευτής. Αν λείπει, το διαλέγεις μία φορά και η εφαρμογή θυμάται τον προμηθευτή για το επόμενο.</li>
+      <li><b>Α · Ειδοποίηση.</b> Τιμολόγιο που λείπει πάνω από 5 ημέρες εμφανίζεται στις «Εργασίες» του υπεύθυνου αγορών. Στο κλείσιμο μήνα ο λογιστής βλέπει τον αριθμό που λείπει.</li>
+      <li><b>Β · Από πού έρχονται.</b> <code>RequestTransmittedDocs</code> επιστρέφει μόνο ό,τι διαβίβασε ο ίδιος χρήστης, άρα όχι τις αποδείξεις της Viva. Γι' αυτό χρησιμοποιούμε <code>RequestMyIncome</code> ανά εκδότη (ΑΦΜ με δικά του κλειδιά myDATA): για κάθε ημέρα και τύπο απόδειξης (11.1, 11.4) δίνει πλήθος, καθαρή αξία, ΦΠΑ και σύνολο. Συγκρίνουμε με τις ολοκληρωμένες αποδείξεις όλων των ταμείων (web και Android) της ίδιας ημέρας, με ανοχή 0,01 €.</li>
+      <li><b>Β · Κατάστημα.</b> Η ΑΑΔΕ χωρίζει ανά εγκατάσταση (αριθμός υποκαταστήματος). Μέχρι να οριστεί ο αριθμός εγκατάστασης σε κάθε κατάστημα, η σύγκριση γίνεται ανά εκδότη και όχι ανά κατάστημα.</li>
+      <li><b>Β · Καθυστέρηση της ΑΑΔΕ.</b> Τα σύνολα της ΑΑΔΕ μπορεί να ενημερώνονται αργότερα. Ημέρα που διαφέρει ξαναελέγχεται για 3 βράδια πριν γίνει κόκκινη και μπει στις «Εργασίες».</li>
+      <li><b>Β · Αποδείξεις χωρίς MARK.</b> Βγαίνουν από τη δική μας βάση, χωρίς κλήση στην ΑΑΔΕ. Το «Ξαναστείλε μέσω Viva» είναι η επανάληψη που ήδη υπάρχει στο ημερολόγιο. Η διαφορά ποσού δεν διορθώνεται αυτόματα: τη χειρίζεται ο υπεύθυνος (πιστωτικό ή υποστήριξη).</li>
+      <li><b>Μόνο ανάγνωση και όρια.</b> Μία κλήση ανάγνωσης τη νύχτα ανά εκδότη για κάθε έλεγχο, με συνέχεια σελίδων (nextPartition). Τρέχουν ως εργασία στο παράθυρο «Εργασίες», με «Ξαναέλεγξε τώρα» για τον υπεύθυνο.</li>
+    </ol>
+  </div>
+</div>
+</body>
+</html>

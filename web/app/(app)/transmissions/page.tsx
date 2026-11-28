@@ -6,6 +6,9 @@ import { btn, Card, Kpi, Page } from "@/components/ui";
 import { attemptPage, DOC_TYPES, fiscalOverview, STATUSES } from "@/lib/fiscal-log";
 import { filterParam, listParams } from "@/lib/paging";
 import { requireStockContext } from "@/lib/stock-context";
+import { db } from "@/lib/db";
+import { issuers, unmarkedReceipts } from "@/lib/mydata-receipts";
+import { AadeView } from "./aade";
 
 const time = new Intl.DateTimeFormat("el-GR", { timeZone: "Europe/Athens", dateStyle: "short", timeStyle: "medium" });
 const clock = new Intl.DateTimeFormat("el-GR", { timeZone: "Europe/Athens", hour: "2-digit", minute: "2-digit" });
@@ -14,6 +17,21 @@ const STATUS_LABEL = { SIGNED: "Στάλθηκε", PENDING: "Σε εξέλιξη
 export default async function TransmissionsPage({ searchParams }: PageProps<"/transmissions">) {
   const ctx = await requireStockContext("invoices.read");
   const query = await searchParams;
+  // καρτέλα «Έλεγχος με την ΑΑΔΕ» μόνο όταν κάποιος εκδότης έχει κλειδιά myDATA (mockup mydata-reconcile.html Β)
+  const keyed = (await issuers(ctx.orgId)).some((i) => i.userId && i.subKey);
+  const aadeView = keyed && query.view === "aade";
+  const aadeCount = keyed ? (await db.mydataDayCheck.count({ where: { orgId: ctx.orgId, status: "DIFF" } })) + (await unmarkedReceipts(ctx.orgId)).length : 0;
+  const tab = (href: string, label: string, active: boolean, n?: number) => (
+    <Link href={href} aria-current={active ? "page" : undefined} className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium ${active ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+      {label}{n != null ? <span className={`tabular-nums ${n ? "text-destructive" : ""}`}>· {n}</span> : null}
+    </Link>
+  );
+  const tabs = keyed ? (
+    <nav aria-label="Προβολή" className="flex w-fit flex-wrap gap-1 rounded-xl bg-muted p-1">
+      {tab("/transmissions", "Ημερολόγιο", !aadeView)}
+      {tab("/transmissions?view=aade", "Έλεγχος με την ΑΑΔΕ", aadeView, aadeCount)}
+    </nav>
+  ) : null;
   const list = listParams(query, 50);
   const docType = filterParam(query, "type", Object.keys(DOC_TYPES));
   const status = filterParam(query, "status", STATUSES);
@@ -28,6 +46,9 @@ export default async function TransmissionsPage({ searchParams }: PageProps<"/tr
       actions={<a href={exportHref} className={btn("outline", "sm")}><Download /> CSV για έλεγχο</a>}
     >
       <div className="grid gap-4">
+        {tabs}
+        {typeof query.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{query.error.slice(0, 300)}</p> : null}
+        {aadeView ? <AadeView orgId={ctx.orgId} /> : <>
         <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           <Kpi icon={CheckCircle2} tone="success" label="Στάλθηκαν (24 ώρες)" value={overview.signed} hint="Έχουν MARK από την ΑΑΔΕ" />
           <Kpi icon={Clock} tone={overview.waiting ? "warning" : "neutral"} label="Περιμένουν MARK" value={overview.waiting} hint={overview.waiting ? "Η Viva τα ξαναστέλνει μόνη της· δεν χρειάζεται κάτι" : "Τίποτα σε αναμονή"} />
@@ -83,6 +104,7 @@ export default async function TransmissionsPage({ searchParams }: PageProps<"/tr
             }))}
           />
         </Card>
+        </>}
       </div>
     </Page>
   );

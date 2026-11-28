@@ -10,6 +10,7 @@ import { parseGs1 } from "@/lib/gs1";
 import { scanPurchaseInvoice } from "@/lib/ai/ocr-scan";
 import { importMyIncome } from "@/lib/mydata-income";
 import { checkQuietly, resolveCheck } from "@/lib/mydata-check";
+import { ignoreIncoming, importIncoming, linkIncoming, syncIncoming } from "@/lib/mydata-incoming";
 import { matchLine } from "@/lib/purchases";
 import { purchaseSnapshots } from "@/lib/purchase-snapshots";
 import { postPurchase } from "@/lib/purchases-db";
@@ -390,4 +391,54 @@ export async function resolveMydata(docId: string, choice: "AADE" | "PAPER") {
   const { open } = await resolveCheck(org.id, docId, choice, user.name);
   if (open.length) return fail(`Τα στοιχεία κεφαλίδας πήραν τις τιμές της ΑΑΔΕ, αλλά διαφέρουν ακόμα: ${open.map((d) => d.label).join(", ")}. Διόρθωσε τις γραμμές ώστε να βγαίνουν τα ποσά του myDATA.`, `/purchases/${docId}`);
   back(`/purchases/${docId}`, `?saved=${encodeURIComponent(choice === "AADE" ? "Κρατήθηκαν τα στοιχεία της ΑΑΔΕ" : "Σημειώθηκε ότι το χαρτί είναι σωστό")}`);
+}
+
+// ── Τιμολόγια που λείπουν από τις αγορές (lib/mydata-incoming.ts, mockup mydata-reconcile.html Α) ──
+const MISSING = "/purchases?view=missing";
+const missingFail = (e: unknown) => {
+  rethrowControlFlow(e);
+  return back(MISSING, `&error=${encodeURIComponent(e instanceof Error ? e.message : "Η ενέργεια απέτυχε")}`);
+};
+
+/** «Ξαναέλεγξε τώρα»: ίδιος έλεγχος με τον βραδινό, για την επιχείρηση του χρήστη. */
+export async function recheckMissing() {
+  const { org, user } = await currentOrg("purchases.read");
+  try {
+    const r = await runTask({ orgId: org.id, userId: user.id, userName: user.name }, { kind: "purchases.mydata-missing", title: "Έλεγχος τιμολογίων που λείπουν (myDATA)", permission: "purchases.read" }, async (task) => {
+      const result = await syncIncoming(org.id);
+      task.result(MISSING);
+      return result;
+    });
+    back(MISSING, `&saved=${encodeURIComponent(r.missing ? `Λείπουν ${r.missing} τιμολόγια${r.added ? ` (${r.added} νέα)` : ""}` : "Δεν λείπει κανένα τιμολόγιο")}`);
+  } catch (e) { missingFail(e); }
+}
+
+/** «Πέρασέ το»: πρόχειρο αγοράς με τα στοιχεία της ΑΑΔΕ. */
+export async function importMissing(form: FormData) {
+  const { org, user } = await currentOrg("purchases.add");
+  try {
+    const id = await importIncoming(org.id, String(form.get("id") ?? ""), String(form.get("warehouseId") ?? ""), user.name);
+    await flashOk("Έγινε πρόχειρο με τα στοιχεία της ΑΑΔΕ· ταίριαξε τα είδη και καταχώρισέ το");
+    back(`/purchases/${id}`);
+  } catch (e) { missingFail(e); }
+}
+
+/** «Το έχω σκαναρισμένο»: δένεται με παραστατικό που περάσαμε με άλλον αριθμό. */
+export async function linkMissing(form: FormData) {
+  const { org, user } = await currentOrg("purchases.edit");
+  try {
+    await linkIncoming(org.id, String(form.get("id") ?? ""), String(form.get("purchaseDocId") ?? ""), user.name);
+    back(MISSING, "&saved=" + encodeURIComponent("Συνδέθηκε με το παραστατικό σου"));
+  } catch (e) { missingFail(e); }
+}
+
+/** «Δεν μας αφορά»: σημειώνεται με τον λόγο και δεν ξαναεμφανίζεται. */
+export async function ignoreMissing(form: FormData) {
+  const { org, user } = await currentOrg("purchases.edit");
+  const reason = String(form.get("reason") ?? "").trim().slice(0, 200);
+  if (reason.length < 3) return back(MISSING, `&error=${encodeURIComponent("Γράψε σύντομα γιατί δεν μας αφορά")}`);
+  try {
+    await ignoreIncoming(org.id, String(form.get("id") ?? ""), reason, user.name);
+    back(MISSING, "&saved=" + encodeURIComponent("Σημειώθηκε· δεν θα ξαναεμφανιστεί"));
+  } catch (e) { missingFail(e); }
 }

@@ -15,6 +15,7 @@ import { createDoc, importDocs, scanDoc } from "./actions";
 import { StatusBadge } from "@/components/status-badge";
 import { statusOptions } from "@/lib/status";
 import type { MydataDiff } from "@/lib/mydata-parse";
+import { MissingView } from "./missing";
 
 // Επιστροφές και πιστωτικά προμηθευτή μένουν στην ίδια λίστα: μειώνουν ό,τι χρωστάμε (lib/purchase-returns.ts)
 const KIND_LABEL: Record<string, string> = { INVOICE: "Τιμολόγιο", RETURN: "Επιστροφή", CREDIT: "Πιστωτικό" };
@@ -68,6 +69,7 @@ const day = (d: Date | null) => (d ? new Intl.DateTimeFormat("el-GR", { timeZone
 export default async function PurchasesPage({ searchParams }: PageProps<"/purchases">) {
   const { org, can } = await currentOrg("purchases.read");
   const q = await searchParams;
+  const missingView = q.view === "missing" && !!org.aadeUserId;
   const list = listParams(q, 50, ["supplier", "number", "issuedAt", "warehouse", "lines", "status"]);
   const [suppliers, warehouses, ocr] = await Promise.all([
     db.party.findMany({ where: { orgId: org.id, roles: { has: "supplier" }, active: true }, orderBy: { name: "asc" } }),
@@ -145,6 +147,23 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
     </form>
   );
 
+  const [diffCount, missingCount] = org.aadeUserId ? await Promise.all([
+    db.mydataCheck.count({ where: { orgId: org.id, status: "DIFF", resolution: null } }),
+    db.mydataIncoming.count({ where: { orgId: org.id, status: "MISSING" } }),
+  ]) : [0, 0];
+  const tab = (href: string, label: string, n: number | null, active: boolean, tone = "") => (
+    <Link href={href} aria-current={active ? "page" : undefined} className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium ${active ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+      {label}{n != null ? <span className={`tabular-nums ${n && tone ? tone : ""}`}>· {n}</span> : null}
+    </Link>
+  );
+  const tabs = org.aadeUserId ? (
+    <nav aria-label="Προβολή" className="flex w-fit flex-wrap gap-1 rounded-xl bg-muted p-1">
+      {tab("/purchases", "Όλα", null, !missingView && mydata !== "DIFF")}
+      {tab("/purchases?mydata=DIFF", "Διαφορές", diffCount, !missingView && mydata === "DIFF", "text-destructive")}
+      {tab("/purchases?view=missing", "Λείπουν", missingCount, missingView, "text-destructive")}
+    </nav>
+  ) : null;
+
   return (
     <Page section="Αποθήκη & αγορές" title="Τιμολόγια αγοράς" description="Χρηματοοικονομικά παραστατικά προμηθευτών· το απόθεμα γράφεται μόνο όταν δεν έχει ήδη καταχωρηθεί με παραλαβή"
       actions={can("purchases.add") && suppliers.length && warehouses.length ? (
@@ -157,6 +176,8 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
       <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{q.error.slice(0, 300)}</p> : null}
         {!suppliers.length || !warehouses.length ? <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm text-warning-ink">Χρειάζεσαι πρώτα <Link href="/parties" className="underline">προμηθευτή</Link> και <Link href="/inventory" className="underline">αποθήκη</Link>.</p> : null}
+        {tabs}
+        {missingView ? <MissingView orgId={org.id} canAdd={can("purchases.add")} canEdit={can("purchases.edit")} /> : <>
         {monthChecks.length ? <MydataMonth checks={monthChecks} /> : null}
         <Card>
           <DataTable
@@ -205,6 +226,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
             })}
           />
         </Card>
+        </>}
       </div>
     </Page>
   );

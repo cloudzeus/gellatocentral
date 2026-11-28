@@ -212,6 +212,7 @@ model Organization {
   supplierItems        SupplierItem[]
   purchaseDocs         PurchaseDoc[]
   mydataChecks         MydataCheck[]
+  mydataIncoming       MydataIncoming[]
   stockLots            StockLot[]
   stockTransfers       StockTransfer[]
   stockCounts          StockCount[]
@@ -282,6 +283,7 @@ model Organization {
   migrationRuns          MigrationRun[]
   taskRuns               TaskRun[]
   migrationCutover       MigrationCutover?
+  mydataDayChecks        MydataDayCheck[]
 }
 
 model User {
@@ -542,18 +544,18 @@ model Store {
 // Συσκευή τιμολόγησης = μονάδα χρέωσης της συνδρομής. Κάθε συσκευή έχει δική της σειρά παραστατικών,
 // ώστε η αρίθμηση (ΑΑ) να μην έχει ποτέ κενά ή συγκρούσεις μεταξύ ταμείων.
 model Device {
-  id                 String         @id @default(cuid())
+  id                 String          @id @default(cuid())
   orgId              String
   storeId            String
   name               String
   kind               DeviceKind
   series             String? // σειρά παραστατικών, π.χ. "A1"· κενή για συσκευές που δεν τιμολογούν
-  nextAa             Int            @default(1)
+  nextAa             Int             @default(1)
   vivaTerminalId     String? // το terminalId του τερματικού Viva που αντιστοιχεί στο ταμείο
-  vivaCloud          Boolean        @default(false) // ταμείο Android που πληρώνει σε ΑΛΛΗ συσκευή (π.χ. SoftPOS σε τηλέφωνο) μέσω Cloud Terminal, όχι inter-app
-  apiTokenHash       String?        @unique // sha256 του κλειδιού της εφαρμογής Android (εκδίδεται στη σύζευξη)
+  vivaCloud          Boolean         @default(false) // ταμείο Android που πληρώνει σε ΑΛΛΗ συσκευή (π.χ. SoftPOS σε τηλέφωνο) μέσω Cloud Terminal, όχι inter-app
+  apiTokenHash       String?         @unique // sha256 του κλειδιού της εφαρμογής Android (εκδίδεται στη σύζευξη)
   // Σύζευξη: κωδικός μίας χρήσης που δίνει η κονσόλα και πληκτρολογείται στη συσκευή
-  pairCode           String?        @unique
+  pairCode           String?         @unique
   pairCodeExpiresAt  DateTime?
   pairedAt           DateTime?
   lastSeenAt         DateTime?
@@ -566,7 +568,7 @@ model Device {
   remoteId           String? // αριθμός RustDesk της συσκευής, για απομακρυσμένη υποστήριξη
   remoteAccesses     RemoteAccess[]
   // Ψυγείο / αυτόματος πωλητής: ο αποθηκευτικός χώρος που αντιστοιχεί στη συσκευή και τα όρια θερμοκρασίας (°C)
-  warehouseId        String?        @unique
+  warehouseId        String?         @unique
   tempMin            Float?
   tempMax            Float?
   // Προεπιλεγμένη αποθήκη του ταμείου (η «σειρά παραστατικών» της εφαρμογής): υπερισχύει της προεπιλογής
@@ -574,20 +576,20 @@ model Device {
   defaultWarehouseId String?
   // Ζυγαριά: το ταμείο που εξυπηρετεί· κενό = ζυγαριά του εργαστηρίου/καταστήματος
   linkedDeviceId     String?
-  warehouse          Warehouse?     @relation("DeviceWarehouse", fields: [warehouseId], references: [id], onDelete: SetNull)
-  defaultWarehouse   Warehouse?     @relation("DeviceDefaultWarehouse", fields: [defaultWarehouseId], references: [id], onDelete: SetNull)
-  linkedDevice       Device?        @relation("DeviceLink", fields: [linkedDeviceId], references: [id], onDelete: SetNull)
-  peripherals        Device[]       @relation("DeviceLink")
+  warehouse          Warehouse?      @relation("DeviceWarehouse", fields: [warehouseId], references: [id], onDelete: SetNull)
+  defaultWarehouse   Warehouse?      @relation("DeviceDefaultWarehouse", fields: [defaultWarehouseId], references: [id], onDelete: SetNull)
+  linkedDevice       Device?         @relation("DeviceLink", fields: [linkedDeviceId], references: [id], onDelete: SetNull)
+  peripherals        Device[]        @relation("DeviceLink")
   readings           Reading[]
   printerId          String? // ο εκτυπωτής που τυπώνει τις αποδείξεις αυτού του ταμείου
   // Οθόνη κουζίνας: ποιον σταθμό δείχνει (κενό = όλους) και μετά από πόσα λεπτά ένα δελτίο γίνεται κίτρινο / κόκκινο
   station            KitchenStation?
-  kdsWarnMin         Int            @default(8)
-  kdsLateMin         Int            @default(15)
-  active             Boolean        @default(true)
-  createdAt          DateTime       @default(now())
-  store              Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  printer            Printer?       @relation(fields: [printerId], references: [id], onDelete: SetNull)
+  kdsWarnMin         Int             @default(8)
+  kdsLateMin         Int             @default(15)
+  active             Boolean         @default(true)
+  createdAt          DateTime        @default(now())
+  store              Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  printer            Printer?        @relation(fields: [printerId], references: [id], onDelete: SetNull)
   sales              Sale[]
   tillShifts         TillShift[]
   tillDayCloses      TillDayClose[]
@@ -919,6 +921,7 @@ model PurchaseDoc {
   receiptInvoice     PurchaseReceipt? @relation("PurchaseReceiptInvoice")
   orderInvoice       PurchaseOrder?   @relation("PurchaseOrderInvoice")
   mydataCheck        MydataCheck?
+  mydataIncoming     MydataIncoming?
 
   @@unique([orgId, mydataMark])
   @@index([orgId, supplierId, createdAt])
@@ -998,13 +1001,13 @@ model Printer {
 }
 
 model Category {
-  id       String       @id @default(cuid())
+  id       String          @id @default(cuid())
   orgId    String
   name     String
-  position Int          @default(0)
+  position Int             @default(0)
   color    Int? // θέση 1–8 στη σταθερή λίστα χρωμάτων του ταμείου (mobile/theme.ts)· κενό = από τη σειρά της
   station  KitchenStation? // ποια οθόνη κουζίνας φτιάχνει τα είδη της· κενό = δεν πάει σε οθόνη (π.χ. παγωτό από τη βιτρίνα)
-  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org      Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
   products Product[]
 
   @@index([orgId])
@@ -4080,9 +4083,9 @@ model ItemSpot {
 // Έλεγχος σκαναρισμένου παραστατικού προμηθευτή με ό,τι δήλωσε εκείνος στο myDATA (μόνο ανάγνωση, RequestDocs).
 // Mockup: docs/analysis/mockups/mydata-check.html. Διαφορά χωρίς απόφαση μπλοκάρει την πληρωμή του τιμολογίου.
 model MydataCheck {
-  id             String      @id @default(cuid())
+  id             String       @id @default(cuid())
   orgId          String
-  purchaseDocId  String      @unique
+  purchaseDocId  String       @unique
   status         String // MATCH | DIFF | NOT_FOUND | ERROR
   diff           Json? // MydataDiff[]: πεδίο, φωτογραφία, myDATA
   mydata         Json? // ό,τι βρέθηκε: mark, series, number, issuedAt, net/vat/gross
@@ -4095,5 +4098,59 @@ model MydataCheck {
   org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   purchaseDoc    PurchaseDoc  @relation(fields: [purchaseDocId], references: [id], onDelete: Cascade)
 
+  @@index([orgId, status])
+}
+
+/// Παραστατικό προμηθευτή που βρέθηκε στο myDATA (RequestDocs) και ταιριάζει ή όχι με τις αγορές μας (lib/mydata-incoming.ts).
+/// MISSING: δεν το έχουμε· MATCHED: βρέθηκε σε αγορά· IMPORTED: πέρασε από το myDATA· IGNORED: δεν μας αφορά.
+model MydataIncoming {
+  id             String       @id @default(cuid())
+  orgId          String
+  mark           String
+  supplierVat    String
+  supplierName   String
+  type           String? // invoiceType: 1.1, 5.1 …
+  series         String?
+  number         String?
+  issuedAt       DateTime?
+  netCents       Int?
+  vatCents       Int?
+  grossCents     Int?
+  doc            Json // MyIncomeDoc με τις γραμμές: από αυτό φτιάχνεται το πρόχειρο στο «Πέρασέ το»
+  status         String       @default("MISSING")
+  purchaseDocId  String?      @unique
+  ignoredReason  String?
+  resolvedByName String?
+  resolvedAt     DateTime?
+  notifiedAt     DateTime? // πότε μπήκε στις «Εργασίες» ως παλιό (μία φορά)
+  firstSeenAt    DateTime     @default(now())
+  checkedAt      DateTime     @default(now())
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  purchaseDoc    PurchaseDoc? @relation(fields: [purchaseDocId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, mark])
+  @@index([orgId, status])
+}
+
+// Αποδείξεις ταμείου απέναντι στα σύνολα της ΑΑΔΕ (RequestMyIncome): μία γραμμή ανά εκδότη, ημέρα και τύπο (lib/mydata-receipts.ts).
+// Η ΑΑΔΕ δίνει μόνο πλήθος και σύνολο ανά ημέρα· οι αποδείξεις του τερματικού διαβιβάζονται από τη Viva.
+model MydataDayCheck {
+  id          String       @id @default(cuid())
+  orgId       String
+  issuerVat   String
+  issuerName  String
+  day         DateTime     @db.Date // ημερομηνία έκδοσης (ώρα Ελλάδας)
+  invType     String // 11.1, 11.4 …
+  oursCount   Int
+  oursCents   Int
+  aadeCount   Int? // κενό = η ΑΑΔΕ δεν έχει ακόμα γραμμή για την ημέρα
+  aadeCents   Int?
+  status      String // MATCH | WAITING | DIFF
+  firstDiffAt DateTime? // από πότε διαφέρει· γίνεται DIFF μόνο αν μείνει 3 βράδια
+  notifiedAt  DateTime?
+  checkedAt   DateTime     @default(now())
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, issuerVat, day, invType])
   @@index([orgId, status])
 }
