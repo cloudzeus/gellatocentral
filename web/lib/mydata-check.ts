@@ -3,6 +3,7 @@
 // Με MARK φέρνει ακριβώς εκείνο το παραστατικό· χωρίς MARK ψάχνει με ΑΦΜ εκδότη και αριθμό γύρω από την ημερομηνία.
 // Ό,τι δεν βρέθηκε ξαναελέγχεται κάθε βράδυ για 7 ημέρες (cron /api/cron/mydata). Διαφορά χωρίς απόφαση μπλοκάρει την πληρωμή.
 import { db } from "./db";
+import { HAS_KEYS, issuers } from "./mydata-keys";
 import type { Prisma } from "./generated/prisma/client";
 import { fetchByMark, fetchMyIncome, MydataError } from "./mydata-income";
 import { diffWithMydata, parseMyIncomeXml, sameNumber, type MydataDiff, type MyIncomeDoc, type ScannedHeader } from "./mydata-parse";
@@ -19,10 +20,12 @@ const WINDOW_DAYS = 5; // χωρίς MARK: ψάχνει ±5 ημέρες γύρ�
 
 type Keys = { userId: string; subKey: string; vat: string };
 
-// shortcut: κλειδιά σε επίπεδο επιχείρησης όπως η λήψη τιμολογίων· όταν οι εκδότες (LegalEntity) αγοράζουν χωριστά, κλειδιά ανά ΑΦΜ αγοραστή
+// shortcut: ψάχνει ως αγοραστή τον ΑΦΜ της επιχείρησης, με το πρώτο ζεύγος κλειδιών του (επιχείρηση ή κατάστημα)·
+// όταν οι εκδότες (LegalEntity) αγοράζουν χωριστά, ΑΦΜ αγοραστή ανά παραστατικό
 async function orgKeys(orgId: string): Promise<Keys | null> {
-  const org = await db.organization.findUnique({ where: { id: orgId }, select: { aadeUserId: true, aadeSubKey: true, vatNumber: true } });
-  return org?.aadeUserId && org.aadeSubKey && org.vatNumber ? { userId: org.aadeUserId, subKey: org.aadeSubKey, vat: org.vatNumber } : null;
+  const org = await db.organization.findUnique({ where: { id: orgId }, select: { vatNumber: true } });
+  const k = (await issuers(orgId)).find((i) => i.vat === org?.vatNumber)?.keys[0];
+  return k && org?.vatNumber ? { userId: k.userId, subKey: k.subKey, vat: org.vatNumber } : null;
 }
 
 const found = (d: MyIncomeDoc): MydataFound => ({
@@ -132,7 +135,7 @@ export async function recheckDue(now = new Date()) {
   const docs = await db.purchaseDoc.findMany({
     where: {
       source: { not: "mydata" }, status: { not: "CANCELLED" }, createdAt: { gte: since },
-      org: { aadeUserId: { not: null }, aadeSubKey: { not: null } },
+      org: HAS_KEYS,
       OR: [{ mydataCheck: null }, { mydataCheck: { status: { in: ["NOT_FOUND", "ERROR"] }, recheckUntil: { gt: now } } }],
     },
     select: { id: true, orgId: true, number: true, supplier: { select: { name: true } } },

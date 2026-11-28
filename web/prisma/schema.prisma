@@ -3840,6 +3840,7 @@ model TaskRun {
   error       String? // ο λόγος σε απλά λόγια
   resultHref  String?
   failures    Json? // [{ id, label, reason }] όσα απέτυχαν: τα δείχνει το «Δες ποιες απέτυχαν» και τα ξανατρέχει το «Ξανά»
+  steps       Json? // [{ label, detail }] τα βήματα που έγιναν, για εργασίες που θέλουν να φαίνεται η διαδικασία
   seenAt      DateTime? // πότε είδε την αποτυχία όποιος την ξεκίνησε
   startedAt   DateTime      @default(now())
   heartbeatAt DateTime      @default(now())

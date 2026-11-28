@@ -4,6 +4,7 @@
 // Οι γραμμές αντιστοιχίζονται με τον ίδιο κανόνα που ισχύει για χειροκίνητη καταχώριση και OCR.
 
 import { db } from "./db";
+import { issuers } from "./mydata-keys";
 import { continuation, mydataFault, parseMyIncomeXml, type MyIncomeDoc } from "./mydata-parse";
 import { matchLine } from "./purchases";
 import { partySnapshot } from "./purchase-document";
@@ -77,11 +78,13 @@ const isCredit = (type: string | null) => type === "5.1" || type === "5.2";
 export async function importMyIncome(orgId: string, userName: string, from: Date, to: Date): Promise<{ created: number; skipped: number }> {
   const org = await db.organization.findUnique({ where: { id: orgId } });
   if (!org) throw new MydataError("Η επιχείρηση δεν βρέθηκε");
-  if (!org.aadeUserId || !org.aadeSubKey) throw new MydataError("Δεν έχουν οριστεί κλειδιά myDATA — τα ορίζει η πλατφόρμα στην καρτέλα της επιχείρησης");
+  // κλειδιά του ΑΦΜ της επιχείρησης: δικά της ή, αν δεν έχει, του πρώτου καταστήματος με δικό του χρήστη
+  const keys = (await issuers(orgId)).find((i) => i.vat === org.vatNumber)?.keys[0];
+  if (!keys) throw new MydataError("Δεν έχουν οριστεί κλειδιά myDATA — τα ορίζει η πλατφόρμα στην καρτέλα της επιχείρησης ή του καταστήματος");
   const warehouse = await db.warehouse.findFirst({ where: { orgId, active: true }, orderBy: { name: "asc" } });
   if (!warehouse) throw new MydataError("Χρειάζεται μια ενεργή αποθήκη για να μπούν τα παραστατικά");
 
-  const docs = parseMyIncomeXml(await fetchMyIncome(org.aadeUserId, org.aadeSubKey, org.vatNumber, from, to));
+  const docs = parseMyIncomeXml(await fetchMyIncome(keys.userId, keys.subKey, org.vatNumber, from, to));
 
   const [supplierItems, tradeItems, mappings, buyer] = await Promise.all([
     db.supplierItem.findMany({ where: { orgId, active: true } }),

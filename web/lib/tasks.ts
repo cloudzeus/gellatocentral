@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { platformCan, type PlatformPermission } from "@/lib/permissions";
 import { accessFor } from "@/lib/plan-data";
-import { byRunningThenRecent, finalStatus, plainReason, shouldFlush, STALE_MS, STALE_REASON, taskView, type TaskFailure, type TaskView } from "@/lib/task-progress";
+import { byRunningThenRecent, finalStatus, plainReason, shouldFlush, STALE_MS, STALE_REASON, taskView, type TaskFailure, type TaskStep, type TaskView } from "@/lib/task-progress";
 
 export type TaskOwner = { orgId: string | null; userId: string; userName: string };
 export type TaskSpec = { kind: string; title: string; /** δικαίωμα που χρειάζεται όποιος τη βλέπει */ permission: string; /** πόσα βήματα, αν μετριούνται */ total?: number | null };
@@ -14,7 +14,7 @@ export type TaskHandle = {
   /** Πριν από κάθε αντικείμενο: «Τώρα: …». */
   step(current: string): Promise<void>;
   /** Ένα (ή n) αντικείμενα έγιναν. */
-  ok(n?: number): Promise<void>;
+  ok(n?: number, step?: TaskStep): Promise<void>;
   /** Ένα αντικείμενο απέτυχε· με `id`, το «Ξανά» μπορεί να το ξανατρέξει. */
   fail(failure: TaskFailure): Promise<void>;
   /** Τα βήματα έγιναν γνωστά αφού ξεκίνησε η εργασία. */
@@ -37,7 +37,7 @@ export async function runTask<R>(owner: TaskOwner, spec: TaskSpec, work: (task: 
     await db.taskRun.deleteMany({ where: { orgId: owner.orgId, startedAt: { lt: new Date(Date.now() - 90 * 24 * HOUR) } } });
     id = (await db.taskRun.create({ data: { orgId: owner.orgId, userId: owner.userId, userName: owner.userName, kind: spec.kind, title: spec.title, permission: spec.permission, total: spec.total ?? null }, select: { id: true } })).id;
   });
-  const state = { done: 0, failed: 0, total: spec.total ?? null, current: null as string | null, failures: [] as TaskFailure[], resultHref: null as string | null, flushedAt: 0 };
+  const state = { done: 0, failed: 0, total: spec.total ?? null, current: null as string | null, failures: [] as TaskFailure[], steps: [] as TaskStep[], resultHref: null as string | null, flushedAt: 0 };
   const flush = async (force = false) => {
     if (!id || (!force && !shouldFlush(state.flushedAt, Date.now()))) return;
     state.flushedAt = Date.now();
@@ -46,7 +46,7 @@ export async function runTask<R>(owner: TaskOwner, spec: TaskSpec, work: (task: 
   };
   const handle: TaskHandle = {
     step: async (current) => { state.current = current.slice(0, 120); await flush(); },
-    ok: async (n = 1) => { state.done += n; await flush(); },
+    ok: async (n = 1, step) => { state.done += n; if (step && state.steps.length < 200) state.steps.push({ label: step.label.slice(0, 120), detail: step.detail.slice(0, 240) }); await flush(); },
     fail: async (failure) => { state.failed++; if (state.failures.length < 200) state.failures.push({ id: failure.id, label: failure.label.slice(0, 120), reason: plainReason(failure.reason) }); await flush(); },
     total: async (n) => { state.total = n; await flush(true); },
     result: (href) => { state.resultHref = href; },
@@ -59,6 +59,7 @@ export async function runTask<R>(owner: TaskOwner, spec: TaskSpec, work: (task: 
       status, done: state.done, failed: state.failed, total: state.total, current: null, resultHref: state.resultHref,
       error: status === "FAILED" ? error ?? state.failures[0]?.reason ?? null : null,
       failures: state.failures.length ? (state.failures as Prisma.InputJsonValue) : undefined,
+      steps: state.steps.length ? (state.steps as Prisma.InputJsonValue) : undefined,
       heartbeatAt: new Date(), finishedAt: new Date(),
     } }));
   };

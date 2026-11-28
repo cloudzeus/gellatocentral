@@ -3,18 +3,20 @@
 
 export type TaskStatus = "RUNNING" | "DONE" | "PARTIAL" | "FAILED";
 export type TaskFailure = { id?: string; label: string; reason: string };
+/** Ένα βήμα που έγινε, με το τι βρήκε: «Κατάστημα Πειραιά · ΑΦΜ …» — «3 παραστατικά». */
+export type TaskStep = { label: string; detail: string };
 /** Ό,τι χρειάζεται ένας βρόχος για να πει πού βρίσκεται. Προαιρετικό όρισμα: χωρίς αυτό (π.χ. από cron) ο βρόχος τρέχει όπως πάντα. */
-export type TaskReporter = { step(current: string): Promise<void>; ok(n?: number): Promise<void>; fail(failure: TaskFailure): Promise<void> };
+export type TaskReporter = { step(current: string): Promise<void>; ok(n?: number, step?: TaskStep): Promise<void>; fail(failure: TaskFailure): Promise<void> };
 export type TaskRow = {
   id: string; userId: string; kind: string; title: string; status: string; total: number | null; done: number; failed: number;
-  current: string | null; error: string | null; resultHref: string | null; failures: unknown; seenAt: Date | null;
+  current: string | null; error: string | null; resultHref: string | null; failures: unknown; steps?: unknown; seenAt: Date | null;
   startedAt: Date; heartbeatAt: Date; finishedAt: Date | null;
 };
 /** Ό,τι στέλνεται στον browser: έτοιμα κείμενα, καμία εσωτερική λεπτομέρεια. */
 export type TaskView = {
   id: string; title: string; status: TaskStatus; mine: boolean; unseen: boolean;
   counted: boolean; done: number; total: number | null; progress: string | null; current: string | null; elapsed: string | null;
-  finished: string | null; summary: string | null; error: string | null; resultHref: string | null; failuresHref: string | null; canRetry: boolean;
+  finished: string | null; summary: string | null; error: string | null; resultHref: string | null; failuresHref: string | null; stepsHref: string | null; canRetry: boolean;
 };
 
 /** Εργασία που «τρέχει» χωρίς σημάδι ζωής τόσο καιρό έχει διακοπεί (π.χ. επανεκκίνηση του server). */
@@ -49,6 +51,9 @@ const clock = new Intl.DateTimeFormat("el-GR", { hour: "2-digit", minute: "2-dig
 export const failuresOf = (value: unknown): TaskFailure[] =>
   Array.isArray(value) ? value.filter((f): f is TaskFailure => !!f && typeof f === "object" && typeof (f as TaskFailure).label === "string" && typeof (f as TaskFailure).reason === "string") : [];
 
+export const stepsOf = (value: unknown): TaskStep[] =>
+  Array.isArray(value) ? value.filter((s): s is TaskStep => !!s && typeof s === "object" && typeof (s as TaskStep).label === "string" && typeof (s as TaskStep).detail === "string") : [];
+
 /** Η γραμμή της εργασίας όπως τη βλέπει ο χρήστης `viewerId` τη στιγμή `now`. `retryable`: το είδος έχει ασφαλές «Ξανά». */
 export function taskView(row: TaskRow, viewerId: string, now: Date, retryable: boolean): TaskView {
   const stale = row.status === "RUNNING" && now.getTime() - row.heartbeatAt.getTime() > STALE_MS;
@@ -70,6 +75,7 @@ export function taskView(row: TaskRow, viewerId: string, now: Date, retryable: b
     error: status === "FAILED" ? (stale ? STALE_REASON : row.error ?? plainReason(null)) : null,
     resultHref: status === "DONE" || status === "PARTIAL" ? row.resultHref : null,
     failuresHref: failures.length ? `/tasks/${row.id}` : null,
+    stepsHref: !failures.length && stepsOf(row.steps).length ? `/tasks/${row.id}` : null,
     // «Ξανά» μόνο για ό,τι απέτυχε και μόνο όπου το είδος της εργασίας το δηλώνει ασφαλές· ποτέ για διακοπή στη μέση
     canRetry: retryable && !stale && (status === "FAILED" || status === "PARTIAL") && failures.some((f) => f.id),
   };

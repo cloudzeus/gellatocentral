@@ -44,6 +44,7 @@ function TaskRow({ task }: { task: TaskView }) {
             {task.status === "FAILED" ? <StatusBadge look={look("danger", "Απέτυχε")} /> : null}
             {task.resultHref ? <Link href={task.resultHref} className="text-xs font-semibold underline underline-offset-2">Δες το αποτέλεσμα</Link> : null}
             {task.failuresHref ? <Link href={task.failuresHref} className="text-xs font-semibold underline underline-offset-2">Δες ποιες απέτυχαν</Link> : null}
+            {task.stepsHref ? <Link href={task.stepsHref} className="text-xs font-semibold underline underline-offset-2">Δες τα βήματα</Link> : null}
           </div>
           {task.error ? <p className="text-xs text-muted-foreground">{task.error}</p> : null}
           {task.canRetry && task.mine ? <form action={retryTask.bind(null, task.id)}><Submit className={btn("outline", "sm", "pointer-coarse:min-h-11")} pendingText="Ξανά…">Ξανά</Submit></form> : null}

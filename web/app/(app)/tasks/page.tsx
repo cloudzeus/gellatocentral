@@ -31,7 +31,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
           rows={history.rows.map(({ view, userName, startedAt }) => ({
             id: view.id,
             cells: {
-              title: view.failuresHref ? <Link href={view.failuresHref} className="font-semibold underline-offset-2 hover:underline">{view.title}</Link> : <span className="font-semibold">{view.title}</span>,
+              title: view.failuresHref ?? view.stepsHref ? <Link href={(view.failuresHref ?? view.stepsHref)!} className="font-semibold underline-offset-2 hover:underline">{view.title}</Link> : <span className="font-semibold">{view.title}</span>,
               status: (
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   {view.status === "RUNNING" ? <StatusBadge look={look("warning", view.progress ? `Τρέχει · ${view.progress}` : "Τρέχει")} /> : null}

@@ -405,11 +405,11 @@ export async function recheckMissing() {
   const { org, user } = await currentOrg("purchases.read");
   try {
     const r = await runTask({ orgId: org.id, userId: user.id, userName: user.name }, { kind: "purchases.mydata-missing", title: "Έλεγχος τιμολογίων που λείπουν (myDATA)", permission: "purchases.read" }, async (task) => {
-      const result = await syncIncoming(org.id);
       task.result(MISSING);
-      return result;
+      return syncIncoming(org.id, new Date(), task);
     });
-    back(MISSING, `&saved=${encodeURIComponent(r.missing ? `Λείπουν ${r.missing} τιμολόγια${r.added ? ` (${r.added} νέα)` : ""}` : "Δεν λείπει κανένα τιμολόγιο")}`);
+    const msg = r.missing ? `Λείπουν ${r.missing} τιμολόγια${r.added ? ` (${r.added} νέα)` : ""}` : "Δεν λείπει κανένα τιμολόγιο";
+    back(MISSING, `&saved=${encodeURIComponent(r.failed ? `${msg} · ${r.failed} ${r.failed === 1 ? "κλειδί δεν απάντησε" : "κλειδιά δεν απάντησαν"}, δες τις «Εργασίες»` : msg)}`);
   } catch (e) { missingFail(e); }
 }
 

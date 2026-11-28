@@ -76,3 +76,10 @@ test("elapsedLabel και shouldFlush", () => {
   assert.equal(shouldFlush(1000, 1399), false);
   assert.equal(shouldFlush(1000, 1400), true);
 });
+
+test("εργασία με βήματα και χωρίς αποτυχίες δείχνει «Δες τα βήματα»", () => {
+  const steps = [{ label: "Κατάστημα Πειραιά · ΑΦΜ 803164419", detail: "3 παραστατικά εξόδων" }];
+  const v = taskView(row({ status: "DONE", steps }), "u1", new Date(), false);
+  assert.equal(v.stepsHref, `/tasks/${v.id}`);
+  assert.equal(taskView(row({ status: "PARTIAL", steps, failures: [{ label: "x", reason: "y" }] }), "u1", new Date(), false).stepsHref, null);
+});

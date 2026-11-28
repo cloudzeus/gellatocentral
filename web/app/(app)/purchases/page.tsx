@@ -16,6 +16,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { statusOptions } from "@/lib/status";
 import type { MydataDiff } from "@/lib/mydata-parse";
 import { MissingView } from "./missing";
+import { hasMydataKeys } from "@/lib/mydata-keys";
 
 // Επιστροφές και πιστωτικά προμηθευτή μένουν στην ίδια λίστα: μειώνουν ό,τι χρωστάμε (lib/purchase-returns.ts)
 const KIND_LABEL: Record<string, string> = { INVOICE: "Τιμολόγιο", RETURN: "Επιστροφή", CREDIT: "Πιστωτικό" };
@@ -69,7 +70,8 @@ const day = (d: Date | null) => (d ? new Intl.DateTimeFormat("el-GR", { timeZone
 export default async function PurchasesPage({ searchParams }: PageProps<"/purchases">) {
   const { org, can } = await currentOrg("purchases.read");
   const q = await searchParams;
-  const missingView = q.view === "missing" && !!org.aadeUserId;
+  const keyed = await hasMydataKeys(org.id);
+  const missingView = q.view === "missing" && keyed;
   const list = listParams(q, 50, ["supplier", "number", "issuedAt", "warehouse", "lines", "status"]);
   const [suppliers, warehouses, ocr] = await Promise.all([
     db.party.findMany({ where: { orgId: org.id, roles: { has: "supplier" }, active: true }, orderBy: { name: "asc" } }),
@@ -103,7 +105,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
   ]);
   // γράφημα του μήνα: πόσα σκαναρισμένα συμφωνούν με το myDATA (mockup mydata-check.html, Β)
   const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0);
-  const monthChecks = org.aadeUserId ? await db.mydataCheck.findMany({ where: { orgId: org.id, purchaseDoc: { kind: { in: Object.keys(KIND_LABEL) }, createdAt: { gte: monthStart } } }, select: { status: true, resolution: true } }) : [];
+  const monthChecks = keyed ? await db.mydataCheck.findMany({ where: { orgId: org.id, purchaseDoc: { kind: { in: Object.keys(KIND_LABEL) }, createdAt: { gte: monthStart } } }, select: { status: true, resolution: true } }) : [];
   const files = docs.length ? await db.storedFile.findMany({ where: { orgId: org.id, category: "purchase_document", refType: "purchase", refId: { in: docs.map((d) => d.id) } }, orderBy: { createdAt: "desc" } }) : [];
 
   const docForm = (
@@ -147,7 +149,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
     </form>
   );
 
-  const [diffCount, missingCount] = org.aadeUserId ? await Promise.all([
+  const [diffCount, missingCount] = keyed ? await Promise.all([
     db.mydataCheck.count({ where: { orgId: org.id, status: "DIFF", resolution: null } }),
     db.mydataIncoming.count({ where: { orgId: org.id, status: "MISSING" } }),
   ]) : [0, 0];
@@ -156,7 +158,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
       {label}{n != null ? <span className={`tabular-nums ${n && tone ? tone : ""}`}>· {n}</span> : null}
     </Link>
   );
-  const tabs = org.aadeUserId ? (
+  const tabs = keyed ? (
     <nav aria-label="Προβολή" className="flex w-fit flex-wrap gap-1 rounded-xl bg-muted p-1">
       {tab("/purchases", "Όλα", null, !missingView && mydata !== "DIFF")}
       {tab("/purchases?mydata=DIFF", "Διαφορές", diffCount, !missingView && mydata === "DIFF", "text-destructive")}
@@ -168,7 +170,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
     <Page section="Αποθήκη & αγορές" title="Τιμολόγια αγοράς" description="Χρηματοοικονομικά παραστατικά προμηθευτών· το απόθεμα γράφεται μόνο όταν δεν έχει ήδη καταχωρηθεί με παραλαβή"
       actions={can("purchases.add") && suppliers.length && warehouses.length ? (
         <span className="flex flex-wrap gap-2">
-          {org.aadeUserId && org.aadeSubKey ? <Modal label={<><Download /> Λήψη από myDATA</>} size="sm" title="Λήψη τιμολογίων από myDATA">{mydataForm}</Modal> : null}
+          {keyed ? <Modal label={<><Download /> Λήψη από myDATA</>} size="sm" title="Λήψη τιμολογίων από myDATA">{mydataForm}</Modal> : null}
           {ocr?.active ? <Modal label={<><ScanLine /> Σάρωση τιμολογίου</>} size="sm" title="Σάρωση τιμολογίου (OCR)">{scanForm}</Modal> : null}
           <Modal wide label={<><Plus /> Νέο τιμολόγιο</>} size="sm" title="Νέο τιμολόγιο αγοράς">{docForm}</Modal>
         </span>
@@ -187,7 +189,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
               { key: "warehouse", label: "Αποθήκη", value: warehouse, options: warehouses.map((w): [string, string] => [w.id, w.name]) },
               { key: "kind", label: "Είδος", value: kind, options: Object.entries(KIND_LABEL) },
               { key: "status", label: "Κατάσταση", value: status, options: statusOptions("purchase") },
-              ...(org.aadeUserId ? [{ key: "mydata", label: "myDATA", value: mydata, options: statusOptions("mydataCheck") }] : []),
+              ...(keyed ? [{ key: "mydata", label: "myDATA", value: mydata, options: statusOptions("mydataCheck") }] : []),
             ] }}
             empty="Κανένα τιμολόγιο αγοράς ακόμα"
             columns={[
@@ -198,7 +200,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
               { key: "lines", label: "Γραμμές", numeric: true, sortable: true },
               { key: "total", label: "Γενικό σύνολο", numeric: true },
               { key: "status", label: "Κατάσταση", sortable: true },
-              ...(org.aadeUserId ? [{ key: "mydata", label: "myDATA", wrap: true }] : []),
+              ...(keyed ? [{ key: "mydata", label: "myDATA", wrap: true }] : []),
             ]}
             rows={docs.map((d) => {
               const totals = calculatePurchaseDocument(d.lines, d);

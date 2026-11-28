@@ -6,37 +6,14 @@ import { Prisma } from "./generated/prisma/client";
 import { fetchTransmitted, MydataError } from "./mydata-income";
 import { parseMyIncomeXml, type MyIncomeDoc } from "./mydata-parse";
 import { athensDay, checkDays, matchReceipts, RECEIPT_TYPES, type Gap, type Receipt } from "./mydata-receipts-match";
+import { HAS_KEYS, issuers } from "./mydata-keys";
 import { runTask } from "./tasks";
+
+export { issuers };
 
 const DAY = 86_400_000;
 /** Χωρίς MARK τόση ώρα μετά την έκδοση = κάτι κόλλησε (η Viva συνήθως απαντά σε λεπτά). */
 const UNMARKED_AFTER_MS = 60 * 60_000;
-
-type Keys = { userId: string; subKey: string };
-type Issuer = { vat: string; name: string; keys: Keys[] };
-
-/**
- * Οι εκδότες της επιχείρησης (η ίδια και τα νομικά πρόσωπα) με όλα τα κλειδιά myDATA του ΑΦΜ τους: του εκδότη και όσων
- * καταστημάτων έχουν δικό τους χρήστη. Ένας ΑΦΜ μπορεί να έχει χρήστη ανά κατάστημα.
- */
-export async function issuers(orgId: string): Promise<Issuer[]> {
-  const org = await db.organization.findUniqueOrThrow({ where: { id: orgId }, select: {
-    vatNumber: true, name: true, legalName: true, aadeUserId: true, aadeSubKey: true,
-    legalEntities: { where: { active: true }, select: { id: true, vatNumber: true, name: true, aadeUserId: true, aadeSubKey: true } },
-    stores: { where: { active: true, aadeUserId: { not: null }, aadeSubKey: { not: null } }, select: { legalEntityId: true, aadeUserId: true, aadeSubKey: true } },
-  } });
-  const keysOf = (userId: string | null, subKey: string | null): Keys[] => (userId && subKey ? [{ userId, subKey }] : []);
-  const storeKeys = (entityId: string | null) => org.stores.filter((s) => s.legalEntityId === entityId).flatMap((s) => keysOf(s.aadeUserId, s.aadeSubKey));
-  const list: Issuer[] = org.vatNumber ? [{ vat: org.vatNumber, name: org.legalName || org.name, keys: [...keysOf(org.aadeUserId, org.aadeSubKey), ...storeKeys(null)] }] : [];
-  for (const e of org.legalEntities) {
-    const keys = [...keysOf(e.aadeUserId, e.aadeSubKey), ...storeKeys(e.id)];
-    const same = list.find((i) => i.vat === e.vatNumber);
-    if (same) same.keys.push(...keys); else list.push({ vat: e.vatNumber, name: e.name, keys });
-  }
-  // ίδιος χρήστης σε πολλά καταστήματα = μία κλήση
-  for (const i of list) i.keys = i.keys.filter((k, n) => i.keys.findIndex((x) => x.userId === k.userId && x.subKey === k.subKey) === n);
-  return list;
-}
 
 const RECEIPT_SELECT = {
   id: true, docType: true, mark: true, status: true, totalCents: true, createdAt: true, aa: true,
@@ -125,7 +102,7 @@ export async function unmarkedReceipts(orgId: string, now = new Date()) {
 
 /** Βραδινός γύρος: κάθε επιχείρηση με κλειδιά (δική της ή εκδότη). Οι νέες κόκκινες ημέρες μπαίνουν μία φορά στις «Εργασίες». */
 export async function checkAllReceipts(now = new Date()) {
-  const orgs = await db.organization.findMany({ where: { OR: [{ aadeUserId: { not: null } }, { legalEntities: { some: { aadeUserId: { not: null } } } }, { stores: { some: { aadeUserId: { not: null } } } }] }, select: { id: true } });
+  const orgs = await db.organization.findMany({ where: HAS_KEYS, select: { id: true } });
   let diff = 0, failed = 0;
   for (const { id: orgId } of orgs) {
     try { diff += (await checkReceipts(orgId, now)).diff; } catch (e) { failed++; console.error("mydata receipts", orgId, e); continue; }

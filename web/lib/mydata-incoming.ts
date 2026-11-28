@@ -8,6 +8,8 @@ import { parseMyIncomeXml, type MyIncomeDoc } from "./mydata-parse";
 import { findOurs, isExpense, OLD_DAYS, syncWindow, type OurDoc } from "./mydata-incoming-match";
 
 export { OLD_DAYS, syncWindow };
+import { HAS_KEYS, issuers } from "./mydata-keys";
+import type { TaskReporter } from "./task-progress";
 import { runTask } from "./tasks";
 
 const DAY = 86_400_000;
@@ -24,11 +26,29 @@ async function ourDocs(orgId: string, since: Date): Promise<OurDoc[]> {
  * Φέρνει τα έξοδα του διαστήματος από το myDATA και ενημερώνει τη λίστα: νέα → MISSING ή MATCHED, όσα MISSING βρέθηκαν
  * στο μεταξύ → MATCHED, όσα ακυρώθηκαν στην ΑΑΔΕ → σβήνονται. Επιστρέφει τα πλήθη.
  */
-export async function syncIncoming(orgId: string, now = new Date()) {
-  const org = await db.organization.findUnique({ where: { id: orgId }, select: { aadeUserId: true, aadeSubKey: true, vatNumber: true } });
-  if (!org?.aadeUserId || !org.aadeSubKey || !org.vatNumber) throw new MydataError("Δεν έχουν οριστεί κλειδιά myDATA — τα ορίζει η πλατφόρμα στην καρτέλα της επιχείρησης");
+export async function syncIncoming(orgId: string, now = new Date(), task?: TaskReporter & { total?(n: number): Promise<void> }) {
+  const list = (await issuers(orgId)).filter((i) => i.keys.length);
+  if (!list.length) throw new MydataError("Δεν έχουν οριστεί κλειδιά myDATA — τα ορίζει η πλατφόρμα στην καρτέλα της επιχείρησης ή του καταστήματος");
   const { from, to } = syncWindow(now);
-  const docs = parseMyIncomeXml(await fetchMyIncome(org.aadeUserId, org.aadeSubKey, org.vatNumber, from, to)).filter((d) => isExpense(d.type));
+  // ένα βήμα ανά ζεύγος κλειδιών (επιχείρηση, εκδότης ή κατάστημα)· τα ίδια παραστατικά από δύο χρήστες ενώνονται ανά MARK
+  const byMark = new Map<string, MyIncomeDoc>();
+  const steps = list.reduce((n, i) => n + i.keys.length, 0);
+  await task?.total?.(steps);
+  let failed = 0;
+  for (const issuer of list) for (const k of issuer.keys) {
+    const label = `${k.source} · ΑΦΜ ${issuer.vat}`;
+    await task?.step(label);
+    try {
+      const got = parseMyIncomeXml(await fetchMyIncome(k.userId, k.subKey, issuer.vat, from, to)).filter((d) => isExpense(d.type));
+      for (const d of got) byMark.set(d.mark, d);
+      await task?.ok(1, { label, detail: got.length ? `${got.length} ${got.length === 1 ? "παραστατικό εξόδων" : "παραστατικά εξόδων"} στο myDATA` : "Κανένα παραστατικό εξόδων στο διάστημα" });
+    } catch (e) {
+      failed++;
+      await task?.fail({ label, reason: e instanceof Error ? e.message : "σφάλμα" });
+    }
+  }
+  if (failed === steps) throw new MydataError("Κανένα κλειδί myDATA δεν απάντησε — δες τις «Εργασίες»");
+  const docs = [...byMark.values()];
   const ours = await ourDocs(orgId, from);
   const known = new Map((await db.mydataIncoming.findMany({ where: { orgId, mark: { in: docs.map((d) => d.mark) } }, select: { mark: true, status: true } })).map((r) => [r.mark, r.status]));
 
@@ -48,15 +68,16 @@ export async function syncIncoming(orgId: string, now = new Date()) {
       if (!free) added++;
     } else await db.mydataIncoming.update({ where: { orgId_mark: { orgId, mark: d.mark } }, data: { ...fields, ...found } });
   }
-  // ακυρώθηκε στην ΑΑΔΕ (δεν επιστρέφεται πια): ό,τι δεν είχε αγγίξει κανείς φεύγει
-  const removed = await db.mydataIncoming.deleteMany({ where: { orgId, status: "MISSING", issuedAt: { gte: from, lte: to }, mark: { notIn: docs.map((d) => d.mark) } } });
+  // ακυρώθηκε στην ΑΑΔΕ (δεν επιστρέφεται πια): ό,τι δεν είχε αγγίξει κανείς φεύγει. Αν κάποιο κλειδί δεν απάντησε δεν σβήνουμε τίποτα:
+  // η απουσία μπορεί να είναι μόνο δική του
+  const removed = failed ? { count: 0 } : await db.mydataIncoming.deleteMany({ where: { orgId, status: "MISSING", issuedAt: { gte: from, lte: to }, mark: { notIn: docs.map((d) => d.mark) } } });
   const missing = await db.mydataIncoming.count({ where: { orgId, status: "MISSING" } });
-  return { added, removed: removed.count, missing };
+  return { added, removed: removed.count, missing, failed };
 }
 
 /** Βραδινός γύρος για όλες τις επιχειρήσεις με κλειδιά· τα παλιά (OLD_DAYS) μπαίνουν μία φορά στις «Εργασίες». */
 export async function syncAllIncoming(now = new Date()) {
-  const orgs = await db.organization.findMany({ where: { aadeUserId: { not: null }, aadeSubKey: { not: null } }, select: { id: true } });
+  const orgs = await db.organization.findMany({ where: HAS_KEYS, select: { id: true } });
   let missing = 0, failed = 0;
   for (const { id: orgId } of orgs) {
     try { missing += (await syncIncoming(orgId, now)).missing; } catch (e) { failed++; console.error("mydata incoming", orgId, e); continue; }
