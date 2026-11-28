@@ -1,4 +1,5 @@
 // Εγγραφή του οδηγού στησίματος: ένα σχέδιο (lib/store-setup.ts) γίνεται κατάστημα, ψυγεία, ταμεία, εκτυπωτές και τραπέζια σε μία συναλλαγή.
+import { ensureCostCenters } from "./cost-centers-db";
 import { db } from "./db.ts";
 import { expand, freeSeries, type Plan, type StoreKind } from "./store-setup.ts";
 import { attachWarehouse } from "./warehouses.ts";
@@ -27,6 +28,7 @@ export async function createStoreFromPlan(orgId: string, input: { name: string; 
     for (const [i, t] of e.tills.entries()) {
       await tx.device.create({ data: { orgId, storeId: store.id, name: t.name, kind: "POS_ANDROID", series: series[i], defaultWarehouseId: sellFromId, printerId: t.handheld ? null : receiptPrinter?.id } });
     }
+    await ensureCostCenters(tx, orgId); // το νέο κατάστημα παίρνει αμέσως το κέντρο κόστους «10.n»
     if (e.tables.length) await tx.diningTable.createMany({ data: e.tables.map((t) => ({ orgId, storeId: store.id, name: t.name, zone: t.zone, seats: t.seats, position: t.position })) });
     return store;
   });

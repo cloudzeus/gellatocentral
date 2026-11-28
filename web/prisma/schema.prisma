@@ -278,6 +278,8 @@ model Organization {
   supplierPayments       SupplierPayment[]
   cashClosings           CashClosing[]
   budgetTargets          BudgetTarget[]
+  costCenters            CostCenter[]
+  costAllocationRules    CostAllocationRule[]
   vitrineSettings        VitrineSetting[]
   vitrineViews           VitrineDailyView[]
   migrationRuns          MigrationRun[]
@@ -532,6 +534,7 @@ model Store {
   bills            Bill[]
   reservations     Reservation[]
   offPremiseOrders Order[]
+  costCenter       CostCenter?
   membershipStores MembershipStore[]
   staffAccesses    StaffStoreAccess[]
   pauses           StorePause[]
@@ -3607,7 +3610,9 @@ model Expense {
   note           String?
   createdByName  String
   createdAt      DateTime     @default(now())
+  costCenterId   String? // κέντρο κόστους (διοικητικό, δεν πάει στο myDATA)· κενό μόνο σε εγγραφές πριν από τα κέντρα
   org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  costCenter     CostCenter?  @relation(fields: [costCenterId], references: [id], onDelete: NoAction) // όχι Restrict: μπλοκάρει το cascade της επιχείρησης
 
   @@unique([orgId, supplierId, documentNumber])
   @@index([orgId, category, occurredAt])
@@ -3685,6 +3690,49 @@ model BudgetTarget {
   org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, storeId, year, month])
+}
+
+// Κέντρο κόστους: διοικητικό, δικό μας. Το myDATA δεν έχει κέντρα κόστους. Η δομή ακολουθεί το PRSCOSTCNTR της SoftOne
+// (κωδικός, ιεραρχία, λογαριασμός), ώστε να εξάγεται χωρίς μετάφραση. Οι προεπιλογές είναι στο lib/cost-centers-db.ts.
+model CostCenter {
+  id            String               @id @default(cuid())
+  orgId         String
+  code          String // όπως PRSCOSTCNTR.CODE, π.χ. «10.2»
+  name          String
+  kind          String // STORE | PRODUCTION | HQ | DELIVERY | OTHER
+  parentId      String? // ιεραρχία (SOHCODE στη SoftOne)
+  storeId       String?              @unique // ένα κέντρο ανά κατάστημα, αυτόματα
+  accountCode   String? // λογαριασμός του λογιστή, προαιρετικός
+  source        String               @default("USER") // SEED | ACCOUNTANT | USER
+  createdByName String?
+  active        Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  org           Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parent        CostCenter?          @relation("CostCenterTree", fields: [parentId], references: [id], onDelete: NoAction)
+  children      CostCenter[]         @relation("CostCenterTree")
+  store         Store?               @relation(fields: [storeId], references: [id], onDelete: SetNull) // το κέντρο μένει με το ιστορικό του
+  expenses      Expense[]
+  rules         CostAllocationRule[]
+
+  @@unique([orgId, code])
+  @@index([orgId, parentId])
+}
+
+// Κανόνας κατανομής κοινού κέντρου στα καταστήματα (διοικητική κατανομή: δεν αλλάζει παραστατικά ή myDATA).
+model CostAllocationRule {
+  id            String       @id @default(cuid())
+  orgId         String
+  sourceId      String // το κοινό κέντρο
+  basis         String // FIXED | REVENUE | AREA | ORDERS | EQUAL
+  validFrom     DateTime     @db.Date
+  validTo       DateTime?    @db.Date // κενό = ισχύει ακόμα
+  shares        Json         @default("[]") // [{costCenterId, weight}] για FIXED (μονάδες 0,01%, άθροισμα 10000) και AREA (τ.μ.)
+  createdByName String? // κενό = προεπιλογή της εφαρμογής
+  createdAt     DateTime     @default(now())
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  source        CostCenter   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, sourceId, validFrom])
 }
 
 model VitrineSetting {

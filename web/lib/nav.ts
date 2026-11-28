@@ -1,6 +1,6 @@
 import {
   BarChart3, BellRing, BookOpen, Boxes, Building2, CalendarDays, ChefHat, ClipboardCheck, ClipboardList, Contact, CreditCard,
-  ArrowRightLeft, Coins, Database, Factory, FileText, Gauge, Inbox, Landmark, LayoutDashboard, ListOrdered, Plug, MonitorSmartphone, Package, Percent, ReceiptText, ScanSearch, Server, Settings, ShieldCheck, LifeBuoy,
+  ArrowRightLeft, ChartPie, Coins, Database, Factory, FileText, Gauge, Inbox, Landmark, LayoutDashboard, ListOrdered, Plug, MonitorSmartphone, Package, Percent, ReceiptText, ScanSearch, Server, Settings, ShieldCheck, LifeBuoy,
   Send, ShoppingCart, Store, TabletSmartphone, ThermometerSnowflake, Truck, Users, Warehouse, type LucideIcon,
 } from "lucide-react";
 
@@ -71,7 +71,7 @@ export const NAV: { title: string; icon: LucideIcon; group?: boolean; items: Nav
       { to: "/support", label: "Τα αιτήματά μου", icon: LifeBuoy, ready: true },
     ],
   },
-  { title: "Οικονομικά", icon: Landmark, items: [{ to: "/finance", label: "Οικονομικά", icon: Landmark, ready: true }] },
+  { title: "Οικονομικά", icon: Landmark, items: [{ to: "/finance", label: "Οικονομικά", icon: Landmark, ready: true }, { to: "/finance/cost-centers", label: "Κέντρα κόστους", icon: ChartPie, ready: true }] },
   {
     title: "Πλατφόρμα", icon: Building2,
     items: [

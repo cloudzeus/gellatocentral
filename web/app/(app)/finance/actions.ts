@@ -32,7 +32,7 @@ export async function newTransfer(form: FormData) {
 export async function newExpense(form: FormData) {
   const ctx = await requireStockContext("finance.edit");
   try {
-    await createExpense(ctx, { storeId: text(form, "storeId"), supplierId: text(form, "supplierId"), accountId: text(form, "accountId"), category: String(form.get("category") ?? ""), documentNumber: text(form, "documentNumber"), netCents: cents(form.get("netAmount")), vatRate: Number(form.get("vatRate") ?? 24), informal: form.get("informal") === "on", occurredAt: date(form.get("occurredAt")), note: text(form, "note") });
+    await createExpense(ctx, { storeId: text(form, "storeId"), costCenterId: text(form, "costCenterId"), supplierId: text(form, "supplierId"), accountId: text(form, "accountId"), category: String(form.get("category") ?? ""), documentNumber: text(form, "documentNumber"), netCents: cents(form.get("netAmount")), vatRate: Number(form.get("vatRate") ?? 24), informal: form.get("informal") === "on", occurredAt: date(form.get("occurredAt")), note: text(form, "note") });
     back("?saved=Το έξοδο καταχωρήθηκε");
   } catch (error) { fail(error); }
 }

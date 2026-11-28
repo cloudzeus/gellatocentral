@@ -1,4 +1,5 @@
 // Οικονομικά: κάθε εγγραφή είναι tenant-scoped, αιτιολογημένη και χωρίς έμμεση δεύτερη απόσυρση αποθέματος.
+import { assertCostCenter, defaultCostCenterId } from "./cost-centers-db";
 import { createHash, randomUUID } from "node:crypto";
 import type { Prisma } from "./generated/prisma/client";
 import { athensBusinessRange, expectedCashCents, paymentBucket, purchaseTotals } from "./finance";
@@ -61,7 +62,7 @@ export async function transferFinanceFunds(ctx: StockContext, input: { sourceAcc
   });
 }
 
-export async function createExpense(ctx: StockContext, input: { storeId?: string | null; supplierId?: string | null; accountId?: string | null; category: string; documentNumber?: string | null; netCents: number; vatRate: number; informal?: boolean; occurredAt: Date; note?: string | null }) {
+export async function createExpense(ctx: StockContext, input: { storeId?: string | null; costCenterId?: string | null; supplierId?: string | null; accountId?: string | null; category: string; documentNumber?: string | null; netCents: number; vatRate: number; informal?: boolean; occurredAt: Date; note?: string | null }) {
   const category = cleanText(input.category, "Κατηγορία", 80, true)!;
   const documentNumber = cleanText(input.documentNumber, "Αριθμός παραστατικού", 100);
   assertNonNegativeInt(input.netCents, "Καθαρή αξία");
@@ -78,7 +79,10 @@ export async function createExpense(ctx: StockContext, input: { storeId?: string
     const account = input.accountId ? await ownedAccount(tx, ctx, input.accountId) : null;
     if (account?.storeId && input.storeId && account.storeId !== input.storeId) throw new WorkflowError("Ο λογαριασμός πληρωμής ανήκει σε άλλο κατάστημα");
     if (account?.storeId && !input.storeId) throw new WorkflowError("Το έξοδο καταστήματος απαιτεί κατάστημα");
-    const expense = await tx.expense.create({ data: { orgId: ctx.orgId, storeId: input.storeId ?? null, supplierId: input.supplierId ?? null, category, documentNumber, netCents: input.netCents, vatRate: input.vatRate, vatCents, totalCents, informal: input.informal ?? false, occurredAt: input.occurredAt, note: cleanText(input.note, "Σημείωση", 500), createdByName: ctx.userName } });
+    // κέντρο κόστους: ρητό, αλλιώς του καταστήματος, αλλιώς η έδρα (lib/cost-centers-db.ts)
+    if (input.costCenterId) await assertCostCenter(tx, ctx.orgId, input.costCenterId);
+    const costCenterId = input.costCenterId || await defaultCostCenterId(tx, ctx.orgId, input.storeId ?? null);
+    const expense = await tx.expense.create({ data: { orgId: ctx.orgId, storeId: input.storeId ?? null, costCenterId, supplierId: input.supplierId ?? null, category, documentNumber, netCents: input.netCents, vatRate: input.vatRate, vatCents, totalCents, informal: input.informal ?? false, occurredAt: input.occurredAt, note: cleanText(input.note, "Σημείωση", 500), createdByName: ctx.userName } });
     if (account) await tx.financeTransaction.create({ data: { orgId: ctx.orgId, accountId: account.id, storeId: account.storeId ?? input.storeId ?? null, amountCents: -totalCents, kind: "expense", referenceType: "expense", referenceId: expense.id, occurredAt: input.occurredAt, note: cleanText(input.note, "Σημείωση", 500), createdByName: ctx.userName } });
     await auditWorkflow(tx, { orgId: ctx.orgId, actor: actor(ctx), action: "finance.expense.create", entityType: "expense", entityId: expense.id, storeId: expense.storeId, metadata: { supplierId: expense.supplierId, accountId: account?.id ?? null, totalCents } });
     return expense;

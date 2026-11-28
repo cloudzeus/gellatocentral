@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup · Κέντρα κόστους</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: oklch(0.962 0.008 85); --card: #fff; --fg: oklch(0.32 0 0); --fg2: oklch(0.45 0.01 264); --muted: oklch(0.52 0.01 264);
+    --primary: oklch(0.245 0.055 264); --primary-soft: oklch(0.245 0.055 264 / 7%); --border: oklch(0.245 0.055 264 / 12%);
+    --ok: oklch(0.52 0.12 155); --ok-soft: oklch(0.52 0.12 155 / 10%); --warn: oklch(0.6 0.13 70); --warn-soft: oklch(0.75 0.13 80 / 16%);
+    --bar: oklch(0.245 0.055 264); --bar2: oklch(0.245 0.055 264 / 28%);
+    --ease: cubic-bezier(.2,.7,.2,1);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 400 12.5px/1.5 Nunito, system-ui, sans-serif; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .num { font-variant-numeric: tabular-nums; }
+  .shell { max-width: 1440px; margin: 0 auto; padding: 24px 32px 48px; }
+  .note { background: #fff8e6; border: 1px solid #f0d99a; border-radius: 10px; padding: 8px 12px; margin-bottom: 16px; color: #6b5511; }
+  header.page { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; color: var(--primary); }
+  .sub { color: var(--fg2); margin: 0; max-width: 680px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--fg); font: inherit; font-weight: 500; cursor: pointer; transition: background-color .15s var(--ease); }
+  .btn:hover { background: var(--primary-soft); }
+  .btn.primary { background: var(--primary); color: #fff; border-color: transparent; }
+  .btn.primary:hover { background: oklch(0.3 0.06 264); }
+  .btn:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+  .grid { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: start; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
+  .card > .head { padding: 16px 20px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .card h2 { font-size: 14px; font-weight: 600; margin: 0; }
+  .card .body { padding: 0 20px 20px; }
+  .hint { color: var(--muted); }
+
+  /* δέντρο */
+  .tree { list-style: none; margin: 0; padding: 0 8px 8px; }
+  .row { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px; min-height: 44px; padding: 6px 12px; border-radius: 10px; cursor: pointer; transition: background-color .15s var(--ease); }
+  .row:hover { background: var(--primary-soft); }
+  .row[aria-selected="true"] { background: var(--primary-soft); box-shadow: inset 2px 0 0 var(--primary); }
+  .row.child { padding-left: 32px; grid-template-columns: 44px 1fr auto; }
+  .row .code { color: var(--muted); }
+  .row .name { font-weight: 500; }
+  .row .how { display: block; color: var(--muted); font-size: 11.5px; }
+  .row .amt { text-align: right; }
+  .row .amt small { display: block; color: var(--muted); font-size: 11.5px; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; height: 20px; border-radius: 6px; font-size: 11.5px; font-weight: 500; }
+  .tag.ok { background: var(--ok-soft); color: oklch(0.42 0.11 155); }
+  .tag.warn { background: var(--warn-soft); color: oklch(0.45 0.1 70); }
+  .tag.plain { background: var(--primary-soft); color: var(--fg2); }
+
+  .right { display: grid; gap: 20px; }
+  .kv { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--fg2); margin-top: 4px; }
+  .kv b { color: var(--fg); font-weight: 500; }
+
+  /* επιλογή βάσης */
+  .bases { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 4px 0 16px; }
+  .basis { text-align: left; border: 1px solid var(--border); background: var(--card); border-radius: 10px; padding: 10px 12px; cursor: pointer; font: inherit; color: var(--fg); min-height: 64px; transition: background-color .15s var(--ease), border-color .15s var(--ease); }
+  .basis:hover { background: var(--primary-soft); }
+  .basis[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); }
+  .basis b { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12.5px; }
+  .basis span { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+
+  .shares { display: grid; gap: 8px; }
+  .share { display: grid; grid-template-columns: 1fr 120px; gap: 12px; align-items: center; }
+  .field { display: flex; align-items: center; height: 36px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; background: #fff; }
+  .field input { border: 0; outline: 0; width: 100%; font: inherit; text-align: right; background: transparent; }
+  .sum { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .period { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+  .period label { display: grid; gap: 4px; color: var(--fg2); }
+  .period .field { width: 180px; }
+
+  /* η προεπισκόπηση: το «φωτεινό» σημείο της οθόνης */
+  .preview .controls { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; margin-bottom: 16px; }
+  .preview .controls label { display: grid; gap: 4px; color: var(--fg2); }
+  .bars { display: grid; gap: 12px; }
+  .bar { display: grid; grid-template-columns: 160px 1fr 120px; gap: 12px; align-items: center; }
+  .bar .who b { display: block; font-weight: 500; }
+  .bar .who small { color: var(--muted); }
+  .track { height: 28px; background: oklch(0.245 0.055 264 / 5%); border-radius: 6px; overflow: hidden; }
+  .fill { height: 100%; background: var(--bar); border-radius: 6px; transform-origin: left; transition: width .35s var(--ease); }
+  .bar .val { text-align: right; }
+  .bar .val b { display: block; font-size: 14px; font-weight: 600; }
+  .bar .val small { color: var(--muted); }
+  .explain { display: flex; gap: 10px; margin-top: 16px; padding: 12px 14px; border-radius: 10px; background: var(--primary-soft); color: var(--fg2); }
+  .explain.warn { background: var(--warn-soft); color: oklch(0.42 0.09 70); }
+  .total { display: flex; justify-content: space-between; margin-top: 12px; color: var(--fg2); }
+
+  .history { width: 100%; border-collapse: collapse; }
+  .history td, .history th { text-align: left; padding: 10px 0; border-top: 1px solid var(--border); }
+  .history th { color: var(--muted); font-weight: 500; border-top: 0; padding-top: 0; }
+
+  .formdemo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .formdemo label { display: grid; gap: 4px; color: var(--fg2); }
+  .formdemo select { height: 36px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font: inherit; background: #fff; color: var(--fg); }
+  .formdemo .help { color: var(--muted); font-size: 11.5px; }
+
+  @media (max-width: 1023px) { .grid { grid-template-columns: 1fr; } }
+  @media (max-width: 767px) {
+    .shell { padding: 16px; }
+    header.page { flex-direction: column; }
+    .bar { grid-template-columns: 1fr auto; } .bar .track { grid-column: 1 / -1; order: 3; }
+    .formdemo { grid-template-columns: 1fr; }
+    .bases { grid-template-columns: repeat(2, 1fr); } .basis span { display: none; }
+    .share { grid-template-columns: 1fr 100px; }
+    input, select { font-size: max(1rem, 1em); }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="store" viewBox="0 0 24 24"><path d="M3 9l1.5-5h15L21 9M4 9v11h16V9M9 20v-6h6v6M3 9h18"/></symbol>
+  <symbol id="flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6L4 19a1.5 1.5 0 0 0 1.3 2h13.4A1.5 1.5 0 0 0 20 19L14 9V3"/></symbol>
+  <symbol id="building" viewBox="0 0 24 24"><path d="M4 21V5l8-2v18M12 7l8 3v11M8 9v.01M8 13v.01M8 17v.01M16 13v.01M16 17v.01M2 21h20"/></symbol>
+  <symbol id="truck" viewBox="0 0 24 24"><path d="M3 6h11v10H3zM14 10h4l3 3v3h-7M7 19a2 2 0 1 0 0-.01M17 19a2 2 0 1 0 0-.01"/></symbol>
+  <symbol id="mega" viewBox="0 0 24 24"><path d="M3 11v2l13 5V6L3 11zM16 9a3 3 0 0 1 0 6M6 13.5V18h3"/></symbol>
+  <symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></symbol>
+  <symbol id="alert" viewBox="0 0 24 24"><path d="M12 3l9.5 17h-19L12 3zM12 10v4M12 17v.01"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+  <symbol id="percent" viewBox="0 0 24 24"><path d="M19 5L5 19M7 7v.01M17 17v.01"/><circle cx="7" cy="7" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
+  <symbol id="chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="square" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 12h16M12 4v16"/></symbol>
+  <symbol id="bag" viewBox="0 0 24 24"><path d="M6 7h12l1 13H5L6 7zM9 7a3 3 0 0 1 6 0"/></symbol>
+  <symbol id="equal" viewBox="0 0 24 24"><path d="M5 9h14M5 15h14"/></symbol>
+</svg>
+
+<div class="shell">
+  <div class="note">Mockup για έγκριση · δεδομένα παράδειγμα · διάλεξε κέντρο αριστερά και βάση κατανομής δεξιά για να δεις πώς αλλάζει η κατανομή</div>
+
+  <header class="page">
+    <div>
+      <h1>Κέντρα κόστους</h1>
+      <p class="sub">Σε ποιο κατάστημα ή τμήμα «ανήκει» κάθε δαπάνη. Τα κοινά έξοδα (έδρα, εργαστήριο, διανομή) μοιράζονται στα καταστήματα με έναν κανόνα. Είναι διοικητική εικόνα: δεν αλλάζει τα παραστατικά, το myDATA ή ό,τι στέλνεται στον λογιστή.</p>
+    </div>
+    <button class="btn primary"><svg class="i"><use href="#plus"/></svg>Νέο κέντρο</button>
+  </header>
+
+  <div class="grid">
+    <!-- δέντρο -->
+    <section class="card" aria-label="Δέντρο κέντρων">
+      <div class="head"><h2>Όλα τα κέντρα</h2><span class="hint num">Νοέμβριος 2026</span></div>
+      <ul class="tree" role="listbox" id="tree"></ul>
+    </section>
+
+    <div class="right">
+      <!-- κανόνας -->
+      <section class="card">
+        <div class="head">
+          <div>
+            <h2 id="ruleTitle">Διοίκηση / έδρα</h2>
+            <div class="kv"><span>Κωδικός <b class="mono" id="ruleCode">30</b></span><span>Λογαριασμός λογιστή <b class="mono">64.98</b></span><span>Άνοιξε από <b>προεπιλογή</b></span></div>
+          </div>
+          <button class="btn">Επεξεργασία</button>
+        </div>
+        <div class="body" id="ruleBody">
+          <div class="hint" style="margin-bottom:8px">Πώς μοιράζονται τα έξοδα αυτού του κέντρου στα καταστήματα</div>
+          <div class="bases" role="group" aria-label="Βάση κατανομής">
+            <button class="basis" data-b="FIXED"><b><svg class="i"><use href="#percent"/></svg>Σταθερά ποσοστά</b><span>Ορίζεις εσύ, π.χ. 50/30/20</span></button>
+            <button class="basis" data-b="REVENUE"><b><svg class="i"><use href="#chart"/></svg>Με τον τζίρο</b><span>Όποιος πουλά περισσότερα, πληρώνει περισσότερα</span></button>
+            <button class="basis" data-b="AREA"><b><svg class="i"><use href="#square"/></svg>Με τα τ.μ.</b><span>Ανάλογα με το μέγεθος</span></button>
+            <button class="basis" data-b="ORDERS"><b><svg class="i"><use href="#bag"/></svg>Με τις παραγγελίες</b><span>Delivery που παραδόθηκαν</span></button>
+            <button class="basis" data-b="EQUAL"><b><svg class="i"><use href="#equal"/></svg>Ισόποσα</b><span>Το ίδιο σε όλα</span></button>
+          </div>
+          <div id="sharesBox"></div>
+          <div class="period">
+            <label>Ισχύει από<span class="field num">01/12/2026</span></label>
+            <label>Έως<span class="field hint">χωρίς λήξη</span></label>
+          </div>
+        </div>
+      </section>
+
+      <!-- προεπισκόπηση -->
+      <section class="card preview">
+        <div class="head"><h2>Πώς μοιράζεται ένα ποσό</h2><span class="hint">με τα πραγματικά στοιχεία του μήνα</span></div>
+        <div class="body">
+          <div class="controls">
+            <label>Ποσό<span class="field num" style="width:160px"><input id="amount" value="1.000,00" inputmode="decimal" aria-label="Ποσό σε ευρώ"> €</span></label>
+            <label>Περίοδος<span class="field" style="width:180px">Νοέμβριος 2026</span></label>
+          </div>
+          <div class="bars" id="bars" role="img" aria-label="Κατανομή ανά κατάστημα"></div>
+          <div class="total"><span>Σύνολο στα καταστήματα</span><b class="num" id="sum"></b></div>
+          <div class="explain" id="explain"></div>
+        </div>
+      </section>
+
+      <!-- ιστορικό -->
+      <section class="card">
+        <div class="head"><h2>Ιστορικό κανόνων</h2></div>
+        <div class="body">
+          <table class="history num">
+            <tr><th>Περίοδος</th><th>Βάση</th><th>Ποιος</th></tr>
+            <tr><td>01/12/2026 – σήμερα</td><td id="histNow">Σταθερά ποσοστά 50/30/20</td><td>Μ. Παπαδόπουλος, λογιστής</td></tr>
+            <tr><td>01/01/2026 – 30/11/2026</td><td>Με τον τζίρο</td><td class="hint">προεπιλογή</td></tr>
+          </table>
+        </div>
+      </section>
+
+      <!-- πώς φαίνεται στη φόρμα δαπάνης -->
+      <section class="card">
+        <div class="head"><h2>Στη φόρμα δαπάνης</h2><span class="hint">νέο πεδίο, δίπλα στο κατάστημα</span></div>
+        <div class="body formdemo">
+          <label>Κατάστημα<select><option>Χωρίς κατάστημα (έδρα)</option><option>Κηφισιά</option></select></label>
+          <label>Κέντρο κόστους<select><option>30 · Διοίκηση / έδρα</option><option>20 · Εργαστήριο παραγωγής</option><option>10.1 · Κηφισιά</option></select><span class="help">Μπαίνει μόνο του από το κατάστημα· άλλαξέ το αν το έξοδο ανήκει αλλού</span></label>
+          <label>Κατηγορία<select><option>Ενοίκια</option></select></label>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+const stores = [
+  { code: "10.1", name: "Κηφισιά", revenue: 2841000, orders: 412, area: 85 },
+  { code: "10.2", name: "Γλυφάδα", revenue: 1965000, orders: 288, area: 60 },
+  { code: "10.3", name: "Πειραιάς", revenue: 1102000, orders: 95, area: 40 },
+];
+const centers = [
+  { code: "10", name: "Καταστήματα", icon: "store", kind: "group" },
+  ...stores.map((s) => ({ ...s, icon: "store", kind: "store", spent: { "10.1": 412500, "10.2": 298000, "10.3": 187300 }[s.code] })),
+  { code: "20", name: "Εργαστήριο παραγωγής", icon: "flask", basis: "REVENUE", spent: 642000 },
+  { code: "30", name: "Διοίκηση / έδρα", icon: "building", basis: "FIXED", spent: 318000 },
+  { code: "40", name: "Διανομή", icon: "truck", basis: "ORDERS", spent: 96400 },
+  { code: "50", name: "Μάρκετινγκ", icon: "mega", basis: "EQUAL", spent: 0 },
+];
+const label = { FIXED: "σταθερά ποσοστά", REVENUE: "με τον τζίρο", AREA: "με τα τ.μ.", ORDERS: "με τις παραγγελίες", EQUAL: "ισόποσα" };
+const fixed = { "10.1": 50, "10.2": 30, "10.3": 20 };
+const eur = (c) => (c / 100).toLocaleString("el-GR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+let selected = "30", basis = "FIXED";
+
+function renderTree() {
+  const ul = document.getElementById("tree");
+  ul.innerHTML = centers.map((c) => {
+    const how = c.kind === "store" ? `<span class="tag plain">τελικό</span>` : c.kind === "group" ? "" : `<span class="tag ok">${label[c.basis][0].toUpperCase() + label[c.basis].slice(1)}</span>`;
+    const amt = c.kind === "group" ? "" : c.spent ? `<span class="amt num"><b>${eur(c.spent)}</b><small>δαπάνες μήνα</small></span>` : `<span class="amt"><small>καμία δαπάνη</small></span>`;
+    return `<li class="row ${c.kind === "store" ? "child" : ""}" role="option" tabindex="0" aria-selected="${c.code === selected}" data-c="${c.code}">
+      <span class="code mono">${c.code}</span>
+      <span><span class="name" style="display:flex;align-items:center;gap:8px"><svg class="i" style="color:var(--muted)"><use href="#${c.icon}"/></svg>${c.name}</span>${how ? `<span class="how" style="margin-top:2px">${how}</span>` : ""}</span>
+      ${amt}</li>`;
+  }).join("");
+  ul.querySelectorAll(".row").forEach((r) => r.onclick = r.onkeydown = (e) => {
+    if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+    const c = centers.find((x) => x.code === r.dataset.c);
+    if (c.kind !== "store" && c.kind !== "group") { selected = c.code; basis = c.basis; }
+    renderAll();
+  });
+}
+
+function weights() {
+  if (basis === "FIXED") return stores.map((s) => fixed[s.code]);
+  if (basis === "REVENUE") return stores.map((s) => s.revenue);
+  if (basis === "AREA") return stores.map((s) => s.area);
+  if (basis === "ORDERS") return stores.map((s) => s.orders);
+  return stores.map(() => 1);
+}
+function measure(s) {
+  if (basis === "REVENUE") return `τζίρος ${eur(s.revenue)}`;
+  if (basis === "ORDERS") return `${s.orders} παραγγελίες`;
+  if (basis === "AREA") return `${s.area} τ.μ.`;
+  if (basis === "FIXED") return `${fixed[s.code]}%`;
+  return "ίσο μερίδιο";
+}
+
+function renderRule() {
+  document.querySelectorAll(".basis").forEach((b) => b.setAttribute("aria-pressed", b.dataset.b === basis));
+  const c = centers.find((x) => x.code === selected);
+  document.getElementById("ruleTitle").textContent = c.name;
+  document.getElementById("ruleCode").textContent = c.code;
+  const box = document.getElementById("sharesBox");
+  if (basis === "FIXED" || basis === "AREA") {
+    const unit = basis === "FIXED" ? "%" : "τ.μ.";
+    const vals = basis === "FIXED" ? stores.map((s) => fixed[s.code]) : stores.map((s) => s.area);
+    const total = vals.reduce((a, b) => a + b, 0);
+    box.innerHTML = `<div class="shares">${stores.map((s, i) => `<div class="share"><span><b style="font-weight:500">${s.name}</b> <span class="hint mono">${s.code}</span></span><span class="field num"><input value="${vals[i]}" aria-label="${s.name}"> ${unit}</span></div>`).join("")}
+      <div class="sum"><span class="hint">Σύνολο</span>${basis === "FIXED" ? `<span class="tag ok"><svg class="i" style="width:12px;height:12px"><use href="#check"/></svg>${total}% · σωστό</span>` : `<b class="num">${total} τ.μ.</b>`}</div></div>`;
+  } else box.innerHTML = `<div class="hint">Δεν χρειάζεται να συμπληρώσεις κάτι: τα μερίδια βγαίνουν κάθε μήνα από ${basis === "REVENUE" ? "τις πωλήσεις των ταμείων" : basis === "ORDERS" ? "τις παραγγελίες delivery που παραδόθηκαν" : "το πλήθος των ενεργών καταστημάτων"}.</div>`;
+  document.getElementById("histNow").textContent = basis === "FIXED" ? "Σταθερά ποσοστά 50/30/20" : label[basis][0].toUpperCase() + label[basis].slice(1);
+}
+
+function renderPreview() {
+  const cents = Math.round(parseFloat(document.getElementById("amount").value.replace(/\./g, "").replace(",", ".")) * 100) || 0;
+  const w = weights(), wt = w.reduce((a, b) => a + b, 0);
+  let parts = w.map((x) => Math.floor(cents * x / wt));
+  let rest = cents - parts.reduce((a, b) => a + b, 0);
+  for (let i = 0; rest > 0; i = (i + 1) % parts.length, rest--) parts[i]++;
+  const max = Math.max(...parts, 1);
+  document.getElementById("bars").innerHTML = stores.map((s, i) => `<div class="bar">
+      <span class="who"><b>${s.name}</b><small class="num">${measure(s)}</small></span>
+      <span class="track"><span class="fill" style="display:block;width:${(parts[i] / max) * 100}%"></span></span>
+      <span class="val num"><b>${eur(parts[i])}</b><small>${Math.round(parts[i] / cents * 100) || 0}% του ποσού</small></span></div>`).join("");
+  document.getElementById("sum").textContent = eur(parts.reduce((a, b) => a + b, 0));
+  const top = stores[parts.indexOf(Math.max(...parts))];
+  document.getElementById("explain").innerHTML = `<svg class="i" style="margin-top:2px"><use href="#info"/></svg><span>Από κάθε ${eur(cents)} που πληρώνει η ${centers.find((c) => c.code === selected).name.toLowerCase()}, το μεγαλύτερο μέρος (${eur(Math.max(...parts))}) πάει στην <b>${top.name}</b>. Το ποσό αυτό μπαίνει στο αποτέλεσμα του καταστήματος, στην «Κερδοφορία ανά κατάστημα». Τα λεπτά δεν χάνονται: το σύνολο είναι πάντα ακριβώς το ποσό.</span>`;
+}
+
+function renderAll() { renderTree(); renderRule(); renderPreview(); }
+document.querySelectorAll(".basis").forEach((b) => b.onclick = () => { basis = b.dataset.b; renderAll(); });
+document.getElementById("amount").oninput = renderPreview;
+renderAll();
+</script>
+</body>
+</html>
