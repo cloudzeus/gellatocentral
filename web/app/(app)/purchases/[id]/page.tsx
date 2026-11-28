@@ -17,7 +17,8 @@ import { listParams } from "@/lib/paging";
 import { calculatePurchaseDocument, documentParty, partySnapshot } from "@/lib/purchase-document";
 import { priceCheck } from "@/lib/purchase-pricing";
 import { perPackCents } from "@/lib/purchases";
-import { addLine, cancelDoc, postDoc, rematchLine, removeLine, removeLines, updateDoc } from "../actions";
+import { addLine, cancelDoc, postDoc, recheckMydata, rematchLine, removeLine, removeLines, resolveMydata, updateDoc } from "../actions";
+import { MydataCheckPanel } from "@/components/mydata-check-panel";
 import { reviewInvoiceReceipt } from "../../orders/actions";
 import { StatusBadge } from "@/components/status-badge";
 import { look } from "@/lib/status";
@@ -41,6 +42,7 @@ export default async function PurchaseDocPage({ params, searchParams }: { params
       warehouse: true,
       lines: { orderBy: { id: "asc" }, include: { tradeItem: true, genericItem: true, supplierItem: { include: { prices: { orderBy: { validFrom: "desc" } } } } } },
       receiptInvoice: { include: { discrepancies: true, invoiceDiscrepancies: true } },
+      mydataCheck: true,
     },
   });
   if (!doc) notFound();
@@ -145,6 +147,10 @@ export default async function PurchaseDocPage({ params, searchParams }: { params
       actions={<span className="flex flex-wrap gap-2 print:hidden">{adjustments && can("purchases.edit") ? <InvoiceActions invoice={doc} data={adjustments} /> : null}<PrintButton />{draft && can("purchases.edit") ? <><form action={cancelDoc.bind(null, doc.id)}><Submit className={btn("ghost")}><X /> Ακύρωση</Submit></form>{doc.lines.length && !unmatched.length ? <form action={postDoc.bind(null, doc.id)}><Submit className={btn("default")}><Check /> Αποδοχή αποθέματος · {euro(totals.totalCents)}</Submit></form> : null}</> : null}</span>}>
       <div className="grid max-w-7xl gap-4 print:max-w-none print:gap-0">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive print:hidden">Δεν αποθηκεύτηκε: {q.error.slice(0, 300)}</p> : null}
+        {org.aadeUserId && doc.source !== "mydata" ? (
+          <div className="print:hidden"><MydataCheckPanel check={doc.mydataCheck} receipt={isReceipt} canEdit={can("purchases.edit")}
+            recheck={recheckMydata.bind(null, doc.id)} aade={resolveMydata.bind(null, doc.id, "AADE")} paper={resolveMydata.bind(null, doc.id, "PAPER")} /></div>
+        ) : null}
         {isReceipt ? <p className="rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground print:hidden">Η παραλαβή έχει γράψει απόθεμα, παρτίδα και κόστος, αλλά δεν δημιουργεί οφειλή και δεν συμμετέχει σε ΦΠΑ ή οικονομικές αναφορές αγορών.</p> : null}
         {receiptReview ? <Card className="grid gap-3 p-4 print:hidden">
           <PurchaseReceiptReview reviewStatus={receiptReview.reviewStatus} reviewedAt={receiptReview.reviewedAt} reviewedByName={receiptReview.reviewedByName} reviewNote={receiptReview.reviewNote} discrepancies={receiptReview.discrepancies} />

@@ -8,7 +8,23 @@ export type ReceivingLine = { id: string; genericItemId: string; name: string; d
 export type ReceivingOrder = { id: string; number: string; createdAt: string; warehouse?: { id: string; name: string }; spots?: Spot[]; supplier: { id: string; name: string; vatNumber: string | null; phones: SupplierPhone[] }; lines: ReceivingLine[] };
 export type SupplierPhone = { who: string; label: string | null; phone: string };
 export type NoteLine = { description: string; quantity: number; genericItemId: string | null; base: number | null };
-export type DeliveryNote = { number: string | null; date: string | null; mark: string | null; vatNumber: string | null; supplier: { id: string; name: string } | null; lines: NoteLine[]; already?: { orderNumber: string; at: string; by: string; message: string } | null };
+export type MydataDiff = { field: string; label: string; scanned: string; mydata: string };
+/** Ο έλεγχος με ό,τι δήλωσε ο προμηθευτής στο myDATA (web lib/mydata-check.ts). null: δεν ελέγχθηκε τώρα (χωρίς MARK ή κλειδιά). */
+export type MydataCheck = { status: "MATCH" | "DIFF" | "NOT_FOUND" | "ERROR"; diff: MydataDiff[]; mydata: { mark: string; series: string | null; number: string | null; issuedAt: string | null } | null; error: string | null };
+export type DeliveryNote = {
+  number: string | null; date: string | null; mark: string | null; vatNumber: string | null; supplier: { id: string; name: string } | null; lines: NoteLine[];
+  already?: { orderNumber: string; at: string; by: string; message: string } | null;
+  mydata?: MydataCheck | null;
+  /** ο αποθηκάριος κράτησε το χαρτί παρά τη διαφορά */
+  mydataPaper?: boolean;
+};
+
+/** «Κράτα τα στοιχεία της ΑΑΔΕ»: αριθμός, ημερομηνία και MARK του δελτίου από το myDATA. */
+export function takeMydata(note: DeliveryNote): DeliveryNote {
+  const m = note.mydata?.mydata;
+  if (!m) return note;
+  return { ...note, number: [m.series, m.number].filter(Boolean).join("-") || note.number, date: m.issuedAt ? `${m.issuedAt}T00:00:00.000Z` : note.date, mark: m.mark, mydata: { ...note.mydata!, status: "MATCH", diff: [] }, mydataPaper: false };
+}
 export type Counted = { base: number; batch?: string; expiry?: string };
 export type Hit = { lineId: string; base: number; batch?: string; expiry?: string };
 
@@ -50,6 +66,7 @@ export function submission(order: ReceivingOrder, counted: Readonly<Record<strin
     orderId: order.id, lines, shortfall,
     deliveryNote: note ? { number: note.number, date: note.date?.slice(0, 10) ?? null, mark: note.mark } : undefined,
     remark: fewer.length ? `Λιγότερα από το δελτίο: ${fewer.join(", ")}` : undefined,
+    mydataPaper: note?.mydataPaper ? true : undefined,
   };
 }
 

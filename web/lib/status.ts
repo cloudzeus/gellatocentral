@@ -19,6 +19,8 @@ const STATUS = {
   // Αγορές
   purchaseOrder: { DRAFT: ["neutral", "Πρόχειρη"], SENT: ["warning", "Στάλθηκε — περιμένει παραλαβή"], PARTIAL: ["warning", "Μερική παραλαβή"], RECEIVED: ["success", "Παραλήφθηκε"], CANCELLED: ["neutral", "Ακυρώθηκε"] },
   purchase: { DRAFT: ["neutral", "Πρόχειρο"], POSTED: ["success", "Καταχωρήθηκε"], CANCELLED: ["neutral", "Ακυρώθηκε"] },
+  // έλεγχος σκαναρισμένου παραστατικού με το myDATA (lib/mydata-check.ts)· PAPER = διαφορά όπου κρατήθηκε το χαρτί
+  mydataCheck: { MATCH: ["success", "Ίδιο με το myDATA"], DIFF: ["danger", "Διαφορά — θέλει απόφαση"], PAPER: ["warning", "Διαφορά · κρατήθηκε το χαρτί"], NOT_FOUND: ["warning", "Δεν βρέθηκε ακόμα"], ERROR: ["neutral", "Δεν ελέγχθηκε"] },
   rfq: { OPEN: ["warning", "Περιμένει προσφορές"], CLOSED: ["neutral", "Έκλεισε"] },
   // Χονδρική
   wholesaleOrder: { DRAFT: ["neutral", "Πρόχειρη"], CONFIRMED: ["warning", "Επιβεβαιώθηκε — περιμένει παράδοση"], DELIVERED: ["success", "Παραδόθηκε"], INVOICED: ["success", "Τιμολογήθηκε"], CANCELLED: ["neutral", "Ακυρώθηκε"] },

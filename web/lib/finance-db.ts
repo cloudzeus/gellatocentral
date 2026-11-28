@@ -151,6 +151,8 @@ export async function recordSupplierPayment(ctx: StockContext, input: SupplierPa
       const replay = await existingSupplierPayment(tx, ctx.orgId, request, requestHash);
       if (replay) return replay;
       for (const { allocation, document } of documents) {
+        // διαφορά με το myDATA χωρίς απόφαση: πρώτα ξεκαθαρίζει τι οφείλουμε (mockup mydata-check.html)
+        if (await tx.mydataCheck.findFirst({ where: { orgId: ctx.orgId, purchaseDocId: document.id, status: "DIFF", resolution: null }, select: { id: true } })) throw new WorkflowError(`Το τιμολόγιο ${document.number ?? ""} έχει διαφορά με το myDATA χωρίς απόφαση. Άνοιξέ το και διάλεξε ποια στοιχεία ισχύουν πριν το πληρώσεις`.replace("  ", " "));
         const totals = purchaseTotals(document, document.lines);
         const previous = await tx.supplierPaymentAllocation.aggregate({ where: { orgId: ctx.orgId, purchaseDocId: document.id }, _sum: { amountCents: true } });
         if (allocation.amountCents > totals.totalCents - document.creditCents - (previous._sum.amountCents ?? 0)) throw new WorkflowError("Η αντιστοίχιση υπερβαίνει το απλήρωτο τιμολόγιο αγοράς");

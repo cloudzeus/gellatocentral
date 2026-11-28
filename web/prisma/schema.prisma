@@ -211,6 +211,7 @@ model Organization {
   itemMappings         ItemMapping[]
   supplierItems        SupplierItem[]
   purchaseDocs         PurchaseDoc[]
+  mydataChecks         MydataCheck[]
   stockLots            StockLot[]
   stockTransfers       StockTransfer[]
   stockCounts          StockCount[]
@@ -917,6 +918,7 @@ model PurchaseDoc {
   lots               StockLot[]
   receiptInvoice     PurchaseReceipt? @relation("PurchaseReceiptInvoice")
   orderInvoice       PurchaseOrder?   @relation("PurchaseOrderInvoice")
+  mydataCheck        MydataCheck?
 
   @@unique([orgId, mydataMark])
   @@index([orgId, supplierId, createdAt])
@@ -4073,4 +4075,25 @@ model ItemSpot {
 
   @@id([genericItemId, warehouseId])
   @@index([spotId])
+}
+
+// Έλεγχος σκαναρισμένου παραστατικού προμηθευτή με ό,τι δήλωσε εκείνος στο myDATA (μόνο ανάγνωση, RequestDocs).
+// Mockup: docs/analysis/mockups/mydata-check.html. Διαφορά χωρίς απόφαση μπλοκάρει την πληρωμή του τιμολογίου.
+model MydataCheck {
+  id             String      @id @default(cuid())
+  orgId          String
+  purchaseDocId  String      @unique
+  status         String // MATCH | DIFF | NOT_FOUND | ERROR
+  diff           Json? // MydataDiff[]: πεδίο, φωτογραφία, myDATA
+  mydata         Json? // ό,τι βρέθηκε: mark, series, number, issuedAt, net/vat/gross
+  error          String?
+  checkedAt      DateTime
+  recheckUntil   DateTime? // NOT_FOUND/ERROR: ξαναελέγχεται κάθε βράδυ ως τότε
+  resolution     String? // AADE (κρατήθηκαν τα στοιχεία της ΑΑΔΕ) | PAPER (το χαρτί είναι σωστό)
+  resolvedByName String?
+  resolvedAt     DateTime?
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  purchaseDoc    PurchaseDoc  @relation(fields: [purchaseDocId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status])
 }

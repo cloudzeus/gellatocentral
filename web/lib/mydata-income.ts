@@ -1,10 +1,10 @@
-// Μηχανογραφημένη λήψη τιμολογίων αγοράς από το myDATA (RequestMyIncome, ΑΑΔΕ myDATA REST API).
-// Τα κλειδιά (aadeUserId / aadeSubKey) τα ορίζει η πλατφόρμα ανά συνδρομητή στην καρτέλα της επιχείρησης.
+// Μηχανογραφημένη λήψη τιμολογίων αγοράς από το myDATA (RequestDocs: ό,τι εξέδωσαν άλλοι προς εμάς, ΑΑΔΕ myDATA REST API).
+// Μόνο ανάγνωση: οι διαβιβάσεις μας γίνονται μέσω Viva. Τα κλειδιά (aadeUserId / aadeSubKey) τα ορίζει η πλατφόρμα ανά συνδρομητή.
 // Κάθε παραστατικό γίνεται πρόχειρο PurchaseDoc· το mydataMark (@@unique στο PurchaseDoc) αποκλείει διπλές λήψεις.
 // Οι γραμμές αντιστοιχίζονται με τον ίδιο κανόνα που ισχύει για χειροκίνητη καταχώριση και OCR.
 
 import { db } from "./db";
-import { parseMyIncomeXml } from "./mydata-parse";
+import { continuation, mydataFault, parseMyIncomeXml, type MyIncomeDoc } from "./mydata-parse";
 import { matchLine } from "./purchases";
 import { partySnapshot } from "./purchase-document";
 
@@ -12,23 +12,47 @@ import { partySnapshot } from "./purchase-document";
 
 export class MydataError extends Error {}
 
-// MYDATA_ENDPOINT: μόνο για δοκιμές απέναντι σε τοπικό server
-const BASE = () => (process.env.MYDATA_ENDPOINT || "https://mydatapi.aade.gr/myDATA").replace(/\/$/, "");
+// AADE_MYDATA_ENV=sandbox → mydataapidev (όπως στη διαβίβαση)· MYDATA_ENDPOINT: μόνο για δοκιμές απέναντι σε τοπικό server
+const BASE = () =>
+  (process.env.MYDATA_ENDPOINT || (process.env.AADE_MYDATA_ENV === "sandbox" ? "https://mydataapidev.aade.gr" : "https://mydatapi.aade.gr/myDATA")).replace(/\/$/, "");
+const MAX_PAGES = 20;
 const ddmmyyyy = (d: Date) =>
   `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
 
-/** RequestMyIncome για διάστημα ημερομηνιών. Επιστρέφει το ακατέργαστο XML. */
+/** RequestDocs με όλες τις σελίδες (ως MAX_PAGES). Η ΑΑΔΕ γυρίζει σφάλματα και με HTTP 200, γι' αυτό ελέγχεται το σώμα. */
+async function requestDocs(userId: string, subKey: string, params: Record<string, string>): Promise<string[]> {
+  const pages: string[] = [];
+  let next: Record<string, string> = {};
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const res = await fetch(`${BASE()}/RequestDocs?${new URLSearchParams({ ...params, ...next })}`, {
+      headers: { "aade-user-id": userId, "Ocp-Apim-Subscription-Key": subKey },
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    }).catch(() => null);
+    if (!res) throw new MydataError("Το myDATA δεν απάντησε");
+    if (res.status === 401 || res.status === 403) throw new MydataError("Τα κλειδιά myDATA απορρίφθηκαν — έλεγξέ τα στην καρτέλα της επιχείρησης");
+    if (!res.ok) throw new MydataError(`Το myDATA απάντησε ${res.status}`);
+    const xml = await res.text();
+    const fault = mydataFault(xml);
+    if (fault) throw new MydataError(`Το myDATA απέρριψε το αίτημα: ${fault}`);
+    pages.push(xml);
+    const c = continuation(xml);
+    if (!c) return pages;
+    next = c;
+  }
+  throw new MydataError(`Πάνω από ${MAX_PAGES} σελίδες παραστατικών — διάλεξε μικρότερο διάστημα`);
+}
+
+/** Τα παραστατικά προς εμάς για διάστημα ημερομηνιών. Επιστρέφει το ακατέργαστο XML όλων των σελίδων. */
 export async function fetchMyIncome(userId: string, subKey: string, entityVat: string, from: Date, to: Date): Promise<string> {
-  const q = new URLSearchParams({ entityVatNumber: entityVat, dateFrom: ddmmyyyy(from), dateTo: ddmmyyyy(to) });
-  const res = await fetch(`${BASE()}/RequestMyIncome?${q}`, {
-    headers: { "aade-user-id": userId, "Ocp-Apim-Subscription-Key": subKey },
-    cache: "no-store",
-    signal: AbortSignal.timeout(30_000),
-  }).catch(() => null);
-  if (!res) throw new MydataError("Το myDATA δεν απάντησε");
-  if (res.status === 401 || res.status === 403) throw new MydataError("Τα κλειδιά myDATA απορρίφθηκαν — έλεγξέ τα στην καρτέλα της επιχείρησης");
-  if (!res.ok) throw new MydataError(`Το myDATA απάντησε ${res.status}`);
-  return res.text();
+  return (await requestDocs(userId, subKey, { mark: "0", entityVatNumber: entityVat, dateFrom: ddmmyyyy(from), dateTo: ddmmyyyy(to) })).join("\n");
+}
+
+/** Ένα παραστατικό προς εμάς με το ΜΑΡΚ του (mark = ΜΑΡΚ−1, maxMark = ΜΑΡΚ), για έλεγχο σκαναρισμένου. null αν δεν βρέθηκε. */
+export async function fetchByMark(userId: string, subKey: string, entityVat: string, mark: string): Promise<MyIncomeDoc | null> {
+  if (!/^\d{1,19}$/.test(mark)) throw new MydataError("Μη έγκυρο ΜΑΡΚ");
+  const pages = await requestDocs(userId, subKey, { mark: String(BigInt(mark) - 1n), maxMark: mark, entityVatNumber: entityVat });
+  return parseMyIncomeXml(pages.join("\n")).find((d) => d.mark === mark) ?? null;
 }
 
 // ---- Εισαγωγή ως πρόχειρα τιμολόγια αγοράς ----
@@ -71,10 +95,10 @@ export async function importMyIncome(orgId: string, userName: string, from: Date
       supplier ??= await tx.party.create({ data: { orgId, roles: ["supplier"], name: d.supplierName, vatNumber: d.supplierVat } });
       const doc = await tx.purchaseDoc.create({
         data: {
-          orgId, supplierId: supplier.id, warehouseId: warehouse.id, number: d.number, issuedAt: d.issuedAt, mydataMark: d.mark,
+          orgId, supplierId: supplier.id, warehouseId: warehouse.id, number: [d.series, d.number].filter(Boolean).join("-") || null, issuedAt: d.issuedAt, mydataMark: d.mark,
           // 5.1/5.2: πιστωτικό του προμηθευτή, όχι νέα αγορά· δένεται με το τιμολόγιο στην καρτέλα του (lib/purchase-returns.ts)
           kind: isCredit(d.type) ? "CREDIT" : "INVOICE", mydataType: d.type, relatedMark: d.relatedMark,
-          source: "mydata", note: isCredit(d.type) ? "Πιστωτικό από myDATA — σύνδεσέ το με το τιμολόγιο που αφορά" : "Από myDATA (RequestMyIncome) — έλεγχος πριν από την αποδοχή",
+          source: "mydata", note: isCredit(d.type) ? "Πιστωτικό από myDATA — σύνδεσέ το με το τιμολόγιο που αφορά" : "Από myDATA — έλεγχος πριν από την αποδοχή",
           supplierSnapshot: partySnapshot(supplier), buyerSnapshot: partySnapshot({ ...buyer, name: org.name, vatNumber: org.vatNumber }), createdByName: userName,
         },
       });

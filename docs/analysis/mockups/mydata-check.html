@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup · Έλεγχος σκαναρισμένων παραστατικών με το myDATA</title>
+<style>
+  :root { --navy:#131F3B; --ink:#1d2433; --muted:#5b6476; --line:#d9dde5; --soft:#f3f5f8; --ok:#15803d; --warn:#b45309; --bad:#b91c1c; --info:#3730a3; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#e9ecf1; font:13px/1.45 "Nunito", system-ui, sans-serif; color:var(--ink); }
+  .wrap { max-width:1280px; margin:0 auto; padding:28px 20px 60px; }
+  h1 { font-size:20px; font-weight:600; margin:0 0 4px; }
+  h2 { font-size:15px; font-weight:600; margin:34px 0 4px; }
+  p.cap { color:var(--muted); margin:0 0 20px; max-width:900px; }
+  .row { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start; }
+  .step { width:290px; }
+  .step > b { display:block; font-size:12px; color:var(--muted); margin:0 0 8px; }
+  .phone { width:290px; height:600px; background:#fff; border-radius:30px; border:9px solid #1b1f2a; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 8px 24px rgba(0,0,0,.18); }
+  .top { padding:12px 14px 10px; border-bottom:1px solid var(--line); }
+  .top small { color:var(--muted); font-size:11px; } .top h3 { margin:2px 0 0; font-size:15px; }
+  .scroll { flex:1; overflow:hidden; padding:12px 14px; display:grid; gap:10px; align-content:start; }
+  .bottom { padding:10px 14px 14px; border-top:1px solid var(--line); display:grid; gap:8px; }
+  .btn { border-radius:12px; min-height:46px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600; font-size:13.5px; border:1px solid var(--line); background:#fff; padding:0 14px; }
+  .btn.primary { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .btn.sm { min-height:36px; font-size:12.5px; border-radius:10px; }
+  .card { border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+  .kv { display:grid; grid-template-columns:90px 1fr; gap:3px 8px; font-size:12px; } .kv span { color:var(--muted); }
+  .pill { font-size:10.5px; padding:1px 7px; border-radius:999px; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:4px; }
+  .p-ok { background:#dcfce7; color:var(--ok); } .p-warn { background:#fef3c7; color:var(--warn); } .p-bad { background:#fee2e2; color:var(--bad); } .p-info { background:#e0e7ff; color:var(--info); } .p-mute { background:var(--soft); color:var(--muted); }
+  .check { border-radius:12px; padding:10px 12px; font-size:12px; display:grid; gap:6px; }
+  .check .h { display:flex; gap:8px; align-items:center; font-weight:700; font-size:12.5px; }
+  .c-ok { background:#f0fdf4; border:1px solid #86efac; color:#14532d; }
+  .c-bad { background:#fef2f2; border:1px solid #fca5a5; color:#7f1d1d; }
+  .c-warn { background:#fffbeb; border:1px solid #fcd34d; color:#5c4708; }
+  .c-info { background:#eef2ff; border:1px solid #c7d2fe; color:#312e81; }
+  .diff { display:grid; grid-template-columns:70px 1fr 1fr; gap:4px 8px; font-size:11.5px; color:var(--ink); background:#fff; border-radius:8px; padding:7px 8px; }
+  .diff .hd { color:var(--muted); font-size:10.5px; font-weight:700; }
+  .diff s { color:var(--bad); text-decoration:none; font-weight:700; }
+  .diff em { color:var(--ok); font-style:normal; font-weight:700; }
+  svg { flex-shrink:0; }
+  /* web */
+  .web { flex:1; min-width:640px; background:#fff; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.1); overflow:hidden; }
+  .web .bar { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid var(--line); }
+  .web .bar h3 { margin:0; font-size:15px; } .web .bar small { color:var(--muted); }
+  .web .body { padding:16px 18px; display:grid; gap:14px; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; color:var(--muted); font-weight:600; font-size:11.5px; padding:6px 8px; border-bottom:1px solid var(--line); }
+  td { padding:7px 8px; border-bottom:1px solid #eef0f4; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  tr.bad td { background:#fff7f7; }
+  .stack { display:flex; height:14px; border-radius:7px; overflow:hidden; }
+  .legend { display:flex; gap:16px; font-size:12px; color:var(--muted); margin-top:8px; flex-wrap:wrap; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+  .tabs { display:flex; gap:6px; } .tab { padding:5px 11px; border-radius:999px; font-size:12px; border:1px solid var(--line); } .tab.on { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .design { background:#fff; border-radius:12px; padding:16px 20px; box-shadow:0 2px 14px rgba(0,0,0,.06); font-size:12.5px; margin-top:28px; }
+  .design h3 { margin:0 0 8px; font-size:15px; } .design ol { margin:0; padding-left:18px; } .design li { margin:5px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Έλεγχος σκαναρισμένων παραστατικών με το myDATA</h1>
+  <p class="cap">Όταν φωτογραφίζεις παραστατικό προμηθευτή, η εφαρμογή διαβάζει το MARK του και φέρνει από την ΑΑΔΕ αυτό που δήλωσε ο προμηθευτής. Μετά συγκρίνει ΑΦΜ, αριθμό, ημερομηνία και ποσά. Αν όλα συμφωνούν βλέπεις ένα πράσινο σημάδι και συνεχίζεις κανονικά. Αν κάτι διαφέρει, βλέπεις ακριβώς ποιο πεδίο και τι γράφει το καθένα. Η εφαρμογή μόνο διαβάζει από το myDATA και δεν στέλνει τίποτα· οι διαβιβάσεις μας γίνονται από τη Viva.</p>
+
+  <h2>Α · Στο κινητό, μόλις διαβαστεί η φωτογραφία</h2>
+  <p class="cap">Ο έλεγχος μπαίνει στην κάρτα «Διαβάστηκε από τη φωτογραφία» της παραλαβής, πάνω από την επιλογή παραγγελίας. Οι τέσσερις περιπτώσεις που μπορεί να βγουν:</p>
+  <div class="row">
+    <div class="step"><b>1 · Συμφωνεί με το myDATA</b>
+      <div class="phone">
+        <div class="top"><small>Διαβάστηκε από τη φωτογραφία</small><h3>Τιμολόγιο ΤΔΑ-9921</h3></div>
+        <div class="scroll">
+          <div class="card"><div class="kv"><span>Προμηθευτής</span><b>ΓΑΛΑΚΤΟΚΟΜΙΚΑ ΑΕ</b><span>ΑΦΜ</span><b>094123456</b><span>Ημερομηνία</span><b>15/11/2026</b><span>Σύνολο</span><b>83,57 €</b><span>MARK</span><b>400001234567890</b></div></div>
+          <div class="check c-ok"><div class="h"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>Ίδιο με το myDATA</div>
+            <span>ΑΦΜ, αριθμός, ημερομηνία και ποσά συμφωνούν με αυτό που δήλωσε ο προμηθευτής στην ΑΑΔΕ.</span></div>
+          <p style="margin:2px 0 0;font-size:12px;font-weight:700">Σε ποια παραγγελία ανήκει;</p>
+          <div class="card" style="font-size:12px"><b>ΠΑΡ-0042</b> · 20/11<br><span style="color:var(--muted)">4 είδη περιμένουμε · ταιριάζουν και τα 4</span></div>
+        </div>
+        <div class="bottom"><div class="btn primary">Συνέχεια στη σάρωση</div></div>
+      </div>
+    </div>
+
+    <div class="step"><b>2 · Διαφέρει από το myDATA</b>
+      <div class="phone">
+        <div class="top"><small>Διαβάστηκε από τη φωτογραφία</small><h3>Τιμολόγιο ΤΔΑ-9912</h3></div>
+        <div class="scroll">
+          <div class="check c-bad"><div class="h"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>2 διαφορές με το myDATA</div>
+            <div class="diff"><span class="hd">Πεδίο</span><span class="hd">Φωτογραφία</span><span class="hd">myDATA</span>
+              <span>Αριθμός</span><s>9912</s><em>ΤΔΑ-9921</em>
+              <span>Σύνολο</span><s>85,57 €</s><em>83,57 €</em></div>
+            <span>Ή διαβάστηκε λάθος η φωτογραφία ή ο προμηθευτής δήλωσε άλλα στοιχεία. Κοίτα το χαρτί.</span>
+            <div class="btn sm">Κράτα τα στοιχεία της ΑΑΔΕ</div>
+            <div class="btn sm">Το χαρτί είναι σωστό · σημείωσε διαφορά</div>
+          </div>
+        </div>
+        <div class="bottom"><div class="btn primary">Συνέχεια στη σάρωση</div></div>
+      </div>
+    </div>
+
+    <div class="step"><b>3 · Δεν έχει διαβιβαστεί ακόμα</b>
+      <div class="phone">
+        <div class="top"><small>Διαβάστηκε από τη φωτογραφία</small><h3>Τιμολόγιο ΠΡ-77</h3></div>
+        <div class="scroll">
+          <div class="card"><div class="kv"><span>Προμηθευτής</span><b>ΖΑΧΑΡΩΔΗ ΑΕ</b><span>ΑΦΜ</span><b>800777888</b><span>MARK</span><b>400001234570001</b></div></div>
+          <div class="check c-warn"><div class="h"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Δεν βρέθηκε ακόμα στο myDATA</div>
+            <span>Ο προμηθευτής έχει μέχρι την επόμενη εργάσιμη να το διαβιβάσει. Η παραλαβή γίνεται κανονικά· η εφαρμογή θα το ξαναελέγξει μόνη της κάθε βράδυ και θα σε ειδοποιήσει μόνο αν βρει διαφορά.</span></div>
+        </div>
+        <div class="bottom"><div class="btn primary">Συνέχεια στη σάρωση</div></div>
+      </div>
+    </div>
+
+    <div class="step"><b>4 · Δεν τυπώνει MARK (π.χ. δελτίο)</b>
+      <div class="phone">
+        <div class="top"><small>Διαβάστηκε από τη φωτογραφία</small><h3>Δελτίο ΔΑ-881</h3></div>
+        <div class="scroll">
+          <div class="card"><div class="kv"><span>Προμηθευτής</span><b>ΓΑΛΑΚΤΟΚΟΜΙΚΑ ΑΕ</b><span>ΑΦΜ</span><b>094123456</b><span>MARK</span><span>δεν τυπώνεται</span></div></div>
+          <div class="check c-info"><div class="h"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></svg>Θα ελεγχθεί με ΑΦΜ και αριθμό</div>
+            <span>Χωρίς MARK η εφαρμογή ψάχνει στο myDATA με τον ΑΦΜ του προμηθευτή και τον αριθμό, στον βραδινό έλεγχο.</span></div>
+        </div>
+        <div class="bottom"><div class="btn primary">Συνέχεια στη σάρωση</div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Β · Στη web εφαρμογή, Αγορές</h2>
+  <p class="cap">Στη λίστα αγορών κάθε παραστατικό έχει στήλη «myDATA», και πάνω από τη λίστα ένα γράφημα του μήνα δείχνει πόσα συμφωνούν. Στη σελίδα του παραστατικού η σύγκριση φαίνεται πεδίο προς πεδίο.</p>
+  <div class="row">
+    <div class="web">
+      <div class="bar"><div><h3>Αγορές · Νοέμβριος 2026</h3><small>50 παραστατικά προμηθευτών</small></div><div class="tabs"><span class="tab">Όλα</span><span class="tab on">Διαφορές · 3</span><span class="tab">Δεν βρέθηκαν · 5</span></div></div>
+      <div class="body">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px"><b>Έλεγχος με το myDATA</b><span style="color:var(--muted)">42 από 50 ίδια (84%)</span></div>
+          <div class="stack"><span style="width:84%;background:var(--ok)"></span><span style="width:6%;background:var(--bad)"></span><span style="width:10%;background:#f59e0b"></span></div>
+          <div class="legend"><span><i style="background:var(--ok)"></i>Ίδια · 42</span><span><i style="background:var(--bad)"></i>Διαφορές · 3 · κοίτα τα πρώτα</span><span><i style="background:#f59e0b"></i>Δεν βρέθηκαν ακόμα · 5 · ξαναελέγχονται κάθε βράδυ</span></div>
+        </div>
+        <table>
+          <tr><th>Προμηθευτής</th><th>Αριθμός</th><th>Ημερομηνία</th><th class="num">Σύνολο</th><th>myDATA</th></tr>
+          <tr class="bad"><td>ΓΑΛΑΚΤΟΚΟΜΙΚΑ ΑΕ</td><td>9912</td><td>15/11</td><td class="num">85,57</td><td><span class="pill p-bad">2 διαφορές · αριθμός, σύνολο</span></td></tr>
+          <tr class="bad"><td>OVEROLL</td><td>ΠΙΣ-118</td><td>28/11</td><td class="num">−8,14</td><td><span class="pill p-bad">ημερομηνία 27/11 στο myDATA</span></td></tr>
+          <tr class="bad"><td>ΚΑΦΕΚΟΠΤΕΙΑ ΑΕ</td><td>Α-2210</td><td>21/11</td><td class="num">312,40</td><td><span class="pill p-bad">ΑΦΜ εκδότη άλλος</span></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="web" style="min-width:520px">
+      <div class="bar"><div><h3>Τιμολόγιο 9912 · ΓΑΛΑΚΤΟΚΟΜΙΚΑ ΑΕ</h3><small>Σκαναρίστηκε από Νίκο Π. · 15/11 09:12</small></div><span class="pill p-bad">2 διαφορές με το myDATA</span></div>
+      <div class="body">
+        <table>
+          <tr><th>Πεδίο</th><th>Φωτογραφία</th><th>myDATA</th><th></th></tr>
+          <tr><td>ΑΦΜ εκδότη</td><td>094123456</td><td>094123456</td><td><span class="pill p-ok">ίδιο</span></td></tr>
+          <tr class="bad"><td>Αριθμός</td><td><b>9912</b></td><td><b>ΤΔΑ-9921</b></td><td><span class="pill p-bad">διαφέρει</span></td></tr>
+          <tr><td>Ημερομηνία</td><td>15/11/2026</td><td>15/11/2026</td><td><span class="pill p-ok">ίδια</span></td></tr>
+          <tr><td>Καθαρή αξία</td><td class="num">69,01</td><td class="num">67,40</td><td><span class="pill p-bad">+1,61 €</span></td></tr>
+          <tr><td>ΦΠΑ</td><td class="num">16,56</td><td class="num">16,17</td><td><span class="pill p-bad">+0,39 €</span></td></tr>
+          <tr class="bad"><td>Σύνολο</td><td class="num"><b>85,57</b></td><td class="num"><b>83,57</b></td><td><span class="pill p-bad">+2,00 €</span></td></tr>
+          <tr><td>MARK</td><td>400001234567890</td><td>400001234567890</td><td><span class="pill p-ok">ίδιο</span></td></tr>
+        </table>
+        <p style="margin:0;font-size:12.5px;color:var(--muted)">Το χαρτί γράφει 2,00 € παραπάνω από ό,τι δήλωσε ο προμηθευτής. Αν το χαρτί είναι σωστό, ζήτα από τον προμηθευτή διόρθωση στο myDATA πριν το πληρώσεις.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="btn sm primary">Κράτα τα στοιχεία της ΑΑΔΕ</span><span class="btn sm">Το χαρτί είναι σωστό · σημείωσε διαφορά</span><span class="btn sm">Ξαναέλεγξε τώρα</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="design">
+    <h3>Πώς στήνεται (για έγκριση)</h3>
+    <ol>
+      <li><b>Πότε γίνεται ο έλεγχος.</b> Αμέσως μετά την ανάγνωση της φωτογραφίας, αν τυπώνεται MARK: μία κλήση στην ΑΑΔΕ, που φέρνει μόνο αυτό το παραστατικό. Όσα δεν βρέθηκαν ή δεν έχουν MARK ξαναελέγχονται κάθε βράδυ για 7 ημέρες, ψάχνοντας με ΑΦΜ εκδότη και αριθμό. Υπάρχει και κουμπί «Ξαναέλεγξε τώρα».</li>
+      <li><b>Τι συγκρίνεται:</b> ΑΦΜ εκδότη, αριθμός (με ή χωρίς τη σειρά, χωρίς μηδενικά μπροστά), ημερομηνία, MARK, και καθαρή αξία, ΦΠΑ και σύνολο με ανοχή 0,01 €. Πεδίο που δεν διαβάστηκε από τη φωτογραφία δεν μετρά ως διαφορά.</li>
+      <li><b>Τι γίνεται με τη διαφορά.</b> Η παραλαβή δεν σταματά, γιατί τα κιβώτια είναι ήδη στην αποθήκη. Η διαφορά μένει σημειωμένη στο παραστατικό μέχρι να επιλέξεις «Κράτα τα στοιχεία της ΑΑΔΕ» (διορθώνει το παραστατικό) ή «Το χαρτί είναι σωστό» (κρατά σημείωση για τον λογιστή και τον προμηθευτή). Αν δεν λυθεί, το παραστατικό δεν περνά στην πληρωμή.</li>
+      <li><b>Μόνο ανάγνωση.</b> Χρησιμοποιεί τα κλειδιά myDATA της επιχείρησης (aade-user-id / subscription key) μόνο για <code>RequestDocs</code>. Δεν στέλνει τίποτα στην ΑΑΔΕ· οι διαβιβάσεις μας γίνονται από τη Viva.</li>
+      <li><b>Ειδοποίηση.</b> Όταν ο βραδινός έλεγχος βρει διαφορά, εμφανίζεται στις «Εργασίες» του υπεύθυνου αγορών με σύνδεσμο στο παραστατικό.</li>
+    </ol>
+  </div>
+</div>
+</body>
+</html>

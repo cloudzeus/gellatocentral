@@ -14,9 +14,54 @@ import { calculatePurchaseDocument, documentParty, partySnapshot } from "@/lib/p
 import { createDoc, importDocs, scanDoc } from "./actions";
 import { StatusBadge } from "@/components/status-badge";
 import { statusOptions } from "@/lib/status";
+import type { MydataDiff } from "@/lib/mydata-parse";
 
 // Επιστροφές και πιστωτικά προμηθευτή μένουν στην ίδια λίστα: μειώνουν ό,τι χρωστάμε (lib/purchase-returns.ts)
 const KIND_LABEL: Record<string, string> = { INVOICE: "Τιμολόγιο", RETURN: "Επιστροφή", CREDIT: "Πιστωτικό" };
+// φίλτρο «myDATA»: PAPER = διαφορά όπου κρατήθηκε το χαρτί, DIFF = διαφορά χωρίς απόφαση
+const MYDATA_WHERE: Record<string, { status: string; resolution?: null | { not: null } }> = {
+  MATCH: { status: "MATCH" }, DIFF: { status: "DIFF", resolution: null }, PAPER: { status: "DIFF", resolution: { not: null } }, NOT_FOUND: { status: "NOT_FOUND" }, ERROR: { status: "ERROR" },
+};
+const checkValue = (c: { status: string; resolution: string | null }) => (c.status === "DIFF" && c.resolution ? "PAPER" : c.status);
+
+function MydataCell({ check }: { check: { status: string; resolution: string | null; diff: unknown } }) {
+  const diff = Array.isArray(check.diff) ? (check.diff as MydataDiff[]) : [];
+  return <span className="grid justify-items-start gap-1"><StatusBadge kind="mydataCheck" value={checkValue(check)} />{diff.length ? <span className="text-xs text-muted-foreground">{diff.map((d) => d.label).join(", ")}</span> : null}</span>;
+}
+
+/** Μία οριζόντια μπάρα: ίδια / διαφορές / δεν βρέθηκαν, με σύνδεσμο στο φίλτρο κάθε κομματιού. */
+function MydataMonth({ checks }: { checks: { status: string; resolution: string | null }[] }) {
+  const n = (v: string) => checks.filter((c) => checkValue(c) === v).length;
+  const parts = [
+    { v: "MATCH", label: "Ίδια", count: n("MATCH"), color: "var(--success)", hint: "" },
+    { v: "DIFF", label: "Διαφορές", count: n("DIFF"), color: "var(--destructive)", hint: "κοίτα τα πρώτα" },
+    { v: "PAPER", label: "Κρατήθηκε το χαρτί", count: n("PAPER"), color: "var(--warning)", hint: "" },
+    { v: "NOT_FOUND", label: "Δεν βρέθηκαν ακόμα", count: n("NOT_FOUND") + n("ERROR"), color: "var(--muted-foreground)", hint: "ξαναελέγχονται κάθε βράδυ" },
+  ].filter((p) => p.count);
+  const total = checks.length, match = n("MATCH");
+  const month = new Intl.DateTimeFormat("el-GR", { month: "long", timeZone: "Europe/Athens" }).format(new Date());
+  return (
+    <Card>
+      <div className="grid gap-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold">Έλεγχος με το myDATA · {month}</h2>
+          <span className="text-sm text-muted-foreground tabular-nums">{match} από {total} ίδια ({Math.round((match / total) * 100)}%)</span>
+        </div>
+        <div className="flex h-3.5 overflow-hidden rounded-full bg-muted" role="img" aria-label={parts.map((p) => `${p.label}: ${p.count}`).join(", ")}>
+          {parts.map((p) => <span key={p.v} style={{ width: `${(p.count / total) * 100}%`, background: p.color }} />)}
+        </div>
+        <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
+          {parts.map((p) => (
+            <Link key={p.v} href={`/purchases?mydata=${p.v === "NOT_FOUND" ? "NOT_FOUND" : p.v}`} className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
+              <i className="inline-block size-2.5 rounded-sm" style={{ background: p.color }} />{p.label} · <b className="font-semibold text-foreground tabular-nums">{p.count}</b>{p.hint ? ` · ${p.hint}` : ""}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 const day = (d: Date | null) => (d ? new Intl.DateTimeFormat("el-GR", { timeZone: "UTC" }).format(d) : "—");
 
 // Τιμολόγια αγοράς: server φίλτρα/ταξινόμηση· η ανάπτυξη δείχνει το ίδιο πλήρες έγγραφο με την καρτέλα.
@@ -33,12 +78,14 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
   const warehouse = filterParam(q, "warehouse", warehouses.map((w) => w.id));
   const status = filterParam(q, "status", ["DRAFT", "POSTED", "CANCELLED"]);
   const kind = filterParam(q, "kind", Object.keys(KIND_LABEL));
+  const mydata = filterParam(q, "mydata", Object.keys(MYDATA_WHERE));
   const where = {
     orgId: org.id,
     kind: kind ?? { in: Object.keys(KIND_LABEL) },
     ...(supplier ? { supplierId: supplier } : {}),
     ...(warehouse ? { warehouseId: warehouse } : {}),
     ...(status ? { status } : {}),
+    ...(mydata ? { mydataCheck: MYDATA_WHERE[mydata] } : {}),
     ...(list.q ? { OR: [{ number: { contains: list.q, mode: "insensitive" as const } }, { supplier: { name: { contains: list.q, mode: "insensitive" as const } } }] } : {}),
   };
   const orderBy = list.sort === "supplier" ? { supplier: { name: list.dir } }
@@ -49,9 +96,12 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
             : list.sort === "status" ? { status: list.dir }
               : { createdAt: "desc" as const };
   const [docs, total] = await Promise.all([
-    db.purchaseDoc.findMany({ where, orderBy, skip: list.skip, take: list.take, include: { supplier: true, warehouse: true, lines: { orderBy: { id: "asc" } }, _count: { select: { lines: true } } } }),
+    db.purchaseDoc.findMany({ where, orderBy, skip: list.skip, take: list.take, include: { supplier: true, warehouse: true, lines: { orderBy: { id: "asc" } }, mydataCheck: { select: { status: true, resolution: true, diff: true } }, _count: { select: { lines: true } } } }),
     db.purchaseDoc.count({ where }),
   ]);
+  // γράφημα του μήνα: πόσα σκαναρισμένα συμφωνούν με το myDATA (mockup mydata-check.html, Β)
+  const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0);
+  const monthChecks = org.aadeUserId ? await db.mydataCheck.findMany({ where: { orgId: org.id, purchaseDoc: { kind: { in: Object.keys(KIND_LABEL) }, createdAt: { gte: monthStart } } }, select: { status: true, resolution: true } }) : [];
   const files = docs.length ? await db.storedFile.findMany({ where: { orgId: org.id, category: "purchase_document", refType: "purchase", refId: { in: docs.map((d) => d.id) } }, orderBy: { createdAt: "desc" } }) : [];
 
   const docForm = (
@@ -89,7 +139,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
         <Field label="Από" name="dateFrom" type="date" required defaultValue={quarterStart.toISOString().slice(0, 10)} />
         <Field label="Έως" name="dateTo" type="date" required defaultValue={today} />
       </div>
-      <p className="text-xs text-muted-foreground">Φέρνει τα τιμολόγια αγοράς που έχουν εκδόσει οι προμηθευτές σου (RequestMyIncome). Όσα έχουν ήδη ληφθεί παραλείπονται. Γίνονται πρόχειρα για έλεγχο πριν την καταχώριση.</p>
+      <p className="text-xs text-muted-foreground">Φέρνει τα τιμολόγια αγοράς που έχουν εκδόσει οι προμηθευτές σου . Όσα έχουν ήδη ληφθεί παραλείπονται. Γίνονται πρόχειρα για έλεγχο πριν την καταχώριση.</p>
       <FormPending label="Λήψη παραστατικών από myDATA…" />
       <Submit pendingText="Λήψη…" className={btn("default")}>Λήψη</Submit>
     </form>
@@ -107,6 +157,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
       <div className="grid gap-4">
         {typeof q.error === "string" ? <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">{q.error.slice(0, 300)}</p> : null}
         {!suppliers.length || !warehouses.length ? <p className="rounded-lg bg-warning/15 px-4 py-3 text-sm text-warning-ink">Χρειάζεσαι πρώτα <Link href="/parties" className="underline">προμηθευτή</Link> και <Link href="/inventory" className="underline">αποθήκη</Link>.</p> : null}
+        {monthChecks.length ? <MydataMonth checks={monthChecks} /> : null}
         <Card>
           <DataTable
             id="purchases"
@@ -115,6 +166,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
               { key: "warehouse", label: "Αποθήκη", value: warehouse, options: warehouses.map((w): [string, string] => [w.id, w.name]) },
               { key: "kind", label: "Είδος", value: kind, options: Object.entries(KIND_LABEL) },
               { key: "status", label: "Κατάσταση", value: status, options: statusOptions("purchase") },
+              ...(org.aadeUserId ? [{ key: "mydata", label: "myDATA", value: mydata, options: statusOptions("mydataCheck") }] : []),
             ] }}
             empty="Κανένα τιμολόγιο αγοράς ακόμα"
             columns={[
@@ -125,6 +177,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
               { key: "lines", label: "Γραμμές", numeric: true, sortable: true },
               { key: "total", label: "Γενικό σύνολο", numeric: true },
               { key: "status", label: "Κατάσταση", sortable: true },
+              ...(org.aadeUserId ? [{ key: "mydata", label: "myDATA", wrap: true }] : []),
             ]}
             rows={docs.map((d) => {
               const totals = calculatePurchaseDocument(d.lines, d);
@@ -142,6 +195,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
                   supplier: <Link href={`/purchases/${d.id}`} title={d.supplier.name} className="block min-w-0 break-words font-semibold leading-snug underline-offset-2 hover:underline md:line-clamp-2">{d.supplier.name}</Link>,
                   number: <span>{d.number ?? "—"}{d.kind !== "INVOICE" ? <span className="block text-xs text-muted-foreground">{KIND_LABEL[d.kind]}{d.mydataType ? ` ${d.mydataType}` : ""}</span> : null}</span>, issuedAt: day(d.issuedAt), warehouse: d.warehouse.name, lines: d._count.lines,
                   total: <span className="whitespace-nowrap font-semibold">{d.kind === "INVOICE" ? euro(totals.totalCents) : <span className="text-success-ink">−{euro(totals.totalCents)}</span>}</span>, status: <StatusBadge kind="purchase" value={d.status} />,
+                  mydata: d.mydataCheck ? <MydataCell check={d.mydataCheck} /> : <span className="text-xs text-muted-foreground">{d.source === "mydata" ? "Από το myDATA" : "—"}</span>,
                 },
                 details: {
                   label: `${d.supplier.name}${d.number ? ` · ${d.number}` : ""}`,

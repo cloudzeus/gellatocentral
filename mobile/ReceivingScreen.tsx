@@ -1,12 +1,12 @@
 // Παραλαβή από το κινητό: φωτογραφία δελτίου → παραγγελία → σάρωση barcode ανά κιβώτιο → τι λείπει → καταχώριση.
 // Ύφος: docs/analysis/mockups/mobile-receiving.html, στο σκούρο θέμα του ταμείου. Για κινητό σε κάθετη θέση.
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { AlertTriangle, Camera, MapPin, Check, ChevronDown, ChevronLeft, ChevronUp, CircleCheck, Clock, Receipt, Minus, PackageCheck, Phone, Plus, ScanBarcode, X } from "lucide-react-native";
+import { AlertTriangle, Camera, MapPin, Check, ChevronDown, ChevronLeft, ChevronUp, CircleCheck, Clock, Info, Receipt, Minus, PackageCheck, Phone, Plus, ScanBarcode, X } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, Text, TextInput, Vibration, View } from "react-native";
 import { ApiError, type Session } from "./api";
 import { loadReceivingDraft, saveReceivingDraft } from "./offline-store";
-import { addScan, putaway, type Counted, type Decision, type DeliveryNote, matchScan, type Spot, type SupplierPhone, noteBase, noteMatches, packs, type ReceivingLine, type ReceivingOrder, submission } from "./receiving";
+import { addScan, putaway, type Counted, type Decision, type DeliveryNote, matchScan, takeMydata, type Spot, type SupplierPhone, noteBase, noteMatches, packs, type ReceivingLine, type ReceivingOrder, submission } from "./receiving";
 import { getOpenOrders, readNote, submitReceipt } from "./receiving-api";
 import { type Theme, tint, ty } from "./theme";
 import { Btn, Seg } from "./TransactionsScreen";
@@ -97,6 +97,16 @@ export function ReceivingView({ t, session, onUnpaired }: { t: Theme; session: S
               <Row t={t} label="Γραμμές" value={`${note.lines.length} είδη`} />
             </View>
           ) : null}
+          {note?.mydata ? <MydataCard t={t} note={note} onAade={() => setNote(takeMydata(note))} onPaper={() => setNote({ ...note, mydataPaper: true })} />
+            : note && !note.mark && note.vatNumber && note.number ? (
+              <View style={{ flexDirection: "row", gap: 10, padding: 14, borderRadius: 14, backgroundColor: t.card }}>
+                <Info {...ICON} color={t.muted} />
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={ty(15, "s", t.text)}>Θα ελεγχθεί με ΑΦΜ και αριθμό</Text>
+                  <Text style={ty(13, "m", t.muted)}>Το δελτίο δεν τυπώνει MARK. Ο έλεγχος με το myDATA γίνεται το βράδυ.</Text>
+                </View>
+              </View>
+            ) : null}
           {note?.already ? (
             <View style={{ gap: 12 }}>
               <View style={{ flexDirection: "row", gap: 10, padding: 14, borderRadius: 14, backgroundColor: tint(t.bad) }}>
@@ -407,6 +417,50 @@ function ScanStep({ t, order, draft, header, errorBox, onCount, onDone }: { t: T
       <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: t.divider }}>
         <Btn t={t} label="Τελείωσα · δες τι λείπει" primary onPress={onDone} disabled={!donePacks} />
       </View>
+    </View>
+  );
+}
+
+/** Έλεγχος με το myDATA μόλις διαβαστεί το δελτίο (mockup mydata-check.html, Α). Η παραλαβή συνεχίζει σε κάθε περίπτωση. */
+function MydataCard({ t, note, onAade, onPaper }: { t: Theme; note: DeliveryNote; onAade: () => void; onPaper: () => void }) {
+  const c = note.mydata!;
+  const look = {
+    MATCH: { tone: t.ok, Icon: CircleCheck, title: "Ίδιο με το myDATA", sub: "ΑΦΜ, αριθμός, ημερομηνία και MARK συμφωνούν με αυτό που δήλωσε ο προμηθευτής στην ΑΑΔΕ." },
+    DIFF: note.mydataPaper
+      ? { tone: t.wait, Icon: AlertTriangle, title: "Κρατάς τα στοιχεία του χαρτιού", sub: "Η διαφορά σημειώνεται στο παραστατικό, για τον υπεύθυνο αγορών και τον προμηθευτή." }
+      : { tone: t.bad, Icon: AlertTriangle, title: `${c.diff.length} ${c.diff.length === 1 ? "διαφορά" : "διαφορές"} με το myDATA`, sub: "Ή διαβάστηκε λάθος η φωτογραφία ή ο προμηθευτής δήλωσε άλλα στοιχεία. Κοίτα το χαρτί." },
+    NOT_FOUND: { tone: t.wait, Icon: Clock, title: "Δεν βρέθηκε ακόμα στο myDATA", sub: "Ο προμηθευτής έχει περιθώριο να το διαβιβάσει. Η παραλαβή γίνεται κανονικά· θα ξαναελεγχθεί κάθε βράδυ και θα ειδοποιηθείς μόνο αν βρεθεί διαφορά." },
+    ERROR: { tone: t.wait, Icon: Info, title: "Το myDATA δεν απάντησε τώρα", sub: "Η παραλαβή γίνεται κανονικά· ο έλεγχος θα ξαναγίνει το βράδυ." },
+  }[c.status];
+  return (
+    <View style={{ borderRadius: 14, padding: 14, gap: 10, backgroundColor: tint(look.tone) }} accessibilityRole="summary">
+      <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+        <look.Icon {...ICON} color={look.tone} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text style={ty(15, "s", t.text)}>{look.title}</Text>
+          <Text style={ty(13, "m", t.muted)}>{look.sub}</Text>
+        </View>
+      </View>
+      {c.status === "DIFF" ? (
+        <View style={{ borderRadius: 10, backgroundColor: t.card, padding: 10, gap: 6 }}>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Text style={[ty(12, "s", t.muted), { width: 84 }]}>Πεδίο</Text><Text style={[ty(12, "s", t.muted), { flex: 1 }]}>Φωτογραφία</Text><Text style={[ty(12, "s", t.muted), { flex: 1 }]}>myDATA</Text>
+          </View>
+          {c.diff.map((d) => (
+            <View key={d.field} style={{ flexDirection: "row", gap: 8 }}>
+              <Text style={[ty(13, "m", t.text), { width: 84 }]}>{d.label}</Text>
+              <Text style={[ty(13, "s", t.bad), num, { flex: 1 }]}>{d.scanned}</Text>
+              <Text style={[ty(13, "s", t.ok), num, { flex: 1 }]}>{d.mydata}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {c.status === "DIFF" && !note.mydataPaper ? (
+        <View style={{ gap: 8 }}>
+          <Btn t={t} label="Κράτα τα στοιχεία της ΑΑΔΕ" Icon={Check} onPress={onAade} />
+          <Btn t={t} label="Το χαρτί είναι σωστό" Icon={Receipt} onPress={onPaper} />
+        </View>
+      ) : null}
     </View>
   );
 }

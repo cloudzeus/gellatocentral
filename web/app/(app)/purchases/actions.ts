@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { parseGs1 } from "@/lib/gs1";
 import { scanPurchaseInvoice } from "@/lib/ai/ocr-scan";
 import { importMyIncome } from "@/lib/mydata-income";
+import { checkQuietly, resolveCheck } from "@/lib/mydata-check";
 import { matchLine } from "@/lib/purchases";
 import { purchaseSnapshots } from "@/lib/purchase-snapshots";
 import { postPurchase } from "@/lib/purchases-db";
@@ -278,6 +279,7 @@ export async function scanDoc(form: FormData) {
       task.result(`/purchases/${id}`);
       return id;
     });
+    await checkQuietly(org.id, docId); // σύγκριση με το myDATA αν τυπώνεται MARK ή υπάρχει ΑΦΜ+αριθμός
     try {
       await saveFile({ orgId: org.id, category: "purchase_document", refType: "purchase", refId: docId, name: file.name, data, userId: user.id });
     } catch {
@@ -366,4 +368,26 @@ export async function postImportedCreditAction(creditId: string, form: FormData)
   }
   await flashOk("Το πιστωτικό καταχωρήθηκε");
   back(`/purchases/${creditId}`);
+}
+
+// ---- Έλεγχος με το myDATA (lib/mydata-check.ts) ----
+
+/** «Ξαναέλεγξε τώρα» από την καρτέλα του παραστατικού. */
+export async function recheckMydata(docId: string) {
+  const { org } = await currentOrg("purchases.edit");
+  const r = await checkQuietly(org.id, docId);
+  const msg = !r ? "Δεν ελέγχεται: λείπουν κλειδιά myDATA ή MARK / αριθμός με ΑΦΜ"
+    : r.status === "MATCH" ? "Ίδιο με το myDATA"
+    : r.status === "DIFF" ? `${r.diff.length} διαφορές με το myDATA`
+    : r.status === "NOT_FOUND" ? "Δεν βρέθηκε ακόμα στο myDATA· θα ξαναελεγχθεί το βράδυ"
+    : `Το myDATA δεν απάντησε: ${r.error ?? ""}`;
+  back(`/purchases/${docId}`, `?saved=${encodeURIComponent(msg)}`);
+}
+
+/** Απόφαση για διαφορά: AADE = κράτα τα στοιχεία της ΑΑΔΕ, PAPER = το χαρτί είναι σωστό. */
+export async function resolveMydata(docId: string, choice: "AADE" | "PAPER") {
+  const { org, user } = await currentOrg("purchases.edit");
+  const { open } = await resolveCheck(org.id, docId, choice, user.name);
+  if (open.length) return fail(`Τα στοιχεία κεφαλίδας πήραν τις τιμές της ΑΑΔΕ, αλλά διαφέρουν ακόμα: ${open.map((d) => d.label).join(", ")}. Διόρθωσε τις γραμμές ώστε να βγαίνουν τα ποσά του myDATA.`, `/purchases/${docId}`);
+  back(`/purchases/${docId}`, `?saved=${encodeURIComponent(choice === "AADE" ? "Κρατήθηκαν τα στοιχεία της ΑΑΔΕ" : "Σημειώθηκε ότι το χαρτί είναι σωστό")}`);
 }

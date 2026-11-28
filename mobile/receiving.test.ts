@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addScan, matchScan, packs, putaway, submission, type DeliveryNote, type ReceivingOrder } from "./receiving.ts";
+import { addScan, matchScan, packs, putaway, submission, takeMydata, type DeliveryNote, type ReceivingOrder } from "./receiving.ts";
 
 const order: ReceivingOrder = {
   id: "o1", number: "ΠΑΡ-1", createdAt: "2026-11-20", supplier: { id: "s1", name: "Γαλακτοκομικά", vatNumber: null },
@@ -33,4 +33,16 @@ test("η καταχώριση κόβει στο υπόλοιπο και κρατ
 test("τακτοποίηση: ανά θέση αλφαβητικά, χωρίς θέση στο τέλος", () => {
   const g = putaway([{ name: "Γάλα", spot: { id: "b", name: "Ψυγείο 2" } }, { name: "Ζάχαρη", spot: null }, { name: "Κρέμα", spot: { id: "a", name: "Ψυγείο 1" } }, { name: "Βούτυρο", spot: { id: "b", name: "Ψυγείο 2" } }]);
   assert.deepEqual(g.map((x) => [x.spot?.name ?? null, x.items.map((i) => i.name)]), [["Ψυγείο 1", ["Κρέμα"]], ["Ψυγείο 2", ["Γάλα", "Βούτυρο"]], [null, ["Ζάχαρη"]]]);
+});
+
+test("myDATA: «κράτα τα στοιχεία της ΑΑΔΕ» αλλάζει αριθμό, ημερομηνία και MARK· «το χαρτί είναι σωστό» πάει στην καταχώριση", () => {
+  const base: DeliveryNote = { number: "9912", date: "2026-11-14T00:00:00.000Z", mark: "400001234567890", vatNumber: "094123456", supplier: null, lines: [],
+    mydata: { status: "DIFF", diff: [{ field: "number", label: "Αριθμός", scanned: "9912", mydata: "ΤΔΑ-9921" }], mydata: { mark: "400001234567890", series: "ΤΔΑ", number: "9921", issuedAt: "2026-11-15" }, error: null } };
+  const fixed = takeMydata(base);
+  assert.equal(fixed.number, "ΤΔΑ-9921");
+  assert.equal(fixed.date?.slice(0, 10), "2026-11-15");
+  assert.equal(fixed.mydata?.status, "MATCH");
+  const order: ReceivingOrder = { id: "o", number: "Π-1", createdAt: "", supplier: { id: "s", name: "Σ", phones: [] }, warehouseId: "w", lines: [] } as unknown as ReceivingOrder;
+  assert.equal(submission(order, {}, {}, { ...base, mydataPaper: true }).mydataPaper, true);
+  assert.equal(submission(order, {}, {}, base).mydataPaper, undefined);
 });
