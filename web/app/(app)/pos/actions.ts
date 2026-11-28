@@ -6,12 +6,12 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { tenantWriteTransaction } from "@/lib/migration-cutover";
 import { setSoldOut } from "@/lib/bills";
-import { completeSale, failSale, issueSale, PosError } from "@/lib/pos";
+import type { Prisma } from "@/lib/generated/prisma/client";
+import { completeSale, completeShare, failSale, failShare, issueSale, PosError } from "@/lib/pos";
 import { cartLines, priceCart } from "@/lib/pos-cart";
 import { ModifierError } from "@/lib/pos-modifiers";
 import { sendToTerminal } from "@/lib/pos-till";
 import { currentContext, POS_DEVICE_COOKIE } from "@/lib/tenant";
-import { redirect } from "next/navigation";
 import { abortSession, vivaConfigured } from "@/lib/viva/cloud-terminal";
 import { cancelBrowserPayment, syncBrowserPayment } from "@/lib/viva/browser-payment";
 
@@ -71,35 +71,37 @@ export async function toggleSoldOut(itemId: string, out: boolean) {
   return setSoldOut(ctx, id.parse(itemId), out, ctx.user.name);
 }
 
-/** Ρωτά τη Viva για την πληρωμή που περιμένει. Ασφαλές να κληθεί ξανά και ξανά. */
-export async function syncPayment(saleId: string) {
-  const ctx = await currentContext();
+/**
+ * Η πληρωμή που περιμένει στο τερματικό: απόδειξη (πώληση) ή μερίδιο λογαριασμού (μοίρασμα κατά ποσό), με τις
+ * αλλαγές που την κλείνουν. Και τα δύο ρωτιούνται στη Viva με τον ίδιο τρόπο (sessionId = reference).
+ */
+async function pendingPayment(ctx: Awaited<ReturnType<typeof currentContext>>, paymentId: string) {
+  const where = { id: id.parse(paymentId), orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id };
   const sale = await db.sale.findFirst({
-    where: {
-      id: saleId,
-      orgId: ctx.org.id,
-      storeId: ctx.store.id,
-      deviceId: ctx.device.id,
-      status: { in: ["AWAITING_PAYMENT", "COMPLETED"] },
-    },
-    select: {
-      id: true, orgId: true, storeId: true, deviceId: true, status: true, totalCents: true,
-      payment: { select: { amountCents: true, vivaSessionId: true } },
-    },
+    where: { ...where, status: { in: ["AWAITING_PAYMENT", "COMPLETED"] } },
+    select: { id: true, orgId: true, storeId: true, deviceId: true, status: true, totalCents: true, payment: { select: { amountCents: true, vivaSessionId: true } } },
   });
-  if (!sale) return { status: "not_found" } as const;
-  const status = sale.status;
-  if (status !== "AWAITING_PAYMENT" && status !== "COMPLETED") return { status: "not_found" } as const;
+  if (sale) return {
+    asSale: { ...sale, status: sale.status as "AWAITING_PAYMENT" | "COMPLETED" },
+    complete: (raw: Prisma.InputJsonObject, transactionId: string | undefined) => completeSale(ctx.device.id, sale.id, raw, transactionId, ctx.org.id),
+    fail: (reason: string, raw: Prisma.InputJsonObject) => failSale(ctx.device.id, sale.id, reason, raw, ctx.org.id),
+  };
+  const share = await db.billShare.findFirst({ where: { ...where, status: { in: ["PENDING", "PAID"] } } });
+  if (!share) return null;
+  return {
+    asSale: { id: share.id, orgId: share.orgId, storeId: share.storeId, deviceId: share.deviceId, totalCents: share.amountCents, status: share.status === "PAID" ? "COMPLETED" as const : "AWAITING_PAYMENT" as const, payment: { amountCents: share.amountCents, vivaSessionId: share.reference } },
+    complete: (raw: Prisma.InputJsonObject, transactionId: string | undefined) => completeShare(ctx.device.id, share.id, raw, transactionId, ctx.org.id),
+    fail: (_reason: string, raw: Prisma.InputJsonObject) => failShare(ctx.device.id, share.id, raw, ctx.org.id),
+  };
+}
+const terminalOf = (ctx: Awaited<ReturnType<typeof currentContext>>) => ({ orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id, terminalId: ctx.device.vivaTerminalId });
 
-  return syncBrowserPayment({ ...sale, status }, {
-    orgId: ctx.org.id,
-    storeId: ctx.store.id,
-    deviceId: ctx.device.id,
-    terminalId: ctx.device.vivaTerminalId,
-  }, {
-    complete: (raw, transactionId) => completeSale(ctx.device.id, sale.id, raw, transactionId, ctx.org.id),
-    fail: (reason, raw) => failSale(ctx.device.id, sale.id, reason, raw, ctx.org.id),
-  });
+/** Ρωτά τη Viva για την πληρωμή που περιμένει (απόδειξη ή μερίδιο). Ασφαλές να κληθεί ξανά και ξανά. */
+export async function syncPayment(paymentId: string) {
+  const ctx = await currentContext();
+  const p = await pendingPayment(ctx, paymentId);
+  if (!p) return { status: "not_found" } as const;
+  return syncBrowserPayment(p.asSale, terminalOf(ctx), p);
 }
 
 const CANCEL_ERROR: Record<string, string> = {
@@ -108,24 +110,16 @@ const CANCEL_ERROR: Record<string, string> = {
   rejected: "Η απάντηση της Viva δεν ταιριάζει με την πώληση. Επικοινώνησε με την υποστήριξη",
 };
 
-export async function cancelPending(saleId: string) {
+/** cancelled = ο πελάτης δεν χρεώθηκε· completed = είχε ήδη πληρώσει· αλλιώς μένει σε αναμονή με το μήνυμα. */
+export async function cancelPending(paymentId: string): Promise<{ status: "cancelled" | "completed" | "waiting"; message?: string }> {
   const ctx = await currentContext();
-  const sale = await db.sale.findFirst({
-    where: { id: id.parse(saleId), orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id, status: "AWAITING_PAYMENT" },
-    select: { id: true, orgId: true, storeId: true, deviceId: true, totalCents: true, payment: { select: { amountCents: true, vivaSessionId: true } } },
-  });
-  if (!sale) return revalidatePath("/pos");
+  const p = await pendingPayment(ctx, paymentId);
+  if (!p || p.asSale.status === "COMPLETED") return { status: p ? "completed" : "cancelled" };
   // Πρώτα σταματά το τερματικό: αλλιώς ο πελάτης θα μπορούσε να πληρώσει μια πώληση που γύρισε σε πρόχειρο.
-  const result = await cancelBrowserPayment({ ...sale, status: "AWAITING_PAYMENT" }, {
-    orgId: ctx.org.id, storeId: ctx.store.id, deviceId: ctx.device.id, terminalId: ctx.device.vivaTerminalId,
-  }, {
-    complete: (raw, transactionId) => completeSale(ctx.device.id, sale.id, raw, transactionId, ctx.org.id),
-    fail: (reason, raw) => failSale(ctx.device.id, sale.id, reason, raw, ctx.org.id),
-  }, abortSession);
+  const result = await cancelBrowserPayment({ ...p.asSale, status: "AWAITING_PAYMENT" }, terminalOf(ctx), p, abortSession);
   revalidatePath("/pos");
-  if (result.status === "completed") redirect(`/pos?saved=${encodeURIComponent("Ο πελάτης είχε ήδη πληρώσει: η απόδειξη εκδόθηκε")}`);
-  const error = CANCEL_ERROR[result.status];
-  if (error) redirect(`/pos?error=${encodeURIComponent(error)}`);
+  if (result.status === "completed" || result.status === "cancelled") return { status: result.status };
+  return { status: "waiting", message: CANCEL_ERROR[result.status] ?? CANCEL_ERROR.error };
 }
 
 /** Ποιο ταμείο του καταστήματος χρησιμοποιεί αυτός ο browser. Μόνο ταμεία στα οποία έχει πρόσβαση ο χρήστης. */

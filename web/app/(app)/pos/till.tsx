@@ -2,47 +2,27 @@
 
 // Ταμείο του browser: ίδια ροή με το ταμείο Android (mobile/App.tsx), σε σκούρο navy με ζωντανά χρώματα κατηγοριών.
 // Το καλάθι ζει στον browser· τιμές, ΦΠΑ και απόδειξη τα βγάζει πάντα ο server στο «Είσπραξη».
-import { Banknote, CakeSlice, Check, Coffee, CreditCard, CupSoda, IceCreamCone, LoaderCircle, type LucideIcon, Minus, Plus, ReceiptText, Search, ShoppingBasket, SlidersHorizontal, Star, StickyNote, Tag, Trash2, TriangleAlert, X } from "lucide-react";
+import { ArrowLeft, Banknote, CakeSlice, Check, Clock, Coffee, CreditCard, CupSoda, IceCreamCone, LayoutGrid, LoaderCircle, type LucideIcon, Minus, ReceiptText, Search, Send, ShoppingBasket, SlidersHorizontal, Star, StickyNote, Tag, Trash2, TriangleAlert, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { TillCategory, TillProduct } from "@/lib/pos-catalog";
-import { amountCents, amountText, dropOption, type Group, missingIn, quickAmounts, tapOption, totals, typeAmount, unitPrice } from "@/lib/till";
+import { dropOption, type Group, missingIn, tapOption, totals, unitPrice } from "@/lib/till";
 import { cn } from "@/lib/utils";
 import { cancelPending, charge, syncPayment, toggleSoldOut } from "./actions";
-
-const eur = new Intl.NumberFormat("el-GR", { style: "currency", currency: "EUR" });
-const euro = (cents: number) => eur.format(cents / 100);
-const kinds = (n: number) => `${n} ${n === 1 ? "είδος" : "είδη"}`;
-
-// 8 θέσεις χρώματος κατηγορίας (Category.color 1–8), όπως στο Android, σε ζωντανές διαβαθμίσεις των χρωμάτων του web.
-// Όλες ανοιχτές στην αρχή τους, ώστε το σκούρο κείμενο (ink) να διαβάζεται πάνω τους.
-type Tone = { from: string; to: string; ink: string };
-const PALETTE: Tone[] = [
-  { from: "#C3CBFF", to: "#7F8CFF", ink: "#0B1033" }, // navy → λουλακί (και «Συχνά»)
-  { from: "#FFDA7A", to: "#F2A93B", ink: "#2A1A00" }, // χρυσό
-  { from: "#8BF2C2", to: "#2CC98F", ink: "#03261A" }, // πράσινο
-  { from: "#FFBCA6", to: "#FF7666", ink: "#2E0A06" }, // κοραλί
-  { from: "#9EE0FF", to: "#4AAEF5", ink: "#04203A" }, // ουρανός
-  { from: "#8DF3E6", to: "#25C2AF", ink: "#022A26" }, // τιρκουάζ
-  { from: "#DDF69A", to: "#9BD44A", ink: "#1A2600" }, // λάιμ
-  { from: "#FFBFDA", to: "#F26FA4", ink: "#2E0618" }, // ροζ
-];
-const grad = (t: Tone) => `linear-gradient(135deg, ${t.from}, ${t.to})`;
+import { payShare, sendRound, settle } from "./bill-actions";
+import { type BillData, type BillLine, BillPanel, type BillPay, billTitle, Floor, type Method, seatsOf } from "./tables";
+import { CashDialog, Dialog, euro, focus, ghost, grad, kinds, PALETTE, primary, type Status, StatusDialog, Stepper, type Tone } from "./till-ui";
 
 const CAT_ICONS: [RegExp, LucideIcon][] = [[/παγωτ|χωνά|κύπελ/i, IceCreamCone], [/γραν|χυμ|smooth|ρόφ|αναψ/i, CupSoda], [/καφ|coffee|espresso/i, Coffee], [/γλυκ|κέικ|τούρτ|βάφλ|κρέπ/i, CakeSlice]];
 const catIcon = (name: string) => CAT_ICONS.find(([re]) => re.test(name))?.[1] ?? Tag;
 
-type Method = { id: string; name: string; cash: boolean };
-type CartLine = { key: string; productId: string; options: string[]; note: string; quantity: number };
-const lineKey = (productId: string, options: readonly string[], note: string) => JSON.stringify([productId, [...options].sort(), note.trim()]);
-type Draft = { product: TillProduct; tone: Tone; editKey?: string; options: string[]; note: string; quantity: number };
-type Status =
-  | { kind: "waiting"; saleId: string; totalCents: number; method: string; slow?: boolean }
-  | { kind: "paid"; saleId: string; totalCents: number; method: string; series?: string; aa?: number }
-  | { kind: "failed"; message: string }
-  | { kind: "unverified" }
-  | { kind: "cancel"; saleId: string; totalCents: number; method: string };
+// seat: θέση στο τραπέζι, μόνο όταν η παραγγελία πηγαίνει σε λογαριασμό
+type CartLine = { key: string; productId: string; options: string[]; note: string; quantity: number; seat?: number };
+const lineKey = (productId: string, options: readonly string[], note: string, seat?: number) => JSON.stringify([productId, [...options].sort(), note.trim(), seat ?? 0]);
+type Draft = { product: TillProduct; tone: Tone; editKey?: string; options: string[]; note: string; quantity: number; seat?: number };
+/** Ο λογαριασμός που δέχεται την παραγγελία (αντί για είσπραξη). */
+type Target = { id: string; title: string; seats: number };
 
 /** «2× Φιστίκι, Βανίλια, Χωρίς ζάχαρη», με τη σειρά των ομάδων. */
 function optionsText(groups: readonly Group[], chosen: readonly string[]) {
@@ -59,13 +39,9 @@ const RULE: Record<Group["kind"], (g: Group) => string> = {
   REMOVE: () => "προαιρετικά, δεν αλλάζει η τιμή",
 };
 
-const focus = "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-const ghost = cn("inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border px-4 text-base font-medium transition-colors hover:bg-secondary disabled:pointer-events-none disabled:opacity-40", focus);
-const primary = cn("inline-flex h-14 items-center justify-between gap-3 rounded-full bg-foreground px-6 text-lg font-semibold text-background transition-[opacity,transform] hover:opacity-90 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-35", focus);
-
-export function Till({ deviceId, categories, frequent: frequentIds, soldOut: soldOutInit, methods, live, pending, last, header }: {
-  deviceId: string; categories: TillCategory[]; frequent: string[]; soldOut: string[]; methods: Method[]; live: boolean;
-  pending: { id: string; totalCents: number; method: string } | null;
+export function Till({ deviceId, categories, frequent: frequentIds, soldOut: soldOutInit, methods, live, pending, last, header, tables }: {
+  deviceId: string; categories: TillCategory[]; frequent: string[]; soldOut: string[]; methods: Method[]; live: boolean; tables: boolean;
+  pending: { id: string; totalCents: number; method: string; share?: boolean } | null;
   last: { id: string; series: string; aa: number; totalCents: number } | null;
   header: ReactNode;
 }) {
@@ -80,7 +56,14 @@ export function Till({ deviceId, categories, frequent: frequentIds, soldOut: sol
   const [cash, setCash] = useState(false);
   const [cartOpen, setCartOpen] = useState(false); // κινητό: το καλάθι ανοίγει σε όλη την οθόνη
   const [soldOut, setSoldOut] = useState<ReadonlySet<string>>(() => new Set(soldOutInit));
-  const [status, setStatus] = useState<Status | null>(() => (pending ? { kind: "waiting", saleId: pending.id, totalCents: pending.totalCents, method: pending.method } : null));
+  const [status, setStatus] = useState<Status | null>(() => (pending ? { kind: "waiting", saleId: pending.id, totalCents: pending.totalCents, method: pending.method, share: pending.share } : null));
+  const [view, setView] = useState<"sale" | "tables">("sale");
+  const [billId, setBillId] = useState<string>();
+  const [target, setTarget] = useState<Target>();
+  const [seat, setSeat] = useState<number>();
+  const [reload, setReload] = useState(0); // κάτοψη/λογαριασμός ξαναφορτώνουν μετά από πληρωμή ή αποστολή
+  const [cashFor, setCashFor] = useState<{ pay: BillPay; m: Method }>(); // μετρητά για λογαριασμό: πρώτα ρέστα
+  const [note, setNote] = useState<string>(); // π.χ. είδη του «Ξανά» που δεν υπάρχουν πια
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Το καλάθι μένει στη συσκευή όταν ανανεώνεται η σελίδα (ανά ταμείο).
@@ -109,13 +92,13 @@ export function Till({ deviceId, categories, frequent: frequentIds, soldOut: sol
   const sums = totals(lines.map((l) => ({ priceCents: l.unitCents, vatRate: l.product.vatRate, quantity: l.quantity })));
   const items = lines.reduce((n, l) => n + l.quantity, 0);
   const inCart = (id: string) => cart.reduce((n, l) => n + (l.productId === id ? l.quantity : 0), 0);
-  const plainKey = (id: string) => lineKey(id, [], "");
+  const plainKey = (id: string) => lineKey(id, [], "", target ? seat : undefined);
 
-  const putLine = (productId: string, options: string[], note: string, quantity: number, editKey?: string) => setCart((c) => {
-    const key = lineKey(productId, options, note);
+  const putLine = (productId: string, options: string[], note: string, quantity: number, editKey?: string, lineSeat = target ? seat : undefined) => setCart((c) => {
+    const key = lineKey(productId, options, note, lineSeat);
     const rest = editKey ? c.filter((l) => l.key !== editKey) : c;
     if (rest.some((l) => l.key === key)) return rest.map((l) => (l.key === key ? { ...l, quantity: l.quantity + quantity } : l));
-    const line = { key, productId, options, note: note.trim(), quantity };
+    const line = { key, productId, options, note: note.trim(), quantity, seat: lineSeat };
     return editKey ? c.map((l) => (l.key === editKey ? line : l)) : [...c, line];
   });
   const setQty = (key: string, n: number) => {
@@ -127,10 +110,10 @@ export function Till({ deviceId, categories, frequent: frequentIds, soldOut: sol
   // Προϊόν με υποχρεωτικές επιλογές ανοίγει το φύλλο· τα άλλα μπαίνουν κατευθείαν.
   const tapProduct = (p: TillProduct, tone: Tone) => {
     if (soldOut.has(p.id)) return;
-    if (p.groups.some((g) => g.kind === "REQUIRED")) setDraft({ product: p, tone, options: [], note: "", quantity: 1 });
+    if (p.groups.some((g) => g.kind === "REQUIRED")) setDraft({ product: p, tone, options: [], note: "", quantity: 1, seat: target ? seat : undefined });
     else putLine(p.id, [], "", 1);
   };
-  const editLine = (l: (typeof lines)[number]) => setDraft({ product: l.product, tone: l.tone, editKey: l.key, options: l.options, note: l.note, quantity: l.quantity });
+  const editLine = (l: (typeof lines)[number]) => setDraft({ product: l.product, tone: l.tone, editKey: l.key, options: l.options, note: l.note, quantity: l.quantity, seat: l.seat });
   const flipSoldOut = (p: TillProduct) => startTransition(async () => {
     try { setSoldOut(new Set(await toggleSoldOut(p.id, !soldOut.has(p.id)))); } catch { setStatus({ kind: "failed", message: "Δεν αποθηκεύτηκε το «τελείωσε». Δοκίμασε ξανά" }); }
   });
@@ -147,6 +130,53 @@ export function Till({ deviceId, categories, frequent: frequentIds, soldOut: sol
     });
   };
   const collect = () => { if (method) { if (method.cash) setCash(true); else run(method); } };
+  const cartOut = () => cart.map((l) => ({ productId: l.productId, quantity: l.quantity, options: l.options, note: l.note || undefined, seat: l.seat }));
+
+  // ---- Τραπέζια ----
+  const openBillView = (id: string) => { setBillId(id); setView("tables"); };
+  const toTables = () => { setTarget(undefined); setSeat(undefined); setView("tables"); };
+  /** «Παραγγελία» από τον λογαριασμό: το καλάθι πάει στο τραπέζι, όχι σε είσπραξη. */
+  const orderFor = (b: BillData) => { setTarget({ id: b.id, title: billTitle(b), seats: seatsOf(b) }); setSeat(undefined); setNote(undefined); setView("sale"); setCartOpen(false); };
+  /** «Ξανά»: ίδιο είδος, ίδιες επιλογές, ίδια θέση. Μία γραμμή = ένα κομμάτι· ολόκληρος γύρος = ίδιες ποσότητες. */
+  const again = (b: BillData, ls: BillLine[]) => {
+    orderFor(b);
+    if (ls.length === 1) setSeat(ls[0].seat ?? undefined);
+    const missing: string[] = [];
+    for (const l of ls) {
+      const p = l.productId ? byId.get(l.productId)?.product : undefined;
+      const all = p?.groups.flatMap((g) => g.options) ?? [];
+      const ids = ((l.options ?? []) as { name: string }[]).map((o) => all.find((x) => x.name === o.name)?.id);
+      if (!p || ids.some((x) => !x)) { missing.push(l.name); continue; }
+      putLine(p.id, ids as string[], l.note ?? "", ls.length === 1 ? 1 : l.quantity, undefined, l.seat ?? undefined);
+    }
+    if (missing.length) setNote(`Δεν μπήκαν: ${missing.join(", ")}. Δεν υπάρχουν πια στον κατάλογο`);
+  };
+  /** Η παραγγελία γράφεται στον λογαριασμό ως νέος γύρος. held = «Μετά»: δεν πάει στην κουζίνα ως το «Βγάλ' το». */
+  const send = (held: boolean) => {
+    if (!target || !cart.length) return;
+    const t = target;
+    startTransition(async () => {
+      try {
+        const r = await sendRound(t.id, cartOut(), held);
+        if ("error" in r) { setStatus({ kind: "failed", message: `Η παραγγελία δεν στάλθηκε στο ${t.title}. ${r.error}` }); return; }
+        clear(); setTarget(undefined); setSeat(undefined); setNote(undefined); setCartOpen(false);
+        setBillId(t.id); setView("tables"); setReload((n) => n + 1);
+      } catch { setStatus({ kind: "failed", message: `Η παραγγελία δεν στάλθηκε στο ${t.title}. Η παραγγελία έμεινε στην οθόνη, δοκίμασε ξανά` }); }
+    });
+  };
+  /** Είσπραξη από λογαριασμό: απόδειξη για όλο/είδη ή μερίδιο κατά ποσό. */
+  const payBill = (pay: BillPay, m: Method) => {
+    setCashFor(undefined);
+    startTransition(async () => {
+      const r = pay.share ? await payShare(pay.billId, m.id, pay.amountCents) : await settle(pay.billId, m.id, pay.lines);
+      if ("error" in r) setStatus({ kind: "failed", message: r.error });
+      else if ("pending" in r) setStatus({ kind: "waiting", saleId: r.pending, totalCents: pay.amountCents, method: m.name, share: pay.share });
+      else setStatus({ kind: "paid", saleId: r.paid.saleId ?? "", totalCents: pay.amountCents, method: m.name, share: !r.paid.saleId });
+      setReload((n) => n + 1);
+      router.refresh();
+    });
+  };
+  const startBillPay = (pay: BillPay, m: Method) => { setMethodId(m.id); if (m.cash) setCashFor({ pay, m }); else payBill(pay, m); };
 
   // Πληρωμή στο τερματικό: ρωτάμε τον server κάθε 3 δευτ. ως το αποτέλεσμα.
   // και όσο ο ταμίας επιβεβαιώνει ακύρωση: ο πελάτης μπορεί να πληρώνει εκείνη τη στιγμή
@@ -161,17 +191,17 @@ export function Till({ deviceId, categories, frequent: frequentIds, soldOut: sol
         const r = await syncPayment(waitingId);
         setStatus((s) => {
           if ((s?.kind !== "waiting" && s?.kind !== "cancel") || s.saleId !== waitingId) return s;
-          if (r.status === "completed") return { kind: "paid", saleId: s.saleId, totalCents: s.totalCents, method: s.method };
+          if (r.status === "completed") return { kind: "paid", saleId: s.saleId, totalCents: s.totalCents, method: s.method, share: s.share };
           if (r.status === "failed") return { kind: "failed", message: "Ο πελάτης δεν χρεώθηκε. Η πώληση είναι όπως την άφησες" };
           if (r.status === "rejected") return { kind: "unverified" };
           if (r.status === "not_found") return null;
           return s.kind === "waiting" ? { ...s, slow: r.status === "error" } : s;
         });
-        if (r.status === "completed") { clear(); router.refresh(); }
+        if (r.status === "completed") { if (view === "sale" && !target) clear(); setReload((n) => n + 1); router.refresh(); }
       } finally { asking = false; }
     }, 3000);
     return () => clearInterval(tick);
-  }, [waitingId, router]);
+  }, [waitingId, router]); // eslint-disable-line react-hooks/exhaustive-deps -- view/target: μόνο για το αν αδειάζει το καλάθι
 
   const q = query.trim().toLowerCase();
   const shown = q
@@ -205,6 +235,33 @@ export function Till({ deviceId, categories, frequent: frequentIds, soldOut: sol
         </p>
       ) : null}
 
+      {tables ? (
+        <div role="tablist" aria-label="Οθόνη ταμείου" className="mx-4 mt-3 flex gap-1 self-start rounded-xl bg-card p-1 lg:mx-6">
+          {([["sale", "Πώληση", ShoppingBasket], ["tables", "Τραπέζια", LayoutGrid]] as const).map(([v, label, Icon]) => (
+            <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)}
+              className={cn("flex h-11 items-center gap-2 rounded-lg px-4 text-base font-semibold transition-colors", view === v ? "bg-foreground text-background" : "text-muted-foreground hover:bg-secondary", focus)}>
+              <Icon className="size-4.5" strokeWidth={1.75} aria-hidden />{label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {view === "tables" ? (
+        <div className="grid flex-1 gap-4 px-4 pt-4 pb-[calc(var(--bottom-nav-h,0px)+var(--feedback-h,0px)+1.5rem)] lg:grid-cols-[minmax(0,1fr)_24rem] lg:px-6 lg:pb-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
+          <Floor selected={billId} reload={reload} onOpen={openBillView} />
+          {/* Λογαριασμός: στήλη δεξιά στον υπολογιστή, πλήρης οθόνη στο κινητό */}
+          <aside aria-label="Λογαριασμός" className={cn("flex-col bg-sidebar p-4 lg:sticky lg:top-4 lg:flex lg:h-[calc(100dvh-10rem-var(--feedback-h,0px))] lg:self-start lg:rounded-2xl lg:ring-1 lg:ring-border", billId ? "fixed inset-0 z-50 flex" : "hidden")}>
+            {billId ? (
+              <BillPanel id={billId} reload={reload} busy={busy} methods={methods} method={method} setMethodId={setMethodId}
+                onClose={() => { setBillId(undefined); setReload((n) => n + 1); }} onAdd={orderFor} onAgain={again} onPay={startBillPay} />
+            ) : (
+              <div className="grid flex-1 place-items-center text-center text-base text-muted-foreground">
+                <p className="max-w-60">Πάτα ένα τραπέζι για τον λογαριασμό του, ή ένα ελεύθερο για νέο</p>
+              </div>
+            )}
+          </aside>
+        </div>
+      ) : (
       <div className="grid flex-1 gap-4 px-4 pt-4 pb-[calc(var(--bottom-nav-h,0px)+var(--feedback-h,0px)+5.5rem)] lg:grid-cols-[minmax(0,1fr)_22rem] lg:px-6 lg:pb-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <section className="min-w-0 space-y-4" aria-label="Προϊόντα">
           <label className="flex h-12 items-center gap-2 rounded-xl bg-card px-4 ring-1 ring-border focus-within:ring-2 focus-within:ring-ring">
@@ -287,9 +344,9 @@ export function Till({ deviceId, categories, frequent: frequentIds, soldOut: sol
         {/* Καλάθι: στήλη δεξιά στον υπολογιστή, πλήρης οθόνη στο κινητό */}
         <aside aria-label="Πώληση" className={cn("flex-col gap-3 bg-sidebar p-4 lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:rounded-2xl lg:ring-1 lg:ring-border", cartOpen ? "fixed inset-0 z-50 flex" : "hidden")}>
           <div className="flex items-center justify-between border-b border-border pb-3">
-            <div className="flex items-baseline gap-2">
-              <h2 className="text-lg font-semibold">Πώληση</h2>
-              <span className="text-sm text-muted-foreground tabular-nums">{kinds(items)}</span>
+            <div className="flex min-w-0 items-baseline gap-2">
+              <h2 className="truncate text-lg font-semibold">{target ? `Παραγγελία · ${target.title}` : "Πώληση"}</h2>
+              <span className="shrink-0 text-sm text-muted-foreground tabular-nums">{kinds(items)}</span>
             </div>
             <div className="flex gap-1">
               {lines.length ? <button type="button" onClick={clear} aria-label="Άδειασμα πώλησης" className={cn("grid size-11 place-items-center rounded-full border border-border text-muted-foreground hover:bg-secondary", focus)}><Trash2 className="size-4.5" /></button> : <span className="h-11" />}
@@ -297,8 +354,21 @@ export function Till({ deviceId, categories, frequent: frequentIds, soldOut: sol
             </div>
           </div>
 
+          {target && target.seats > 1 ? (
+            <div className="space-y-1.5">
+              <p className="text-sm text-muted-foreground">Θέση για τα επόμενα είδη</p>
+              <div role="radiogroup" aria-label="Θέση" className="scrollbar-hide flex gap-1.5 overflow-x-auto">
+                {[undefined, ...Array.from({ length: target.seats }, (_, i) => i + 1)].map((n) => (
+                  <button key={n ?? 0} type="button" role="radio" aria-checked={seat === n} onClick={() => setSeat(n)}
+                    className={cn("h-11 min-w-11 shrink-0 rounded-xl border px-3 text-base font-semibold transition-colors", seat === n ? "border-foreground bg-foreground text-background" : "border-border hover:bg-secondary", focus)}>{n ?? "Κοινά"}</button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {note ? <p role="status" className="rounded-xl bg-warning/15 px-3 py-2 text-sm font-medium">{note}</p> : null}
+
           <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-            {lines.length === 0 ? <li className="py-2 text-base text-muted-foreground">Πάτα ένα προϊόν για να ξεκινήσεις την πώληση</li> : null}
+            {lines.length === 0 ? <li className="py-2 text-base text-muted-foreground">{target ? `Πάτα τα προϊόντα που θα πάνε στο ${target.title}` : "Πάτα ένα προϊόν για να ξεκινήσεις την πώληση"}</li> : null}
             {lines.map((l) => {
               const on = selected === l.key;
               const opts = optionsText(l.product.groups, l.options);
@@ -311,6 +381,7 @@ export function Till({ deviceId, categories, frequent: frequentIds, soldOut: sol
                       {opts ? <span className="block text-sm text-muted-foreground">{opts}</span> : null}
                       {l.note ? <span className="block text-sm text-muted-foreground">Σημείωση: {l.note}</span> : null}
                     </span>
+                    {l.seat ? <span className="grid h-6 min-w-6 place-items-center rounded-md bg-secondary px-1 text-xs font-bold text-muted-foreground tabular-nums" aria-label={`θέση ${l.seat}`}>{l.seat}</span> : null}
                     <span className="text-base font-semibold tabular-nums">{euro(l.unitCents * l.quantity)}</span>
                   </button>
                   {on ? (
@@ -333,7 +404,19 @@ export function Till({ deviceId, categories, frequent: frequentIds, soldOut: sol
             <div className="mt-1 flex items-baseline justify-between border-t border-border pt-2"><span className="text-lg font-semibold">Σύνολο</span><span className="text-3xl font-bold tabular-nums">{euro(sums.totalCents)}</span></div>
           </div>
 
-          {methods.length ? (
+          {target ? (
+            <>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => send(true)} disabled={busy || !cart.length} title="Γράφεται στον λογαριασμό· πάει στην κουζίνα όταν πατήσεις «Βγάλ' το»"
+                  className={cn(ghost, "h-14 rounded-full px-5 text-lg")}><Clock className="size-5" />Μετά</button>
+                <button type="button" onClick={() => send(false)} disabled={busy || !cart.length} className={cn(primary, "flex-1")}>
+                  <span className="flex items-center gap-2">{busy ? <LoaderCircle className="size-5 animate-spin" /> : <Send className="size-5" />}{busy ? "Περίμενε" : "Στείλε τώρα"}</span>
+                  <span className="tabular-nums">{euro(sums.totalCents)}</span>
+                </button>
+              </div>
+              <button type="button" onClick={() => { clear(); setNote(undefined); setCartOpen(false); toTables(); }} className={ghost}><ArrowLeft className="size-4" />Πίσω στον λογαριασμό</button>
+            </>
+          ) : methods.length ? (
             <div role="radiogroup" aria-label="Τρόπος πληρωμής" className="flex gap-2">
               {methods.map((m) => {
                 const on = m.id === method?.id;
@@ -347,11 +430,13 @@ export function Till({ deviceId, categories, frequent: frequentIds, soldOut: sol
               })}
             </div>
           ) : <p className="text-sm font-medium text-destructive">Δεν έχει οριστεί τρόπος πληρωμής για το ταμείο. Όρισέ τον στους Τρόπους πληρωμής</p>}
-          <button type="button" onClick={collect} disabled={busy || !sums.totalCents || !method} className={primary}>
-            <span className="flex items-center gap-2">{busy ? <LoaderCircle className="size-5 animate-spin" /> : null}{busy ? "Περίμενε" : "Είσπραξη"}</span>
-            <span className="tabular-nums">{euro(sums.totalCents)}</span>
-          </button>
-          {last ? (
+          {target ? null : (
+            <button type="button" onClick={collect} disabled={busy || !sums.totalCents || !method} className={primary}>
+              <span className="flex items-center gap-2">{busy ? <LoaderCircle className="size-5 animate-spin" /> : null}{busy ? "Περίμενε" : "Είσπραξη"}</span>
+              <span className="tabular-nums">{euro(sums.totalCents)}</span>
+            </button>
+          )}
+          {last && !target ? (
             <Link href={`/receipts/${last.id}`} className={cn("flex items-center justify-between gap-2 rounded-xl px-1 py-1 text-sm text-muted-foreground hover:text-foreground", focus)}>
               <span className="flex items-center gap-2"><ReceiptText className="size-4" aria-hidden />Τελευταία απόδειξη {last.series}-{last.aa}</span>
               <span className="tabular-nums">{euro(last.totalCents)}</span>
@@ -359,55 +444,33 @@ export function Till({ deviceId, categories, frequent: frequentIds, soldOut: sol
           ) : null}
         </aside>
       </div>
+      )}
 
       {/* Κινητό: η πώληση σε μια μπάρα πάνω από το μενού */}
-      {!cartOpen ? (
+      {!cartOpen && view === "sale" ? (
         <button type="button" onClick={() => setCartOpen(true)} className={cn("fixed inset-x-3 bottom-[calc(var(--bottom-nav-h,0px)+var(--feedback-h,0px)+0.75rem)] z-30 flex h-14 items-center justify-between gap-3 rounded-full bg-foreground px-5 text-base font-semibold text-background shadow-lg lg:hidden", focus)}>
-          <span className="flex items-center gap-2"><ShoppingBasket className="size-5" aria-hidden />Πώληση · {kinds(items)}</span>
+          <span className="flex min-w-0 items-center gap-2"><ShoppingBasket className="size-5 shrink-0" aria-hidden /><span className="truncate">{target ? `Παραγγελία · ${target.title}` : "Πώληση"} · {kinds(items)}</span></span>
           <span className="text-lg tabular-nums">{euro(sums.totalCents)}</span>
         </button>
       ) : null}
 
       {draft ? <OptionsDialog draft={draft} setDraft={setDraft} soldOut={soldOut} onClose={() => setDraft(undefined)} onDone={() => { putLine(draft.product.id, draft.options, draft.note, draft.quantity, draft.editKey); setDraft(undefined); }} /> : null}
       {cash && method ? <CashDialog totalCents={sums.totalCents} onBack={() => setCash(false)} onContinue={() => run(method)} live={live} /> : null}
+      {cashFor ? <CashDialog totalCents={cashFor.pay.amountCents} onBack={() => setCashFor(undefined)} onContinue={() => payBill(cashFor.pay, cashFor.m)} live={live} back="Πίσω στον λογαριασμό" go={cashFor.pay.share ? "Καταγραφή μεριδίου" : undefined} /> : null}
       {shownStatus ? (
-        <StatusDialog status={shownStatus} busy={busy}
+        <StatusDialog status={shownStatus} busy={busy} back={view === "tables" ? "Πίσω στον λογαριασμό" : undefined}
           onClose={() => setStatus(null)}
           onAskCancel={() => shownStatus.kind === "waiting" && setStatus({ kind: "cancel", saleId: shownStatus.saleId, totalCents: shownStatus.totalCents, method: shownStatus.method })}
           onKeepWaiting={() => shownStatus.kind === "cancel" && setStatus({ ...shownStatus, kind: "waiting" })}
-          onCancel={() => shownStatus.kind === "cancel" && startTransition(async () => { await cancelPending(shownStatus.saleId); setStatus(null); router.refresh(); })}
+          onCancel={() => shownStatus.kind === "cancel" && startTransition(async () => {
+            const r = await cancelPending(shownStatus.saleId);
+            const { saleId, totalCents, method: m, share } = shownStatus;
+            setStatus(r.status === "completed" ? { kind: "paid", saleId, totalCents, method: m, share } : r.status === "cancelled" ? null : { kind: "waiting", saleId, totalCents, method: m, share, message: r.message });
+            setReload((n) => n + 1);
+            router.refresh();
+          })}
         />
       ) : null}
-    </div>
-  );
-}
-
-function Stepper({ value, label, onChange }: { value: number; label: string; onChange: (n: number) => void }) {
-  const b = cn("grid size-11 place-items-center rounded-xl hover:bg-secondary", focus);
-  return (
-    <span className="inline-flex items-center rounded-xl border border-border">
-      <button type="button" onClick={() => onChange(value - 1)} aria-label={`Ένα λιγότερο ${label}`} className={b}><Minus className="size-4.5" /></button>
-      <span className="min-w-7 text-center text-lg font-bold tabular-nums">{value}</span>
-      <button type="button" onClick={() => onChange(value + 1)} aria-label={`Ένα ακόμη ${label}`} className={b}><Plus className="size-4.5" /></button>
-    </span>
-  );
-}
-
-/** Παράθυρο πάνω από το ταμείο· Escape κλείνει όταν επιτρέπεται. */
-function Dialog({ label, onClose, children, wide }: { label: string; onClose?: () => void; children: ReactNode; wide?: boolean }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    // εστίαση μόνο σε ασφαλές κουμπί (data-autofocus)· αλλιώς στο παράθυρο, ώστε ένα Enter να μην ακυρώνει πληρωμή
-    (ref.current?.querySelector<HTMLElement>("[data-autofocus]") ?? ref.current)?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && onClose) onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-  return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/70 p-0 sm:p-6" onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
-      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={label} className={cn("dark flex max-h-dvh w-full flex-col overflow-hidden bg-sidebar outline-none text-foreground ring-1 ring-border max-sm:h-dvh sm:max-h-[calc(100dvh-3rem)] sm:rounded-3xl", wide ? "max-w-4xl" : "max-w-lg")}>
-        {children}
-      </div>
     </div>
   );
 }
@@ -489,75 +552,3 @@ function OptionsDialog({ draft, setDraft, soldOut, onDone, onClose }: { draft: D
   );
 }
 
-function CashDialog({ totalCents, onContinue, onBack, live }: { totalCents: number; onContinue: () => void; onBack: () => void; live: boolean }) {
-  const [given, setGiven] = useState("");
-  const cents = amountCents(given);
-  const missing = totalCents - cents;
-  // πληκτρολόγιο του υπολογιστή: ψηφία, κόμμα/τελεία, Backspace, Enter
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const k = e.key === "Backspace" ? "⌫" : e.key === "." ? "," : e.key;
-      if (/^[\d,⌫]$/.test(k)) { e.preventDefault(); setGiven((g) => typeAmount(g, k)); }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-  const key = (k: string) => (
-    <button key={k} type="button" onClick={() => setGiven((g) => typeAmount(g, k))} aria-label={k === "⌫" ? "Σβήσιμο" : k === "," ? "Κόμμα" : k}
-      className={cn("h-14 rounded-xl bg-card text-2xl font-semibold tabular-nums transition-colors hover:bg-secondary active:bg-secondary", focus)}>{k}</button>
-  );
-  return (
-    <Dialog label="Μετρητά" onClose={onBack} wide>
-      <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto p-6 md:grid-cols-2">
-        <div className="space-y-2">
-          <p className="text-base text-muted-foreground">Έδωσε ο πελάτης</p>
-          <p className={cn("pb-1 text-4xl font-semibold tabular-nums", !given && "text-muted-foreground")}>{given || "0"} €</p>
-          <div className="grid grid-cols-4 gap-2">
-            <button type="button" onClick={() => setGiven(amountText(totalCents))} className={ghost}>Ακριβώς</button>
-            {quickAmounts(totalCents).map((a) => <button key={a} type="button" onClick={() => setGiven(amountText(a))} className={cn(ghost, "tabular-nums")}>{a / 100} €</button>)}
-          </div>
-          <div className="grid grid-cols-3 gap-2">{["1", "2", "3", "4", "5", "6", "7", "8", "9", ",", "0", "⌫"].map(key)}</div>
-        </div>
-        <div className="flex flex-col gap-3 rounded-2xl bg-card p-6">
-          <div className="flex justify-between text-base"><span className="text-muted-foreground">Σύνολο</span><span className="font-semibold tabular-nums">{euro(totalCents)}</span></div>
-          <div className="flex justify-between text-base"><span className="text-muted-foreground">Έδωσε</span><span className="font-semibold tabular-nums">{euro(cents)}</span></div>
-          <div aria-live="polite" className="border-t border-border pt-3">
-            {missing > 0
-              ? <p className="flex items-center gap-2 text-xl font-semibold text-destructive tabular-nums"><TriangleAlert className="size-5" />Λείπουν {euro(missing)}</p>
-              : <><p className="text-base text-muted-foreground">Ρέστα στον πελάτη</p><p className="text-4xl font-semibold text-success tabular-nums">{euro(-missing)}</p></>}
-          </div>
-          <div className="flex-1" />
-          <button type="button" onClick={onContinue} disabled={missing > 0} className={cn(primary, "justify-center")}>{live ? "Συνέχεια στο τερματικό για την απόδειξη" : "Έκδοση απόδειξης"}</button>
-          <button type="button" onClick={onBack} className={ghost}>Πίσω στην πώληση</button>
-        </div>
-      </div>
-    </Dialog>
-  );
-}
-
-const TONE = { ok: "text-success bg-success/15", wait: "text-warning bg-warning/15", bad: "text-destructive bg-destructive/15", neutral: "text-muted-foreground bg-secondary" };
-
-function StatusDialog({ status, busy, onClose, onAskCancel, onKeepWaiting, onCancel }: { status: Status; busy: boolean; onClose: () => void; onAskCancel: () => void; onKeepWaiting: () => void; onCancel: () => void }) {
-  const card = (tone: keyof typeof TONE, label: string, title: string, text: string, actions: ReactNode, Icon: LucideIcon) => (
-    <Dialog label={title} onClose={status.kind === "waiting" || status.kind === "cancel" ? undefined : onClose}>
-      <div className="space-y-4 p-6 sm:p-8">
-        <span className={cn("inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold", TONE[tone])}><Icon className={cn("size-4", status.kind === "waiting" && "animate-spin")} />{label}</span>
-        <h2 className="text-3xl font-semibold">{title}</h2>
-        <p className="text-lg text-muted-foreground">{text}</p>
-        <div className="flex flex-col gap-2 pt-2">{actions}</div>
-      </div>
-    </Dialog>
-  );
-  switch (status.kind) {
-    case "waiting": return card("neutral", "Σε εξέλιξη", "Πλήρωσε στο τερματικό", `${status.method} · ${euro(status.totalCents)}. Η χρέωση στάλθηκε στο τερματικό Viva. Η οθόνη αλλάζει μόνη της μόλις τελειώσει.${status.slow ? " Η Viva αργεί να απαντήσει, ρωτάμε ξανά." : ""}`,
-      <button type="button" onClick={onAskCancel} disabled={busy} className={ghost}>Ακύρωση πληρωμής</button>, LoaderCircle);
-    case "cancel": return card("bad", "Επιβεβαίωση", "Ακύρωση πληρωμής;", "Κάν' το μόνο αν ο πελάτης δεν πλήρωσε. Πρώτα ρωτάμε τη Viva: αν βρει πληρωμή, η απόδειξη κλείνει κανονικά. Αλλιώς η πώληση ακυρώνεται και ο πελάτης δεν χρεώνεται",
-      <><button type="button" onClick={onCancel} disabled={busy} className={cn(primary, "justify-center bg-destructive text-white")}>{busy ? "Περίμενε" : "Ναι, ακύρωση"}</button><button type="button" onClick={onKeepWaiting} disabled={busy} className={ghost} data-autofocus>Όχι, περιμένω</button></>, TriangleAlert);
-    case "paid": return card("ok", "Ολοκληρώθηκε", `Πληρώθηκε ${euro(status.totalCents)}`, `${status.method}${status.aa != null ? ` · απόδειξη ${status.series ?? ""}-${status.aa}` : ""}`,
-      <><button type="button" onClick={onClose} className={cn(primary, "justify-center")} data-autofocus>Νέα πώληση</button><Link href={`/receipts/${status.saleId}`} className={ghost}><ReceiptText className="size-4" />Εκτύπωση απόδειξης</Link></>, Check);
-    case "failed": return card("bad", "Θέλει ενέργεια", "Η πληρωμή δεν έγινε", status.message,
-      <button type="button" onClick={onClose} className={cn(primary, "justify-center")} data-autofocus>Πίσω στην πώληση</button>, TriangleAlert);
-    case "unverified": return card("bad", "Θέλει ενέργεια", "Η πληρωμή δεν επιβεβαιώθηκε", "Η Viva δεν επιβεβαίωσε την πληρωμή. Μην δώσεις το προϊόν ως πληρωμένο· φώναξε τον υπεύθυνο",
-      <button type="button" onClick={onClose} className={cn(primary, "justify-center")} data-autofocus>Πίσω στην πώληση</button>, TriangleAlert);
-  }
-}
