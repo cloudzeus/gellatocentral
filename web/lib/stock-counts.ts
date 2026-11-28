@@ -25,6 +25,7 @@ import {
 } from "./stock-db.ts";
 import { assertStockScope, type StockContext } from "./stock-scope.ts";
 import { stockTransaction } from "./stock-transaction.ts";
+import { consumeCountLine } from "./consumption.ts";
 
 type CountDb = Pick<Prisma.TransactionClient, "stockCount" | "stockCountLine" | "stockCountEdit">;
 type CountHeader = {
@@ -169,6 +170,15 @@ async function createInTransaction(
     warehouseIds: [request.warehouseId],
     storeId: request.storeId ?? undefined,
   })).filter((balance) => balance.quantity !== 0);
+  // Γεύσεις βιτρίνας (COUNT) που άδειασαν μένουν στην απογραφή: η εξάντληση και η αδήλωτη εισαγωγή φαίνονται μόνο έτσι.
+  const loose = new Set(nonzero.filter((balance) => !balance.lotId).map((balance) => balance.genericItemId));
+  const countItems = (await tx.genericItem.findMany({ where: { orgId: ctx.orgId, consumptionSource: "COUNT", trackStock: true }, select: { id: true } })).map((row) => row.id).filter((id) => !loose.has(id));
+  const emptied = countItems.length ? await tx.stockMovement.findMany({
+    where: { orgId: ctx.orgId, warehouseId: request.warehouseId, lotId: null, genericItemId: { in: countItems } },
+    distinct: ["genericItemId"],
+    select: { genericItemId: true },
+  }) : [];
+  for (const row of emptied) nonzero.push({ warehouseId: request.warehouseId, genericItemId: row.genericItemId, lotId: null, quantity: 0 } as (typeof nonzero)[number]);
   const generics = nonzero.length ? await tx.genericItem.findMany({
     where: { orgId: ctx.orgId, id: { in: nonzero.map((balance) => balance.genericItemId) }, trackStock: true },
     select: { id: true, avgCostHundredths: true, baseUnit: { select: { toBase: true } } },
@@ -305,7 +315,7 @@ export async function updateStockCountMeasurements(
       const differenceQty = stockCountDifference(expectedById.get(measurement.lineId)!, measurement.actualQty);
       const result = await tx.stockCountLine.updateMany({
         where: { id: measurement.lineId, orgId: ctx.orgId, countId: count.id, count: { status: "DRAFT" } },
-        data: { actualQty: measurement.actualQty, differenceQty, reason: measurement.reason },
+        data: { actualQty: measurement.actualQty, differenceQty, reason: measurement.reason, wasteQty: measurement.wasteQty },
       });
       if (result.count !== 1) throw new StockCountError("COUNT_ALREADY_FINALIZED");
     }
@@ -454,14 +464,16 @@ async function finalizeInTransaction(tx: Prisma.TransactionClient, ctx: StockCon
     select: { id: true },
   });
   if (finalized) throw new StockCountError("FINALIZED_COUNT_EXISTS");
-  await assertNoMovementAfterSnapshot(tx, { orgId: ctx.orgId, warehouseId: count.warehouseId, snapshotAt: count.snapshotAt });
-
   const lines = await tx.stockCountLine.findMany({
     where: { orgId: ctx.orgId, countId: count.id },
     orderBy: [{ genericItemId: "asc" }, { lotId: "asc" }],
   });
+  await assertNoMovementAfterSnapshot(tx, { orgId: ctx.orgId, warehouseId: count.warehouseId, snapshotAt: count.snapshotAt, genericItemIds: [...new Set(lines.map((line) => line.genericItemId))] });
   if (!lines.length) throw new StockCountError("EMPTY_COUNT");
-  const prepared = lines.map((line) => ({ line, ...assertFinalizableStockCountLine(line) }));
+  // Είδη COUNT (γεύσεις βιτρίνας): η διαφορά είναι κατανάλωση, όχι διόρθωση, οπότε δεν θέλει αιτιολογία.
+  const sources = await tx.genericItem.findMany({ where: { orgId: ctx.orgId, id: { in: lines.map((line) => line.genericItemId) } }, select: { id: true, consumptionSource: true } });
+  const sourceById = new Map(sources.map((row) => [row.id, row.consumptionSource]));
+  const prepared = lines.map((line) => ({ line, ...assertFinalizableStockCountLine(line, { requireReason: sourceById.get(line.genericItemId) !== "COUNT" && line.wasteQty === 0 }) }));
   const balances = await stockBalances(tx, {
     orgId: ctx.orgId,
     warehouseIds: [count.warehouseId],
@@ -481,6 +493,15 @@ async function finalizeInTransaction(tx: Prisma.TransactionClient, ctx: StockCon
 
   const finalizedAt = await databaseNow(tx);
   for (const { line, differenceQty, reason } of prepared) {
+    const consumptionSource = sourceById.get(line.genericItemId) ?? "SALE";
+    if (consumptionSource === "COUNT" || line.wasteQty > 0) {
+      await consumeCountLine(tx, {
+        orgId: ctx.orgId, storeId: count.storeId, warehouseId: count.warehouseId, countId: count.id, countedOn: count.countedOn, snapshotAt: count.snapshotAt,
+        occurredAt: finalizedAt, actor: { id: ctx.userId, name: ctx.userName }, consumptionSource,
+        line: { id: line.id, genericItemId: line.genericItemId, lotId: line.lotId, expectedQty: line.expectedQty, actualQty: line.actualQty!, wasteQty: line.wasteQty, reason },
+      });
+      continue;
+    }
     if (differenceQty === 0) continue;
     await postStockMovement(tx, {
       orgId: ctx.orgId,
@@ -507,7 +528,7 @@ async function finalizeInTransaction(tx: Prisma.TransactionClient, ctx: StockCon
     },
   });
   if (updated.count !== 1) throw new StockCountError("COUNT_ALREADY_FINALIZED");
-  const correctionCount = prepared.filter((line) => line.differenceQty !== 0).length;
+  const correctionCount = prepared.filter(({ line, differenceQty }) => differenceQty !== 0 && sourceById.get(line.genericItemId) !== "COUNT").length;
   await writeAudit(tx, {
     orgId: ctx.orgId,
     actor: { id: ctx.userId, name: ctx.userName },

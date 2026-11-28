@@ -104,6 +104,7 @@ export function stockCountRequestHash(orgId: string, request: CanonicalStockCoun
 export type StockCountMeasurementInput = {
   actualQty: number | null;
   reason?: string | null;
+  wasteQty?: number; // πεταμένα/έληξαν της ημέρας (βασική μονάδα)
 };
 
 export function canonicalStockCountMeasurement(input: StockCountMeasurementInput) {
@@ -112,7 +113,9 @@ export function canonicalStockCountMeasurement(input: StockCountMeasurementInput
   }
   const reason = input.reason?.trim() || null;
   if (reason && reason.length > 200) throw new StockCountError("INVALID_COUNT_LINE");
-  return { actualQty: input.actualQty, reason };
+  const wasteQty = input.wasteQty ?? 0;
+  if (!Number.isSafeInteger(wasteQty) || wasteQty < 0 || wasteQty > 2_147_483_647) throw new StockCountError("INVALID_COUNT_LINE");
+  return { actualQty: input.actualQty, reason, wasteQty };
 }
 
 export function stockCountDifference(expectedQty: number, actualQty: number | null): number | null {
@@ -130,12 +133,14 @@ export function assertFinalizableStockCountLine(line: {
   actualQty: number | null;
   differenceQty: number | null;
   reason: string | null;
-}) {
+  wasteQty?: number;
+}, options: { requireReason?: boolean } = {}) {
   if (line.actualQty === null) throw new StockCountError("MISSING_ACTUAL_QUANTITY");
   const differenceQty = stockCountDifference(line.expectedQty, line.actualQty);
   if (differenceQty === null || differenceQty !== line.differenceQty) throw new StockCountError("INVALID_COUNT_LINE");
   const reason = line.reason?.trim() || null;
-  if (differenceQty !== 0 && (!reason || reason.length < 3 || reason.length > 200)) {
+  if ((line.wasteQty ?? 0) > line.expectedQty) throw new StockCountError("INVALID_COUNT_LINE");
+  if (options.requireReason !== false && differenceQty !== 0 && (!reason || reason.length < 3 || reason.length > 200)) {
     throw new StockCountError("MISSING_DIFFERENCE_REASON");
   }
   return { differenceQty, reason };
@@ -146,13 +151,15 @@ export function assertFinalizableStockCountLine(line: {
 export function stockCountMeasurementsHash(
   orgId: string,
   countId: string,
-  measurements: readonly ({ lineId: string; actualQty: number | null; reason: string | null })[],
+  measurements: readonly ({ lineId: string; actualQty: number | null; reason: string | null; wasteQty?: number })[],
 ): string {
   const canonical = measurements
     .map((measurement) => ({
       lineId: measurement.lineId,
       actualQty: measurement.actualQty,
       reason: measurement.reason,
+      // μόνο όταν υπάρχουν πεταμένα, ώστε τα παλιά hashes επαναλήψεων να μένουν ίδια
+      ...(measurement.wasteQty ? { wasteQty: measurement.wasteQty } : {}),
     }))
     .sort((a, b) => a.lineId.localeCompare(b.lineId));
   return createHash("sha256").update(JSON.stringify({ version: 1, orgId, countId, measurements: canonical })).digest("hex");

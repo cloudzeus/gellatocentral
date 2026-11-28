@@ -63,8 +63,9 @@ test("count date: δέχεται μόνο πραγματικά ISO calendar date
 });
 
 test("count measurement: κενό actual επιτρέπεται στο draft· άκυροι αριθμοί απορρίπτονται", () => {
-  assert.deepEqual(canonicalStockCountMeasurement({ actualQty: null, reason: "  " }), { actualQty: null, reason: null });
-  assert.deepEqual(canonicalStockCountMeasurement({ actualQty: 0, reason: "  λόγος  " }), { actualQty: 0, reason: "λόγος" });
+  assert.deepEqual(canonicalStockCountMeasurement({ actualQty: null, reason: "  " }), { actualQty: null, reason: null, wasteQty: 0 });
+  assert.deepEqual(canonicalStockCountMeasurement({ actualQty: 0, reason: "  λόγος  ", wasteQty: 3 }), { actualQty: 0, reason: "λόγος", wasteQty: 3 });
+  expectCode(() => canonicalStockCountMeasurement({ actualQty: 1, wasteQty: -1 }), "INVALID_COUNT_LINE");
   for (const actualQty of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 2_147_483_648]) {
     expectCode(() => canonicalStockCountMeasurement({ actualQty }), "INVALID_COUNT_LINE");
   }

@@ -60,6 +60,13 @@ test("PostgreSQL PRD-07: hand-computed forecast, held/other warehouse exclusion 
       await postStockMovement(tx, { orgId: other.orgId, warehouseId: other.warehouseId, genericItemId: other.genericId, lotId: other.historyLotId, quantity: 40_000, source: "purchase", actor: { id: other.userId, name: other.userName } });
       await postStockMovement(tx, { orgId: other.orgId, warehouseId: other.warehouseId, genericItemId: other.genericId, lotId: other.historyLotId, quantity: -40_000, source: "sale", occurredAt: new Date("2026-11-20T10:00:00.000Z"), actor: { id: other.userId, name: other.userName } });
     });
+    // Η ιστορική ζήτηση διαβάζεται από το DemandDaily (τη γράφει η μηχανή κατανάλωσης)· η άλλη αποθήκη δεν μετρά.
+    const day = new Date("2026-11-20T00:00:00.000Z");
+    await db.demandDaily.createMany({ data: [
+      { orgId: f.orgId, warehouseId: f.warehouseId, genericItemId: f.genericId, day, consumedBase: 4000 },
+      { orgId: f.orgId, warehouseId: f.otherWarehouseId, genericItemId: f.genericId, day, consumedBase: 9000 },
+      { orgId: other.orgId, warehouseId: other.warehouseId, genericItemId: other.genericId, day, consumedBase: 40_000 },
+    ] });
     await db.wholesaleOrder.create({ data: { orgId: f.orgId, customerId: f.customerId, storeId: f.storeId, warehouseId: f.warehouseId, number: `FCST-${randomUUID()}`, status: "CONFIRMED", neededAt: new Date("2026-11-25T12:00:00.000Z"), createdByName: f.userName, lines: { create: [{ orgId: f.orgId, genericItemId: f.genericId, quantityBase: 3000, unitPriceCents: 1000, vatRate: 24 }] } } });
     await db.productionPlan.create({ data: { orgId: f.orgId, recipeId: f.recipeId, sourceWarehouseId: f.warehouseId, destinationWarehouseId: f.warehouseId, plannedFor: new Date("2026-11-26T12:00:00.000Z"), quantityGrams: 1, status: "IN_PROGRESS", createdByName: f.userName } });
 

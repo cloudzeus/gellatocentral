@@ -284,6 +284,10 @@ model Organization {
   taskRuns               TaskRun[]
   migrationCutover       MigrationCutover?
   mydataDayChecks        MydataDayCheck[]
+  salesRecipes           SalesRecipe[]
+  consumptionEvents      ConsumptionEvent[]
+  demandDaily            DemandDaily[]
+  weatherDaily           WeatherDaily[]
 }
 
 model User {
@@ -691,7 +695,7 @@ model StockMovement {
   createdById        String?
   createdByName      String? // snapshot ονόματος· μένει και αν διαγραφεί ο χρήστης
   occurredAt         DateTime           @default(now()) // επιχειρησιακή ημερομηνία, μπορεί να είναι παλιότερη
-  recordedAt         DateTime           @default(now()) // πραγματική εγγραφή από τη βάση, για snapshot conflict checks
+  recordedAt         DateTime           @default(dbgenerated("clock_timestamp()")) // πραγματική εγγραφή από τη βάση, για snapshot conflict checks
   warehouse          Warehouse          @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
   lot                StockLot?          @relation(fields: [lotId], references: [id], onDelete: SetNull)
   createdBy          User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -699,6 +703,8 @@ model StockMovement {
   transferLine       StockTransferLine? @relation(fields: [transferLineId], references: [id], onDelete: Restrict)
   count              StockCount?        @relation(fields: [countId], references: [id], onDelete: Restrict)
   countLine          StockCountLine?    @relation(fields: [countLineId], references: [id], onDelete: Restrict)
+  consumptionEventId String? // κατανάλωση/καταστροφή/επιστροφή που έγραψε την κίνηση
+  consumptionEvent   ConsumptionEvent?  @relation(fields: [consumptionEventId], references: [id], onDelete: SetNull)
 
   @@unique([orgId, transferLineId, warehouseId])
   @@index([orgId, warehouseId, occurredAt])
@@ -709,6 +715,7 @@ model StockMovement {
   @@index([orgId, transferId])
   @@index([orgId, countId])
   @@index([lotId])
+  @@index([consumptionEventId])
 }
 
 // Η απογραφή παγώνει το snapshot· μετά την οριστικοποίηση δεν αλλάζουν header ή γραμμές.
@@ -770,6 +777,9 @@ model StockCountLine {
   differenceQty      Int?
   unitCostHundredths Int // snapshot σε εκατοστά λεπτού ανά kg/l ή 1.000 τεμάχια
   reason             String?
+  wasteQty           Int            @default(0) // πεταμένα/έληξαν της ημέρας (είδη COUNT), χωριστά από την κατανάλωση
+  consumptionQty     Int? // αναμενόμενο − καταμέτρηση − πεταμένα· γράφεται στην οριστικοποίηση
+  inflowQty          Int            @default(0) // εισαγωγές από την προηγούμενη απογραφή (πληροφοριακό)
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   count              StockCount     @relation(fields: [countId], references: [id], onDelete: Restrict)
@@ -1032,6 +1042,7 @@ model Product {
   billLines      BillLine[]
   recipes        Recipe[]
   modifierGroups ProductModifierGroup[]
+  salesRecipes   SalesRecipe[]
 
   @@index([orgId, categoryId])
 }
@@ -1089,13 +1100,14 @@ model ModifierGroup {
 }
 
 model ModifierOption {
-  id         String        @id @default(cuid())
-  groupId    String
-  name       String
-  priceCents Int           @default(0) // επιπλέον χρέωση με ΦΠΑ· ο ΦΠΑ είναι του προϊόντος
-  position   Int           @default(0)
-  active     Boolean       @default(true) // ανενεργή = δεν φαίνεται στο ταμείο (π.χ. τελείωσε η γεύση)
-  group      ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  id           String        @id @default(cuid())
+  groupId      String
+  name         String
+  priceCents   Int           @default(0) // επιπλέον χρέωση με ΦΠΑ· ο ΦΠΑ είναι του προϊόντος
+  position     Int           @default(0)
+  active       Boolean       @default(true) // ανενεργή = δεν φαίνεται στο ταμείο (π.χ. τελείωσε η γεύση)
+  group        ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  salesRecipes SalesRecipe[]
 
   @@index([groupId])
 }
@@ -1124,6 +1136,7 @@ model SaleLine {
   options        Json?
   note           String?
   billLineId     String? // από ποια γραμμή του λογαριασμού πληρώθηκε (μπορεί μέρος της ποσότητας)
+  kind           String    @default("SALE") // SALE | TREAT (κέρασμα) | STAFF (προσωπικό)· τα δύο τελευταία με τιμή 0
   sale           Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
   product        Product   @relation(fields: [productId], references: [id])
   billLine       BillLine? @relation(fields: [billLineId], references: [id], onDelete: SetNull)
@@ -2018,6 +2031,12 @@ model GenericItem {
   countLines        StockCountLine[]
   stockThresholds   StockThreshold[]
   spots             ItemSpot[]
+  // Μηχανή κατανάλωσης (ενότητα 4α): SALE = φεύγει με την πώληση (συνταγή πώλησης), COUNT = από την ημερήσια απογραφή (γεύσεις βιτρίνας)
+  consumptionSource String                @default("SALE")
+  madeToOrder       Boolean               @default(false) // φτιάχνεται τη στιγμή (κρέπα): σπάει στη συνταγή του αντί να βγαίνει από απόθεμα
+  perishable        Boolean               @default(false)
+  minDisplayBase    Int? // ελάχιστο βιτρίνας σε βασική μονάδα, για την πρόταση παραγωγής
+  salesRecipeLines  SalesRecipeLine[]
 
   @@unique([orgId, name])
   @@index([orgId, active])
@@ -2493,21 +2512,23 @@ model Composition {
 
 // Συνταγή παγωτού του συνδρομητή (βάση/γεύση). Οι γραμμές είναι πάντα σε γραμμάρια.
 model Recipe {
-  id                  String            @id @default(cuid())
-  orgId               String
-  name                String
-  type                String            @default("cream") // κλειδί των RECIPE_TYPES (lib/recipe-analysis.ts)
-  batchGrams          Int               @default(5000) // τυπικό μέγεθος δόσης για κοστολόγηση/παραγωγή
-  productId           String? // το προϊόν βιτρίνας που πουλάει η γεύση — κλείνει το «ένα βήμα μπροστά» της ιχνηλασιμότητας
-  outputGenericItemId String? // το απόθεμα ημιέτοιμου/έτοιμου που παράγει η συνταγή
-  shelfLifeDays       Int?
-  notes               String?
-  active              Boolean           @default(true)
-  createdAt           DateTime          @default(now())
-  org                 Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  product             Product?          @relation(fields: [productId], references: [id], onDelete: SetNull)
-  items               RecipeItem[]
-  productionBatches   ProductionBatch[]
+  id                   String            @id @default(cuid())
+  orgId                String
+  name                 String
+  type                 String            @default("cream") // κλειδί των RECIPE_TYPES (lib/recipe-analysis.ts)
+  batchGrams           Int               @default(5000) // τυπικό μέγεθος δόσης για κοστολόγηση/παραγωγή
+  productId            String? // το προϊόν βιτρίνας που πουλάει η γεύση — κλείνει το «ένα βήμα μπροστά» της ιχνηλασιμότητας
+  outputGenericItemId  String? // το απόθεμα ημιέτοιμου/έτοιμου που παράγει η συνταγή
+  shelfLifeDays        Int?
+  machineCapacityGrams Int? // καραπίνα: έτοιμο προϊόν ανά δοχείο, για στρογγυλοποίηση της πρότασης παραγωγής
+  normalWastePct       Int? // κανονική φύρα %: μίγμα = έτοιμο ÷ (1 − φύρα)
+  notes                String?
+  active               Boolean           @default(true)
+  createdAt            DateTime          @default(now())
+  org                  Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product              Product?          @relation(fields: [productId], references: [id], onDelete: SetNull)
+  items                RecipeItem[]
+  productionBatches    ProductionBatch[]
 
   @@unique([orgId, name])
   @@index([orgId, productId])
@@ -4160,4 +4181,112 @@ model MydataDayCheck {
 
   @@unique([orgId, issuerVat, day, invType])
   @@index([orgId, status])
+}
+
+// ── Μηχανή κατανάλωσης και προγραμματισμός (ενότητα 4α / 4α΄) ──────────────────────────────
+
+// Πρότυπη συνταγή πώλησης: τι καταναλώνει 1 τεμάχιο του προϊόντος ή 1 φορά η επιλογή (γεύση, topping).
+// Ισχύει η έκδοση με το μεγαλύτερο validFrom ≤ ώρα πώλησης· η αλλαγή γράφει νέα έκδοση, όχι επεξεργασία.
+model SalesRecipe {
+  id               String            @id @default(cuid())
+  orgId            String
+  productId        String?
+  modifierOptionId String?
+  version          Int               @default(1)
+  validFrom        DateTime          @default(now())
+  createdByName    String
+  createdAt        DateTime          @default(now())
+  org              Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product          Product?          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  modifierOption   ModifierOption?   @relation(fields: [modifierOptionId], references: [id], onDelete: Cascade)
+  lines            SalesRecipeLine[]
+
+  @@unique([productId, version])
+  @@unique([modifierOptionId, version])
+  @@index([orgId])
+}
+
+model SalesRecipeLine {
+  id            String      @id @default(cuid())
+  orgId         String
+  salesRecipeId String
+  genericItemId String
+  quantityBase  Int // βασική μονάδα του είδους· αρνητικό στις επιλογές = λιγότερο από το βασικό
+  salesRecipe   SalesRecipe @relation(fields: [salesRecipeId], references: [id], onDelete: Cascade)
+  genericItem   GenericItem @relation(fields: [genericItemId], references: [id], onDelete: Restrict)
+
+  @@index([salesRecipeId])
+  @@index([orgId, genericItemId])
+}
+
+// Ένα γεγονός κατανάλωσης: ό,τι φεύγει (πώληση, κέρασμα, καταστροφή, απογραφή) ή επιστρέφει (επιστροφή, 11.4).
+model ConsumptionEvent {
+  id            String          @id @default(cuid())
+  orgId         String
+  storeId       String?
+  warehouseId   String
+  kind          String // SALE | TREAT | STAFF | WASTE | COUNT_CONSUMPTION | CUSTOMER_RETURN | VOID
+  reason        String? // καταστροφή: EXPIRED | BROKEN | QUALITY | HACCP | OTHER
+  restock       Boolean         @default(false) // επιστροφή πελάτη: ξαναμπαίνει στο απόθεμα
+  saleId        String?
+  saleLineId    String?
+  countLineId   String?
+  reversesId    String? // VOID: το γεγονός πώλησης που αντιλογίζει
+  clientKey     String? // idempotency οθόνης καταστροφών/επιστροφών
+  productId     String?
+  genericItemId String? // καταστροφή/απογραφή: το είδος
+  quantity      Int // τεμάχια προϊόντος ή βασική μονάδα είδους
+  costCents     Int             @default(0) // αξία στο ιστορικό κόστος
+  detail        Json? // ανάλυση σε είδη: [{ genericItemId, quantity, theoretical, shortfall }] — ο αντιλογισμός διαβάζει από εδώ
+  occurredAt    DateTime
+  day           DateTime        @db.Date // επιχειρησιακή ημέρα (Αθήνα)
+  status        String          @default("POSTED") // POSTED | NEEDS_REVIEW | PENDING_APPROVAL
+  note          String?
+  createdByName String?
+  createdAt     DateTime        @default(now())
+  org           Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  movements     StockMovement[]
+
+  @@unique([saleLineId, kind])
+  @@unique([countLineId, kind])
+  @@unique([orgId, clientKey])
+  @@index([orgId, warehouseId, occurredAt])
+  @@index([orgId, status])
+  @@index([orgId, saleId])
+  @@index([orgId, kind, day])
+}
+
+// Μία χρονοσειρά ζήτησης για πρόταση παραγωγής, MRP και πρόβλεψη.
+model DemandDaily {
+  orgId           String
+  warehouseId     String
+  genericItemId   String
+  day             DateTime     @db.Date
+  consumedBase    Int          @default(0) // πραγματική λιανική (απογραφή ή πώληση)
+  theoreticalBase Int          @default(0) // πωλήσεις × πρότυπη μερίδα (είδη COUNT)
+  wasteBase       Int          @default(0)
+  wholesaleBase   Int          @default(0) // χονδρική: χωριστά, ώστε να μη μετρά διπλά στην πρόβλεψη
+  reviewBase      Int          @default(0) // αρνητική κατανάλωση απογραφής σε έλεγχο: εκτός πρόβλεψης
+  stockedOut      Boolean      @default(false) // καταμέτρηση 0: λογοκριμένη ζήτηση
+  updatedAt       DateTime     @updatedAt
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@id([orgId, warehouseId, genericItemId, day])
+  @@index([orgId, genericItemId, day])
+}
+
+// Ημερήσιος καιρός ανά τοποθεσία (MET Norway)· θερμοκρασία και βροχή ως ακέραιοι ×10.
+model WeatherDaily {
+  orgId       String
+  locationKey String // «lat,lon» με 2 δεκαδικά
+  day         DateTime     @db.Date
+  tMaxC10     Int?
+  tMinC10     Int?
+  rainMm10    Int?
+  code        Int? // WMO
+  source      String
+  fetchedAt   DateTime     @updatedAt
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@id([orgId, locationKey, day])
 }

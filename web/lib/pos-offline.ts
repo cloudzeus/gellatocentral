@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { db } from "./db";
 import type { Prisma } from "./generated/prisma/client";
+import { consumeSaleSafely } from "./consumption";
 import { tenantWriteTransaction } from "./migration-cutover";
 import { lineDescription } from "./pos-modifiers";
 import { verifySaleSession } from "./viva/cloud-terminal";
@@ -67,6 +68,7 @@ export async function recordOfflineSale(ctx: Till, input: OfflineSale, verify = 
     });
     // η αρίθμηση της συσκευής συνεχίζει μετά τον μεγαλύτερο ΑΑ που έβγαλε χωρίς σύνδεση
     await tx.$executeRaw`UPDATE "Device" SET "nextAa" = GREATEST("nextAa", ${input.aa + 1}) WHERE id = ${ctx.device.id}`;
+    await consumeSaleSafely(tx, { orgId: ctx.org.id, saleId: input.saleId });
   }, { purpose: "SETTLEMENT" });
   } catch (e) {
     // ίδιος ΑΑ με άλλη απόδειξη της συσκευής: θέλει έλεγχο από τον υπεύθυνο, όχι σιωπηλή αλλαγή αριθμού

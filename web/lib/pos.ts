@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "./generated/prisma/client";
 import { remaining } from "./bill";
 import { BillError, closeBillIfDone, shareState } from "./bills";
+import { consumeSaleSafely } from "./consumption";
 import { tenantWriteTransaction } from "./migration-cutover";
 import { lineDescription } from "./pos-modifiers";
 import { buildPaymentProtocol, buildReceipt, type Prior, toVivaJson } from "./viva/fiscal";
@@ -106,6 +107,7 @@ export async function issueSale(ctx: Ctx, saleId: string, methodId: string, live
     if (!live) {
       await tx.device.update({ where: { id: ctx.device.id }, data: { nextAa: { increment: 1 } } });
       if (sale.billId) await closeBillIfDone(tx, sale.billId);
+      await consumeSaleSafely(tx, { orgId: ctx.org.id, saleId: sale.id });
     }
     return { saleId: sale.id, reference, receipt, chargeCents };
   });
@@ -192,6 +194,7 @@ export async function completeSale(deviceId: string, saleId: string, raw: Prisma
     // πληρωμή λογαριασμού τραπεζιού: κλείνει όταν εξοφληθεί όλος
     const { billId } = await tx.sale.findUniqueOrThrow({ where: { id: saleId }, select: { billId: true } });
     if (billId) await closeBillIfDone(tx, billId);
+    await consumeSaleSafely(tx, { orgId, saleId }); // απόθεμα και ζήτηση· ποτέ δεν μπλοκάρει την πώληση
   }, { purpose: "SETTLEMENT" });
 }
 
